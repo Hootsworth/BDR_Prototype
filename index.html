@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTM Engine Console</title>
+  <meta name="description" content="Autonomous BDR campaign orchestrator console.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Load Clerk SDK -->
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_test_placeholder_app_3FqQEx4A7KVzwjvvEh3hdo6Q5l5"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+    type="text/javascript"
+    onload="initClerkAuth()"
+  ></script>
+</head>
+
+<body>
+  <div class="app-layout">
+
+    <!-- Slim icon rail — expands on hover -->
+    <aside class="sidebar-panel" id="sidebar-panel">
+
+      <div class="sidebar-header">
+        <svg class="brand-spike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round">
+          <line x1="12" y1="3" x2="12" y2="21" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+          <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />
+        </svg>
+        <span class="brand-name">GTM Console</span>
+      </div>
+
+      <!-- Clerk User Profile / Sign-in Section -->
+      <div class="sidebar-auth-section">
+        <button class="btn btn-secondary btn-sm" id="btn-clerk-signin" onclick="triggerClerkSignIn()" style="width: 100%; height: 32px; display: none;">
+          Sign In
+        </button>
+        <div id="clerk-user-profile" style="display: none; align-items: center; gap: 10px; overflow: hidden; width: 100%;">
+          <div id="clerk-user-button"></div>
+          <div class="clerk-user-info nav-label" style="display: flex; flex-direction: column; overflow: hidden;">
+            <span class="user-display-name" id="clerk-user-name" style="font-size: 13px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; color: var(--ink);">User Name</span>
+            <span class="user-email" id="clerk-user-email" style="font-size: 11px; color: var(--muted); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">email@clerk.com</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="app-nav-bar" aria-label="Main Navigation">
+        
+        <!-- Accordion Category 1: Contacts -->
+        <div class="nav-category-group expanded" id="cat-group-contacts">
+          <div class="nav-category-header" onclick="toggleNavCategory('contacts')">
+            <svg class="nav-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+            </svg>
+            <span class="nav-label">Contacts</span>
+            <span class="chevron-indicator">▼</span>
+          </div>
+          <div class="nav-subtabs" id="subtabs-contacts">
+            <button class="subtab-btn active" id="tab-btn-import" onclick="switchTab('import')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Import</span>
+            </button>
+            <button class="subtab-btn" id="tab-btn-uploads" onclick="switchTab('uploads')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Uploads</span>
+            </button>
+            <button class="subtab-btn" id="tab-btn-influencers" onclick="switchTab('influencers')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Influencers</span>
+            </button>
+            <button class="subtab-btn" id="tab-btn-enrich" onclick="switchTab('enrich')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Enrich</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Accordion Category 2: Campaign -->
+        <div class="nav-category-group expanded" id="cat-group-campaign">
+          <div class="nav-category-header" onclick="toggleNavCategory('campaign')">
+            <svg class="nav-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            <span class="nav-label">Campaign</span>
+            <span class="chevron-indicator">▼</span>
+          </div>
+          <div class="nav-subtabs" id="subtabs-campaign">
+            <button class="subtab-btn" id="tab-btn-campaign-email" onclick="switchTab('campaign-email')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Email</span>
+            </button>
+            <button class="subtab-btn" id="tab-btn-campaign-linkedin" onclick="switchTab('campaign-linkedin')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">LinkedIn</span>
+            </button>
+            <button class="subtab-btn" id="tab-btn-campaign-call" onclick="switchTab('campaign-call')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Call</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Accordion Category 3: Events -->
+        <div class="nav-category-group expanded" id="cat-group-events">
+          <div class="nav-category-header" onclick="toggleNavCategory('events')">
+            <svg class="nav-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span class="nav-label">Events</span>
+            <span class="chevron-indicator">▼</span>
+          </div>
+          <div class="nav-subtabs" id="subtabs-events">
+            <button class="subtab-btn" id="tab-btn-events-list" onclick="switchTab('events-list')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">List</span>
+            </button>
+            <button class="subtab-btn" id="tab-btn-events-register" onclick="switchTab('events-register')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Register</span>
+            </button>
+          </div>
+        </div>
+
+      </nav>
+
+      <!-- Agent Mode at the bottom of rail -->
+      <div class="sidebar-controls-section agent-mode-section">
+        <button class="agent-mode-toggle-btn" id="btn-agent-mode" onclick="toggleAgentMode()">
+          <div class="agent-radar-dot"></div>
+          <span class="nav-label">Agent Mode</span>
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- Main content -->
+    <div class="main-content-wrapper">
+
+      <header>
+        <div class="brand">
+          <h1 id="active-panel-title">Import Contacts</h1>
+          <p class="subtitle" id="active-panel-subtitle">Load and preview your list data sources.</p>
+        </div>
+        <div class="status-badge">
+          <div class="status-dot" id="system-status-dot"></div>
+          <span id="system-status-text">STATUS: STANDBY</span>
+        </div>
+      </header>
+
+      <main>
+
+        <!-- SUBTAB 1.1: Import -->
+        <section class="tab-content active" id="tab-panel-import">
+          <div class="glass-panel">
+            <div class="import-actions-row">
+              <div class="import-file-wrap">
+                <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSVFileUpload(event)" style="display:none;">
+                <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()">
+                  <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  Upload CSV Manually
+                </button>
+              </div>
+              <button class="btn btn-primary" onclick="autoLoadMasterCSV()">
+                <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                Auto Load Master CSV
+              </button>
+              <div class="data-summary-count" id="import-stats-summary">
+                No CSV data loaded yet.
+              </div>
+            </div>
+          </div>
+
+          <div class="table-container-card">
+            <div class="table-filter-bar">
+              <div class="search-input-wrap">
+                <input type="text" id="import-search-input" placeholder="Search contacts..." oninput="filterImportTable()">
+              </div>
+              <div class="filters-row">
+                <select class="select-control" id="filter-industry" onchange="filterImportTable()">
+                  <option value="">All Industries</option>
+                  <option value="Credit Union">Credit Union</option>
+                  <option value="Banking">Banking</option>
+                  <option value="Financial Services">Financial Services</option>
+                </select>
+                <select class="select-control" id="filter-source" onchange="filterImportTable()">
+                  <option value="">All Sources</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table id="table-import-data">
+                <thead>
+                  <tr id="table-import-headers">
+                    <th>Name</th>
+                    <th>Job Title</th>
+                    <th>Company</th>
+                    <th>Email</th>
+                    <th>Industry</th>
+                    <th>Source File</th>
+                  </tr>
+                </thead>
+                <tbody id="table-import-body">
+                  <tr>
+                    <td colspan="6" class="table-placeholder">
+                      Click "Auto Load Master CSV" or "Upload CSV Manually" to begin.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-pagination" id="import-pagination">
+              <!-- Pagination controls render dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 1.2: Uploads Chatbot -->
+        <section class="tab-content" id="tab-panel-uploads">
+          <div class="chat-container">
+            <div class="chat-header">
+              <span class="chat-header-title">CSV Analytics Assistant</span>
+            </div>
+            <div class="chat-messages" id="uploads-chat-messages">
+              <div class="chat-bubble bot">
+                Hello! I am your GTM list assistant. Ask me questions about the uploaded CSV records, such as:
+                <ul style="margin: 8px 0 0 16px; padding: 0;">
+                  <li>"How many contacts are loaded?"</li>
+                  <li>"How many CIOs or CTOs are in the list?"</li>
+                  <li>"List the top 5 states by contact count"</li>
+                  <li>"What is the average asset size?"</li>
+                </ul>
+              </div>
+            </div>
+            <div class="suggested-queries-bar" id="uploads-suggestions">
+              <button class="query-pill" onclick="sendSuggestedQuery('How many total contacts are in the CSV?')">Total count</button>
+              <button class="query-pill" onclick="sendSuggestedQuery('How many CIOs, CTOs or IT Directors?')">CIO/CTO count</button>
+              <button class="query-pill" onclick="sendSuggestedQuery('What is the breakdown of industries?')">Industry breakdown</button>
+              <button class="query-pill" onclick="sendSuggestedQuery('List the top 5 states by credit unions')">Top states</button>
+            </div>
+            <div class="chat-input-area">
+              <input type="text" id="uploads-chat-input" placeholder="Ask about the loaded list data..."
+                onkeydown="if(event.key === 'Enter') sendUploadsChatMessage()">
+              <button class="btn btn-primary btn-sm" onclick="sendUploadsChatMessage()">Send ➔</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 1.3: Influencers -->
+        <section class="tab-content" id="tab-panel-influencers">
+          <div class="table-container-card">
+            <div class="table-filter-bar">
+              <input type="text" id="influencers-search-input" placeholder="Search influencers by name or company..." oninput="filterInfluencersTable()">
+              <div class="filters-row">
+                <select class="select-control" id="filter-lead-temp" onchange="filterInfluencersTable()">
+                  <option value="">All Lead Temps</option>
+                  <option value="Hot Lead">Hot Leads</option>
+                  <option value="Cold Lead">Cold Leads</option>
+                </select>
+                <select class="select-control" id="filter-influencer-match" onchange="filterInfluencersTable()">
+                  <option value="">All Match %</option>
+                  <option value="high">High (>90%)</option>
+                  <option value="medium">Medium (80-90%)</option>
+                  <option value="low">Low (<80%)</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table id="table-influencers">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Job Title</th>
+                    <th>Company Name</th>
+                    <th>Lead Status</th>
+                    <th>Match Score</th>
+                    <th>Asset Size</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="table-influencers-body">
+                  <tr>
+                    <td colspan="7" class="table-placeholder">No influencers found. Please load CSV data first.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-pagination" id="influencers-pagination"></div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 1.4: Enrich -->
+        <section class="tab-content" id="tab-panel-enrich">
+          <div class="settings-layout">
+            <div class="glass-panel" style="margin-bottom:0;">
+              <div class="section-title">Enrichment Configurations</div>
+              <div class="form-group">
+                <label for="key-explorium">Explorium / AgentSource API Key</label>
+                <div class="key-input-container">
+                  <input type="password" class="input-control" id="key-explorium" placeholder="agentsource-…" onchange="saveExploriumKey()">
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-explorium', this)">Show</button>
+                </div>
+                <small class="form-help">Enter your Explorium key to enable data enrichment pipelines.</small>
+              </div>
+
+              <div class="form-group" style="margin-top: 16px;">
+                <label for="select-enrich-provider">LLM Helper Provider (Optional)</label>
+                <select class="select-control" id="select-enrich-provider" onchange="saveLLMSettings()">
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="claude">Claude</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="key-llm-helper">LLM API Key</label>
+                <div class="key-input-container">
+                  <input type="password" class="input-control" id="key-llm-helper" placeholder="sk-..." onchange="saveLLMHelperKey()">
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-llm-helper', this)">Show</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-panel" style="margin-bottom:0; display:flex; flex-direction:column; gap:16px;">
+              <div class="section-title">Enrichment Console</div>
+              <div class="enrichment-console-controls">
+                <button class="btn btn-primary" id="btn-run-enrich" onclick="runDataEnrichment()" disabled>
+                  <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                  Enrich Data via Explorium
+                </button>
+                <div class="enrich-progress-bar-wrap" id="enrich-progress-container" style="display:none;">
+                  <div class="enrich-progress-label" id="enrich-progress-label">Enriching 0%</div>
+                  <div class="enrich-progress-track">
+                    <div class="enrich-progress-fill" id="enrich-progress-fill" style="width: 0%;"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="console-box" id="enrich-console-box">
+                <div class="console-line system">[SYSTEM] Awaiting AgentSource API Key verification...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 2.1: Email Campaign -->
+        <section class="tab-content" id="tab-panel-campaign-email">
+          <div class="split-pane-layout">
+            <div class="left-list-pane">
+              <div class="table-filter-bar">
+                <input type="text" id="email-search-input" placeholder="Search contacts..." oninput="filterEmailTable()">
+              </div>
+              <div class="table-wrapper text-sm">
+                <table id="table-campaign-email">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Company</th>
+                      <th>Email ID</th>
+                      <th>Lead Temp</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-campaign-email-body">
+                    <tr>
+                      <td colspan="5" class="table-placeholder">No emails found. Please load CSV data first.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-pagination" id="email-pagination"></div>
+            </div>
+            
+            <div class="right-drawer-pane" id="email-drawer">
+              <div class="drawer-header">
+                <h3>AI Email Outbound Drafter</h3>
+                <button class="close-drawer-btn" onclick="closeDrawer('email')">×</button>
+              </div>
+              <div class="drawer-body" id="email-drawer-body">
+                <div class="drawer-empty-state">Select a contact from the list to load the AI email drafter.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 2.2: LinkedIn Campaign -->
+        <section class="tab-content" id="tab-panel-campaign-linkedin">
+          <div class="split-pane-layout">
+            <div class="left-list-pane">
+              <div class="table-filter-bar">
+                <input type="text" id="linkedin-search-input" placeholder="Search contacts..." oninput="filterLinkedinTable()">
+              </div>
+              <div class="table-wrapper text-sm">
+                <table id="table-campaign-linkedin">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Title</th>
+                      <th>Company</th>
+                      <th>Lead Temp</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-campaign-linkedin-body">
+                    <tr>
+                      <td colspan="5" class="table-placeholder">No LinkedIn actions found. Load data first.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-pagination" id="linkedin-pagination"></div>
+            </div>
+            
+            <div class="right-drawer-pane" id="linkedin-drawer">
+              <div class="drawer-header">
+                <h3>LinkedIn Custom DM Composer</h3>
+                <button class="close-drawer-btn" onclick="closeDrawer('linkedin')">×</button>
+              </div>
+              <div class="drawer-body" id="linkedin-drawer-body">
+                <div class="drawer-empty-state">Select a contact from the list to compose a LinkedIn message.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 2.3: Call Campaign -->
+        <section class="tab-content" id="tab-panel-campaign-call">
+          <div class="split-pane-layout">
+            <div class="left-list-pane">
+              <div class="table-filter-bar">
+                <input type="text" id="call-search-input" placeholder="Search phone numbers..." oninput="filterCallTable()">
+              </div>
+              <div class="table-wrapper text-sm">
+                <table id="table-campaign-call">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Company</th>
+                      <th>Phone Number</th>
+                      <th>Lead Temp</th>
+                      <th>Last Call Note</th>
+                      <th>Call</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-campaign-call-body">
+                    <tr>
+                      <td colspan="6" class="table-placeholder">No phone records found. Load data first.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-pagination" id="call-pagination"></div>
+            </div>
+            
+            <div class="right-drawer-pane" id="call-drawer">
+              <div class="drawer-header">
+                <h3>Interactive Dialer Terminal</h3>
+                <button class="close-drawer-btn" onclick="closeDrawer('call')">×</button>
+              </div>
+              <div class="drawer-body" id="call-drawer-body">
+                <div class="drawer-empty-state">Select a contact to load the calling console.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 3.1: Events List -->
+        <section class="tab-content" id="tab-panel-events-list">
+          <div class="glass-panel" style="margin-bottom: 20px;">
+            <div class="section-title">Select Outbound Campaign Event</div>
+            <div class="form-group">
+              <select class="select-control" id="select-event-view" onchange="renderEventsList()">
+                <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
+                <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
+                <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-container-card">
+            <div class="table-title">
+              <h3 id="events-list-title">GAC 2023 Dinner Attendees</h3>
+              <span class="badge-count" id="events-list-count">0 attendees</span>
+            </div>
+            <div class="table-wrapper">
+              <table id="table-events-attendees">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Job Title</th>
+                    <th>Company</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="table-events-attendees-body">
+                  <tr>
+                    <td colspan="6" class="table-placeholder">No attendees found. Load data first.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- SUBTAB 3.2: Events Register -->
+        <section class="tab-content" id="tab-panel-events-register">
+          <div class="glass-panel" style="max-width: 600px; margin: 0 auto;">
+            <div class="section-title">Register Contact for Event</div>
+            <form id="event-registration-form" onsubmit="handleEventRegistration(event)">
+              <div class="form-group" style="position: relative;">
+                <label for="event-reg-contact-search">Search Contact</label>
+                <input type="text" class="input-control" id="event-reg-contact-search" placeholder="Type contact name..." oninput="handleRegContactSearch(this.value)">
+                <input type="hidden" id="event-reg-contact-id" value="">
+                <div class="autocomplete-dropdown" id="reg-contact-autocomplete"></div>
+              </div>
+              
+              <div class="form-group" style="margin-top: 16px;">
+                <label for="select-reg-event">Campaign Event</label>
+                <select class="select-control" id="select-reg-event" required>
+                  <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
+                  <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
+                  <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-top: 16px;">
+                <label for="input-reg-status">Registration Status</label>
+                <select class="select-control" id="input-reg-status">
+                  <option value="Attended">Attended</option>
+                  <option value="Registered">Registered</option>
+                  <option value="Invited">Invited</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-top: 16px;">
+                <label for="input-reg-notes">Event Notes</label>
+                <textarea class="input-control" id="input-reg-notes" placeholder="Add specific notes (e.g. table number, topics discussed...)" style="height: 100px; resize: none;"></textarea>
+              </div>
+
+              <div class="form-group" style="margin-top: 24px; text-align: right;">
+                <button type="submit" class="btn btn-primary">Confirm Registration</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- AGENT MODE: Autonomous Planner Mockup -->
+        <section class="tab-content" id="tab-panel-agent-mode">
+          <div class="agent-mode-layout">
+            <div class="glass-panel" style="margin-bottom:0;">
+              <div class="section-title">Autonomous Control Center</div>
+              <div class="agent-status-panel">
+                <div class="agent-status-header">
+                  <div class="radar-ping"></div>
+                  <div>
+                    <h3 style="font-family: var(--font-body); font-weight: 600; font-size: 16px;" id="agent-active-status">AGENT STATE: STANDBY</h3>
+                    <p style="font-size:13px; color:var(--muted);" id="agent-active-details">Awaiting launch parameters. Planning loop idle.</p>
+                  </div>
+                </div>
+                <div class="agent-controls-row">
+                  <button class="btn btn-primary" id="btn-agent-start" onclick="toggleAgentPlanningLoop()">
+                    <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    Start Agent Loop
+                  </button>
+                  <button class="btn btn-secondary" onclick="resetAgentPlanningLogs()">Reset Loop State</button>
+                </div>
+              </div>
+
+              <div class="agent-loop-diagram-card">
+                <h4 style="margin-bottom: 12px; font-family: var(--font-body); font-weight:500; font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);">Loop Operations Graph</h4>
+                <div class="diagram-grid">
+                  <div class="diagram-node" id="anode-plan"><strong>1</strong><span>PLAN</span></div>
+                  <div class="diagram-arrow">➔</div>
+                  <div class="diagram-node" id="anode-enrich"><strong>2</strong><span>ENRICH</span></div>
+                  <div class="diagram-arrow">➔</div>
+                  <div class="diagram-node" id="anode-draft"><strong>3</strong><span>DRAFT</span></div>
+                  <div class="diagram-arrow">➔</div>
+                  <div class="diagram-node" id="anode-deliver"><strong>4</strong><span>DELIVER</span></div>
+                  <div class="diagram-arrow">➔</div>
+                  <div class="diagram-node" id="anode-monitor"><strong>5</strong><span>MONITOR</span></div>
+                  <div class="diagram-arrow">➔</div>
+                  <div class="diagram-node" id="anode-analyze"><strong>6</strong><span>ANALYZE</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-panel" style="margin-bottom:0; display:flex; flex-direction:column; gap:16px;">
+              <div class="section-title">Planning Agent Logs</div>
+              <div class="console-box" id="agent-console-box">
+                <div class="console-line system">[PLANNER] Autonomous orchestrator ready. Load CSV contacts to start loops.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+    </div><!-- .main-content-wrapper -->
+  </div><!-- .app-layout -->
+
+  <script src="app.js"></script>
+</body>
+
+</html>
