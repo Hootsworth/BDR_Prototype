@@ -75,6 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error reading cached db", e);
     }
   }
+  
+  // Dynamically load Clerk Auth SDK using active configuration
+  loadClerkSDK();
 });
 
 // Switch panel views
@@ -1797,9 +1800,23 @@ function resetAgentPlanningLogs() {
 
 // --- CLERK AUTHENTICATION HANDLERS ---
 
-async function initClerkAuth() {
-  const publishableKey = "pk_test_placeholder_app_3FqQEx4A7KVzwjvvEh3hdo6Q5l5";
+function loadClerkSDK() {
+  const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "pk_test_placeholder_app_3FqQEx4A7KVzwjvvEh3hdo6Q5l5";
   
+  const script = document.createElement("script");
+  script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
+  script.async = true;
+  script.crossOrigin = "anonymous";
+  script.setAttribute("data-clerk-publishable-key", pubKey);
+  
+  script.onload = () => {
+    initClerkAuth(pubKey);
+  };
+  
+  document.head.appendChild(script);
+}
+
+async function initClerkAuth(publishableKey) {
   if (!window.Clerk) {
     console.error("Clerk JS SDK script not resolved yet.");
     return;
@@ -1858,4 +1875,5 @@ function triggerClerkSignIn() {
     });
   }
 }
+
 
