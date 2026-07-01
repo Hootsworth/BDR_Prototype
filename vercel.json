@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/proxy/:path*",
+      "destination": "https://api.explorium.ai/:path*"
+    }
+  ]
+}

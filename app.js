@@ -907,7 +907,7 @@ async function runDataEnrichment() {
 
   let matchData = null;
   try {
-    const response = await fetch("https://api.explorium.ai/v1/prospects/match", {
+    const response = await fetch("/api/proxy/v1/prospects/match", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -929,7 +929,7 @@ async function runDataEnrichment() {
   } catch (err) {
     console.error(err);
     addLogConsole("enrich", `[API ERROR] Match API request failed: ${err.message}`, "error");
-    addLogConsole("enrich", `[SYSTEM] Falling back to high-fidelity local B2B matching algorithm to prevent workflow blocks...`, "system");
+    addLogConsole("enrich", `[SYSTEM] Falling back to local B2B matching algorithms...`, "system");
   }
 
   fill.style.width = "50%";
@@ -952,7 +952,7 @@ async function runDataEnrichment() {
     if (prospectIds.length > 0) {
       addLogConsole("enrich", `[API] POST /v1/prospects/contacts_information/bulk_enrich - Retrieving details for ${prospectIds.length} IDs...`, "info");
       try {
-        const response = await fetch("https://api.explorium.ai/v1/prospects/contacts_information/bulk_enrich", {
+        const response = await fetch("/api/proxy/v1/prospects/contacts_information/bulk_enrich", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
