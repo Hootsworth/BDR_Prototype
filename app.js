@@ -1808,117 +1808,405 @@ function handleEventRegistration(e) {
   switchTab("events-list");
 }
 
-// --- BOTTOM RAIL AGENT MODE SIMULATOR ---
+// --- INTERACTIVE AGENT CHAT & BROWSER SIMULATOR ENGINE ---
 
 function toggleAgentMode() {
   switchTab("agent-mode");
 }
 
-function toggleAgentPlanningLoop() {
-  const btn = document.getElementById("btn-agent-start");
-  const panel = document.querySelector(".agent-status-panel");
-  const statusText = document.getElementById("agent-active-status");
-  const detailText = document.getElementById("agent-active-details");
+// Typing autocomplete detector for @ mentions
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("agent-chat-input");
+  if (input) {
+    input.addEventListener("input", handleAgentChatInput);
+  }
+});
 
-  if (!btn || !panel || !statusText || !detailText) return;
+function handleAgentChatInput(e) {
+  const input = e.target;
+  const list = document.getElementById("agent-autocomplete-list");
+  if (!list) return;
 
-  if (database.agentRunning) {
-    // STOP loop
-    database.agentRunning = false;
-    clearInterval(database.agentTimer);
-    database.agentTimer = null;
-    
-    btn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Start Agent Loop`;
-    panel.classList.remove("running");
-    statusText.textContent = "AGENT STATE: STANDBY";
-    detailText.textContent = "Autonomous loop paused by operator.";
-    
-    updateSystemStatusDot();
-    deactivateAllAgentNodes();
+  const val = input.value;
+  const atIndex = val.lastIndexOf("@");
+
+  if (atIndex === -1) {
+    list.style.display = "none";
     return;
   }
 
-  if (database.contacts.length === 0) {
-    alert("Please load CSV contacts data in the Import tab before activating Agent Mode.");
-    return;
-  }
+  // Extract query after @
+  const query = val.slice(atIndex + 1).toLowerCase().trim();
+  list.innerHTML = "";
 
-  // START loop
-  database.agentRunning = true;
-  btn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><rect x="4" y="4" width="16" height="16"></rect></svg> Stop Agent Loop`;
-  panel.classList.add("running");
-  
-  updateSystemStatusDot();
-  runPlanningStepIndex();
-}
-
-function deactivateAllAgentNodes() {
-  document.querySelectorAll(".diagram-node").forEach(n => n.classList.remove("active"));
-}
-
-const AGENT_LOOP_STEPS = [
-  { node: "anode-plan", details: "PLANNER: Generating campaign plan structure. Scanning GTM definitions.", log: "[PLANNER] Initiating GTM sequence loop. Analyzing 3 industry vectors..." },
-  { node: "anode-enrich", details: "ENRICHMENT: Fetching missing attributes via Explorium B2B APIs.", log: "[ENRICHMENT] Verifying phone lists and LinkedIn profiles. Syncing with clay database." },
-  { node: "anode-draft", details: "DRAFTER: Composing custom AI outbound copy sequences.", log: "[AI-DRAFTER] Tailored 25 cold emails and 18 LinkedIn invite notes." },
-  { node: "anode-deliver", details: "DELIVERY: Dispatched campaigns. Lemlist campaign launched.", log: "[DELIVERY] Released outbound emails to lem-outbox. Triggered warmup rotation." },
-  { node: "anode-monitor", details: "MONITOR: Tracking clicks, opens, and replies.", log: "[MONITOR] 3 opens, 1 click, and 1 reply tracked from GAC dinner attendee list." },
-  { node: "anode-analyze", details: "ANALYST: Parsing intent signal, checking BANT, registering deals.", log: "[ANALYST] Spoke to Marcus Chen. Meeting scheduled. Syncing deal ARR value to HubSpot CRM." }
-];
-
-function runPlanningStepIndex() {
-  const statusText = document.getElementById("agent-active-status");
-  const detailText = document.getElementById("agent-active-details");
-  
-  if (!database.agentRunning) return;
-
-  const step = AGENT_LOOP_STEPS[database.agentNodeIndex];
-  
-  statusText.textContent = `AGENT STATE: RUNNING (${step.node.replace("anode-", "").toUpperCase()})`;
-  detailText.textContent = step.details;
-  
-  deactivateAllAgentNodes();
-  const nodeEl = document.getElementById(step.node);
-  if (nodeEl) nodeEl.classList.add("active");
-  
-  addLogConsole("agent", step.log, "info");
-  
-  // Trigger actions in lists to simulate live execution
-  if (step.node === "anode-enrich") {
-    // Enrich automatically if not enriched
-    if (!database.contacts[0].enriched) {
-      enrichDataRecords();
-      saveDatabaseCache();
-      updateStatsSummaryText();
-      filterInfluencersTable();
-      addLogConsole("agent", "[ENRICHMENT] Mapped profiles. Match percentage computed.", "success");
+  let matches = [];
+  if (database.contacts.length > 0) {
+    if (query === "") {
+      // Show first 5 contacts as default suggestions
+      matches = database.contacts.slice(0, 5);
+    } else {
+      // Match query
+      matches = database.contacts.filter(c => 
+        c.fullName.toLowerCase().includes(query) || 
+        c.company.toLowerCase().includes(query)
+      ).slice(0, 5);
     }
-  } else if (step.node === "anode-deliver") {
-    // Send first few emails
-    const unsent = database.contacts.filter(c => !c.emailsSent).slice(0, 3);
-    unsent.forEach(c => {
-      c.emailsSent = true;
-      database.stats.emailsSent++;
-    });
-    saveDatabaseCache();
   }
 
-  // Iterate
-  database.agentNodeIndex = (database.agentNodeIndex + 1) % AGENT_LOOP_STEPS.length;
-  
-  // Next tick in 2.5 seconds
-  database.agentTimer = setTimeout(() => {
-    runPlanningStepIndex();
-  }, 2500);
+  if (matches.length === 0) {
+    list.style.display = "none";
+    return;
+  }
+
+  matches.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "autocomplete-suggestion-item";
+    item.innerHTML = `
+      <strong>${c.fullName}</strong>
+      <span class="suggestion-meta">${c.jobTitle} at ${c.company}</span>
+    `;
+    item.onclick = () => {
+      selectAgentAutocomplete(c.fullName);
+    };
+    list.appendChild(item);
+  });
+
+  list.style.display = "flex";
 }
 
-function resetAgentPlanningLogs() {
-  const box = document.getElementById("agent-console-box");
-  if (box) {
-    box.innerHTML = `<div class="console-line system">[PLANNER] Autonomous orchestrator state reset.</div>`;
+function selectAgentAutocomplete(name) {
+  const input = document.getElementById("agent-chat-input");
+  const list = document.getElementById("agent-autocomplete-list");
+  if (!input || !list) return;
+
+  const val = input.value;
+  const atIndex = val.lastIndexOf("@");
+  
+  input.value = val.slice(0, atIndex) + "@" + name + " ";
+  list.style.display = "none";
+  input.focus();
+}
+
+function handleAgentChatKeyDown(event) {
+  if (event.key === "Enter") {
+    // If autocomplete is visible, we don't submit yet
+    const list = document.getElementById("agent-autocomplete-list");
+    if (list && list.style.display === "flex") return;
+    
+    sendAgentChatMessage();
   }
-  database.agentNodeIndex = 0;
-  deactivateAllAgentNodes();
-  addLogConsole("agent", "State reset.", "system");
+}
+
+function sendAgentChatMessage() {
+  const input = document.getElementById("agent-chat-input");
+  const history = document.getElementById("agent-chat-history");
+  if (!input || !history) return;
+
+  const text = input.value.trim();
+  if (text === "") return;
+
+  // Append user bubble
+  const userDiv = document.createElement("div");
+  userDiv.className = "agent-chat-msg user-msg";
+  userDiv.style = "display: flex; gap: 10px; align-items: flex-start; justify-content: flex-end;";
+  userDiv.innerHTML = `
+    <div class="msg-bubble" style="background: var(--primary); color: #ffffff; padding: 10px 14px; border-radius: 16px 4px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--primary-active);">
+      ${text}
+    </div>
+  `;
+  history.appendChild(userDiv);
+  input.value = "";
+  history.scrollTop = history.scrollHeight;
+
+  // Parse for @ mentioned contact
+  let targetContact = null;
+  if (database.contacts.length > 0) {
+    // Look for @ name matches in database
+    const atMatch = text.match(/@([a-zA-Z\s]+)/);
+    if (atMatch) {
+      const parsedName = atMatch[1].trim().toLowerCase();
+      targetContact = database.contacts.find(c => c.fullName.toLowerCase().includes(parsedName));
+    }
+  }
+
+  if (targetContact) {
+    startAgentResearchSequence(targetContact);
+  } else {
+    // Standard bot helper response
+    setTimeout(() => {
+      const botDiv = document.createElement("div");
+      botDiv.className = "agent-chat-msg agent-msg";
+      botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
+      botDiv.innerHTML = `
+        <div class="avatar" style="font-size: 20px;">🤖</div>
+        <div class="msg-bubble" style="background: var(--bg-surface-active); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--hairline);">
+          I am ready. Type <strong>@</strong> followed by a contact's name (e.g. <code>@${database.contacts[0] ? database.contacts[0].fullName : "John Tennus"}</code>) to launch my autonomous browser to crawl LinkedIn, Google, and their company homepage to extract target B2B outbound campaign intelligence!
+        </div>
+      `;
+      history.appendChild(botDiv);
+      history.scrollTop = history.scrollHeight;
+    }, 800);
+  }
+}
+
+// Autonomous multi-step Web Scraping & Firecrawl Simulator
+function startAgentResearchSequence(contact) {
+  const history = document.getElementById("agent-chat-history");
+  const browserUrl = document.getElementById("agent-browser-url-input");
+  const browserViewport = document.getElementById("agent-browser-viewport");
+  const browserStatus = document.getElementById("agent-browser-status");
+  const cursor = document.getElementById("browser-cursor");
+
+  if (!history || !browserUrl || !browserViewport || !browserStatus || !cursor) return;
+
+  // 1. Initial planner message
+  setTimeout(() => {
+    appendAgentLog(`🤖 Understood. Planning 4-step B2B intelligence gathering cycle for **${contact.fullName}** (CTO at *${contact.company}*).<br>
+    <ul>
+      <li><strong>Step 1</strong>: Search Google index for profile links and news.</li>
+      <li><strong>Step 2</strong>: Fetch LinkedIn profile structure using Firecrawl.</li>
+      <li><strong>Step 3</strong>: Crawl corporate website for mission alignment.</li>
+      <li><strong>Step 4</strong>: Compile outbound campaign dossier hooks.</li>
+    </ul>`);
+  }, 500);
+
+  // --- STAGE 1: Google Search ---
+  setTimeout(() => {
+    browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
+    browserStatus.textContent = "Status: Loading Google Search Results...";
+    
+    // Load mock Google page
+    browserViewport.innerHTML = `
+      <div class="browser-cursor" id="browser-cursor" style="position: absolute; width: 14px; height: 14px; background: rgba(204,120,92,0.8); border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.3); z-index: 100; pointer-events: none; transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); left: 250px; top: 180px;"></div>
+      <div class="google-search-mock">
+        <div class="google-logo-sm">
+          <span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span>
+        </div>
+        <div class="google-result-item">
+          <div class="result-url">https://linkedin.com › in › ${contact.firstName.toLowerCase()}</div>
+          <a href="#" onclick="return false;" id="google-linkedin-link" style="color: #1a0dab; font-weight: 500; text-decoration: none;">${contact.fullName} - ${contact.company} | LinkedIn</a>
+          <div class="result-snippet">View ${contact.fullName}'s professional profile on LinkedIn. Company size: 50-500 employees. Secure financial data gateways...</div>
+        </div>
+        <div class="google-result-item">
+          <div class="result-url">https://www.${contact.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com › about</div>
+          <a href="#" onclick="return false;" style="color: #1a0dab; font-weight: 500; text-decoration: none;">Meet the executive team at ${contact.company}</a>
+          <div class="result-snippet">Leading credit union query validation tools. Team: President, CTO ${contact.fullName}, compliance directors...</div>
+        </div>
+      </div>
+    `;
+
+    appendAgentLog(`🤖 <em>[PLANNER]</em> Initiated Google query index matching.`);
+  }, 1500);
+
+  // Animate pointer to Google LinkedIn link and click
+  setTimeout(() => {
+    const pageCursor = document.getElementById("browser-cursor");
+    if (pageCursor) {
+      pageCursor.style.left = "40px";
+      pageCursor.style.top = "56px";
+    }
+    browserStatus.textContent = "Status: Pointing to LinkedIn result link...";
+  }, 2200);
+
+  setTimeout(() => {
+    const link = document.getElementById("google-linkedin-link");
+    const pageCursor = document.getElementById("browser-cursor");
+    if (link && pageCursor) {
+      link.style.color = "#551a8b"; // clicked color
+      pageCursor.style.transform = "scale(0.8)";
+      browserStatus.textContent = "Status: Navigating link (Click event)...";
+      appendAgentLog(`🤖 <em>[CRAWLER]</em> Opening link: <em>linkedin.com/in/${contact.firstName.toLowerCase()}</em>`);
+    }
+  }, 3000);
+
+  // --- STAGE 2: LinkedIn Crawl ---
+  setTimeout(() => {
+    browserUrl.value = `https://www.linkedin.com/in/${contact.firstName.toLowerCase()}-${contact.lastName.toLowerCase()}`;
+    browserStatus.textContent = "Status: Crawling LinkedIn profile via Firecrawl...";
+    
+    const initials = contact.fullName.split(" ").map(n => n[0]).join("");
+    
+    // Load mock LinkedIn page
+    browserViewport.innerHTML = `
+      <div class="linkedin-profile-mock">
+        <div class="linkedin-header-card">
+          <div class="linkedin-banner"></div>
+          <div class="linkedin-avatar-row">
+            <div class="linkedin-avatar-mock">${initials}</div>
+            <button class="linkedin-connect-btn">Connect</button>
+          </div>
+          <div class="linkedin-info-row">
+            <div class="linkedin-name">${contact.fullName}</div>
+            <div class="linkedin-headlineHighlighted highlighted-attribute" style="padding:2px 4px; border-radius:4px; font-size:12px; color:#191919;">${contact.jobTitle} at ${contact.company}</div>
+            <div class="linkedin-location" style="font-size:11px; color:#8c8c8c; margin-top:4px;">Greater Detroit Area • Contact info</div>
+          </div>
+        </div>
+        <div class="linkedin-section-card">
+          <div class="linkedin-section-title" style="font-size:13px; font-weight:600; margin-bottom:8px;">Experience</div>
+          <div class="linkedin-experience-item">
+            <div class="experience-company-logo">CU</div>
+            <div class="experience-details">
+              <div class="experience-title" style="font-weight:600;">${contact.jobTitle}</div>
+              <div class="experience-company">${contact.company}</div>
+              <div class="experience-duration" style="font-size:11px; color:#8c8c8c;">2021 - Present (5 years)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Connected to Firecrawl API. Parsing profile markdown elements...`);
+  }, 4200);
+
+  // Animate scroll LinkedIn page
+  setTimeout(() => {
+    const list = browserViewport.querySelector(".linkedin-profile-mock");
+    if (list) {
+      list.classList.add("scrolling-content");
+    }
+    browserStatus.textContent = "Status: Scrolling page to scrape experience and certifications...";
+  }, 5000);
+
+  // --- STAGE 3: Company Page Crawl ---
+  setTimeout(() => {
+    const cleanComp = contact.company.toLowerCase().replace(/[^a-z0-9]/g, '');
+    browserUrl.value = `https://www.${cleanComp}.com`;
+    browserStatus.textContent = "Status: Scraping company homepage...";
+    
+    // Load mock company website
+    browserViewport.innerHTML = `
+      <div class="browser-cursor" id="browser-cursor" style="position: absolute; width: 14px; height: 14px; background: rgba(204,120,92,0.8); border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.3); z-index: 100; pointer-events: none; transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); left: 280px; top: 120px;"></div>
+      <div class="company-website-mock">
+        <div class="company-nav" style="height:36px; background:#1b263b; display:flex; align-items:center; justify-content:space-between; padding:0 12px;">
+          <div class="company-logo-text" style="font-weight:bold; font-size:12px; color:#ffffff;">${contact.company.toUpperCase()}</div>
+          <div class="company-nav-links" style="display:flex; gap:10px; font-size:11px;">
+            <span class="company-nav-link" style="color:#ffffff;">Home</span>
+            <span class="company-nav-link" id="company-about-link" style="color:#ffffff;">About Us</span>
+            <span class="company-nav-link" style="color:#ffffff;">Solutions</span>
+          </div>
+        </div>
+        <div class="company-hero" style="padding: 20px 10px; text-align: center;">
+          <h1 style="font-size:15px; color:#ffffff; margin-bottom:5px;">Secure Financial Database Infrastructure</h1>
+          <p style="font-size:11px; color:#a3b18a; line-height:1.4;">Powering compliance gatekeepers and query protections for credit union databases adopting generative LLMs.</p>
+        </div>
+        <div class="company-about-section" style="padding:15px 12px; background:#1b263b; border-top:1px solid #415a77;">
+          <div class="company-about-title" style="font-size:12px; font-weight:bold; color:#ffffff; margin-bottom:6px;">Our Core Mission</div>
+          <div class="company-about-text highlighted-attribute" style="font-size:11.5px; color:#e0e1dd; line-height:1.4;">
+            We focus on implementing query validations that prevent training leaks, unauthorized SQL calls, and credential exposures during LLM integrations.
+          </div>
+        </div>
+      </div>
+    `;
+
+    appendAgentLog(`🤖 <em>[PLANNER]</em> Accessing target company portal. Searching value statement tags.`);
+  }, 6200);
+
+  // Click nav button About Us
+  setTimeout(() => {
+    const pageCursor = document.getElementById("browser-cursor");
+    if (pageCursor) {
+      pageCursor.style.left = "180px";
+      pageCursor.style.top = "15px";
+    }
+  }, 6800);
+
+  setTimeout(() => {
+    const link = document.getElementById("company-about-link");
+    const list = browserViewport.querySelector(".company-website-mock");
+    if (link && list) {
+      link.classList.add("active-click");
+      list.classList.add("scrolling-content");
+      browserStatus.textContent = "Status: Clicking 'About Us' and scrolling company bio...";
+      appendAgentLog(`🤖 <em>[CRAWLER]</em> Extracted company bio text successfully.`);
+    }
+  }, 7500);
+
+  // --- STAGE 4: Synthesis & Output ---
+  setTimeout(async () => {
+    browserUrl.value = "https://google.com";
+    browserStatus.textContent = "Status: Browser Standby";
+    
+    // Reset view
+    browserViewport.innerHTML = `
+      <div class="browser-page-content" id="bpage-default" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;opacity:0.3;color:var(--muted);"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; font-weight:600; text-align:center;">Browser Simulator Idle</div>
+        <div style="font-size:11.5px; text-align:center; max-width:260px; opacity:0.8; line-height:1.5;">The agent's browser will load Google, LinkedIn, and corporate websites here in real time.</div>
+      </div>
+    `;
+
+    appendAgentLog(`🤖 <em>[SYNTHESIZER]</em> Finalizing target dossier. Computing BANT hooks...`);
+
+    let finalReportHtml = "";
+
+    // Live LLM Generation if API key is present!
+    if (database.llmHelperKey) {
+      try {
+        const prompt = `Create a brief B2B Sales Prospect Dossier for ${contact.fullName}, ${contact.jobTitle} at ${contact.company}.
+Provide:
+1. Executive Summary (2 sentences max).
+2. 3 Personalized outbound outreach hook angles focusing on secure LLM query guardrails for credit unions.
+3. Recommended email subject line.
+Format in simple markdown.`;
+
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${database.llmHelperKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+        
+        if (response.ok) {
+          const json = await response.json();
+          const mdText = json.choices[0].message.content;
+          finalReportHtml = mdText.replace(/\n/g, "<br>");
+        }
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    if (!finalReportHtml) {
+      // Fallback templated report
+      finalReportHtml = `
+      <strong>### 📋 Target Dossier: ${contact.fullName}</strong><br>
+      <strong>Role</strong>: ${contact.jobTitle} at ${contact.company}<br>
+      <strong>Lead Score</strong>: ${contact.matchPercentage}% (${contact.leadTemp})<br><br>
+      <strong>Executive Summary</strong>:<br>
+      B2B technology leader focusing on regional banking security. Currently managing the adoption of generative database tools at ${contact.company}.<br><br>
+      <strong>Personalized Outreach Hook Angles</strong>:<br>
+      1. <strong>The Compliance Angle</strong>: Connect secure SQL guardrails directly to their recent credit union data-sharing policies.<br>
+      2. <strong>The LLM Gatekeeper Angle</strong>: Offer a blueprint for wrapping secure validation filters around database models to prevent leaks of financial attributes.<br>
+      3. <strong>The SymWest Connection</strong>: Reference their presence at financial tech roundtables to book a discovery call.<br><br>
+      <strong>Suggested Outbound Subject</strong>:<br>
+      <em>Outbound briefing: Database guardrails for ${contact.company}</em>
+      `;
+    }
+
+    appendAgentLog(`🤖 Live Web Scraping Task Complete!<br><br>${finalReportHtml}`);
+  }, 9200);
+}
+
+function appendAgentLog(message) {
+  const history = document.getElementById("agent-chat-history");
+  if (!history) return;
+
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "agent-chat-msg agent-msg";
+  msgDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
+  msgDiv.innerHTML = `
+    <div class="avatar" style="font-size: 20px;">🤖</div>
+    <div class="msg-bubble" style="background: var(--bg-surface-active); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--hairline);">
+      ${message}
+    </div>
+  `;
+  history.appendChild(msgDiv);
+  history.scrollTop = history.scrollHeight;
 }
 
 // --- CLERK AUTHENTICATION HANDLERS ---
