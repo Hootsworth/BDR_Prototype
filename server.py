@@ -27,9 +27,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             
             headers = {}
-            for key in ['Content-Type', 'api_key', 'Authorization']:
-                if key in self.headers:
-                    headers[key] = self.headers[key]
+            for k, v in self.headers.items():
+                if k.lower() != 'host':
+                    headers[k] = v
+            # Explicitly overwrite the Host header for the target domain
+            headers['Host'] = 'api.explorium.ai'
             
             req = urllib.request.Request(target_url, data=post_data, headers=headers, method='POST')
             try:

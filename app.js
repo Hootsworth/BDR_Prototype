@@ -884,8 +884,8 @@ async function runDataEnrichment() {
   fill.style.width = "10%";
   label.textContent = "Matching 10%";
 
-  // Select a batch of 15 contacts to enrich to conserve user credits
-  const contactsToEnrich = database.contacts.filter(c => !c.enriched).slice(0, 15);
+  // Select a batch of exactly 10 contacts to enrich to conserve user credits
+  const contactsToEnrich = database.contacts.filter(c => !c.enriched).slice(0, 10);
   if (contactsToEnrich.length === 0) {
     addLogConsole("enrich", "[SYSTEM] All contacts are already enriched!", "success");
     fill.style.width = "100%";
@@ -929,7 +929,13 @@ async function runDataEnrichment() {
   } catch (err) {
     console.error(err);
     addLogConsole("enrich", `[API ERROR] Match API request failed: ${err.message}`, "error");
-    addLogConsole("enrich", `[SYSTEM] Falling back to local B2B matching algorithms...`, "system");
+    addLogConsole("enrich", `[ABORT] Explorium match requests failed. Please ensure server.py is running locally. Target contacts were NOT marked as enriched.`, "error");
+    
+    // Reset loader state
+    progressContainer.style.display = "none";
+    btn.disabled = false;
+    alert(`Enrichment aborted: Match API call failed.\n${err.message}`);
+    return;
   }
 
   fill.style.width = "50%";
@@ -974,6 +980,13 @@ async function runDataEnrichment() {
       } catch (err) {
         console.error(err);
         addLogConsole("enrich", `[API ERROR] Bulk enrich request failed: ${err.message}`, "error");
+        addLogConsole("enrich", `[ABORT] Bulk enrichment details request failed. Target contacts were NOT marked as enriched.`, "error");
+        
+        // Reset loader state
+        progressContainer.style.display = "none";
+        btn.disabled = false;
+        alert(`Enrichment aborted: Bulk enrich details failed.\n${err.message}`);
+        return;
       }
     } else {
       addLogConsole("enrich", `[SYSTEM] No prospect matches were found by the API.`, "info");
