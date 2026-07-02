@@ -881,6 +881,9 @@ async function runDataEnrichment() {
   consoleBox.innerHTML = "";
 
   addLogConsole("enrich", "[SYSTEM] Initiating live Explorium enrichment pipeline...", "system");
+  if (window.location.hostname.includes("github.io")) {
+    addLogConsole("enrich", "[WARNING] Running on GitHub Pages. GitHub Pages is a purely static host and does not support backend API proxying. For live Explorium API calls to work, please run locally using 'python3 server.py' or deploy to Vercel (where our proxy rule is processed natively).", "warning");
+  }
   fill.style.width = "10%";
   label.textContent = "Matching 10%";
 
