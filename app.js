@@ -2101,11 +2101,50 @@ function sendAgentChatMessage() {
 }
 
 // Autonomous Web Scraping & Firecrawl simulator with real Gemini grounding
+function setStepStatus(stepId, status) {
+  const el = document.getElementById(stepId);
+  if (!el) return;
+  el.classList.remove("disabled", "running", "completed");
+  el.classList.add(status);
+}
+
+function updateAgentTargetCard(contact) {
+  const card = document.getElementById("agent-target-card");
+  if (!card) return;
+  
+  if (!contact) {
+    card.innerHTML = `
+      <div class="target-card-placeholder">
+        <div class="radar-ping"></div>
+        <span>Agent Idle — Awaiting Target Selection</span>
+      </div>
+    `;
+    return;
+  }
+  
+  const initials = contact.fullName.split(" ").map(n => n[0]).join("");
+  card.innerHTML = `
+    <div class="active-target-profile">
+      <div class="target-avatar" style="background: ${contact.leadTemp === 'Hot' ? 'var(--brand-coral)' : 'var(--brand-teal)'}; color: #ffffff;">${initials}</div>
+      <div class="target-details">
+        <div class="target-name">${contact.fullName}</div>
+        <div class="target-title-comp">${contact.jobTitle} at <strong>${contact.company}</strong></div>
+        <div class="target-meta-row">
+          <span class="target-badge temp-${contact.leadTemp.toLowerCase()}">${contact.leadTemp}</span>
+          <span class="target-badge location">${contact.state || "US"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Autonomous Web Scraping & Firecrawl simulator with real Gemini grounding and visual steps tracking
 async function startAgentResearchSequence(contact, customUserQuestion = "") {
   const history = document.getElementById("agent-chat-history");
   const browserUrl = document.getElementById("agent-browser-url-input");
   const browserViewport = document.getElementById("agent-browser-viewport");
   const browserStatus = document.getElementById("agent-browser-status");
+  const dossierOutput = document.getElementById("agent-dossier-output");
   
   if (!history || !browserUrl || !browserViewport || !browserStatus) return;
 
@@ -2122,16 +2161,27 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   database.agentRunning = true;
   browserStatus.textContent = "Status: Planning research sequence...";
   
+  // Update Target Card and Step Progress indicators
+  updateAgentTargetCard(contact);
+  setStepStatus("step-dorking", "running");
+  setStepStatus("step-linkedin", "disabled");
+  setStepStatus("step-corporate", "disabled");
+  setStepStatus("step-synthesis", "disabled");
+
+  // Reset dossier area to empty state
+  if (dossierOutput) {
+    dossierOutput.innerHTML = `
+      <div class="dossier-empty-state">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Agent executing search grounding. Synthesizing dossier hooks...</span>
+      </div>
+    `;
+  }
+  
   const queryToRun = customUserQuestion ? customUserQuestion.trim() : `Find out everything you can about ${contact.fullName} who is ${contact.jobTitle} at ${contact.company}. Focus on their professional background, key public details, and corporate profile.`;
   
   appendAgentLog(`🤖 Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).<br>
-  Query: "<em>${queryToRun}</em>"<br>
-  <ul>
-    <li><strong>Step 1</strong>: Query Google index with search grounding tools.</li>
-    <li><strong>Step 2</strong>: Fetch search results and trace reference links.</li>
-    <li><strong>Step 3</strong>: Simulate agent browser crawling for discovered profiles.</li>
-    <li><strong>Step 4</strong>: Synthesize final prospect outbound campaign intelligence dossier.</li>
-  </ul>`);
+  Query: "<em>${queryToRun}</em>"`);
 
   // Update browser status & start loading animation in browser viewport
   browserUrl.value = "https://www.google.com";
@@ -2242,7 +2292,18 @@ Provide:
             <div style="font-size:11.5px; text-align:center; max-width:260px; opacity:0.8; line-height:1.5;">The agent's browser will load Google, LinkedIn, and corporate websites here in real time.</div>
           </div>
         `;
-        appendAgentLog(`🤖 Live Web Scraping Task Complete!<br><br>${finalReportHtml}`);
+        
+        // Mark all steps as complete and display dossier
+        setStepStatus("step-dorking", "completed");
+        setStepStatus("step-linkedin", "completed");
+        setStepStatus("step-corporate", "completed");
+        setStepStatus("step-synthesis", "completed");
+        
+        if (dossierOutput) {
+          dossierOutput.innerHTML = finalReportHtml;
+        }
+        
+        appendAgentLog(`🤖 Live Web Scraping Task Complete!<br>Dossier compiled successfully.`);
         return;
       }
 
@@ -2251,6 +2312,7 @@ Provide:
         const query = queries[step];
         browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
         browserStatus.textContent = `Status: Searching Google for "${query}"...`;
+        setStepStatus("step-dorking", "running");
         
         // Render a search result page
         let resultsHtml = "";
@@ -2293,6 +2355,7 @@ Provide:
 
         // Move to crawl the website of the chunk in the next micro-step
         setTimeout(() => {
+          setStepStatus("step-dorking", "completed");
           if (chunks[step]) {
             const chunk = chunks[step];
             const urlStr = chunk.web.uri;
@@ -2300,10 +2363,11 @@ Provide:
             browserUrl.value = urlStr;
             browserStatus.textContent = `Status: Crawling page: ${urlStr}...`;
             
-            appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Crawling reference: <em>${urlStr}</em>`);
-
-            // If it is LinkedIn
+            // Set running status based on URL type
             if (urlStr.includes("linkedin.com")) {
+              setStepStatus("step-linkedin", "running");
+              appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Crawling LinkedIn profile node...`);
+              
               const initials = contact.fullName.split(" ").map(n => n[0]).join("");
               browserViewport.innerHTML = `
                 <div class="linkedin-profile-mock" style="font-family:sans-serif; text-align:left; background:#f3f6f8; height:100%; overflow-y:auto;">
@@ -2325,7 +2389,14 @@ Provide:
                   </div>
                 </div>
               `;
+              
+              setTimeout(() => {
+                setStepStatus("step-linkedin", "completed");
+              }, 1800);
             } else {
+              setStepStatus("step-corporate", "running");
+              appendAgentLog(`🤖 <em>[CRAWLER]</em> Crawling corporate page assets: <em>${urlStr}</em>`);
+              
               // Corporate page or blog
               browserViewport.innerHTML = `
                 <div style="font-family:sans-serif; text-align:left; background:#f8f9fa; height:100%; overflow-y:auto;">
@@ -2344,6 +2415,10 @@ Provide:
                   </div>
                 </div>
               `;
+              
+              setTimeout(() => {
+                setStepStatus("step-corporate", "completed");
+              }, 1800);
             }
 
             step++;
@@ -2360,6 +2435,11 @@ Provide:
       }
     };
 
+    // Trigger Outbound Synthesis Step status before running first simulation step
+    setTimeout(() => {
+      setStepStatus("step-synthesis", "running");
+    }, 100);
+
     // Run first step
     setTimeout(runSimulationStep, 1500);
 
@@ -2367,6 +2447,11 @@ Provide:
     console.error(err);
     database.agentRunning = false;
     browserStatus.textContent = "Status: Search Grounding Failed";
+    setStepStatus("step-dorking", "disabled");
+    setStepStatus("step-linkedin", "disabled");
+    setStepStatus("step-corporate", "disabled");
+    setStepStatus("step-synthesis", "disabled");
+    
     appendAgentLog(`❌ <strong>Execution Failed!</strong><br>
     Unable to query Gemini API. Reason: <em>${err.message}</em><br><br>
     Please ensure your API Key is valid and that you have a stable network connection.`);

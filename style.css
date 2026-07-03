@@ -4127,3 +4127,330 @@ dialog textarea:focus {
     width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   REIMAGINED AGENT WORKSPACE
+   ═══════════════════════════════════════════════════════ */
+.agent-mode-workspace {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  flex-grow: 1;
+  height: 100%;
+  min-height: 0;
+}
+
+@media (max-width: 1100px) {
+  .agent-mode-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+.agent-left-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 18px !important;
+}
+
+/* Active Target Card styling */
+.agent-target-card {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 8px;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.target-card-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.radar-ping {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  background: var(--brand-teal);
+  border-radius: 50%;
+}
+
+.radar-ping::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 1.5px solid var(--brand-teal);
+  border-radius: 50%;
+  animation: radarPingPulse 1.8s infinite ease-out;
+  opacity: 0.8;
+}
+
+@keyframes radarPingPulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.active-target-profile {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.target-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.target-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.target-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.target-title-comp {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.target-meta-row {
+  display: flex;
+  gap: 6px;
+}
+
+.target-badge {
+  font-size: 9.5px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+
+.target-badge.temp-hot { background: #fee2e2; color: #ef4444; }
+.target-badge.temp-warm { background: #fef3c7; color: #d97706; }
+.target-badge.temp-cold { background: #e0f2fe; color: #0284c7; }
+.target-badge.location { background: var(--surface-soft); color: var(--muted); }
+
+/* Right Workspace wrapper */
+.agent-right-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Browser container (Top part of right workspace) */
+.agent-browser-container {
+  flex: 1.2; /* takes a bit more vertical space */
+  min-height: 0;
+  padding: 16px !important;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bottom rows for steps and dossier */
+.agent-bottom-panels-row {
+  flex: 0.8; /* takes remaining vertical space */
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .agent-bottom-panels-row {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+.agent-steps-card, .agent-dossier-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px !important;
+  min-height: 0;
+}
+
+/* Plan steps tracker list */
+.agent-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  transition: all 0.25s ease;
+}
+
+.step-status-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2.5px solid var(--hairline);
+  background: transparent;
+  margin-top: 2px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.step-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.step-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.step-desc {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* Step state styles */
+.step-item.disabled {
+  opacity: 0.55;
+}
+
+.step-item.running {
+  border-color: var(--brand-teal);
+  background: var(--surface-soft);
+  box-shadow: 0 0 8px rgba(26, 58, 58, 0.05);
+}
+
+.step-item.running .step-status-indicator {
+  border-color: var(--brand-teal);
+  background: var(--brand-mint);
+  animation: stepBlinkPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes stepBlinkPulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.step-item.completed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.step-item.completed .step-status-indicator {
+  border-color: #22c55e;
+  background: #22c55e;
+}
+
+.step-item.completed .step-status-indicator::after {
+  content: "✓";
+  position: absolute;
+  top: -3.5px;
+  left: 1px;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: bold;
+}
+
+/* Dossier card styles */
+.dossier-output-container {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  min-height: 0;
+  text-align: left;
+}
+
+.dossier-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  gap: 12px;
+}
+
+.dossier-empty-state svg {
+  width: 32px;
+  height: 32px;
+  opacity: 0.25;
+  color: var(--muted);
+}
+
+.dossier-empty-state span {
+  font-size: 11px;
+  max-width: 200px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Styled dossier text structure */
+.dossier-output-container h3 {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--ink);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  border-bottom: 1.5px solid var(--hairline-soft);
+  padding-bottom: 4px;
+}
+
+.dossier-output-container h3:first-of-type {
+  margin-top: 0;
+}
+
+.dossier-output-container ul {
+  margin: 4px 0 8px 0;
+  padding-left: 16px;
+}
+
+.dossier-output-container li {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--body);
+  margin-bottom: 4px;
+}
