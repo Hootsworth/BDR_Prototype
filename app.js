@@ -45,12 +45,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load saved API Keys
   database.exploriumApiKey = localStorage.getItem("gtm_key_explorium") || "";
   database.llmHelperKey = localStorage.getItem("gtm_key_llm_helper") || "";
+  database.geminiApiKey = localStorage.getItem("gtm_key_gemini") || "";
+  database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-2.5-flash";
+  database.geminiSearchGrounding = localStorage.getItem("gtm_gemini_search_grounding") !== "false";
   
   const exploriumInput = document.getElementById("key-explorium");
   if (exploriumInput) exploriumInput.value = database.exploriumApiKey;
   
   const llmInput = document.getElementById("key-llm-helper");
   if (llmInput) llmInput.value = database.llmHelperKey;
+
+  const geminiInput = document.getElementById("key-gemini");
+  if (geminiInput) geminiInput.value = database.geminiApiKey;
+  
+  const geminiModelSelect = document.getElementById("select-gemini-model");
+  if (geminiModelSelect) geminiModelSelect.value = database.geminiModel;
+
+  const geminiSearchCheckbox = document.getElementById("toggle-gemini-search");
+  if (geminiSearchCheckbox) geminiSearchCheckbox.checked = database.geminiSearchGrounding;
+  
+  const settingsExploriumInput = document.getElementById("settings-key-explorium");
+  if (settingsExploriumInput) settingsExploriumInput.value = database.exploriumApiKey;
+
+  const settingsOpenAIInput = document.getElementById("settings-key-openai");
+  if (settingsOpenAIInput) settingsOpenAIInput.value = database.llmHelperKey;
 
   // Render initial keys state
   checkEnrichButtonState();
@@ -187,6 +205,10 @@ function updateHeader(tabId) {
     case 'agent-mode':
       titleEl.textContent = "Agent Mode Orchestrator";
       subtitleEl.textContent = "Simulate autonomous planning loops and agent coordination.";
+      break;
+    case 'settings-keys':
+      titleEl.textContent = "Global Credentials & Settings";
+      subtitleEl.textContent = "Manage API configurations, model selection, and credentials for autonomous agents.";
       break;
   }
   
@@ -811,6 +833,9 @@ function saveExploriumKey() {
   database.exploriumApiKey = val;
   localStorage.setItem("gtm_key_explorium", val);
   
+  const settingsInput = document.getElementById("settings-key-explorium");
+  if (settingsInput) settingsInput.value = val;
+  
   checkEnrichButtonState();
   addLogConsole("enrich", `[SYSTEM] Explorium / AgentSource credential updated.`, "system");
 }
@@ -820,7 +845,54 @@ function saveLLMHelperKey() {
   database.llmHelperKey = val;
   localStorage.setItem("gtm_key_llm_helper", val);
   
+  const settingsInput = document.getElementById("settings-key-openai");
+  if (settingsInput) settingsInput.value = val;
+  
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated.`, "system");
+}
+
+function saveGeminiKey() {
+  const val = document.getElementById("key-gemini").value.trim();
+  database.geminiApiKey = val;
+  localStorage.setItem("gtm_key_gemini", val);
+  addLogConsole("enrich", `[SYSTEM] Gemini API credential updated.`, "system");
+}
+
+function saveGeminiModel() {
+  const val = document.getElementById("select-gemini-model").value;
+  database.geminiModel = val;
+  localStorage.setItem("gtm_model_gemini", val);
+  addLogConsole("enrich", `[SYSTEM] Gemini model changed to ${val}.`, "system");
+}
+
+function saveGeminiSearchGrounding() {
+  const checked = document.getElementById("toggle-gemini-search").checked;
+  database.geminiSearchGrounding = checked;
+  localStorage.setItem("gtm_gemini_search_grounding", checked ? "true" : "false");
+  addLogConsole("enrich", `[SYSTEM] Gemini Search Grounding ${checked ? 'enabled' : 'disabled'}.`, "system");
+}
+
+function syncExploriumKeyFromSettings() {
+  const val = document.getElementById("settings-key-explorium").value.trim();
+  database.exploriumApiKey = val;
+  localStorage.setItem("gtm_key_explorium", val);
+  
+  const originalInput = document.getElementById("key-explorium");
+  if (originalInput) originalInput.value = val;
+  
+  checkEnrichButtonState();
+  addLogConsole("enrich", `[SYSTEM] Explorium credential updated from Settings.`, "system");
+}
+
+function syncOpenAIKeyFromSettings() {
+  const val = document.getElementById("settings-key-openai").value.trim();
+  database.llmHelperKey = val;
+  localStorage.setItem("gtm_key_llm_helper", val);
+  
+  const originalInput = document.getElementById("key-llm-helper");
+  if (originalInput) originalInput.value = val;
+  
+  addLogConsole("enrich", `[SYSTEM] LLM helper credential updated from Settings.`, "system");
 }
 
 function checkEnrichButtonState() {
@@ -1911,278 +1983,394 @@ function sendAgentChatMessage() {
   input.value = "";
   history.scrollTop = history.scrollHeight;
 
-  // Parse for @ mentioned contact
+  // Parse for @ mentioned contact (robust parser)
   let targetContact = null;
+  let customQuery = text;
   if (database.contacts.length > 0) {
-    // Look for @ name matches in database
-    const atMatch = text.match(/@([a-zA-Z\s]+)/);
-    if (atMatch) {
-      const parsedName = atMatch[1].trim().toLowerCase();
-      targetContact = database.contacts.find(c => c.fullName.toLowerCase().includes(parsedName));
+    for (const contact of database.contacts) {
+      const mentionStr = `@${contact.fullName.toLowerCase()}`;
+      if (text.toLowerCase().includes(mentionStr)) {
+        targetContact = contact;
+        customQuery = text.replace(new RegExp(`@${contact.fullName}`, "i"), "").trim();
+        break;
+      }
+    }
+    
+    if (!targetContact) {
+      const atMatch = text.match(/@([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/);
+      if (atMatch) {
+        const parsedName = atMatch[1].trim().toLowerCase();
+        targetContact = database.contacts.find(c => c.fullName.toLowerCase().includes(parsedName));
+        if (targetContact) {
+          customQuery = text.replace(atMatch[0], "").trim();
+        }
+      }
     }
   }
 
   if (targetContact) {
-    startAgentResearchSequence(targetContact);
+    startAgentResearchSequence(targetContact, customQuery);
   } else {
-    // Standard bot helper response
+    // If Gemini key is not configured, show placeholder reply
+    if (!database.geminiApiKey) {
+      setTimeout(() => {
+        const botDiv = document.createElement("div");
+        botDiv.className = "agent-chat-msg agent-msg";
+        botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
+        botDiv.innerHTML = `
+          <div class="avatar" style="font-size: 20px;">🤖</div>
+          <div class="msg-bubble" style="background: var(--bg-surface-active); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--hairline);">
+            I am ready. Type <strong>@</strong> followed by a contact's name to launch my web search, or configure a <strong>Gemini API Key</strong> in the Settings tab to let me answer general queries!
+          </div>
+        `;
+        history.appendChild(botDiv);
+        history.scrollTop = history.scrollHeight;
+      }, 500);
+      return;
+    }
+
+    // Call Gemini API for general query!
+    database.agentRunning = true;
+    const browserStatus = document.getElementById("agent-browser-status");
+    if (browserStatus) browserStatus.textContent = "Status: Answering general query...";
+    
     setTimeout(() => {
-      const botDiv = document.createElement("div");
-      botDiv.className = "agent-chat-msg agent-msg";
-      botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
-      botDiv.innerHTML = `
-        <div class="avatar" style="font-size: 20px;">🤖</div>
-        <div class="msg-bubble" style="background: var(--bg-surface-active); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--hairline);">
-          I am ready. Type <strong>@</strong> followed by a contact's name (e.g. <code>@${database.contacts[0] ? database.contacts[0].fullName : "John Tennus"}</code>) to launch my autonomous browser to crawl LinkedIn, Google, and their company homepage to extract target B2B outbound campaign intelligence!
-        </div>
-      `;
-      history.appendChild(botDiv);
-      history.scrollTop = history.scrollHeight;
-    }, 800);
+      appendAgentLog(`🤖 Processing query: "<em>${text}</em>"...`);
+    }, 100);
+    
+    const model = database.geminiModel || "gemini-2.5-flash";
+    const apiKey = database.geminiApiKey;
+    const enableSearch = database.geminiSearchGrounding !== false;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    
+    const systemInstruction = `You are a helpful B2B GTM and Outbound Sales Assistant. Answer the user's query clearly and concisely. Format your response in clean HTML tags (such as <strong>, <em>, <br>, <ul>, <li>). Do NOT use markdown like ** or *. Use clean headers (e.g. <h3>) instead.`;
+
+    const requestBody = {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemInstruction}\n\nUser Question: ${text}` }]
+        }
+      ]
+    };
+
+    if (enableSearch) {
+      requestBody.tools = [
+        {
+          googleSearch: {}
+        }
+      ];
+    }
+
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error(`API Error (${res.status})`);
+      return res.json();
+    })
+    .then(resJson => {
+      database.agentRunning = false;
+      if (browserStatus) browserStatus.textContent = "Status: Browser Standby";
+      
+      const candidate = resJson.candidates && resJson.candidates[0];
+      if (candidate) {
+        let ansText = candidate.content.parts[0].text;
+        ansText = ansText
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+          .replace(/## (.*?)\n/g, '<h2>$1</h2>')
+          .replace(/\n/g, '<br>');
+          
+        appendAgentLog(`🤖 Response:<br><br>${ansText}`);
+      } else {
+        appendAgentLog(`🤖 Sorry, I couldn't generate an answer.`);
+      }
+    })
+    .catch(err => {
+      database.agentRunning = false;
+      if (browserStatus) browserStatus.textContent = "Status: Browser Standby";
+      appendAgentLog(`❌ Failed to answer general query: <em>${err.message}</em>`);
+    });
   }
 }
 
-// Autonomous multi-step Web Scraping & Firecrawl Simulator
-function startAgentResearchSequence(contact) {
+// Autonomous Web Scraping & Firecrawl simulator with real Gemini grounding
+async function startAgentResearchSequence(contact, customUserQuestion = "") {
   const history = document.getElementById("agent-chat-history");
   const browserUrl = document.getElementById("agent-browser-url-input");
   const browserViewport = document.getElementById("agent-browser-viewport");
   const browserStatus = document.getElementById("agent-browser-status");
-  const cursor = document.getElementById("browser-cursor");
+  
+  if (!history || !browserUrl || !browserViewport || !browserStatus) return;
 
-  if (!history || !browserUrl || !browserViewport || !browserStatus || !cursor) return;
+  // Check if Gemini API key is configured
+  if (!database.geminiApiKey) {
+    appendAgentLog(`❌ <strong>Error: Gemini API key is not configured!</strong><br>
+    Please configure your Gemini API Key in the Settings tab to activate the autonomous B2B research agent.<br><br>
+    <button class="btn btn-primary btn-sm" onclick="switchTab('settings-keys')">Configure API Credentials</button>`);
+    browserStatus.textContent = "Status: Stopped - Credentials Required";
+    return;
+  }
 
-  // 1. Initial planner message
-  setTimeout(() => {
-    appendAgentLog(`🤖 Understood. Planning 4-step B2B intelligence gathering cycle for **${contact.fullName}** (CTO at *${contact.company}*).<br>
-    <ul>
-      <li><strong>Step 1</strong>: Search Google index for profile links and news.</li>
-      <li><strong>Step 2</strong>: Fetch LinkedIn profile structure using Firecrawl.</li>
-      <li><strong>Step 3</strong>: Crawl corporate website for mission alignment.</li>
-      <li><strong>Step 4</strong>: Compile outbound campaign dossier hooks.</li>
-    </ul>`);
-  }, 500);
+  // Set running state
+  database.agentRunning = true;
+  browserStatus.textContent = "Status: Planning research sequence...";
+  
+  const queryToRun = customUserQuestion ? customUserQuestion.trim() : `Find out everything you can about ${contact.fullName} who is ${contact.jobTitle} at ${contact.company}. Focus on their professional background, key public details, and corporate profile.`;
+  
+  appendAgentLog(`🤖 Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).<br>
+  Query: "<em>${queryToRun}</em>"<br>
+  <ul>
+    <li><strong>Step 1</strong>: Query Google index with search grounding tools.</li>
+    <li><strong>Step 2</strong>: Fetch search results and trace reference links.</li>
+    <li><strong>Step 3</strong>: Simulate agent browser crawling for discovered profiles.</li>
+    <li><strong>Step 4</strong>: Synthesize final prospect outbound campaign intelligence dossier.</li>
+  </ul>`);
 
-  // --- STAGE 1: Google Search ---
-  setTimeout(() => {
-    browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
-    browserStatus.textContent = "Status: Loading Google Search Results...";
+  // Update browser status & start loading animation in browser viewport
+  browserUrl.value = "https://www.google.com";
+  browserStatus.textContent = "Status: Connecting to Gemini API (with Search Grounding)...";
+  browserViewport.innerHTML = `
+    <div class="browser-page-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
+      <div class="radar-logo-ping" style="width: 48px; height: 48px; background: var(--brand-teal); border-radius: 50%;"></div>
+      <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Agent Executing Dorking Query...</div>
+      <div style="font-size:11px; opacity:0.8; text-align:center;">Retrieving live Google Search index metadata.</div>
+    </div>
+  `;
+
+  try {
+    const model = database.geminiModel || "gemini-2.5-flash";
+    const apiKey = database.geminiApiKey;
+    const enableSearch = database.geminiSearchGrounding !== false;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
-    // Load mock Google page
-    browserViewport.innerHTML = `
-      <div class="browser-cursor" id="browser-cursor" style="position: absolute; width: 14px; height: 14px; background: rgba(204,120,92,0.8); border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.3); z-index: 100; pointer-events: none; transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); left: 250px; top: 180px;"></div>
-      <div class="google-search-mock">
-        <div class="google-logo-sm">
-          <span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span>
-        </div>
-        <div class="google-result-item">
-          <div class="result-url">https://linkedin.com › in › ${contact.firstName.toLowerCase()}</div>
-          <a href="#" onclick="return false;" id="google-linkedin-link" style="color: #1a0dab; font-weight: 500; text-decoration: none;">${contact.fullName} - ${contact.company} | LinkedIn</a>
-          <div class="result-snippet">View ${contact.fullName}'s professional profile on LinkedIn. Company size: 50-500 employees. Secure financial data gateways...</div>
-        </div>
-        <div class="google-result-item">
-          <div class="result-url">https://www.${contact.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com › about</div>
-          <a href="#" onclick="return false;" style="color: #1a0dab; font-weight: 500; text-decoration: none;">Meet the executive team at ${contact.company}</a>
-          <div class="result-snippet">Leading credit union query validation tools. Team: President, CTO ${contact.fullName}, compliance directors...</div>
-        </div>
-      </div>
-    `;
+    // Build context
+    const systemInstruction = `You are an expert BDR Research Agent. Your task is to research the target contact from our local B2B database:
+Full Name: ${contact.fullName}
+First Name: ${contact.firstName}
+Last Name: ${contact.lastName}
+Job Title: ${contact.jobTitle}
+Company: ${contact.company}
+Industry: ${contact.industry}
+Lead Temp: ${contact.leadTemp}
+Match Score: ${contact.matchPercentage}%
+State/Location: ${contact.state || "Unknown"}
 
-    appendAgentLog(`🤖 <em>[PLANNER]</em> Initiated Google query index matching.`);
-  }, 1500);
-
-  // Animate pointer to Google LinkedIn link and click
-  setTimeout(() => {
-    const pageCursor = document.getElementById("browser-cursor");
-    if (pageCursor) {
-      pageCursor.style.left = "40px";
-      pageCursor.style.top = "56px";
-    }
-    browserStatus.textContent = "Status: Pointing to LinkedIn result link...";
-  }, 2200);
-
-  setTimeout(() => {
-    const link = document.getElementById("google-linkedin-link");
-    const pageCursor = document.getElementById("browser-cursor");
-    if (link && pageCursor) {
-      link.style.color = "#551a8b"; // clicked color
-      pageCursor.style.transform = "scale(0.8)";
-      browserStatus.textContent = "Status: Navigating link (Click event)...";
-      appendAgentLog(`🤖 <em>[CRAWLER]</em> Opening link: <em>linkedin.com/in/${contact.firstName.toLowerCase()}</em>`);
-    }
-  }, 3000);
-
-  // --- STAGE 2: LinkedIn Crawl ---
-  setTimeout(() => {
-    browserUrl.value = `https://www.linkedin.com/in/${contact.firstName.toLowerCase()}-${contact.lastName.toLowerCase()}`;
-    browserStatus.textContent = "Status: Crawling LinkedIn profile via Firecrawl...";
-    
-    const initials = contact.fullName.split(" ").map(n => n[0]).join("");
-    
-    // Load mock LinkedIn page
-    browserViewport.innerHTML = `
-      <div class="linkedin-profile-mock">
-        <div class="linkedin-header-card">
-          <div class="linkedin-banner"></div>
-          <div class="linkedin-avatar-row">
-            <div class="linkedin-avatar-mock">${initials}</div>
-            <button class="linkedin-connect-btn">Connect</button>
-          </div>
-          <div class="linkedin-info-row">
-            <div class="linkedin-name">${contact.fullName}</div>
-            <div class="linkedin-headlineHighlighted highlighted-attribute" style="padding:2px 4px; border-radius:4px; font-size:12px; color:#191919;">${contact.jobTitle} at ${contact.company}</div>
-            <div class="linkedin-location" style="font-size:11px; color:#8c8c8c; margin-top:4px;">Greater Detroit Area • Contact info</div>
-          </div>
-        </div>
-        <div class="linkedin-section-card">
-          <div class="linkedin-section-title" style="font-size:13px; font-weight:600; margin-bottom:8px;">Experience</div>
-          <div class="linkedin-experience-item">
-            <div class="experience-company-logo">CU</div>
-            <div class="experience-details">
-              <div class="experience-title" style="font-weight:600;">${contact.jobTitle}</div>
-              <div class="experience-company">${contact.company}</div>
-              <div class="experience-duration" style="font-size:11px; color:#8c8c8c;">2021 - Present (5 years)</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Connected to Firecrawl API. Parsing profile markdown elements...`);
-  }, 4200);
-
-  // Animate scroll LinkedIn page
-  setTimeout(() => {
-    const list = browserViewport.querySelector(".linkedin-profile-mock");
-    if (list) {
-      list.classList.add("scrolling-content");
-    }
-    browserStatus.textContent = "Status: Scrolling page to scrape experience and certifications...";
-  }, 5000);
-
-  // --- STAGE 3: Company Page Crawl ---
-  setTimeout(() => {
-    const cleanComp = contact.company.toLowerCase().replace(/[^a-z0-9]/g, '');
-    browserUrl.value = `https://www.${cleanComp}.com`;
-    browserStatus.textContent = "Status: Scraping company homepage...";
-    
-    // Load mock company website
-    browserViewport.innerHTML = `
-      <div class="browser-cursor" id="browser-cursor" style="position: absolute; width: 14px; height: 14px; background: rgba(204,120,92,0.8); border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.3); z-index: 100; pointer-events: none; transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94); left: 280px; top: 120px;"></div>
-      <div class="company-website-mock">
-        <div class="company-nav" style="height:36px; background:#1b263b; display:flex; align-items:center; justify-content:space-between; padding:0 12px;">
-          <div class="company-logo-text" style="font-weight:bold; font-size:12px; color:#ffffff;">${contact.company.toUpperCase()}</div>
-          <div class="company-nav-links" style="display:flex; gap:10px; font-size:11px;">
-            <span class="company-nav-link" style="color:#ffffff;">Home</span>
-            <span class="company-nav-link" id="company-about-link" style="color:#ffffff;">About Us</span>
-            <span class="company-nav-link" style="color:#ffffff;">Solutions</span>
-          </div>
-        </div>
-        <div class="company-hero" style="padding: 20px 10px; text-align: center;">
-          <h1 style="font-size:15px; color:#ffffff; margin-bottom:5px;">Secure Financial Database Infrastructure</h1>
-          <p style="font-size:11px; color:#a3b18a; line-height:1.4;">Powering compliance gatekeepers and query protections for credit union databases adopting generative LLMs.</p>
-        </div>
-        <div class="company-about-section" style="padding:15px 12px; background:#1b263b; border-top:1px solid #415a77;">
-          <div class="company-about-title" style="font-size:12px; font-weight:bold; color:#ffffff; margin-bottom:6px;">Our Core Mission</div>
-          <div class="company-about-text highlighted-attribute" style="font-size:11.5px; color:#e0e1dd; line-height:1.4;">
-            We focus on implementing query validations that prevent training leaks, unauthorized SQL calls, and credential exposures during LLM integrations.
-          </div>
-        </div>
-      </div>
-    `;
-
-    appendAgentLog(`🤖 <em>[PLANNER]</em> Accessing target company portal. Searching value statement tags.`);
-  }, 6200);
-
-  // Click nav button About Us
-  setTimeout(() => {
-    const pageCursor = document.getElementById("browser-cursor");
-    if (pageCursor) {
-      pageCursor.style.left = "180px";
-      pageCursor.style.top = "15px";
-    }
-  }, 6800);
-
-  setTimeout(() => {
-    const link = document.getElementById("company-about-link");
-    const list = browserViewport.querySelector(".company-website-mock");
-    if (link && list) {
-      link.classList.add("active-click");
-      list.classList.add("scrolling-content");
-      browserStatus.textContent = "Status: Clicking 'About Us' and scrolling company bio...";
-      appendAgentLog(`🤖 <em>[CRAWLER]</em> Extracted company bio text successfully.`);
-    }
-  }, 7500);
-
-  // --- STAGE 4: Synthesis & Output ---
-  setTimeout(async () => {
-    browserUrl.value = "https://google.com";
-    browserStatus.textContent = "Status: Browser Standby";
-    
-    // Reset view
-    browserViewport.innerHTML = `
-      <div class="browser-page-content" id="bpage-default" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;opacity:0.3;color:var(--muted);"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
-        <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; font-weight:600; text-align:center;">Browser Simulator Idle</div>
-        <div style="font-size:11.5px; text-align:center; max-width:260px; opacity:0.8; line-height:1.5;">The agent's browser will load Google, LinkedIn, and corporate websites here in real time.</div>
-      </div>
-    `;
-
-    appendAgentLog(`🤖 <em>[SYNTHESIZER]</em> Finalizing target dossier. Computing BANT hooks...`);
-
-    let finalReportHtml = "";
-
-    // Live LLM Generation if API key is present!
-    if (database.llmHelperKey) {
-      try {
-        const prompt = `Create a brief B2B Sales Prospect Dossier for ${contact.fullName}, ${contact.jobTitle} at ${contact.company}.
+Analyze the web search results and write a structured sales research dossier. Format your response in clean HTML tags (such as <strong>, <em>, <br>, <ul>, <li>). Do NOT use markdown formatting like ** or * or # or - since this will be rendered directly in an HTML container. Use clean headers (e.g. <h3>) instead.
 Provide:
-1. Executive Summary (2 sentences max).
-2. 3 Personalized outbound outreach hook angles focusing on secure LLM query guardrails for credit unions.
-3. Recommended email subject line.
-Format in simple markdown.`;
+1. Executive Background (Who they are, past experience).
+2. Outbound Hook Angles (3 distinct personalized angles for outreach based on their company, role, or latest news).
+3. Recommended Outbound Subject Line.
+`;
 
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${database.llmHelperKey}`
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }]
-          })
-        });
-        
-        if (response.ok) {
-          const json = await response.json();
-          const mdText = json.choices[0].message.content;
-          finalReportHtml = mdText.replace(/\n/g, "<br>");
+    const requestBody = {
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemInstruction}\n\nUser Question/Instruction: ${queryToRun}` }]
         }
-      } catch(e) {
-        console.error(e);
+      ]
+    };
+
+    if (enableSearch) {
+      requestBody.tools = [
+        {
+          googleSearch: {} // Grounding
+        }
+      ];
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+    }
+
+    const resJson = await response.json();
+    const candidate = resJson.candidates && resJson.candidates[0];
+    if (!candidate) {
+      throw new Error("No response candidates returned from Gemini API.");
+    }
+
+    let finalReportHtml = candidate.content.parts[0].text;
+    // Replace any leftover markdown styles just in case
+    finalReportHtml = finalReportHtml
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+      .replace(/## (.*?)\n/g, '<h2>$1</h2>')
+      .replace(/\n/g, '<br>');
+
+    const groundingMetadata = candidate.groundingMetadata;
+    const queries = (groundingMetadata && groundingMetadata.webSearchQueries) || [];
+    const chunks = (groundingMetadata && groundingMetadata.groundingChunks) || [];
+
+    // Begin animated browser simulation based on actual results!
+    if (queries.length > 0) {
+      appendAgentLog(`🤖 <em>[PLANNER]</em> Initiated Google search queries: <em>${queries.join(", ")}</em>`);
+    } else {
+      appendAgentLog(`🤖 <em>[PLANNER]</em> Analyzing local context and profile history...`);
+    }
+
+    let step = 0;
+    
+    // Define helper to simulate browser pages
+    const runSimulationStep = () => {
+      if (step >= Math.max(queries.length, chunks.length, 1)) {
+        // Finish simulation, output response!
+        database.agentRunning = false;
+        browserUrl.value = "https://google.com";
+        browserStatus.textContent = "Status: Browser Standby";
+        browserViewport.innerHTML = `
+          <div class="browser-page-content" id="bpage-default" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;opacity:0.3;color:var(--muted);"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+            <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; font-weight:600; text-align:center;">Browser Simulator Idle</div>
+            <div style="font-size:11.5px; text-align:center; max-width:260px; opacity:0.8; line-height:1.5;">The agent's browser will load Google, LinkedIn, and corporate websites here in real time.</div>
+          </div>
+        `;
+        appendAgentLog(`🤖 Live Web Scraping Task Complete!<br><br>${finalReportHtml}`);
+        return;
       }
-    }
 
-    if (!finalReportHtml) {
-      // Fallback templated report
-      finalReportHtml = `
-      <strong>### 📋 Target Dossier: ${contact.fullName}</strong><br>
-      <strong>Role</strong>: ${contact.jobTitle} at ${contact.company}<br>
-      <strong>Lead Score</strong>: ${contact.matchPercentage}% (${contact.leadTemp})<br><br>
-      <strong>Executive Summary</strong>:<br>
-      B2B technology leader focusing on regional banking security. Currently managing the adoption of generative database tools at ${contact.company}.<br><br>
-      <strong>Personalized Outreach Hook Angles</strong>:<br>
-      1. <strong>The Compliance Angle</strong>: Connect secure SQL guardrails directly to their recent credit union data-sharing policies.<br>
-      2. <strong>The LLM Gatekeeper Angle</strong>: Offer a blueprint for wrapping secure validation filters around database models to prevent leaks of financial attributes.<br>
-      3. <strong>The SymWest Connection</strong>: Reference their presence at financial tech roundtables to book a discovery call.<br><br>
-      <strong>Suggested Outbound Subject</strong>:<br>
-      <em>Outbound briefing: Database guardrails for ${contact.company}</em>
-      `;
-    }
+      // If we are performing searches
+      if (queries[step]) {
+        const query = queries[step];
+        browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        browserStatus.textContent = `Status: Searching Google for "${query}"...`;
+        
+        // Render a search result page
+        let resultsHtml = "";
+        chunks.slice(0, 3).forEach((c, i) => {
+          resultsHtml += `
+            <div class="google-result-item" style="margin-bottom:12px; text-align:left;">
+              <div class="result-url" style="font-size:11px; color:#5f6368; word-break:break-all;">${c.web.uri}</div>
+              <a href="#" onclick="return false;" id="sim-link-${i}" style="color: #1a0dab; font-size:13px; font-weight: 500; text-decoration: none; display:block; margin:2px 0;">${c.web.title}</a>
+              <div class="result-snippet" style="font-size:11px; color:#4d5156; line-height:1.4;">Grounding resource compiled by search agent for ${contact.fullName}.</div>
+            </div>
+          `;
+        });
 
-    appendAgentLog(`🤖 Live Web Scraping Task Complete!<br><br>${finalReportHtml}`);
-  }, 9200);
+        browserViewport.innerHTML = `
+          <div class="browser-cursor" id="browser-cursor" style="position: absolute; width: 14px; height: 14px; background: rgba(204,120,92,0.8); border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.3); z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
+          <div class="google-search-mock" style="padding:15px; background:#ffffff; height:100%; overflow-y:auto; font-family:sans-serif;">
+            <div class="google-logo-sm" style="font-size:16px; font-weight:bold; margin-bottom:12px; color:#4285F4;">
+              <span style="color:#4285F4;">G</span><span style="color:#EA4335;">o</span><span style="color:#FBBC05;">o</span><span style="color:#4285F4;">g</span><span style="color:#34A853;">l</span><span style="color:#EA4335;">e</span>
+            </div>
+            ${resultsHtml || `<div style="font-size:12px; color:var(--muted)">No instant results returned. Indexing...</div>`}
+          </div>
+        `;
+
+        appendAgentLog(`🤖 <em>[CRAWLER]</em> Scanning search index for query: <em>${query}</em>`);
+        
+        // Animate pointer to first result and click
+        setTimeout(() => {
+          const cursorEl = document.getElementById("browser-cursor");
+          if (cursorEl) {
+            cursorEl.style.left = "40px";
+            cursorEl.style.top = "70px";
+          }
+        }, 800);
+
+        setTimeout(() => {
+          const link = document.getElementById("sim-link-0");
+          if (link) link.style.color = "#551a8b"; // Purple click state
+          browserStatus.textContent = "Status: Clicking search reference link...";
+        }, 1600);
+
+        // Move to crawl the website of the chunk in the next micro-step
+        setTimeout(() => {
+          if (chunks[step]) {
+            const chunk = chunks[step];
+            const urlStr = chunk.web.uri;
+            const titleStr = chunk.web.title;
+            browserUrl.value = urlStr;
+            browserStatus.textContent = `Status: Crawling page: ${urlStr}...`;
+            
+            appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Crawling reference: <em>${urlStr}</em>`);
+
+            // If it is LinkedIn
+            if (urlStr.includes("linkedin.com")) {
+              const initials = contact.fullName.split(" ").map(n => n[0]).join("");
+              browserViewport.innerHTML = `
+                <div class="linkedin-profile-mock" style="font-family:sans-serif; text-align:left; background:#f3f6f8; height:100%; overflow-y:auto;">
+                  <div class="linkedin-header-card" style="background:#ffffff; border-bottom:1px solid #e0e0e0; padding-bottom:12px;">
+                    <div class="linkedin-banner" style="height:45px; background:linear-gradient(90deg, #a0b2c6, #cbd5e1);"></div>
+                    <div class="linkedin-avatar-row" style="display:flex; justify-content:space-between; padding: 0 12px; margin-top:-20px;">
+                      <div class="linkedin-avatar-mock" style="width:40px; height:40px; background:#0077b5; border-radius:50%; border:2.5px solid #ffffff; display:flex; align-items:center; justify-content:center; color:#ffffff; font-weight:bold; font-size:13px;">${initials}</div>
+                      <button style="background:#0077b5; color:#ffffff; border:none; padding:4px 8px; border-radius:12px; font-size:10px; font-weight:bold; height:22px; cursor:pointer; align-self:flex-end;">Connect</button>
+                    </div>
+                    <div class="linkedin-info-row" style="padding:8px 12px;">
+                      <div class="linkedin-name" style="font-weight:bold; font-size:13px; color:#191919;">${contact.fullName}</div>
+                      <div style="font-size:10.5px; color:#5e5e5e; margin-top:2px;">${contact.jobTitle} at ${contact.company}</div>
+                      <div style="font-size:9.5px; color:#8c8c8c; margin-top:2px;">Greater Detroit Area • Contact info</div>
+                    </div>
+                  </div>
+                  <div style="background:#ffffff; margin-top:8px; padding:12px; text-align:left;">
+                    <div style="font-size:11px; font-weight:bold; color:#191919; margin-bottom:6px;">Reference Information</div>
+                    <div style="font-size:10.5px; color:#5e5e5e; line-height:1.4;">${titleStr}</div>
+                  </div>
+                </div>
+              `;
+            } else {
+              // Corporate page or blog
+              browserViewport.innerHTML = `
+                <div style="font-family:sans-serif; text-align:left; background:#f8f9fa; height:100%; overflow-y:auto;">
+                  <div style="background:#1b263b; color:#ffffff; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:bold; font-size:11px;">${contact.company.toUpperCase()}</div>
+                    <div style="font-size:9px; opacity:0.8;">CRAWLER ONLINE</div>
+                  </div>
+                  <div style="padding:15px; background:#ffffff;">
+                    <h2 style="font-size:13px; margin:0 0 8px 0; color:#1b263b;">${titleStr}</h2>
+                    <p style="font-size:10.5px; color:#4a4a4a; line-height:1.45;">
+                      Scraping company index portals. Targeting data-protection triggers, CRM alignments, and campaign tags. Value propositions captured from public anchors.
+                    </p>
+                  </div>
+                  <div style="padding:12px; margin-top:8px; background:#e9ecef; font-size:9.5px; color:#6c757d; word-break:break-all;">
+                    Source: ${urlStr}
+                  </div>
+                </div>
+              `;
+            }
+
+            step++;
+            setTimeout(runSimulationStep, 2000);
+          } else {
+            step++;
+            runSimulationStep();
+          }
+        }, 2200);
+
+      } else {
+        step++;
+        runSimulationStep();
+      }
+    };
+
+    // Run first step
+    setTimeout(runSimulationStep, 1500);
+
+  } catch (err) {
+    console.error(err);
+    database.agentRunning = false;
+    browserStatus.textContent = "Status: Search Grounding Failed";
+    appendAgentLog(`❌ <strong>Execution Failed!</strong><br>
+    Unable to query Gemini API. Reason: <em>${err.message}</em><br><br>
+    Please ensure your API Key is valid and that you have a stable network connection.`);
+  }
 }
 
 function appendAgentLog(message) {
