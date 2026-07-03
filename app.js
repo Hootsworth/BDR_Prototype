@@ -70,9 +70,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const settingsOpenAIInput = document.getElementById("settings-key-openai");
   if (settingsOpenAIInput) settingsOpenAIInput.value = database.llmHelperKey;
 
-  database.lemlistApiKey = localStorage.getItem("gtm_key_lemlist") || "";
-  const settingsLemlistInput = document.getElementById("settings-key-lemlist");
-  if (settingsLemlistInput) settingsLemlistInput.value = database.lemlistApiKey;
+  database.lemlistMcpCommand = localStorage.getItem("gtm_lemlist_mcp_command") || "npx";
+  database.lemlistMcpArgs = localStorage.getItem("gtm_lemlist_mcp_args") || "mcp-remote https://app.lemlist.com/mcp";
+  
+  const settingsLemlistCmdInput = document.getElementById("settings-lemlist-mcp-command");
+  if (settingsLemlistCmdInput) settingsLemlistCmdInput.value = database.lemlistMcpCommand;
+  
+  const settingsLemlistArgsInput = document.getElementById("settings-lemlist-mcp-args");
+  if (settingsLemlistArgsInput) settingsLemlistArgsInput.value = database.lemlistMcpArgs;
 
   // Render initial keys state
   checkEnrichButtonState();
@@ -901,11 +906,14 @@ function syncOpenAIKeyFromSettings() {
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated from Settings.`, "system");
 }
 
-function saveLemlistKey() {
-  const val = document.getElementById("settings-key-lemlist").value.trim();
-  database.lemlistApiKey = val;
-  localStorage.setItem("gtm_key_lemlist", val);
-  addLogConsole("enrich", `[SYSTEM] Lemlist API credential updated in Settings.`, "system");
+function saveLemlistMcpConfig() {
+  const cmd = document.getElementById("settings-lemlist-mcp-command").value.trim();
+  const args = document.getElementById("settings-lemlist-mcp-args").value.trim();
+  database.lemlistMcpCommand = cmd;
+  database.lemlistMcpArgs = args;
+  localStorage.setItem("gtm_lemlist_mcp_command", cmd);
+  localStorage.setItem("gtm_lemlist_mcp_args", args);
+  addLogConsole("enrich", `[SYSTEM] Lemlist MCP config updated in Settings.`, "system");
 }
 
 function checkEnrichButtonState() {
@@ -2656,11 +2664,11 @@ Provide:
 
     // Automated Lemlist Sync Step (with active Sandbox Guardrails)
     const runLemlistSyncStep = () => {
-      browserUrl.value = "https://api.lemlist.com/v1/campaigns/";
+      browserUrl.value = "https://app.lemlist.com/mcp";
       updateBrowserStep("target-step-6", "completed");
       updateBrowserStep("target-step-7", "running");
-      if (loaderSubtitle) loaderSubtitle.textContent = "Syncing sequence queue to Lemlist API...";
-      if (readingTitle) readingTitle.textContent = "Lemlist API Queue";
+      if (loaderSubtitle) loaderSubtitle.textContent = "Syncing sequence queue via Lemlist MCP...";
+      if (readingTitle) readingTitle.textContent = "Lemlist MCP Client";
 
       const templateName = contact.leadTemp === "Hot Lead" ? "fintech_cto_llm" : "general_gtm";
       const subjectLine = contact.emailDraft ? contact.emailDraft.subject : `Outbound Campaign`;
@@ -2673,19 +2681,22 @@ Provide:
       browserViewport.innerHTML = `
         <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
         <div style="font-family:monospace; text-align:left; background:#1e1e1e; color:#a6accd; height:100%; padding:15px; font-size:11px; overflow-y:auto; line-height:1.45;">
-          <div style="color:#c792ea; margin-bottom:8px;">&gt; lemlist-sync --prospect "${contact.email || "N/A"}" --sequence "${templateName}"</div>
-          <div style="color:#c3e88d;">[INFO] Checking Lemlist configuration...</div>
-          <div style="color:#f78c6c;">[WARN] Lemlist API Key verified: ${database.lemlistApiKey ? "YES" : "MOCK_MODE"}</div>
-          <div style="color:#c3e88d;">[INFO] Enrolling lead in outbound drip campaign...</div>
-          <div style="color:#82aaff; margin-left:10px;">Sequence ID: lemlist_${templateName}</div>
-          <div style="color:#82aaff; margin-left:10px;">Subject Line: "${subjectLine}"</div>
-          <div style="color:#ffcb6b; margin-top:8px;">[GUARDRAIL ACTIVE] Enrollment placed in 'DRAFT_REVIEW_ONLY'.</div>
-          <div style="color:#ffcb6b;">[GUARDRAIL ACTIVE] Direct email dispatcher is BLOCKED in Sandbox Mode.</div>
-          <div style="color:#c3e88d; font-weight:bold; margin-top:10px;">[SUCCESS] Synchronized prospect sequences successfully!</div>
+          <div style="color:#c792ea; margin-bottom:8px;">&gt; ${database.lemlistMcpCommand || 'npx'} ${database.lemlistMcpArgs || 'mcp-remote https://app.lemlist.com/mcp'}</div>
+          <div style="color:#c3e88d;">[INFO] Initializing Lemlist MCP connection...</div>
+          <div style="color:#c3e88d;">[INFO] Sending JSON-RPC handshake 'initialize' request...</div>
+          <div style="color:#82aaff;">[SUCCESS] MCP connection established with Lemlist Server.</div>
+          <div style="color:#c3e88d;">[INFO] Fetching tools list...</div>
+          <div style="color:#82aaff;">[SUCCESS] Mapped tools: 'lemlist_add_contact_to_campaign', 'lemlist_create_draft'</div>
+          <div style="color:#c3e88d;">[INFO] Invoking MCP tool: 'lemlist_add_contact_to_campaign'</div>
+          <div style="color:#82aaff; margin-left:10px;">Method: 'tools/call'</div>
+          <div style="color:#82aaff; margin-left:10px;">Arguments: { email: "${contact.email || 'N/A'}", campaign: "${templateName}" }</div>
+          <div style="color:#ffcb6b; margin-top:8px;">[GUARDRAIL ACTIVE] MCP Sync placed sequence in 'DRAFT_REVIEW' state.</div>
+          <div style="color:#ffcb6b;">[GUARDRAIL ACTIVE] Direct email sending is disabled in Sandbox.</div>
+          <div style="color:#c3e88d; font-weight:bold; margin-top:10px;">[SUCCESS] Lemlist MCP Sync complete. Response 200 OK.</div>
         </div>
       `;
 
-      appendAgentLog(`🤖 <em>[LEMLIST]</em> Synced campaign to sequence queue <strong>#lemlist_${templateName}</strong> (Guardrails active: email blocked in draft).`);
+      appendAgentLog(`🤖 <em>[LEMLIST MCP]</em> Enrolled campaign to sequence via Lemlist MCP tool <strong>'lemlist_add_contact_to_campaign'</strong>.`);
 
       setTimeout(() => {
         // Complete the entire sequence!
@@ -3080,7 +3091,12 @@ function renderLemlistSandbox(viewport) {
   viewport.innerHTML = `
     <div style="text-align:left;">
       <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">⚡ Lemlist Campaigns Dashboard</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">View prospective sequences pushed from GTM Console. Total Pushed: <strong>${enrolled.length}</strong>. Direct dispatch is locked under review guardrails.</p>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">View prospective sequences pushed from GTM Console. Total Pushed: <strong>${enrolled.length}</strong>. Direct dispatch is locked under review guardrails.</p>
+      
+      <div style="background:#f8f9fa; border:1px solid var(--hairline); border-radius: var(--radius-sm); padding:10px 14px; margin-bottom:16px; font-size:11.5px; text-align:left;">
+        <span style="font-weight:600; color:var(--ink);">Active MCP Server:</span> <code>${database.lemlistMcpCommand} ${database.lemlistMcpArgs}</code>
+      </div>
+
       <table style="width:100%; border-collapse:collapse; font-size:12px;">
         <thead>
           <tr style="background:var(--surface-soft); text-align:left; border-bottom:1.5px solid var(--hairline);">
