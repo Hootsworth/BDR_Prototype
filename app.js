@@ -15,19 +15,19 @@ let database = {
   currentLinkedinPage: 1,
   currentCallPage: 1,
   pageSize: 15,          // Pagination size for performant table rendering
-  
+
   // Events database
   events: {
     gac_dinner: [],      // Attendees for GAC Dinner
     symwest_booth: [],   // Attendees for SymWest Booth
     executive_meetup: [] // Custom registered attendees
   },
-  
+
   // Agent mode state
   agentRunning: false,
   agentNodeIndex: 0,
   agentTimer: null,
-  
+
   // Statistics
   stats: {
     emailsSent: 0,
@@ -48,22 +48,22 @@ document.addEventListener("DOMContentLoaded", () => {
   database.geminiApiKey = localStorage.getItem("gtm_key_gemini") || "";
   database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-2.5-flash";
   database.geminiSearchGrounding = localStorage.getItem("gtm_gemini_search_grounding") !== "false";
-  
+
   const exploriumInput = document.getElementById("key-explorium");
   if (exploriumInput) exploriumInput.value = database.exploriumApiKey;
-  
+
   const llmInput = document.getElementById("key-llm-helper");
   if (llmInput) llmInput.value = database.llmHelperKey;
 
   const geminiInput = document.getElementById("key-gemini");
   if (geminiInput) geminiInput.value = database.geminiApiKey;
-  
+
   const geminiModelSelect = document.getElementById("select-gemini-model");
   if (geminiModelSelect) geminiModelSelect.value = database.geminiModel;
 
   const geminiSearchCheckbox = document.getElementById("toggle-gemini-search");
   if (geminiSearchCheckbox) geminiSearchCheckbox.checked = database.geminiSearchGrounding;
-  
+
   const settingsExploriumInput = document.getElementById("settings-key-explorium");
   if (settingsExploriumInput) settingsExploriumInput.value = database.exploriumApiKey;
 
@@ -73,13 +73,13 @@ document.addEventListener("DOMContentLoaded", () => {
   database.lemlistApiKey = localStorage.getItem("gtm_key_lemlist") || "";
   const settingsLemlistInput = document.getElementById("settings-key-lemlist");
   if (settingsLemlistInput) settingsLemlistInput.value = database.lemlistApiKey;
-  
+
   // Render initial keys state
   checkEnrichButtonState();
 
   // If URL hash or default is set, open it
   switchTab('import');
-  
+
   // Check for auto loading in local storage
   const savedData = localStorage.getItem("gtm_cached_database");
   if (savedData) {
@@ -88,16 +88,16 @@ document.addEventListener("DOMContentLoaded", () => {
       database.contacts = parsed.contacts || [];
       database.events = parsed.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
       database.stats = parsed.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
-      
+
       if (database.contacts.length > 0) {
         initLoadedData();
         addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} cached contacts from LocalStorage.`, "info");
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Error reading cached db", e);
     }
   }
-  
+
   // Dynamically load Clerk Auth SDK using active configuration
   loadClerkSDK();
 });
@@ -171,7 +171,7 @@ function updateHeader(tabId) {
   const subtitleEl = document.getElementById("active-panel-subtitle");
   if (!titleEl || !subtitleEl) return;
 
-  switch(tabId) {
+  switch (tabId) {
     case 'import':
       titleEl.textContent = "Import Contacts";
       subtitleEl.textContent = "Upload manual CSV or load target database of credit union accounts.";
@@ -217,7 +217,7 @@ function updateHeader(tabId) {
       subtitleEl.textContent = "Manage API configurations, model selection, and credentials for autonomous agents.";
       break;
   }
-  
+
   // Render general system metrics in header status bar
   updateSystemStatusDot();
 }
@@ -279,7 +279,7 @@ function parseCSV(text) {
 
   for (let i = 0; i < text.length; i++) {
     let c = text[i];
-    let next = text[i+1];
+    let next = text[i + 1];
     if (c === '"') {
       if (inQuotes && next === '"') {
         row[row.length - 1] += '"';
@@ -317,7 +317,7 @@ function processCSVLines(lines) {
   if (lines.length < 2) return [];
   let headers = lines[0].map(h => h.trim());
   let records = [];
-  
+
   // Column matching
   let firstIdx = headers.indexOf("First Name");
   let lastIdx = headers.indexOf("Last Name");
@@ -342,7 +342,7 @@ function processCSVLines(lines) {
   for (let i = 1; i < lines.length; i++) {
     let row = lines[i];
     if (row.length < 3) continue; // skip incomplete rows
-    
+
     let first = firstIdx !== -1 && firstIdx < row.length ? row[firstIdx] : "";
     let last = lastIdx !== -1 && lastIdx < row.length ? row[lastIdx] : "";
     let email = emailIdx !== -1 && emailIdx < row.length ? row[emailIdx] : "";
@@ -403,15 +403,15 @@ function handleCSVFileUpload(event) {
   if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--primary)">Reading local file: ${file.name}...</span>`;
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = function (e) {
     const text = e.target.result;
     const lines = parseCSV(text);
     const parsed = processCSVLines(lines);
-    
+
     database.contacts = parsed;
     initLoadedData();
     saveDatabaseCache();
-    
+
     addLogConsole("enrich", `[SYSTEM] Uploaded ${parsed.length} contacts from ${file.name}.`, "success");
   };
   reader.readAsText(file);
@@ -435,7 +435,7 @@ function initLoadedData() {
   // Load events attendees from original CSV columns
   database.events.gac_dinner = database.contacts.filter(c => c.attendedDinner && c.attendedDinner.toLowerCase().includes("attended") || c.attendedDinner.trim() !== "");
   database.events.symwest_booth = database.contacts.filter(c => c.visitedBooth && c.visitedBooth.toLowerCase().includes("visited") || c.visitedBooth.toLowerCase().includes("yes") || c.visitedBooth.trim() !== "");
-  
+
   // Calculate default matching parameters (unenriched)
   database.contacts.forEach(c => {
     // Basic assignment
@@ -447,13 +447,13 @@ function initLoadedData() {
   database.currentEmailPage = 1;
   database.currentLinkedinPage = 1;
   database.currentCallPage = 1;
-  
+
   // Enable enrich button
   checkEnrichButtonState();
-  
+
   // Update stats summary text
   updateStatsSummaryText();
-  
+
   // Render tables
   filterImportTable();
   updateSystemStatusDot();
@@ -462,7 +462,7 @@ function initLoadedData() {
 function updateStatsSummaryText() {
   const summaryEl = document.getElementById("import-stats-summary");
   if (!summaryEl) return;
-  
+
   const total = database.contacts.length;
   const enriched = database.contacts.filter(c => c.enriched).length;
   summaryEl.innerHTML = `<strong>Total Records:</strong> ${total.toLocaleString()} | <strong>Enriched:</strong> ${enriched.toLocaleString()}`;
@@ -475,7 +475,7 @@ function saveDatabaseCache() {
       events: database.events,
       stats: database.stats
     }));
-  } catch(e) {
+  } catch (e) {
     console.warn("LocalStorage quota exceeded, caching stats and event configurations only.", e);
     try {
       localStorage.setItem("gtm_cached_database", JSON.stringify({
@@ -483,7 +483,7 @@ function saveDatabaseCache() {
         events: database.events,
         stats: database.stats
       }));
-    } catch(err) {
+    } catch (err) {
       console.error("Failed to save even basic configurations to LocalStorage", err);
     }
   }
@@ -502,22 +502,22 @@ function getFilteredData(dataArray, searchId, industryId, sourceId, leadTempId, 
     // Search match (name, company, title, email)
     if (searchVal) {
       const matchSearch = c.fullName.toLowerCase().includes(searchVal) ||
-                          c.company.toLowerCase().includes(searchVal) ||
-                          c.jobTitle.toLowerCase().includes(searchVal) ||
-                          c.email.toLowerCase().includes(searchVal);
+        c.company.toLowerCase().includes(searchVal) ||
+        c.jobTitle.toLowerCase().includes(searchVal) ||
+        c.email.toLowerCase().includes(searchVal);
       if (!matchSearch) return false;
     }
-    
+
     // Industry match
     if (indVal) {
       if (!c.industry.toLowerCase().includes(indVal.toLowerCase())) return false;
     }
-    
+
     // Source match
     if (srcVal) {
       if (c.sourceFile !== srcVal) return false;
     }
-    
+
     // Lead temp match
     if (tempVal) {
       if (c.leadTemp !== tempVal) return false;
@@ -565,7 +565,7 @@ function filterImportTable() {
 function changeImportPage(page) {
   database.currentImportPage = page;
   const pageData = paginateData(database.filteredImport, page, "import-pagination", "changeImportPage");
-  
+
   const tbody = document.getElementById("table-import-body");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -599,7 +599,7 @@ function filterInfluencersTable() {
 function changeInfluencersPage(page) {
   database.currentInfluencersPage = page;
   const pageData = paginateData(database.filteredInfluencers, page, "influencers-pagination", "changeInfluencersPage");
-  
+
   const tbody = document.getElementById("table-influencers-body");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -613,7 +613,7 @@ function changeInfluencersPage(page) {
     const tr = document.createElement("tr");
     const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
     const matchClass = c.matchPercentage < 80 ? "low" : "";
-    
+
     tr.innerHTML = `
       <td><strong>${c.fullName}</strong></td>
       <td>${c.jobTitle}</td>
@@ -658,7 +658,7 @@ async function sendUploadsChatMessage() {
   input.value = "";
 
   appendUploadsMessage("user", query);
-  
+
   // Show loading
   const loadingId = appendUploadsMessage("bot", "Analyzing data, please hold...", true);
 
@@ -699,12 +699,12 @@ async function processUploadsQuery(query) {
   }
 
   const q = query.toLowerCase();
-  
+
   // 1. Total records count
   if (q.includes("how many total") || q.includes("total contacts") || q.includes("how many contacts") || q.includes("how many rows")) {
     return `There are exactly <strong>${database.contacts.length.toLocaleString()}</strong> contacts loaded in the active GTM pipeline database.`;
   }
-  
+
   // 2. CIO/CTO/IT roles filter
   if (q.includes("cio") || q.includes("cto") || q.includes("it director") || q.includes("project manager") || q.includes("vp of tech") || q.includes("job title")) {
     const cios = database.contacts.filter(c => {
@@ -722,8 +722,8 @@ async function processUploadsQuery(query) {
       counts[ind] = (counts[ind] || 0) + 1;
     });
     let result = "<strong>Target Industry Distribution:</strong><br><br>";
-    Object.keys(counts).sort((a,b) => counts[b] - counts[a]).slice(0, 5).forEach(k => {
-      result += `- <strong>${k}:</strong> ${counts[k].toLocaleString()} contacts (${((counts[k]/database.contacts.length)*100).toFixed(1)}%)<br>`;
+    Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5).forEach(k => {
+      result += `- <strong>${k}:</strong> ${counts[k].toLocaleString()} contacts (${((counts[k] / database.contacts.length) * 100).toFixed(1)}%)<br>`;
     });
     return result;
   }
@@ -744,10 +744,10 @@ async function processUploadsQuery(query) {
     const avg = assets.reduce((sum, val) => sum + val, 0) / assets.length;
     const maxVal = Math.max(...assets);
 
-    return `Calculated asset size parameters for target organizations:<br><br>` + 
-           `- <strong>Reporting contacts:</strong> ${assets.length.toLocaleString()} companies<br>` + 
-           `- <strong>Average asset size:</strong> $${Math.round(avg).toLocaleString()}<br>` + 
-           `- <strong>Max asset organization:</strong> $${maxVal.toLocaleString()}`;
+    return `Calculated asset size parameters for target organizations:<br><br>` +
+      `- <strong>Reporting contacts:</strong> ${assets.length.toLocaleString()} companies<br>` +
+      `- <strong>Average asset size:</strong> $${Math.round(avg).toLocaleString()}<br>` +
+      `- <strong>Max asset organization:</strong> $${maxVal.toLocaleString()}`;
   }
 
   // 5. States density
@@ -760,7 +760,7 @@ async function processUploadsQuery(query) {
       }
     });
 
-    const sortedStates = Object.keys(states).sort((a,b) => states[b] - states[a]);
+    const sortedStates = Object.keys(states).sort((a, b) => states[b] - states[a]);
     if (sortedStates.length === 0) {
       return "No geographical state properties found in the current sheet columns.";
     }
@@ -775,8 +775,8 @@ async function processUploadsQuery(query) {
   // 6. Attended dinners / Visited booth
   if (q.includes("attended") || q.includes("dinner") || q.includes("booth") || q.includes("visited")) {
     return `<strong>Campaign Event Attendees Analysis:</strong><br><br>` +
-           `- <strong>GAC 2023 Dinner Attendees:</strong> ${database.events.gac_dinner.length} contacts mapped.<br>` +
-           `- <strong>SymWest 2026 Booth Visitors:</strong> ${database.events.symwest_booth.length} contacts mapped.`;
+      `- <strong>GAC 2023 Dinner Attendees:</strong> ${database.events.gac_dinner.length} contacts mapped.<br>` +
+      `- <strong>SymWest 2026 Booth Visitors:</strong> ${database.events.symwest_booth.length} contacts mapped.`;
   }
 
   // 7. General fallback: Ask LLM helper if configured
@@ -784,9 +784,9 @@ async function processUploadsQuery(query) {
     try {
       const summary = {
         totalRecords: database.contacts.length,
-        topIndustries: Object.entries(database.contacts.reduce((acc, c) => ({...acc, [c.industry]: (acc[c.industry] || 0) + 1}), {})).sort((a,b)=>b[1]-a[1]).slice(0,3),
-        topJobTitles: Object.entries(database.contacts.reduce((acc, c) => ({...acc, [c.jobTitle]: (acc[c.jobTitle] || 0) + 1}), {})).sort((a,b)=>b[1]-a[1]).slice(0,5),
-        sampleStates: Object.keys(database.contacts.reduce((acc, c) => ({...acc, [c.state]: 1}), {})).slice(0,8).filter(Boolean)
+        topIndustries: Object.entries(database.contacts.reduce((acc, c) => ({ ...acc, [c.industry]: (acc[c.industry] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).slice(0, 3),
+        topJobTitles: Object.entries(database.contacts.reduce((acc, c) => ({ ...acc, [c.jobTitle]: (acc[c.jobTitle] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).slice(0, 5),
+        sampleStates: Object.keys(database.contacts.reduce((acc, c) => ({ ...acc, [c.state]: 1 }), {})).slice(0, 8).filter(Boolean)
       };
 
       const prompt = `You are a helpful B2B data analyst. You are answering a question about a GTM prospect list.
@@ -823,7 +823,7 @@ Write a natural, helpful, and concise response in markdown table/bullet form dir
         console.error(error);
         return `[LLM Error] API request returned status ${response.status}. Falling back to default list diagnostics.`;
       }
-    } catch(err) {
+    } catch (err) {
       console.error(err);
       return `Failed to invoke the LLM integration for custom querying. Check your network or API key configs.`;
     }
@@ -838,10 +838,10 @@ function saveExploriumKey() {
   const val = document.getElementById("key-explorium").value.trim();
   database.exploriumApiKey = val;
   localStorage.setItem("gtm_key_explorium", val);
-  
+
   const settingsInput = document.getElementById("settings-key-explorium");
   if (settingsInput) settingsInput.value = val;
-  
+
   checkEnrichButtonState();
   addLogConsole("enrich", `[SYSTEM] Explorium / AgentSource credential updated.`, "system");
 }
@@ -850,10 +850,10 @@ function saveLLMHelperKey() {
   const val = document.getElementById("key-llm-helper").value.trim();
   database.llmHelperKey = val;
   localStorage.setItem("gtm_key_llm_helper", val);
-  
+
   const settingsInput = document.getElementById("settings-key-openai");
   if (settingsInput) settingsInput.value = val;
-  
+
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated.`, "system");
 }
 
@@ -882,10 +882,10 @@ function syncExploriumKeyFromSettings() {
   const val = document.getElementById("settings-key-explorium").value.trim();
   database.exploriumApiKey = val;
   localStorage.setItem("gtm_key_explorium", val);
-  
+
   const originalInput = document.getElementById("key-explorium");
   if (originalInput) originalInput.value = val;
-  
+
   checkEnrichButtonState();
   addLogConsole("enrich", `[SYSTEM] Explorium credential updated from Settings.`, "system");
 }
@@ -894,10 +894,10 @@ function syncOpenAIKeyFromSettings() {
   const val = document.getElementById("settings-key-openai").value.trim();
   database.llmHelperKey = val;
   localStorage.setItem("gtm_key_llm_helper", val);
-  
+
   const originalInput = document.getElementById("key-llm-helper");
   if (originalInput) originalInput.value = val;
-  
+
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated from Settings.`, "system");
 }
 
@@ -960,12 +960,12 @@ async function runDataEnrichment() {
   }
 
   addLogConsole("enrich", `[SYSTEM] Selected first ${contactsToEnrich.length} unenriched contacts for live processing.`, "info");
-  
+
   const apiBase = getApiBaseUrl();
 
   // Phase 1: Match prospects
   addLogConsole("enrich", `[API] POST /v1/prospects/match - Sending payload for matching...`, "info");
-  
+
   const prospectsToMatch = contactsToEnrich.map(c => ({
     email: c.email || "",
     full_name: c.fullName || "",
@@ -996,7 +996,7 @@ async function runDataEnrichment() {
     console.error(err);
     addLogConsole("enrich", `[API ERROR] Match API request failed: ${err.message}`, "error");
     addLogConsole("enrich", `[ABORT] Explorium match requests failed. Target contacts were NOT marked as enriched.`, "error");
-    
+
     // Reset loader state
     progressContainer.style.display = "none";
     btn.disabled = false;
@@ -1046,7 +1046,7 @@ async function runDataEnrichment() {
         console.error(err);
         addLogConsole("enrich", `[API ERROR] Bulk enrich request failed: ${err.message}`, "error");
         addLogConsole("enrich", `[ABORT] Bulk enrichment details request failed. Target contacts were NOT marked as enriched.`, "error");
-        
+
         // Reset loader state
         progressContainer.style.display = "none";
         btn.disabled = false;
@@ -1064,14 +1064,14 @@ async function runDataEnrichment() {
   // Phase 3: Update local database
   // Match results back to local records
   const enrichedRecords = enrichData ? (Array.isArray(enrichData) ? enrichData : (enrichData.results || enrichData.records || [])) : [];
-  
+
   contactsToEnrich.forEach((c) => {
     c.enriched = true;
     database.stats.enrichedCount++;
 
     // Try to find the matched record in the API response
     const apiRecord = enrichedRecords.find(r => r.prospect_id === c.prospectId);
-    
+
     if (apiRecord) {
       if (apiRecord.emails && apiRecord.emails.length > 0) {
         c.email = apiRecord.emails[0];
@@ -1085,7 +1085,7 @@ async function runDataEnrichment() {
 
     // High fidelity B2B fallbacks if API data is missing/failed, to guarantee clean data
     if (!c.phone) {
-      c.phone = `+1 (555) ${Math.floor(200 + Math.random()*700)}-${Math.floor(1000 + Math.random()*9000)}`;
+      c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
     const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
     c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
@@ -1114,7 +1114,7 @@ async function runDataEnrichment() {
   });
 
   saveDatabaseCache();
-  
+
   fill.style.width = "100%";
   label.textContent = "100% Complete";
 
@@ -1123,7 +1123,7 @@ async function runDataEnrichment() {
   setTimeout(() => {
     progressContainer.style.display = "none";
     btn.disabled = false;
-    
+
     // Reload all dependent views
     updateSystemStatusDot();
     updateStatsSummaryText();
@@ -1137,7 +1137,7 @@ function enrichDataRecords() {
 
     // 1. Generate phone if blank
     if (!c.phone) {
-      c.phone = `+1 (555) ${Math.floor(200 + Math.random()*700)}-${Math.floor(1000 + Math.random()*9000)}`;
+      c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
     // 2. Generate simulated LinkedIn URL
@@ -1168,7 +1168,7 @@ function enrichDataRecords() {
       c.leadTemp = "Cold Lead";
     }
   });
-  
+
   database.stats.enrichedCount = database.contacts.length;
 }
 
@@ -1218,7 +1218,7 @@ function loadEmailDrawer(contact) {
   database.selectedContact = contact;
   const drawer = document.getElementById("email-drawer");
   const body = document.getElementById("email-drawer-body");
-  
+
   if (!drawer || !body) return;
 
   drawer.style.transform = "translateX(0)";
@@ -1263,14 +1263,14 @@ function sendOutboundEmail() {
 
   const subject = document.getElementById("email-draft-subject").value;
   const body = document.getElementById("email-draft-body").value;
-  
+
   contact.emailDraft = { subject, body };
   contact.emailsSent = true;
   database.stats.emailsSent++;
 
   saveDatabaseCache();
   addLogConsole("enrich", `[OUTBOUND] Released email campaign to ${contact.email}`, "success");
-  
+
   // Reload
   filterEmailTable();
   loadEmailDrawer(contact);
@@ -1281,9 +1281,9 @@ function animateTextWordByWord(element, text, duration = 30) {
   // Split by whitespace but preserve it
   const tokens = text.split(/(\s+)/);
   let i = 0;
-  
+
   element.classList.add("animating-text");
-  
+
   function addNext() {
     if (i < tokens.length) {
       element.value += tokens[i];
@@ -1294,7 +1294,7 @@ function animateTextWordByWord(element, text, duration = 30) {
       element.classList.remove("animating-text");
     }
   }
-  
+
   addNext();
 }
 
@@ -1339,7 +1339,7 @@ Include subject line and email body in simple text format. Keep it under 4 sente
       if (response.ok) {
         const json = await response.json();
         const text = json.choices[0].message.content;
-        
+
         finalSubject = `Outbound briefing: ${contact.company}`;
         finalBody = text;
 
@@ -1350,7 +1350,7 @@ Include subject line and email body in simple text format. Keep it under 4 sente
           finalBody = subParts.slice(1).join("\n").trim();
         }
       }
-    } catch(err) {
+    } catch (err) {
       console.error(err);
     }
   }
@@ -1437,7 +1437,7 @@ function loadLinkedinDrawer(contact) {
   database.selectedContact = contact;
   const drawer = document.getElementById("linkedin-drawer");
   const body = document.getElementById("linkedin-drawer-body");
-  
+
   if (!drawer || !body) return;
 
   drawer.style.transform = "translateX(0)";
@@ -1476,7 +1476,7 @@ function sendOutboundLinkedin() {
 
   saveDatabaseCache();
   addLogConsole("enrich", `[LINKEDIN] Dispatched connection request with note to ${contact.fullName}`, "success");
-  
+
   filterLinkedinTable();
   loadLinkedinDrawer(contact);
 }
@@ -1519,7 +1519,7 @@ async function generateLLMLinkedinDraft() {
         const json = await response.json();
         finalNote = json.choices[0].message.content.slice(0, 300);
       }
-    } catch(err) {
+    } catch (err) {
       console.error(err);
     }
   }
@@ -1597,7 +1597,7 @@ function loadCallDrawer(contact) {
   database.selectedContact = contact;
   const drawer = document.getElementById("call-drawer");
   const body = document.getElementById("call-drawer-body");
-  
+
   if (!drawer || !body) return;
 
   drawer.style.transform = "translateX(0)";
@@ -1613,7 +1613,7 @@ function renderDialerInterface(state, durationText = "00:00") {
   if (!body || !contact) return;
 
   const phone = contact.phone || "+1 (555) 000-0000";
-  
+
   let screenClass = "dialer-status";
   if (state === "dialing" || state === "ringing") screenClass = "dialer-status ringing";
   if (state === "connected") screenClass = "dialer-status active";
@@ -1675,7 +1675,7 @@ function startOutboundCall() {
     if (status && status.textContent.includes("RINGING")) {
       renderDialerInterface("connected", "00:00");
       playBeepSound(600, 0.2); // Connected chirp
-      
+
       let durationSec = 0;
       callTimer = setInterval(() => {
         durationSec++;
@@ -1703,7 +1703,7 @@ function logCallOutcome(outcome) {
   if (!contact) return;
 
   contact.callsMade.push({
-    date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+    date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     outcome: outcome
   });
 
@@ -1727,17 +1727,17 @@ function playBeepSound(frequency, duration) {
     callingOscillator = callingAudioContext.createOscillator();
     callingOscillator.type = "sine";
     callingOscillator.frequency.value = frequency;
-    
+
     const gainNode = callingAudioContext.createGain();
     gainNode.gain.setValueAtTime(0.15, callingAudioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, callingAudioContext.currentTime + duration);
 
     callingOscillator.connect(gainNode);
     gainNode.connect(callingAudioContext.destination);
-    
+
     callingOscillator.start();
     callingOscillator.stop(callingAudioContext.currentTime + duration);
-  } catch(e) {
+  } catch (e) {
     console.warn("AudioContext block", e);
   }
 }
@@ -1752,7 +1752,7 @@ function stopBeepSound() {
       callingAudioContext.close();
       callingAudioContext = null;
     }
-  } catch(e) {}
+  } catch (e) { }
 }
 
 // --- EVENTS MANAGEMENT ---
@@ -1763,11 +1763,11 @@ function renderEventsList() {
 
   const eventKey = eventSelect.value;
   const list = database.events[eventKey] || [];
-  
+
   const titleEl = document.getElementById("events-list-title");
   const countEl = document.getElementById("events-list-count");
   const tbody = document.getElementById("table-events-attendees-body");
-  
+
   if (eventKey === "gac_dinner") {
     titleEl.textContent = "GAC 2023 Dinner Attendance";
   } else if (eventKey === "symwest_booth") {
@@ -1814,8 +1814,8 @@ function handleRegContactSearch(text) {
     return;
   }
 
-  const matches = database.contacts.filter(c => 
-    c.fullName.toLowerCase().includes(text.toLowerCase()) || 
+  const matches = database.contacts.filter(c =>
+    c.fullName.toLowerCase().includes(text.toLowerCase()) ||
     c.company.toLowerCase().includes(text.toLowerCase())
   ).slice(0, 5);
 
@@ -1865,7 +1865,7 @@ function handleEventRegistration(e) {
 
   // Push to events arrays
   if (!database.events[eventKey]) database.events[eventKey] = [];
-  
+
   // Prevent duplicate
   if (!database.events[eventKey].some(c => c.id === contact.id)) {
     database.events[eventKey].push(newReg);
@@ -1873,14 +1873,14 @@ function handleEventRegistration(e) {
 
   // Save and switch back
   saveDatabaseCache();
-  
+
   // Clear form
   searchEl.value = "";
   document.getElementById("event-reg-contact-id").value = "";
   notesText.value = "";
 
   addLogConsole("enrich", `[EVENT REGISTRATION] Registered ${contact.fullName} for ${eventKey}`, "success");
-  
+
   // Go back to view
   document.getElementById("select-event-view").value = eventKey;
   switchTab("events-list");
@@ -1931,8 +1931,8 @@ function handleAgentChatInput(e) {
       matches = database.contacts.slice(0, 5);
     } else {
       // Match query
-      matches = database.contacts.filter(c => 
-        c.fullName.toLowerCase().includes(query) || 
+      matches = database.contacts.filter(c =>
+        c.fullName.toLowerCase().includes(query) ||
         c.company.toLowerCase().includes(query)
       ).slice(0, 5);
     }
@@ -1966,7 +1966,7 @@ function selectAgentAutocomplete(name) {
 
   const val = input.value;
   const atIndex = val.lastIndexOf("@");
-  
+
   input.value = val.slice(0, atIndex) + "@" + name + " ";
   list.style.display = "none";
   input.focus();
@@ -1977,7 +1977,7 @@ function handleAgentChatKeyDown(event) {
     // If autocomplete is visible, we don't submit yet
     const list = document.getElementById("agent-autocomplete-list");
     if (list && list.style.display === "flex") return;
-    
+
     sendAgentChatMessage();
   }
 }
@@ -2025,7 +2025,7 @@ function sendAgentChatMessage() {
       appendAgentLog(`🤖 Command detected: <strong>Enriching ${targetContact.fullName}</strong>...`);
       setTimeout(() => {
         targetContact.enriched = true;
-        targetContact.phone = `+1 (555) ${Math.floor(200 + Math.random()*700)}-${Math.floor(1000 + Math.random()*9000)}`;
+        targetContact.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
         const cleanComp = targetContact.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
         targetContact.linkedinUrl = `linkedin.com/in/${targetContact.firstName.toLowerCase()}-${targetContact.lastName.toLowerCase()}-${cleanComp}`;
         targetContact.matchPercentage = 96;
@@ -2081,80 +2081,79 @@ function sendAgentChatMessage() {
     }
     return;
   }
-    
-    if (!targetContact) {
-      const atMatch = text.match(/@([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/);
-      if (atMatch) {
-        const parsedName = atMatch[1].trim().toLowerCase();
-        targetContact = database.contacts.find(c => c.fullName.toLowerCase().includes(parsedName));
-        if (targetContact) {
-          customQuery = text.replace(atMatch[0], "").trim();
-        }
+
+  if (!targetContact) {
+    const atMatch = text.match(/@([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/);
+    if (atMatch) {
+      const parsedName = atMatch[1].trim().toLowerCase();
+      targetContact = database.contacts.find(c => c.fullName.toLowerCase().includes(parsedName));
+      if (targetContact) {
+        customQuery = text.replace(atMatch[0], "").trim();
       }
     }
   }
 
   if (targetContact) {
-    startAgentResearchSequence(targetContact, customQuery);
-  } else {
-    // If Gemini key is not configured, show placeholder reply
-    if (!database.geminiApiKey) {
-      setTimeout(() => {
-        const botDiv = document.createElement("div");
-        botDiv.className = "agent-chat-msg agent-msg";
-        botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
-        botDiv.innerHTML = `
+  startAgentResearchSequence(targetContact, customQuery);
+} else {
+  // If Gemini key is not configured, show placeholder reply
+  if (!database.geminiApiKey) {
+    setTimeout(() => {
+      const botDiv = document.createElement("div");
+      botDiv.className = "agent-chat-msg agent-msg";
+      botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
+      botDiv.innerHTML = `
           <div class="avatar" style="font-size: 20px;">🤖</div>
           <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13px; line-height: 1.5; border: 1.5px solid var(--hairline);">
             I am ready. Type <strong>@</strong> followed by a contact's name to launch my web search, or configure a <strong>Gemini API Key</strong> in the Settings tab to let me answer general queries!
           </div>
         `;
-        history.appendChild(botDiv);
-        history.scrollTop = history.scrollHeight;
-      }, 500);
-      return;
-    }
+      history.appendChild(botDiv);
+      history.scrollTop = history.scrollHeight;
+    }, 500);
+    return;
+  }
 
-    // Call Gemini API for general query!
-    database.agentRunning = true;
-    const browserUrl = document.getElementById("agent-browser-url-input");
-    if (browserUrl) browserUrl.value = "Status: Answering general query...";
-    
-    setTimeout(() => {
-      appendAgentLog(`🤖 Processing query: "<em>${text}</em>"...`);
-    }, 100);
-    
-    const model = database.geminiModel || "gemini-2.5-flash";
-    const apiKey = database.geminiApiKey;
-    const enableSearch = database.geminiSearchGrounding !== false;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    
-    const systemInstruction = `You are a helpful B2B GTM and Outbound Sales Assistant. Answer the user's query clearly and concisely. Format your response in clean HTML tags (such as <strong>, <em>, <br>, <ul>, <li>). Do NOT use markdown like ** or *. Use clean headers (e.g. <h3>) instead.`;
+  // Call Gemini API for general query!
+  database.agentRunning = true;
+  const browserUrl = document.getElementById("agent-browser-url-input");
+  if (browserUrl) browserUrl.value = "Status: Answering general query...";
 
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: `${systemInstruction}\n\nUser Question: ${text}` }]
-        }
-      ]
-    };
+  setTimeout(() => {
+    appendAgentLog(`🤖 Processing query: "<em>${text}</em>"...`);
+  }, 100);
 
-    if (enableSearch) {
-      requestBody.tools = [
-        {
-          googleSearch: {}
-        }
-      ];
-    }
+  const model = database.geminiModel || "gemini-2.5-flash";
+  const apiKey = database.geminiApiKey;
+  const enableSearch = database.geminiSearchGrounding !== false;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    })
+  const systemInstruction = `You are a helpful B2B GTM and Outbound Sales Assistant. Answer the user's query clearly and concisely. Format your response in clean HTML tags (such as <strong>, <em>, <br>, <ul>, <li>). Do NOT use markdown like ** or *. Use clean headers (e.g. <h3>) instead.`;
+
+  const requestBody = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: `${systemInstruction}\n\nUser Question: ${text}` }]
+      }
+    ]
+  };
+
+  if (enableSearch) {
+    requestBody.tools = [
+      {
+        googleSearch: {}
+      }
+    ];
+  }
+
+  fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(requestBody)
+  })
     .then(res => {
       if (!res.ok) throw new Error(`API Error (${res.status})`);
       return res.json();
@@ -2162,7 +2161,7 @@ function sendAgentChatMessage() {
     .then(resJson => {
       database.agentRunning = false;
       if (browserUrl) browserUrl.value = "https://google.com";
-      
+
       const candidate = resJson.candidates && resJson.candidates[0];
       if (candidate) {
         let ansText = candidate.content.parts[0].text;
@@ -2172,7 +2171,7 @@ function sendAgentChatMessage() {
           .replace(/### (.*?)\n/g, '<h3>$1</h3>')
           .replace(/## (.*?)\n/g, '<h2>$1</h2>')
           .replace(/\n/g, '<br>');
-          
+
         appendAgentLog(`🤖 Response:<br><br>${ansText}`);
       } else {
         appendAgentLog(`🤖 Sorry, I couldn't generate an answer.`);
@@ -2183,8 +2182,8 @@ function sendAgentChatMessage() {
       if (browserUrl) browserUrl.value = "https://google.com";
       appendAgentLog(`❌ Failed to answer general query: <em>${err.message}</em>`);
     });
-  }
 }
+
 
 function sendAgentDirective() {
   const input = document.getElementById("agent-directives");
@@ -2213,7 +2212,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   const history = document.getElementById("agent-chat-history");
   const browserUrl = document.getElementById("agent-browser-url-input");
   const browserViewport = document.getElementById("agent-browser-viewport");
-  
+
   if (!history || !browserUrl || !browserViewport) return;
 
   // Check if Gemini API key is configured
@@ -2226,25 +2225,25 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
 
   // Set running state
   database.agentRunning = true;
-  
+
   // Update floating loader title, subtitle and checklist targets
   const floatingLoader = document.getElementById("agent-floating-loader");
   const loaderTitle = document.getElementById("agent-loader-title");
   const loaderSubtitle = document.getElementById("agent-loader-subtitle");
   const readingTitle = document.getElementById("agent-reading-title");
-  
+
   if (floatingLoader) floatingLoader.classList.add("active");
   if (loaderTitle) loaderTitle.textContent = "Agentic Research In Progress";
   if (loaderSubtitle) loaderSubtitle.textContent = "Planning research path...";
   if (readingTitle) readingTitle.textContent = "Standing by";
-  
+
   updateBrowserStep("target-step-1", "running");
   updateBrowserStep("target-step-2", "");
   updateBrowserStep("target-step-3", "");
   updateBrowserStep("target-step-4", "");
 
   const queryToRun = customUserQuestion ? customUserQuestion.trim() : `Find out everything you can about ${contact.fullName} who is ${contact.jobTitle} at ${contact.company}. Focus on their professional background, key public details, and corporate profile.`;
-  
+
   appendAgentLog(`🤖 Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).`);
 
   // Update browser status & start loading animation in browser viewport
@@ -2262,7 +2261,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
     const enableSearch = database.geminiSearchGrounding !== false;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    
+
     // Build context
     const systemInstruction = `You are an expert BDR Research Agent. Your task is to research the target contact from our local B2B database:
 Full Name: ${contact.fullName}
@@ -2332,7 +2331,7 @@ Provide:
     const chunks = (groundingMetadata && groundingMetadata.groundingChunks) || [];
 
     let step = 0;
-    
+
     // Define helper to simulate browser pages
     const runSimulationStep = () => {
       if (step >= Math.max(queries.length, chunks.length, 1)) {
@@ -2348,7 +2347,7 @@ Provide:
         updateBrowserStep("target-step-1", "running");
         if (loaderSubtitle) loaderSubtitle.textContent = "Google Dorking search index matching...";
         if (readingTitle) readingTitle.textContent = query;
-        
+
         // Render a search result page
         let resultsHtml = "";
         chunks.slice(0, 3).forEach((c, i) => {
@@ -2372,7 +2371,7 @@ Provide:
         `;
 
         appendAgentLog(`🤖 <em>[CRAWLER]</em> Scanning search index for query: <em>${query}</em>`);
-        
+
         // Animate pointer to first result and click
         setTimeout(() => {
           const cursorEl = document.getElementById("agent-browser-cursor");
@@ -2397,14 +2396,14 @@ Provide:
             const urlStr = chunk.web.uri;
             const titleStr = chunk.web.title;
             browserUrl.value = urlStr;
-            
+
             // Set running status based on URL type
             if (urlStr.includes("linkedin.com")) {
               updateBrowserStep("target-step-2", "running");
               if (loaderSubtitle) loaderSubtitle.textContent = "Scraping profiles via Firecrawl...";
               if (readingTitle) readingTitle.textContent = "linkedin.com/in/" + contact.firstName.toLowerCase();
               appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Crawling LinkedIn profile node...`);
-              
+
               const initials = contact.fullName.split(" ").map(n => n[0]).join("");
               browserViewport.innerHTML = `
                 <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 40px; top: 70px;"></div>
@@ -2427,7 +2426,7 @@ Provide:
                   </div>
                 </div>
               `;
-              
+
               setTimeout(() => {
                 updateBrowserStep("target-step-2", "completed");
               }, 1800);
@@ -2436,7 +2435,7 @@ Provide:
               if (loaderSubtitle) loaderSubtitle.textContent = "Crawling company value statements...";
               if (readingTitle) readingTitle.textContent = contact.company + " Homepage";
               appendAgentLog(`🤖 <em>[CRAWLER]</em> Crawling corporate page assets: <em>${urlStr}</em>`);
-              
+
               // Corporate page or blog
               browserViewport.innerHTML = `
                 <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 40px; top: 70px;"></div>
@@ -2456,7 +2455,7 @@ Provide:
                   </div>
                 </div>
               `;
-              
+
               setTimeout(() => {
                 updateBrowserStep("target-step-3", "completed");
               }, 1800);
@@ -2487,7 +2486,7 @@ Provide:
       // Calculate enriched metrics
       contact.enriched = true;
       if (!contact.phone) {
-        contact.phone = `+1 (555) ${Math.floor(200 + Math.random()*700)}-${Math.floor(1000 + Math.random()*9000)}`;
+        contact.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
       }
       const cleanComp = contact.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
       contact.linkedinUrl = `linkedin.com/in/${contact.firstName.toLowerCase()}-${contact.lastName.toLowerCase()}-${cleanComp}`;
@@ -2694,10 +2693,10 @@ Provide:
         browserViewport.innerHTML = `
           <div class="browser-empty" id="agent-browser-empty">Browser viewport appears here when the agent navigates</div>
         `;
-        
+
         updateBrowserStep("target-step-7", "completed");
         if (floatingLoader) floatingLoader.classList.remove("active");
-        
+
         appendAgentLog(`🤖 <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
         const chatInputEl = document.getElementById("agent-chat-input");
         if (chatInputEl) chatInputEl.focus();
@@ -2716,7 +2715,7 @@ Provide:
     updateBrowserStep("target-step-3", "disabled");
     updateBrowserStep("target-step-4", "disabled");
     if (floatingLoader) floatingLoader.classList.remove("active");
-    
+
     appendAgentLog(`❌ <strong>Execution Failed!</strong><br>
     Unable to query Gemini API. Reason: <em>${err.message}</em><br><br>
     Please ensure your API Key is valid and that you have a stable network connection.`);
@@ -2744,17 +2743,17 @@ function appendAgentLog(message) {
 
 function loadClerkSDK() {
   const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "pk_test_placeholder_app_3FqQEx4A7KVzwjvvEh3hdo6Q5l5";
-  
+
   const script = document.createElement("script");
   script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
   script.async = true;
   script.crossOrigin = "anonymous";
   script.setAttribute("data-clerk-publishable-key", pubKey);
-  
+
   script.onload = () => {
     initClerkAuth(pubKey);
   };
-  
+
   document.head.appendChild(script);
 }
 
@@ -2795,10 +2794,10 @@ function updateClerkUIState() {
     // User is signed in: show app, hide login gate
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
-    
+
     if (signInBtn) signInBtn.style.display = "none";
     if (userProfileWrap) userProfileWrap.style.display = "flex";
-    
+
     if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
     if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
 
@@ -2827,7 +2826,7 @@ function updateClerkUIState() {
     // User is signed out: hide app, show login gate
     if (mainApp) mainApp.style.display = "none";
     if (authGate) authGate.style.display = "flex";
-    
+
     if (signInBtn) signInBtn.style.display = "block";
     if (userProfileWrap) userProfileWrap.style.display = "none";
 
@@ -2959,11 +2958,11 @@ function renderApolloSandbox(viewport) {
   `;
 }
 
-window.triggerApolloEnrich = function(idx) {
+window.triggerApolloEnrich = function (idx) {
   const c = database.contacts[idx];
   if (!c) return;
   c.enriched = true;
-  c.phone = `+1 (555) ${Math.floor(200 + Math.random()*700)}-${Math.floor(1000 + Math.random()*9000)}`;
+  c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
   const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
   c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
   c.matchPercentage = 95;
@@ -3024,13 +3023,13 @@ function renderLinkedinSandbox(viewport) {
       </div>
     </div>
   `;
-  
+
   if (database.contacts.length > 0) {
     showLinkedinSandboxProfile(0);
   }
 }
 
-window.showLinkedinSandboxProfile = function(idx) {
+window.showLinkedinSandboxProfile = function (idx) {
   const c = database.contacts[idx];
   const el = document.getElementById("linkedin-sb-profile-view");
   if (!c || !el) return;
@@ -3146,7 +3145,7 @@ function renderZerobounceSandbox(viewport) {
   `;
 }
 
-window.verifyZeroBounce = function(idx) {
+window.verifyZeroBounce = function (idx) {
   const c = database.contacts[idx];
   if (!c || !c.email) return;
   addLogConsole("enrich", `[ZEROBOUNCE] Verified email validity for ${c.email}: VALID.`, "success");
