@@ -923,8 +923,7 @@ async function runDataEnrichment() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "api_key": database.exploriumApiKey,
-        "Authorization": `Bearer ${database.exploriumApiKey}`
+        "api_key": database.exploriumApiKey
       },
       body: JSON.stringify({
         prospects_to_match: prospectsToMatch
@@ -974,8 +973,7 @@ async function runDataEnrichment() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "api_key": database.exploriumApiKey,
-            "Authorization": `Bearer ${database.exploriumApiKey}`
+            "api_key": database.exploriumApiKey
           },
           body: JSON.stringify({
             prospect_ids: prospectIds
