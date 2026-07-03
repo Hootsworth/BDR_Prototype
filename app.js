@@ -148,6 +148,8 @@ function switchTab(tabId) {
     renderEventsList();
   } else if (tabId === 'enrich') {
     checkEnrichButtonState();
+  } else if (tabId === 'agent-mode') {
+    initAgentAutocomplete();
   }
 }
 
@@ -1880,12 +1882,19 @@ function toggleAgentMode() {
 }
 
 // Typing autocomplete detector for @ mentions
-document.addEventListener("DOMContentLoaded", () => {
+function initAgentAutocomplete() {
   const input = document.getElementById("agent-chat-input");
   if (input) {
+    input.removeEventListener("input", handleAgentChatInput);
     input.addEventListener("input", handleAgentChatInput);
   }
-});
+}
+
+if (document.readyState === "complete" || document.readyState === "interactive") {
+  initAgentAutocomplete();
+} else {
+  document.addEventListener("DOMContentLoaded", initAgentAutocomplete);
+}
 
 function handleAgentChatInput(e) {
   const input = e.target;
@@ -1982,16 +1991,6 @@ function sendAgentChatMessage() {
   history.appendChild(userDiv);
   input.value = "";
   history.scrollTop = history.scrollHeight;
-
-  // Switch workspace from input view to output and chat panel!
-  const inputView = document.getElementById("agent-input-view");
-  const outputView = document.getElementById("agent-output-view");
-  const chatPanel = document.getElementById("agent-chat-panel");
-  if (inputView && outputView && chatPanel) {
-    inputView.style.display = "none";
-    outputView.style.display = "flex";
-    chatPanel.style.display = "flex";
-  }
 
   // Parse for @ mentioned contact (robust parser)
   let targetContact = null;
@@ -2156,13 +2155,11 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   const loaderTitle = document.getElementById("agent-loader-title");
   const loaderSubtitle = document.getElementById("agent-loader-subtitle");
   const readingTitle = document.getElementById("agent-reading-title");
-  const textCanvas = document.getElementById("agent-text-canvas");
   
   if (floatingLoader) floatingLoader.classList.add("active");
   if (loaderTitle) loaderTitle.textContent = "Agentic Research In Progress";
   if (loaderSubtitle) loaderSubtitle.textContent = "Planning research path...";
   if (readingTitle) readingTitle.textContent = "Standing by";
-  if (textCanvas) textCanvas.innerHTML = "";
   
   updateBrowserStep("target-step-1", "running");
   updateBrowserStep("target-step-2", "");
@@ -2275,9 +2272,10 @@ Provide:
         updateBrowserStep("target-step-4", "completed");
         
         if (floatingLoader) floatingLoader.classList.remove("active");
-        if (textCanvas) textCanvas.innerHTML = finalReportHtml;
         
-        appendAgentLog(`🤖 Live Web Scraping Task Complete!<br>Dossier compiled successfully.`);
+        appendAgentLog(`🤖 <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
+        const chatInputEl = document.getElementById("agent-chat-input");
+        if (chatInputEl) chatInputEl.focus();
         return;
       }
 

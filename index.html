@@ -498,25 +498,22 @@
         <section class="tab-content" id="tab-panel-agent-mode">
           <div class="agent-mode-wrapper">
             
-            <!-- Left Side: Content Panel (Input / Output Views) -->
+            <!-- Left Side: Content Panel (Always-On Chat Interface) -->
             <div class="agent-content-panel">
               
-              <!-- State 1: Input / Directives View -->
-              <div id="agent-input-view">
-                <div class="form-group" style="position: relative;">
-                  <label for="agent-directives">Research Directive / Task</label>
-                  <textarea id="agent-directives" class="input-control textarea-control" placeholder="Ask anything web-facing... e.g. research @John Tennus, summarize their company security, compile campaign angles. (Type @ to select a contact)"></textarea>
-                  <div class="agent-autocomplete-list" id="agent-autocomplete-list"></div>
+              <!-- Chat Thread Area -->
+              <div class="agent-chat-thread-container" id="agent-chat-history-container">
+                <div class="chat-thread" id="agent-chat-history">
+                  <div class="agent-chat-msg agent-msg">
+                    <div class="avatar" style="font-size: 20px;">🤖</div>
+                    <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; border: 1.5px solid var(--hairline);">
+                      Hello! I am your Autonomous GTM Agent. Type <strong>@</strong> followed by a contact's name (e.g. <code>@John Tennus</code>) to research a lead, or ask me any general GTM sales question!
+                    </div>
+                  </div>
                 </div>
-                <button class="btn btn-primary" id="btn-agent-generate" onclick="sendAgentDirective()">Run Autonomous Agent</button>
               </div>
 
-              <!-- State 2: Output View (Canvas) -->
-              <div id="agent-output-view" style="display: none;">
-                <div id="agent-text-canvas"></div>
-              </div>
-
-              <!-- Floating Agent Execution Loader -->
+              <!-- Floating Agent Execution Progress Loader -->
               <div class="agent-floating-loader" id="agent-floating-loader">
                 <div class="loader-head">
                   <div class="loader-ring"></div>
@@ -531,18 +528,11 @@
                 </div>
               </div>
 
-              <!-- Floating Chat / Follow-up Panel -->
-              <div class="agent-chat-panel" id="agent-chat-panel">
-                <div class="chat-thread" id="agent-chat-history">
-                  <div class="agent-chat-msg agent-msg">
-                    <div class="avatar" style="font-size: 20px;">🤖</div>
-                    <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; border: 1.5px solid var(--hairline);">
-                      Hello! I am your Autonomous GTM Agent. Ask me any follow-up questions or request outbound email drafts based on the generated dossier.
-                    </div>
-                  </div>
-                </div>
+              <!-- Chat Compose Input Bar -->
+              <div class="agent-input-container">
+                <div class="agent-autocomplete-list" id="agent-autocomplete-list"></div>
                 <div class="chat-compose">
-                  <textarea id="agent-chat-input" placeholder="Ask follow-up questions or request outbound email drafts..." onkeydown="handleAgentChatKeyDown(event)"></textarea>
+                  <textarea id="agent-chat-input" placeholder="Ask anything... e.g. research @John Tennus, summarize company updates, draft outbound copy. (Type @ to list)" onkeydown="handleAgentChatKeyDown(event)" autocomplete="off"></textarea>
                   <button class="btn-chat" id="btn-agent-chat-send" onclick="sendAgentChatMessage()">↗</button>
                 </div>
               </div>

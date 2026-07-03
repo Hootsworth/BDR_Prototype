@@ -4164,46 +4164,107 @@ dialog textarea:focus {
   height: 100%;
 }
 
-#agent-input-view {
+.agent-chat-thread-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  max-width: 95%;
-  transition: opacity 0.4s ease;
+  padding-bottom: 120px; /* leaves room for the absolute floating loader and input bar */
+  scrollbar-width: thin;
 }
 
-#agent-directives {
-  min-height: 140px;
-  line-height: 1.5;
-  background: transparent;
-  border: none;
-  border-bottom: 1.5px solid var(--hairline);
-  font-size: 14px;
-  color: var(--ink);
-  outline: none;
-  resize: none;
-  padding: 8px 0;
-}
-
-#agent-directives:focus {
-  border-bottom-color: var(--primary);
-}
-
-#agent-output-view {
-  display: none;
+.chat-thread {
+  display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow-y: auto;
-  padding-right: 8px;
-  min-height: 0;
+  gap: 16px;
+  padding: 16px 0;
 }
 
-#agent-text-canvas {
+/* Unified Chat Bubble Styles */
+.agent-chat-msg {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  max-width: 90%;
+  margin-bottom: 4px;
+}
+
+.agent-chat-msg.user-msg {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.agent-chat-msg .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--surface-strong);
+  border: 1px solid var(--hairline);
+  flex-shrink: 0;
+}
+
+.agent-chat-msg.user-msg .avatar {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary-active);
+}
+
+.agent-chat-msg .msg-bubble {
+  background: var(--surface-card);
+  color: var(--ink);
+  padding: 12px 16px;
+  border-radius: 4px 16px 16px 16px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  border: 1.5px solid var(--hairline);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  text-align: left;
+  word-break: break-word;
+}
+
+.agent-chat-msg.user-msg .msg-bubble {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary-active);
+  border-radius: 16px 4px 16px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Styles inside the message bubble formatting (markdown replacements) */
+.msg-bubble h3 {
   font-size: 14px;
-  line-height: 1.75;
-  font-weight: 300;
-  color: var(--body);
-  padding-bottom: 240px; /* leaves space for loader and chat */
+  font-weight: 700;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1.5px solid var(--hairline);
+  padding-bottom: 4px;
+  color: inherit;
+}
+
+.msg-bubble h3:first-of-type {
+  margin-top: 0;
+}
+
+.msg-bubble ul, .msg-bubble ol {
+  margin: 6px 0 12px 0;
+  padding-left: 18px;
+}
+
+.msg-bubble li {
+  margin-bottom: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.msg-bubble strong {
+  font-weight: 700;
 }
 
 /* Floating loader matching the demo */
@@ -4211,7 +4272,7 @@ dialog textarea:focus {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 165px;
+  bottom: 85px; /* floats just above the input container */
   z-index: 10;
   background: var(--surface-card);
   backdrop-filter: blur(10px);
@@ -4283,8 +4344,8 @@ dialog textarea:focus {
   to { transform: rotate(360deg); }
 }
 
-/* Floating Chat Panel matching the demo */
-.agent-chat-panel {
+/* Chat compose block at bottom */
+.agent-input-container {
   position: absolute;
   left: 0;
   right: 0;
@@ -4294,17 +4355,8 @@ dialog textarea:focus {
   background: var(--surface-soft);
   border-radius: var(--radius-md);
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.02);
-  display: none;
-  flex-direction: column;
-}
-
-.chat-thread {
-  max-height: 110px;
-  overflow-y: auto;
-  padding: 12px 14px 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .chat-compose {
