@@ -864,6 +864,13 @@ function checkEnrichButtonState() {
   }
 }
 
+function getApiBaseUrl() {
+  if (window.location.hostname.includes("github.io")) {
+    return "https://api.explorium.ai";
+  }
+  return "/api/proxy";
+}
+
 // Run live B2B Enrichment via Explorium / AgentSource API
 async function runDataEnrichment() {
   if (database.contacts.length === 0 || database.exploriumApiKey === "") return;
@@ -882,7 +889,7 @@ async function runDataEnrichment() {
 
   addLogConsole("enrich", "[SYSTEM] Initiating live Explorium enrichment pipeline...", "system");
   if (window.location.hostname.includes("github.io")) {
-    addLogConsole("enrich", "[WARNING] Running on GitHub Pages. GitHub Pages is a purely static host and does not support backend API proxying. For live Explorium API calls to work, please run locally using 'python3 server.py' or deploy to Vercel (where our proxy rule is processed natively).", "warning");
+    addLogConsole("enrich", "[WARNING] Running on GitHub Pages. Direct API requests will be fired to api.explorium.ai. If the browser halts due to a CORS restriction, please run locally using 'python3 server.py' or deploy to Vercel.", "warning");
   }
   fill.style.width = "10%";
   label.textContent = "Matching 10%";
@@ -899,6 +906,8 @@ async function runDataEnrichment() {
 
   addLogConsole("enrich", `[SYSTEM] Selected first ${contactsToEnrich.length} unenriched contacts for live processing.`, "info");
   
+  const apiBase = getApiBaseUrl();
+
   // Phase 1: Match prospects
   addLogConsole("enrich", `[API] POST /v1/prospects/match - Sending payload for matching...`, "info");
   
@@ -910,7 +919,7 @@ async function runDataEnrichment() {
 
   let matchData = null;
   try {
-    const response = await fetch("/api/proxy/v1/prospects/match", {
+    const response = await fetch(`${apiBase}/v1/prospects/match`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -932,7 +941,7 @@ async function runDataEnrichment() {
   } catch (err) {
     console.error(err);
     addLogConsole("enrich", `[API ERROR] Match API request failed: ${err.message}`, "error");
-    addLogConsole("enrich", `[ABORT] Explorium match requests failed. Please ensure server.py is running locally. Target contacts were NOT marked as enriched.`, "error");
+    addLogConsole("enrich", `[ABORT] Explorium match requests failed. Target contacts were NOT marked as enriched.`, "error");
     
     // Reset loader state
     progressContainer.style.display = "none";
@@ -961,7 +970,7 @@ async function runDataEnrichment() {
     if (prospectIds.length > 0) {
       addLogConsole("enrich", `[API] POST /v1/prospects/contacts_information/bulk_enrich - Retrieving details for ${prospectIds.length} IDs...`, "info");
       try {
-        const response = await fetch("/api/proxy/v1/prospects/contacts_information/bulk_enrich", {
+        const response = await fetch(`${apiBase}/v1/prospects/contacts_information/bulk_enrich`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
