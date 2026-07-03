@@ -12,3 +12,7 @@ __pycache__/
 
 # Local Git configuration overrides
 .git/
+
+# Classified data sources
+master_merged_data.csv
+*.csv

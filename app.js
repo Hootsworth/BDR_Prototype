@@ -365,36 +365,6 @@ function processCSVLines(lines) {
   return records;
 }
 
-// Auto Load function
-function autoLoadMasterCSV() {
-  const summaryEl = document.getElementById("import-stats-summary");
-  if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--primary)">Fetching master_merged_data.csv (11.4MB)...</span>`;
-
-  fetch('master_merged_data.csv')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("HTTP error " + response.status);
-      }
-      return response.text();
-    })
-    .then(text => {
-      if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--primary)">Parsing database lines...</span>`;
-      setTimeout(() => {
-        const lines = parseCSV(text);
-        const parsed = processCSVLines(lines);
-        
-        database.contacts = parsed;
-        initLoadedData();
-        saveDatabaseCache();
-        
-        addLogConsole("enrich", `[SYSTEM] Successfully loaded ${parsed.length} contacts from master CSV!`, "success");
-      }, 50);
-    })
-    .catch(err => {
-      console.error(err);
-      if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--error)">Failed to fetch master CSV. Please upload manually.</span>`;
-    });
-}
 
 // Manual Upload
 function handleCSVFileUpload(event) {
@@ -2273,31 +2243,49 @@ async function initClerkAuth(publishableKey) {
 }
 
 function updateClerkUIState() {
+  const authGate = document.getElementById("clerk-auth-gate");
+  const mainApp = document.getElementById("app-layout-main");
   const signInBtn = document.getElementById("btn-clerk-signin");
   const userProfileWrap = document.getElementById("clerk-user-profile");
   const nameEl = document.getElementById("clerk-user-name");
   const emailEl = document.getElementById("clerk-user-email");
 
-  if (!signInBtn || !userProfileWrap) return;
-
   if (window.Clerk && window.Clerk.user) {
-    // User is signed in
-    signInBtn.style.display = "none";
-    userProfileWrap.style.display = "flex";
+    // User is signed in: show app, hide login gate
+    if (authGate) authGate.style.display = "none";
+    if (mainApp) mainApp.style.display = "flex";
+    
+    if (signInBtn) signInBtn.style.display = "none";
+    if (userProfileWrap) userProfileWrap.style.display = "flex";
     
     if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
     if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
 
-    // Mount user button
+    // Mount user button inside sidebar
     const container = document.getElementById("clerk-user-button");
     if (container) {
       container.innerHTML = "";
       window.Clerk.mountUserButton(container);
     }
   } else {
-    // User is signed out
-    signInBtn.style.display = "block";
-    userProfileWrap.style.display = "none";
+    // User is signed out: hide app, show login gate
+    if (mainApp) mainApp.style.display = "none";
+    if (authGate) authGate.style.display = "flex";
+    
+    if (signInBtn) signInBtn.style.display = "block";
+    if (userProfileWrap) userProfileWrap.style.display = "none";
+
+    // Mount the Clerk Sign-In Widget inside the Auth Gate Card
+    const mountContainer = document.getElementById("clerk-signin-mount");
+    if (mountContainer && mountContainer.innerHTML === "") {
+      window.Clerk.mountSignIn(mountContainer, {
+        appearance: {
+          variables: {
+            colorPrimary: "#cc785c"
+          }
+        }
+      });
+    }
   }
 }
 

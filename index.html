@@ -16,8 +16,23 @@
   <script src="config.js"></script>
 </head>
 
-<body>
-  <div class="app-layout">
+<body onload="loadClerkSDK()">
+  <!-- Clerk Mandatory Login Gate -->
+  <div class="clerk-auth-gate" id="clerk-auth-gate" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <div class="radar-logo-wrap">
+          <div class="radar-logo-ping"></div>
+          <div class="radar-logo-icon">🤖</div>
+        </div>
+        <h2>BDR Campaign Console</h2>
+        <p>Autonomous GTM Lead Research & Outbound Orchestration</p>
+      </div>
+      <div id="clerk-signin-mount"></div>
+    </div>
+  </div>
+
+  <div class="app-layout" id="app-layout-main" style="display: none;">
 
     <!-- Slim icon rail — expands on hover -->
     <aside class="sidebar-panel" id="sidebar-panel">
@@ -162,15 +177,11 @@
             <div class="import-actions-row">
               <div class="import-file-wrap">
                 <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSVFileUpload(event)" style="display:none;">
-                <button class="btn btn-secondary" onclick="document.getElementById('csv-file-input').click()">
+                <button class="btn btn-primary" onclick="document.getElementById('csv-file-input').click()">
                   <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                  Upload CSV Manually
+                  Upload BDR CSV Dataset
                 </button>
               </div>
-              <button class="btn btn-primary" onclick="autoLoadMasterCSV()">
-                <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;stroke:currentColor;fill:none;"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                Auto Load Master CSV
-              </button>
               <div class="data-summary-count" id="import-stats-summary">
                 No CSV data loaded yet.
               </div>

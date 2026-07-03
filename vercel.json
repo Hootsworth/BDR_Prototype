@@ -16,10 +16,6 @@
     {
       "src": "config.js",
       "use": "@vercel/static"
-    },
-    {
-      "src": "master_merged_data.csv",
-      "use": "@vercel/static"
     }
   ],
   "rewrites": [
