@@ -2523,6 +2523,9 @@ function updateClerkUIState() {
   const nameEl = document.getElementById("clerk-user-name");
   const emailEl = document.getElementById("clerk-user-email");
 
+  const userBtnContainer = document.getElementById("clerk-user-button");
+  const signinContainer = document.getElementById("clerk-signin-mount");
+
   if (window.Clerk && window.Clerk.user) {
     // User is signed in: show app, hide login gate
     if (authGate) authGate.style.display = "none";
@@ -2534,11 +2537,26 @@ function updateClerkUIState() {
     if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
     if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
 
-    // Mount user button inside sidebar
-    const container = document.getElementById("clerk-user-button");
-    if (container) {
-      container.innerHTML = "";
-      window.Clerk.mountUserButton(container);
+    // Unmount signin widget if it was mounted
+    if (signinContainer && signinContainer.dataset.mounted === "true") {
+      try {
+        window.Clerk.unmountSignIn(signinContainer);
+      } catch (e) {
+        console.warn("Error unmounting sign-in:", e);
+      }
+      signinContainer.dataset.mounted = "false";
+      signinContainer.innerHTML = "";
+    }
+
+    // Mount user button inside sidebar (only once)
+    if (userBtnContainer && userBtnContainer.dataset.mounted !== "true") {
+      userBtnContainer.innerHTML = "";
+      try {
+        window.Clerk.mountUserButton(userBtnContainer);
+        userBtnContainer.dataset.mounted = "true";
+      } catch (e) {
+        console.error("Error mounting user button:", e);
+      }
     }
   } else {
     // User is signed out: hide app, show login gate
@@ -2548,19 +2566,35 @@ function updateClerkUIState() {
     if (signInBtn) signInBtn.style.display = "block";
     if (userProfileWrap) userProfileWrap.style.display = "none";
 
-    // Mount the Clerk Sign-In Widget inside the Auth Gate Card
-    const mountContainer = document.getElementById("clerk-signin-mount");
-    if (mountContainer && mountContainer.innerHTML === "") {
-      window.Clerk.mountSignIn(mountContainer, {
-        appearance: {
-          variables: {
-            colorPrimary: "#0a0a0a",
-            colorText: "#0a0a0a",
-            colorBackground: "#fffaf0",
-            borderRadius: "12px"
+    // Unmount user button if it was mounted
+    if (userBtnContainer && userBtnContainer.dataset.mounted === "true") {
+      try {
+        window.Clerk.unmountUserButton(userBtnContainer);
+      } catch (e) {
+        console.warn("Error unmounting user button:", e);
+      }
+      userBtnContainer.dataset.mounted = "false";
+      userBtnContainer.innerHTML = "";
+    }
+
+    // Mount the Clerk Sign-In Widget inside the Auth Gate Card (only once)
+    if (signinContainer && signinContainer.dataset.mounted !== "true") {
+      signinContainer.innerHTML = "";
+      try {
+        window.Clerk.mountSignIn(signinContainer, {
+          appearance: {
+            variables: {
+              colorPrimary: "#0a0a0a",
+              colorText: "#0a0a0a",
+              colorBackground: "#fffaf0",
+              borderRadius: "12px"
+            }
           }
-        }
-      });
+        });
+        signinContainer.dataset.mounted = "true";
+      } catch (e) {
+        console.error("Error mounting sign-in widget:", e);
+      }
     }
   }
 }
