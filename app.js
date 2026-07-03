@@ -2194,7 +2194,7 @@ function appendAgentLog(message) {
   msgDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
   msgDiv.innerHTML = `
     <div class="avatar" style="font-size: 20px;">🤖</div>
-    <div class="msg-bubble" style="background: var(--bg-surface-active); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--hairline);">
+    <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; border: 1.5px solid var(--hairline);">
       ${message}
     </div>
   `;
@@ -2281,7 +2281,10 @@ function updateClerkUIState() {
       window.Clerk.mountSignIn(mountContainer, {
         appearance: {
           variables: {
-            colorPrimary: "#cc785c"
+            colorPrimary: "#0a0a0a",
+            colorText: "#0a0a0a",
+            colorBackground: "#fffaf0",
+            borderRadius: "12px"
           }
         }
       });

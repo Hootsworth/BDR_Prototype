@@ -1,47 +1,56 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono&display=swap');
 
 :root {
-  --primary: #cc785c;
-  --primary-active: #a9583e;
-  --primary-disabled: #e6dfd8;
+  --primary: #0a0a0a;
+  --primary-active: #1f1f1f;
+  --primary-disabled: #e5e5e5;
 
-  --ink: #141413;
-  --body: #3d3d3a;
-  --muted: #6c6a64;
-  --muted-soft: #8e8b82;
+  --ink: #0a0a0a;
+  --body: #3a3a3a;
+  --body-strong: #1a1a1a;
+  --muted: #6a6a6a;
+  --muted-soft: #9a9a9a;
 
-  --canvas: #faf9f5;
-  --surface-soft: #f5f0e8;
-  --surface-card: #efe9de;
-  --surface-cream-strong: #e8e0d2;
-  --surface-dark: #181715;
-  --surface-dark-elevated: #252320;
-  --surface-dark-soft: #1f1e1b;
-  --on-dark-soft: #a09d96;
+  --canvas: #fffaf0; /* Warm cream canvas floor */
+  --surface-soft: #faf5e8; /* Warm soft cream floor */
+  --surface-card: #f5f0e0; /* Cream cards */
+  --surface-strong: #ebe6d6; /* Emphasized cream fill */
+  --surface-dark: #1a3a3a; /* Deep brand teal */
+  --surface-dark-elevated: #264a4a;
 
-  --hairline: #e6dfd8;
-  --hairline-soft: #ebe6df;
+  --hairline: #e5e5e5; /* 1px borders */
+  --hairline-soft: #f0f0f0;
 
   --on-primary: #ffffff;
-  --on-dark: #faf9f5;
+  --on-dark: #ffffff;
 
-  --success: #5db872;
-  --warning: #d4a017;
-  --error: #c64545;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
 
-  --font-display: 'Cormorant Garamond', 'Times New Roman', serif;
+  /* Saturated Brand Features Cards Palette */
+  --brand-pink: #ff4d8b;
+  --brand-teal: #1a3a3a;
+  --brand-lavender: #b8a4ed;
+  --brand-peach: #ffb084;
+  --brand-ochre: #e8b94a;
+  --brand-mint: #a4d4c5;
+  --brand-coral: #ff6b5a;
+
+  --font-display: 'Inter', -apple-system, sans-serif;
   --font-body: 'Inter', -apple-system, sans-serif;
   --font-code: 'JetBrains Mono', monospace;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px; /* standard buttons/inputs */
+  --radius-lg: 16px; /* content containers, datagrids */
+  --radius-xl: 24px; /* features/dialogs/auth-card */
   --radius-pill: 9999px;
 
   --nav-width: 64px;
   --nav-width-open: 220px;
 
-  --transition: 0.18s ease;
+  --transition: 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 *,
@@ -71,9 +80,9 @@ h3,
 h4,
 h5 {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 600;
   color: var(--ink);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.05em; /* Plain Black-style tight spacing */
 }
 
 /* ─── APP SHELL ─────────────────────────────────────── */
@@ -91,7 +100,7 @@ h5 {
 */
 .sidebar-panel {
   width: var(--nav-width);
-  background: var(--surface-card);
+  background: var(--surface-soft); /* Warm soft cream floor */
   border-right: 1px solid var(--hairline);
   display: flex;
   flex-direction: column;
@@ -102,7 +111,7 @@ h5 {
   flex-shrink: 0;
   z-index: 100;
   overflow: hidden;
-  transition: width 0.22s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-panel:hover {
@@ -134,11 +143,12 @@ h5 {
 
 .brand-name {
   font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
   opacity: 0;
+  letter-spacing: -0.03em;
   transition: opacity 0.15s ease;
 }
 
@@ -367,13 +377,13 @@ header {
 .btn {
   font-family: var(--font-body);
   font-size: 14px;
-  font-weight: 500;
-  padding: 10px 18px;
-  border-radius: var(--radius-md);
+  font-weight: 600; /* Clay typography.button has 600 weight */
+  padding: 12px 20px; /* Clay primary button padding */
+  border-radius: var(--radius-md); /* 12px */
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color var(--transition), border-color var(--transition), color var(--transition);
-  height: 38px;
+  transition: opacity var(--transition), background-color var(--transition), border-color var(--transition), color var(--transition);
+  height: 44px; /* Clay primary button height */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -383,37 +393,37 @@ header {
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: var(--on-primary);
+  background: var(--primary); /* Near black */
+  color: var(--on-primary); /* White text */
 }
 
 .btn-primary:hover {
-  background: var(--primary-active);
+  opacity: 0.9;
 }
 
 .btn-primary:focus-visible {
-  box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.3);
+  box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.2);
 }
 
 .btn-secondary {
-  background: var(--canvas);
+  background: var(--canvas); /* warm cream canvas background */
   color: var(--ink);
-  border-color: var(--hairline);
+  border: 1.5px solid var(--hairline);
 }
 
 .btn-secondary:hover {
-  border-color: var(--muted);
   background: var(--surface-soft);
+  border-color: var(--muted);
 }
 
 .btn-secondary:focus-visible {
-  box-shadow: 0 0 0 3px rgba(20, 20, 19, 0.1);
+  box-shadow: 0 0 0 3px rgba(10, 10, 10, 0.1);
 }
 
 .btn-danger {
   background: var(--canvas);
   color: var(--error);
-  border-color: var(--hairline);
+  border: 1.5px solid var(--hairline);
 }
 
 .btn-danger:hover {
@@ -880,19 +890,25 @@ table {
 }
 
 th {
-  padding: 13px 28px;
-  border-bottom: 1px solid var(--hairline);
+  padding: 12px 16px;
+  border-bottom: 1.5px solid var(--hairline);
+  background: var(--surface-soft); /* light cream th floor */
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1.5px;
 }
 
 td {
-  padding: 14px 28px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--hairline-soft);
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--body);
+}
+
+tr:hover td {
+  background: var(--surface-soft); /* interactive row highlight */
 }
 
 tr:last-child td {
@@ -3000,19 +3016,20 @@ dialog textarea:focus {
   padding: 8px 12px;
   cursor: pointer;
   border-radius: var(--radius-md);
-  color: var(--ink);
+  color: var(--muted); /* Muted headers */
   font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: background-color var(--transition);
+  letter-spacing: 1.5px;
+  transition: background-color var(--transition), color var(--transition);
   justify-content: flex-start;
   gap: 12px;
 }
 
 .nav-category-header:hover {
-  background: var(--surface-soft);
+  background: var(--surface-card); /* cream hover fill */
+  color: var(--ink);
 }
 
 .sidebar-panel:not(:hover) .nav-category-header {
@@ -3050,7 +3067,7 @@ dialog textarea:focus {
   margin-top: 4px;
   max-height: 300px;
   opacity: 1;
-  transition: max-height 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease, padding 0.2s ease;
+  transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, padding 0.2s ease;
 }
 
 .sidebar-panel:not(:hover) .nav-subtabs {
@@ -3076,11 +3093,11 @@ dialog textarea:focus {
 
 .subtab-btn:hover {
   color: var(--ink);
-  background: var(--surface-soft);
+  background: var(--surface-card);
 }
 
 .subtab-btn.active {
-  background: var(--surface-cream-strong);
+  background: var(--surface-strong); /* active cream card fill */
   color: var(--ink);
   font-weight: 600;
 }
@@ -3094,8 +3111,7 @@ dialog textarea:focus {
 }
 
 .subtab-btn.active .subtab-dot {
-  background: var(--primary);
-  box-shadow: 0 0 4px var(--primary);
+  background: var(--primary); /* ink color dot */
 }
 
 /* Agent Mode rail section */
@@ -3112,22 +3128,21 @@ dialog textarea:focus {
   gap: 12px;
   width: 100%;
   padding: 10px 12px;
-  background: var(--surface-dark);
-  border: 1px solid var(--surface-dark-elevated);
+  background: var(--brand-teal); /* Brand Teal featured CTA style */
+  border: none;
   border-radius: var(--radius-md);
-  color: var(--on-dark);
+  color: #ffffff;
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
   white-space: nowrap;
-  transition: background-color var(--transition), border-color var(--transition);
+  transition: opacity var(--transition);
 }
 
 .agent-mode-toggle-btn:hover {
-  background: var(--surface-dark-elevated);
-  border-color: var(--primary);
+  opacity: 0.9;
 }
 
 .sidebar-panel:not(:hover) .agent-mode-toggle-btn {
@@ -3185,16 +3200,16 @@ dialog textarea:focus {
 
 /* Table Filters & Container Card */
 .table-container-card {
-  background: var(--canvas);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  padding: 16px;
+  background: #ffffff; /* pure white canvas for data readability */
+  border: 1.5px solid var(--hairline);
+  border-radius: var(--radius-lg); /* 16px */
+  padding: 20px;
   margin-top: 20px;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  box-shadow: none; /* Flat design */
 }
 
 .table-filter-bar {
@@ -3218,13 +3233,13 @@ dialog textarea:focus {
 #linkedin-search-input,
 #call-search-input {
   width: 100%;
-  height: 38px;
-  padding: 8px 14px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
+  height: 44px; /* Clay input height */
+  padding: 12px 16px; /* Clay input padding */
+  border: 1.5px solid var(--hairline);
+  border-radius: var(--radius-md); /* 12px */
   font-family: var(--font-body);
   font-size: 14px;
-  background: var(--canvas);
+  background: var(--canvas); /* warm cream background */
   color: var(--ink);
   outline: none;
   transition: border-color var(--transition);
@@ -3236,7 +3251,8 @@ dialog textarea:focus {
 #email-search-input:focus,
 #linkedin-search-input:focus,
 #call-search-input:focus {
-  border-color: var(--primary);
+  border-color: var(--primary); /* thick near black border */
+  border-width: 1.5px;
 }
 
 .filters-row {
@@ -3245,11 +3261,11 @@ dialog textarea:focus {
 }
 
 .select-control {
-  height: 38px;
-  padding: 8px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  background: var(--canvas);
+  height: 44px; /* Clay input height */
+  padding: 12px 16px;
+  border: 1.5px solid var(--hairline);
+  border-radius: var(--radius-md); /* 12px */
+  background: var(--canvas); /* warm cream background */
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 13px;
@@ -4190,20 +4206,18 @@ dialog textarea:focus {
   top: 0;
   left: 0;
   z-index: 99999;
-  background: linear-gradient(135deg, #0b0f19, #020408);
+  background: linear-gradient(135deg, var(--canvas), var(--surface-soft)); /* Warm cream gradient floor */
   font-family: var(--font-body);
 }
 
 .auth-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--hairline);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 12px;
+  background: var(--surface-card); /* Warm cream card */
+  border: 1.5px solid var(--hairline);
+  border-radius: var(--radius-xl); /* Clay generous 24px radius */
   padding: 40px;
-  width: 420px;
+  width: 440px;
   max-width: 90%;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 32px rgba(10, 10, 10, 0.04); /* Flat/soft shadow */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4216,17 +4230,18 @@ dialog textarea:focus {
 
 .auth-card-header h2 {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 26px;
   color: var(--ink);
   margin-top: 16px;
   margin-bottom: 6px;
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: -0.05em; /* Plain Black tight style */
 }
 
 .auth-card-header p {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.4;
+  font-size: 13.5px;
+  color: var(--body);
+  line-height: 1.5;
   max-width: 320px;
   margin: 0 auto;
 }
@@ -4236,8 +4251,8 @@ dialog textarea:focus {
   position: relative;
   width: 64px;
   height: 64px;
-  background: var(--bg-surface-active);
-  border: 1px solid var(--hairline);
+  background: var(--brand-lavender); /* Playful Clay brand-lavender card fill */
+  border: 1.5px solid var(--primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -4252,7 +4267,7 @@ dialog textarea:focus {
   right: 0;
   bottom: 0;
   border-radius: 50%;
-  border: 1.5px solid var(--primary);
+  border: 1.5px solid var(--brand-pink); /* Saturated hot pink pulse */
   animation: logoRadarPulse 2.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
   opacity: 0;
 }
