@@ -2182,6 +2182,7 @@ function sendAgentChatMessage() {
       if (browserUrl) browserUrl.value = "https://google.com";
       appendAgentLog(`❌ Failed to answer general query: <em>${err.message}</em>`);
     });
+  }
 }
 
 
