@@ -639,6 +639,22 @@
                 <small class="form-help">Required for syncing prospective sequences to Lemlist campaigns. (Integrates via demo mockup sandbox with active guardrails).</small>
               </div>
             </div>
+
+            <!-- Sandboxes -->
+            <div class="glass-panel" style="margin-top: 20px;">
+              <div class="section-title">B2B Integration Sandboxes</div>
+              <p class="section-desc" style="font-size: 11.5px; color: var(--muted); margin-bottom: 15px; line-height:1.5;">
+                Inspect database syncs, sent email outboxes, connection invitation notes, active sequences, and validation scores:
+              </p>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+                <button class="btn btn-secondary btn-sm" onclick="openSandbox('apollo')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🚀 Apollo.io</button>
+                <button class="btn btn-secondary btn-sm" onclick="openSandbox('outlook')" style="display:flex; align-items:center; gap:6px; justify-content:center;">📧 Outlook</button>
+                <button class="btn btn-secondary btn-sm" onclick="openSandbox('linkedin')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🌐 LinkedIn</button>
+                <button class="btn btn-secondary btn-sm" onclick="openSandbox('lemlist')" style="display:flex; align-items:center; gap:6px; justify-content:center;">⚡ Lemlist</button>
+                <button class="btn btn-secondary btn-sm" onclick="openSandbox('zerobounce')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🔍 ZeroBounce</button>
+              </div>
+            </div>
+
           </div>
         </section>
 
@@ -646,7 +662,35 @@
     </div>
   </div>
 
+  <!-- ═══ MODAL: Platform Sandbox Simulator ═══ -->
+  <div class="settings-overlay" id="sandbox-modal" aria-hidden="true" style="display: none; align-items: center; justify-content: center; z-index: 1000;">
+    <div class="settings-panel" style="width: min(960px, calc(100vw - 4rem)); height: 80vh; max-height: 720px; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden;">
+      <div class="settings-head" style="padding: 16px 20px; border-bottom: 1.5px solid var(--hairline);">
+        <div>
+          <h2 style="display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 4px 0;">🛠️ B2B Stack Integration Sandbox</h2>
+          <p style="font-size:12px; color:var(--muted); margin:0;">Inspect mock portal tables, campaign lists, verification states, and sent logs for test contacts.</p>
+        </div>
+        <button class="btn-icon" onclick="closeSandbox()" title="Close" style="border:none; background:transparent; font-size:24px; cursor:pointer; color:var(--ink);">&times;</button>
+      </div>
+      
+      <div style="display: flex; flex: 1; min-height: 0; background: var(--canvas);">
+        <!-- Sandbox Sidebar -->
+        <div style="width: 220px; border-right: 1.5px solid var(--hairline); background: var(--surface-soft); padding: 16px; display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
+          <button class="sandbox-menu-btn active" id="sb-menu-apollo" onclick="switchSandboxTab('apollo')">🚀 Apollo Contact Board</button>
+          <button class="sandbox-menu-btn" id="sb-menu-outlook" onclick="switchSandboxTab('outlook')">📧 Outlook Sent Mail</button>
+          <button class="sandbox-menu-btn" id="sb-menu-linkedin" onclick="switchSandboxTab('linkedin')">🌐 LinkedIn Profiles</button>
+          <button class="sandbox-menu-btn" id="sb-menu-lemlist" onclick="switchSandboxTab('lemlist')">⚡ Lemlist Sequences</button>
+          <button class="sandbox-menu-btn" id="sb-menu-zerobounce" onclick="switchSandboxTab('zerobounce')">🔍 ZeroBounce Status</button>
+        </div>
+        
+        <!-- Sandbox Main Body -->
+        <div id="sandbox-viewport" style="flex: 1; padding: 20px; overflow-y: auto; background: var(--canvas); min-height: 0;">
+          <!-- Content injected here via JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
-
 </html>

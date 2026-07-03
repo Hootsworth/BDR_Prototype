@@ -1,0 +1,7 @@
+First Name,Last Name,Email,Job Title,Company name,Phone Number,Industry,Source_File,Asset Size,State,Attended Dinner,Visited Booth
+John,Tennus,j.tennus@apexcu.org,Chief Technology Officer,Apex Federal Credit Union,,Credit Union,import_apollo_cu.csv,$450M,MI,Attended Dinner,Visited Booth
+Marcus,Vance,mvance@alliancebank.com,VP of IT Operations,Alliance Bank Group,,Banking,import_apollo_cu.csv,$1.2B,IL,,Visited Booth
+Sarah,Connors,s.connors@guardianshield.com,Director of Information Security,Guardian Shield Insurance,,Insurance,import_apollo_cu.csv,$800M,CA,Attended Dinner,
+David,Lightman,dlightman@noradcu.org,Information Security Manager,NORAD Federal Credit Union,,Credit Union,import_apollo_cu.csv,$250M,CO,,
+Ellen,Ripley,ripley@nostromocu.org,VP of Technology,Nostromo Credit Union,,Credit Union,import_apollo_cu.csv,$950M,TX,Attended Dinner,Visited Booth
+Arthur,Dent,adent@galaxyinsurance.com,IT Director,Galaxy Insurance Services,,Insurance,import_apollo_cu.csv,$150M,NY,,

@@ -4557,3 +4557,25 @@ dialog textarea:focus {
 .browser-target.completed::before {
   background: var(--success);
 }
+
+/* Platform Sandbox Buttons Style */
+.sandbox-menu-btn {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.sandbox-menu-btn:hover {
+  background: var(--surface-strong);
+}
+.sandbox-menu-btn.active {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+}
