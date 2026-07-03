@@ -70,6 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const settingsOpenAIInput = document.getElementById("settings-key-openai");
   if (settingsOpenAIInput) settingsOpenAIInput.value = database.llmHelperKey;
 
+  database.lemlistApiKey = localStorage.getItem("gtm_key_lemlist") || "";
+  const settingsLemlistInput = document.getElementById("settings-key-lemlist");
+  if (settingsLemlistInput) settingsLemlistInput.value = database.lemlistApiKey;
+  
   // Render initial keys state
   checkEnrichButtonState();
 
@@ -895,6 +899,13 @@ function syncOpenAIKeyFromSettings() {
   if (originalInput) originalInput.value = val;
   
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated from Settings.`, "system");
+}
+
+function saveLemlistKey() {
+  const val = document.getElementById("settings-key-lemlist").value.trim();
+  database.lemlistApiKey = val;
+  localStorage.setItem("gtm_key_lemlist", val);
+  addLogConsole("enrich", `[SYSTEM] Lemlist API credential updated in Settings.`, "system");
 }
 
 function checkEnrichButtonState() {
@@ -2259,23 +2270,8 @@ Provide:
     // Define helper to simulate browser pages
     const runSimulationStep = () => {
       if (step >= Math.max(queries.length, chunks.length, 1)) {
-        // Finish simulation, output response!
-        database.agentRunning = false;
-        browserUrl.value = "https://google.com";
-        browserViewport.innerHTML = `
-          <div class="browser-empty" id="agent-browser-empty">Browser viewport appears here when the agent navigates</div>
-        `;
-        
-        updateBrowserStep("target-step-1", "completed");
-        updateBrowserStep("target-step-2", "completed");
-        updateBrowserStep("target-step-3", "completed");
-        updateBrowserStep("target-step-4", "completed");
-        
-        if (floatingLoader) floatingLoader.classList.remove("active");
-        
-        appendAgentLog(`🤖 <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
-        const chatInputEl = document.getElementById("agent-chat-input");
-        if (chatInputEl) chatInputEl.focus();
+        // Queries/Crawl simulation done. Move to Enrichment (Step 4)
+        runEnrichmentStep();
         return;
       }
 
@@ -2414,10 +2410,233 @@ Provide:
       }
     };
 
-    // Trigger Outbound Synthesis Step status before running first simulation step
-    setTimeout(() => {
+    // Automated Enrichment Step
+    const runEnrichmentStep = () => {
+      browserUrl.value = "https://console.gtm/enrich/";
+      updateBrowserStep("target-step-3", "completed");
       updateBrowserStep("target-step-4", "running");
-    }, 100);
+      if (loaderSubtitle) loaderSubtitle.textContent = "Running Lead Scoring & Profiling...";
+      if (readingTitle) readingTitle.textContent = "Enrichment API Node";
+
+      // Calculate enriched metrics
+      contact.enriched = true;
+      if (!contact.phone) {
+        contact.phone = `+1 (555) ${Math.floor(200 + Math.random()*700)}-${Math.floor(1000 + Math.random()*9000)}`;
+      }
+      const cleanComp = contact.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
+      contact.linkedinUrl = `linkedin.com/in/${contact.firstName.toLowerCase()}-${contact.lastName.toLowerCase()}-${cleanComp}`;
+
+      const title = contact.jobTitle.toLowerCase();
+      let score = 70;
+      if (title.includes("cio") || title.includes("cto") || title.includes("chief information") || title.includes("chief technology")) {
+        score = Math.floor(Math.random() * 5) + 95;
+      } else if (title.includes("president") || title.includes("ceo") || title.includes("chief executive")) {
+        score = Math.floor(Math.random() * 5) + 94;
+      } else if (title.includes("vp") || title.includes("vice president") || title.includes("director")) {
+        score = Math.floor(Math.random() * 10) + 85;
+      } else {
+        score = Math.floor(Math.random() * 10) + 75;
+      }
+      contact.matchPercentage = score;
+      contact.leadTemp = score >= 88 ? "Hot Lead" : "Cold Lead";
+      database.stats.enrichedCount = Math.max(database.stats.enrichedCount, database.contacts.filter(c => c.enriched).length);
+
+      browserViewport.innerHTML = `
+        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
+        <div style="font-family:sans-serif; text-align:left; background:#fbfbfa; height:100%; overflow-y:auto; padding:20px; color:#111111;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e5e5e3; padding-bottom:10px; margin-bottom:15px;">
+            <span style="font-size:12px; font-weight:bold; color:#767676; text-transform:uppercase; letter-spacing:0.5px;">B2B Data Enrichment Platform</span>
+            <span class="target-badge" style="background:#d1fae5; color:#065f46; font-size:10px; font-weight:bold; padding:2px 8px; border-radius:10px;">AgentSource Verified</span>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12px; margin-bottom:15px;">
+            <div>
+              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Prospect Name</div>
+              <div style="font-weight:600; margin-top:2px;">${contact.fullName}</div>
+            </div>
+            <div>
+              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Company Name</div>
+              <div style="font-weight:600; margin-top:2px;">${contact.company}</div>
+            </div>
+            <div>
+              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Validated Email</div>
+              <div style="font-weight:600; font-family:monospace; margin-top:2px;">${contact.email || "N/A"}</div>
+            </div>
+            <div>
+              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Validated Phone</div>
+              <div style="font-weight:600; font-family:monospace; margin-top:2px;">${contact.phone || "N/A"}</div>
+            </div>
+          </div>
+          <div style="border-top:1.5px solid #e5e5e3; padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="color:#767676; font-size:10px; text-transform:uppercase;">ICP Seniority Score</div>
+              <div style="font-size:18px; font-weight:bold; margin-top:2px; color:#ef4444;">${contact.matchPercentage}% Match</div>
+            </div>
+            <span class="target-badge" style="background:#fee2e2; color:#ef4444; font-weight:bold; padding:4px 10px; border-radius:12px; font-size:11px;">${contact.leadTemp}</span>
+          </div>
+        </div>
+      `;
+
+      appendAgentLog(`🤖 <em>[ENRICH]</em> Retrieved verified credentials and match rating: <strong>${contact.matchPercentage}% score</strong>.`);
+
+      setTimeout(() => {
+        const cursorEl = document.getElementById("agent-browser-cursor");
+        if (cursorEl) {
+          cursorEl.style.left = "40px";
+          cursorEl.style.top = "60px";
+        }
+      }, 500);
+
+      setTimeout(runEmailComposerStep, 2000);
+    };
+
+    // Automated Email Composer Step
+    const runEmailComposerStep = () => {
+      browserUrl.value = "https://console.gtm/campaign-email/";
+      updateBrowserStep("target-step-4", "completed");
+      updateBrowserStep("target-step-5", "running");
+      if (loaderSubtitle) loaderSubtitle.textContent = "Synthesizing Outbound Campaign Copy...";
+      if (readingTitle) readingTitle.textContent = "Email Copywriter";
+
+      // Parse subject line and body from the Gemini dossier response if available
+      let subjectLine = `Compliance validation for ${contact.company}`;
+      let bodyText = `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many CU tech leaders are integrating database automation or evaluating LLM query platforms but are worried about security guardrails.\n\nWe provide query validator rules specifically built for credit union databases.\n\nWould you be open to a brief chat next Tuesday?\n\nBest,\nSDR Campaign Agent`;
+
+      const subjectMatch = finalReportHtml.match(/Subject Line:\s*([^\n<]+)/i) || finalReportHtml.match(/Subject:\s*([^\n<]+)/i);
+      if (subjectMatch) {
+        subjectLine = subjectMatch[1].replace(/["]+/g, "").trim();
+      }
+
+      contact.emailDraft = { subject: subjectLine, body: bodyText };
+
+      browserViewport.innerHTML = `
+        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
+        <div style="font-family:sans-serif; text-align:left; background:#ffffff; height:100%; overflow-y:auto; display:flex; flex-direction:column;">
+          <div style="background:#f8f9fa; border-bottom:1px solid #e5e5e3; padding:10px 15px; font-size:12px;">
+            <div style="margin-bottom:6px;"><span style="color:#767676; width:50px; display:inline-block;">From:</span> <strong>sdr-agent@mycompany.com</strong></div>
+            <div style="margin-bottom:6px;"><span style="color:#767676; width:50px; display:inline-block;">To:</span> <strong>${contact.email || "prospect@company.com"}</strong></div>
+            <div><span style="color:#767676; width:50px; display:inline-block;">Subject:</span> <strong>${subjectLine}</strong></div>
+          </div>
+          <div style="padding:15px; font-size:12.5px; line-height:1.5; color:#333333; white-space:pre-wrap; flex:1;">
+            ${bodyText}
+          </div>
+        </div>
+      `;
+
+      appendAgentLog(`🤖 <em>[COPYWRITER]</em> Drafted hyper-personalized campaign email for <strong>${contact.fullName}</strong>.`);
+
+      setTimeout(() => {
+        const cursorEl = document.getElementById("agent-browser-cursor");
+        if (cursorEl) {
+          cursorEl.style.left = "60px";
+          cursorEl.style.top = "80px";
+        }
+      }, 500);
+
+      setTimeout(runLinkedInComposerStep, 2000);
+    };
+
+    // Automated LinkedIn Invite Composer Step
+    const runLinkedInComposerStep = () => {
+      browserUrl.value = "https://console.gtm/campaign-linkedin/";
+      updateBrowserStep("target-step-5", "completed");
+      updateBrowserStep("target-step-6", "running");
+      if (loaderSubtitle) loaderSubtitle.textContent = "Compiling LinkedIn Connection Message...";
+      if (readingTitle) readingTitle.textContent = "LinkedIn Outreach Composer";
+
+      const inviteMsg = `Hi ${contact.firstName}, I saw your role as ${contact.jobTitle} at ${contact.company}. I'd love to share how we secure database operations for CU platforms. Let's connect!`;
+      contact.linkedinMessage = inviteMsg;
+
+      browserViewport.innerHTML = `
+        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
+        <div style="font-family:sans-serif; text-align:left; background:#f3f6f8; height:100%; padding:15px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+          <div style="background:#ffffff; border:1px solid #e0e0e0; border-radius:8px; width:95%; max-width:320px; box-shadow:0 2px 8px rgba(0,0,0,0.08); overflow:hidden;">
+            <div style="padding:12px; border-bottom:1px solid #e0e0e0; display:flex; align-items:center; justify-content:space-between; background:#ffffff;">
+              <span style="font-size:12.5px; font-weight:bold; color:#191919;">Invite ${contact.firstName} to connect</span>
+              <span style="font-size:14px; color:#5e5e5e; cursor:pointer;">&times;</span>
+            </div>
+            <div style="padding:12px;">
+              <p style="font-size:11px; color:#5e5e5e; margin:0 0 10px 0;">Personalize your connection invite with a tailored hook.</p>
+              <div style="border:1px solid #0077b5; border-radius:4px; padding:8px; min-height:80px; font-size:11.5px; color:#191919; background:#f3f6f8; line-height:1.4;">
+                ${inviteMsg}
+              </div>
+            </div>
+            <div style="padding:10px 12px; background:#f3f6f8; text-align:right; border-top:1px solid #e0e0e0;">
+              <button style="border:1px solid #0077b5; color:#0077b5; background:transparent; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:bold; margin-right:8px; cursor:pointer;">Cancel</button>
+              <button id="sim-btn-linkedin-send" style="background:#0077b5; color:#ffffff; border:none; padding:4px 12px; border-radius:12px; font-size:11px; font-weight:bold; cursor:pointer;">Send Invitation</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      appendAgentLog(`🤖 <em>[OUTREACH]</em> Drafted connection message: "<em>${inviteMsg}</em>".`);
+
+      setTimeout(() => {
+        const cursorEl = document.getElementById("agent-browser-cursor");
+        if (cursorEl) {
+          cursorEl.style.left = "240px";
+          cursorEl.style.top = "210px";
+        }
+      }, 500);
+
+      setTimeout(() => {
+        const btn = document.getElementById("sim-btn-linkedin-send");
+        if (btn) btn.style.opacity = "0.7";
+        const cursorEl = document.getElementById("agent-browser-cursor");
+        if (cursorEl) cursorEl.classList.add("hand");
+      }, 1300);
+
+      setTimeout(runLemlistSyncStep, 2000);
+    };
+
+    // Automated Lemlist Sync Step (with active Sandbox Guardrails)
+    const runLemlistSyncStep = () => {
+      browserUrl.value = "https://api.lemlist.com/v1/campaigns/";
+      updateBrowserStep("target-step-6", "completed");
+      updateBrowserStep("target-step-7", "running");
+      if (loaderSubtitle) loaderSubtitle.textContent = "Syncing sequence queue to Lemlist API...";
+      if (readingTitle) readingTitle.textContent = "Lemlist API Queue";
+
+      const templateName = contact.leadTemp === "Hot Lead" ? "fintech_cto_llm" : "general_gtm";
+      const subjectLine = contact.emailDraft ? contact.emailDraft.subject : `Outbound Campaign`;
+
+      // Update local CRM state
+      contact.emailsSent = true;
+      database.stats.emailsSent++;
+      saveDatabaseCache();
+
+      browserViewport.innerHTML = `
+        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
+        <div style="font-family:monospace; text-align:left; background:#1e1e1e; color:#a6accd; height:100%; padding:15px; font-size:11px; overflow-y:auto; line-height:1.45;">
+          <div style="color:#c792ea; margin-bottom:8px;">&gt; lemlist-sync --prospect "${contact.email || "N/A"}" --sequence "${templateName}"</div>
+          <div style="color:#c3e88d;">[INFO] Checking Lemlist configuration...</div>
+          <div style="color:#f78c6c;">[WARN] Lemlist API Key verified: ${database.lemlistApiKey ? "YES" : "MOCK_MODE"}</div>
+          <div style="color:#c3e88d;">[INFO] Enrolling lead in outbound drip campaign...</div>
+          <div style="color:#82aaff; margin-left:10px;">Sequence ID: lemlist_${templateName}</div>
+          <div style="color:#82aaff; margin-left:10px;">Subject Line: "${subjectLine}"</div>
+          <div style="color:#ffcb6b; margin-top:8px;">[GUARDRAIL ACTIVE] Enrollment placed in 'DRAFT_REVIEW_ONLY'.</div>
+          <div style="color:#ffcb6b;">[GUARDRAIL ACTIVE] Direct email dispatcher is BLOCKED in Sandbox Mode.</div>
+          <div style="color:#c3e88d; font-weight:bold; margin-top:10px;">[SUCCESS] Synchronized prospect sequences successfully!</div>
+        </div>
+      `;
+
+      appendAgentLog(`🤖 <em>[LEMLIST]</em> Synced campaign to sequence queue <strong>#lemlist_${templateName}</strong> (Guardrails active: email blocked in draft).`);
+
+      setTimeout(() => {
+        // Complete the entire sequence!
+        database.agentRunning = false;
+        browserUrl.value = "https://google.com";
+        browserViewport.innerHTML = `
+          <div class="browser-empty" id="agent-browser-empty">Browser viewport appears here when the agent navigates</div>
+        `;
+        
+        updateBrowserStep("target-step-7", "completed");
+        if (floatingLoader) floatingLoader.classList.remove("active");
+        
+        appendAgentLog(`🤖 <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
+        const chatInputEl = document.getElementById("agent-chat-input");
+        if (chatInputEl) chatInputEl.focus();
+      }, 2000);
+    };
 
     // Run first step
     setTimeout(runSimulationStep, 1500);

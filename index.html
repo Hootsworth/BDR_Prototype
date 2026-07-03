@@ -555,11 +555,14 @@
                   <div class="browser-cursor" id="agent-browser-cursor"></div>
                 </div>
                 <!-- Crawler Targets / Checklist -->
-                <div class="browser-targets" id="agent-browser-targets">
+                <div class="browser-targets" id="agent-browser-targets" style="max-height: 180px;">
                   <div class="browser-target" id="target-step-1"><strong>1. Google Grounding:</strong> Awaiting search index...</div>
                   <div class="browser-target" id="target-step-2"><strong>2. LinkedIn Scrape:</strong> Awaiting profile fetch...</div>
                   <div class="browser-target" id="target-step-3"><strong>3. Corporate Crawl:</strong> Awaiting value extract...</div>
-                  <div class="browser-target" id="target-step-4"><strong>4. Outbound Hook:</strong> Awaiting synthesis...</div>
+                  <div class="browser-target" id="target-step-4"><strong>4. B2B Enrichment:</strong> Awaiting lead details...</div>
+                  <div class="browser-target" id="target-step-5"><strong>5. Email Copywriter:</strong> Awaiting email synthesis...</div>
+                  <div class="browser-target" id="target-step-6"><strong>6. LinkedIn outreach:</strong> Awaiting connection invite...</div>
+                  <div class="browser-target" id="target-step-7"><strong>7. Lemlist Campaign:</strong> Awaiting sequence sync...</div>
                 </div>
               </div>
             </div>
@@ -624,6 +627,16 @@
                   <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-openai', this)">Show</button>
                 </div>
                 <small class="form-help">Used as an alternative LLM helper for offline email drafting templates.</small>
+              </div>
+
+              <!-- Lemlist Key -->
+              <div class="form-group" style="margin-top: 15px;">
+                <label for="settings-key-lemlist">Lemlist API Key</label>
+                <div class="key-input-container">
+                  <input type="password" class="input-control" id="settings-key-lemlist" placeholder="lemlist_..." onchange="saveLemlistKey()">
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-lemlist', this)">Show</button>
+                </div>
+                <small class="form-help">Required for syncing prospective sequences to Lemlist campaigns. (Integrates via demo mockup sandbox with active guardrails).</small>
               </div>
             </div>
           </div>
