@@ -1975,13 +1975,23 @@ function sendAgentChatMessage() {
   userDiv.className = "agent-chat-msg user-msg";
   userDiv.style = "display: flex; gap: 10px; align-items: flex-start; justify-content: flex-end;";
   userDiv.innerHTML = `
-    <div class="msg-bubble" style="background: var(--primary); color: #ffffff; padding: 10px 14px; border-radius: 16px 4px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--primary-active);">
+    <div class="msg-bubble" style="background: var(--primary); color: #ffffff; padding: 10px 14px; border-radius: 16px 4px 16px 16px; font-size: 13px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--primary-active);">
       ${text}
     </div>
   `;
   history.appendChild(userDiv);
   input.value = "";
   history.scrollTop = history.scrollHeight;
+
+  // Switch workspace from input view to output and chat panel!
+  const inputView = document.getElementById("agent-input-view");
+  const outputView = document.getElementById("agent-output-view");
+  const chatPanel = document.getElementById("agent-chat-panel");
+  if (inputView && outputView && chatPanel) {
+    inputView.style.display = "none";
+    outputView.style.display = "flex";
+    chatPanel.style.display = "flex";
+  }
 
   // Parse for @ mentioned contact (robust parser)
   let targetContact = null;
@@ -2019,7 +2029,7 @@ function sendAgentChatMessage() {
         botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
         botDiv.innerHTML = `
           <div class="avatar" style="font-size: 20px;">🤖</div>
-          <div class="msg-bubble" style="background: var(--bg-surface-active); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--hairline);">
+          <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13px; line-height: 1.5; border: 1.5px solid var(--hairline);">
             I am ready. Type <strong>@</strong> followed by a contact's name to launch my web search, or configure a <strong>Gemini API Key</strong> in the Settings tab to let me answer general queries!
           </div>
         `;
@@ -2031,8 +2041,8 @@ function sendAgentChatMessage() {
 
     // Call Gemini API for general query!
     database.agentRunning = true;
-    const browserStatus = document.getElementById("agent-browser-status");
-    if (browserStatus) browserStatus.textContent = "Status: Answering general query...";
+    const browserUrl = document.getElementById("agent-browser-url-input");
+    if (browserUrl) browserUrl.value = "Status: Answering general query...";
     
     setTimeout(() => {
       appendAgentLog(`🤖 Processing query: "<em>${text}</em>"...`);
@@ -2075,7 +2085,7 @@ function sendAgentChatMessage() {
     })
     .then(resJson => {
       database.agentRunning = false;
-      if (browserStatus) browserStatus.textContent = "Status: Browser Standby";
+      if (browserUrl) browserUrl.value = "https://google.com";
       
       const candidate = resJson.candidates && resJson.candidates[0];
       if (candidate) {
@@ -2094,48 +2104,32 @@ function sendAgentChatMessage() {
     })
     .catch(err => {
       database.agentRunning = false;
-      if (browserStatus) browserStatus.textContent = "Status: Browser Standby";
+      if (browserUrl) browserUrl.value = "https://google.com";
       appendAgentLog(`❌ Failed to answer general query: <em>${err.message}</em>`);
     });
   }
 }
 
-// Autonomous Web Scraping & Firecrawl simulator with real Gemini grounding
-function setStepStatus(stepId, status) {
-  const el = document.getElementById(stepId);
-  if (!el) return;
-  el.classList.remove("disabled", "running", "completed");
-  el.classList.add(status);
+function sendAgentDirective() {
+  const input = document.getElementById("agent-directives");
+  if (!input) return;
+  const text = input.value.trim();
+  if (text === "") return;
+
+  const chatInput = document.getElementById("agent-chat-input");
+  if (chatInput) {
+    chatInput.value = text;
+    sendAgentChatMessage();
+    input.value = "";
+  }
 }
 
-function updateAgentTargetCard(contact) {
-  const card = document.getElementById("agent-target-card");
-  if (!card) return;
-  
-  if (!contact) {
-    card.innerHTML = `
-      <div class="target-card-placeholder">
-        <div class="radar-ping"></div>
-        <span>Agent Idle — Awaiting Target Selection</span>
-      </div>
-    `;
-    return;
-  }
-  
-  const initials = contact.fullName.split(" ").map(n => n[0]).join("");
-  card.innerHTML = `
-    <div class="active-target-profile">
-      <div class="target-avatar" style="background: ${contact.leadTemp === 'Hot' ? 'var(--brand-coral)' : 'var(--brand-teal)'}; color: #ffffff;">${initials}</div>
-      <div class="target-details">
-        <div class="target-name">${contact.fullName}</div>
-        <div class="target-title-comp">${contact.jobTitle} at <strong>${contact.company}</strong></div>
-        <div class="target-meta-row">
-          <span class="target-badge temp-${contact.leadTemp.toLowerCase()}">${contact.leadTemp}</span>
-          <span class="target-badge location">${contact.state || "US"}</span>
-        </div>
-      </div>
-    </div>
-  `;
+function updateBrowserStep(stepId, status) {
+  const el = document.getElementById(stepId);
+  if (!el) return;
+  el.classList.remove("running", "completed");
+  if (status === "running") el.classList.add("running");
+  if (status === "completed") el.classList.add("completed");
 }
 
 // Autonomous Web Scraping & Firecrawl simulator with real Gemini grounding and visual steps tracking
@@ -2143,53 +2137,47 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   const history = document.getElementById("agent-chat-history");
   const browserUrl = document.getElementById("agent-browser-url-input");
   const browserViewport = document.getElementById("agent-browser-viewport");
-  const browserStatus = document.getElementById("agent-browser-status");
-  const dossierOutput = document.getElementById("agent-dossier-output");
   
-  if (!history || !browserUrl || !browserViewport || !browserStatus) return;
+  if (!history || !browserUrl || !browserViewport) return;
 
   // Check if Gemini API key is configured
   if (!database.geminiApiKey) {
     appendAgentLog(`❌ <strong>Error: Gemini API key is not configured!</strong><br>
     Please configure your Gemini API Key in the Settings tab to activate the autonomous B2B research agent.<br><br>
     <button class="btn btn-primary btn-sm" onclick="switchTab('settings-keys')">Configure API Credentials</button>`);
-    browserStatus.textContent = "Status: Stopped - Credentials Required";
     return;
   }
 
   // Set running state
   database.agentRunning = true;
-  browserStatus.textContent = "Status: Planning research sequence...";
   
-  // Update Target Card and Step Progress indicators
-  updateAgentTargetCard(contact);
-  setStepStatus("step-dorking", "running");
-  setStepStatus("step-linkedin", "disabled");
-  setStepStatus("step-corporate", "disabled");
-  setStepStatus("step-synthesis", "disabled");
+  // Update floating loader title, subtitle and checklist targets
+  const floatingLoader = document.getElementById("agent-floating-loader");
+  const loaderTitle = document.getElementById("agent-loader-title");
+  const loaderSubtitle = document.getElementById("agent-loader-subtitle");
+  const readingTitle = document.getElementById("agent-reading-title");
+  const textCanvas = document.getElementById("agent-text-canvas");
+  
+  if (floatingLoader) floatingLoader.classList.add("active");
+  if (loaderTitle) loaderTitle.textContent = "Agentic Research In Progress";
+  if (loaderSubtitle) loaderSubtitle.textContent = "Planning research path...";
+  if (readingTitle) readingTitle.textContent = "Standing by";
+  if (textCanvas) textCanvas.innerHTML = "";
+  
+  updateBrowserStep("target-step-1", "running");
+  updateBrowserStep("target-step-2", "");
+  updateBrowserStep("target-step-3", "");
+  updateBrowserStep("target-step-4", "");
 
-  // Reset dossier area to empty state
-  if (dossierOutput) {
-    dossierOutput.innerHTML = `
-      <div class="dossier-empty-state">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        <span>Agent executing search grounding. Synthesizing dossier hooks...</span>
-      </div>
-    `;
-  }
-  
   const queryToRun = customUserQuestion ? customUserQuestion.trim() : `Find out everything you can about ${contact.fullName} who is ${contact.jobTitle} at ${contact.company}. Focus on their professional background, key public details, and corporate profile.`;
   
-  appendAgentLog(`🤖 Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).<br>
-  Query: "<em>${queryToRun}</em>"`);
+  appendAgentLog(`🤖 Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).`);
 
   // Update browser status & start loading animation in browser viewport
-  browserUrl.value = "https://www.google.com";
-  browserStatus.textContent = "Status: Connecting to Gemini API (with Search Grounding)...";
+  browserUrl.value = "Connecting to Gemini API (with Search Grounding)...";
   browserViewport.innerHTML = `
-    <div class="browser-page-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
-      <div class="radar-logo-ping" style="width: 48px; height: 48px; background: var(--brand-teal); border-radius: 50%;"></div>
-      <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Agent Executing Dorking Query...</div>
+    <div class="browser-empty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
+      <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px;">Agent Executing Dorking Query...</div>
       <div style="font-size:11px; opacity:0.8; text-align:center;">Retrieving live Google Search index metadata.</div>
     </div>
   `;
@@ -2269,13 +2257,6 @@ Provide:
     const queries = (groundingMetadata && groundingMetadata.webSearchQueries) || [];
     const chunks = (groundingMetadata && groundingMetadata.groundingChunks) || [];
 
-    // Begin animated browser simulation based on actual results!
-    if (queries.length > 0) {
-      appendAgentLog(`🤖 <em>[PLANNER]</em> Initiated Google search queries: <em>${queries.join(", ")}</em>`);
-    } else {
-      appendAgentLog(`🤖 <em>[PLANNER]</em> Analyzing local context and profile history...`);
-    }
-
     let step = 0;
     
     // Define helper to simulate browser pages
@@ -2284,24 +2265,17 @@ Provide:
         // Finish simulation, output response!
         database.agentRunning = false;
         browserUrl.value = "https://google.com";
-        browserStatus.textContent = "Status: Browser Standby";
         browserViewport.innerHTML = `
-          <div class="browser-page-content" id="bpage-default" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="width:48px;height:48px;opacity:0.3;color:var(--muted);"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
-            <div style="font-size:12px; text-transform:uppercase; letter-spacing:1px; font-weight:600; text-align:center;">Browser Simulator Idle</div>
-            <div style="font-size:11.5px; text-align:center; max-width:260px; opacity:0.8; line-height:1.5;">The agent's browser will load Google, LinkedIn, and corporate websites here in real time.</div>
-          </div>
+          <div class="browser-empty" id="agent-browser-empty">Browser viewport appears here when the agent navigates</div>
         `;
         
-        // Mark all steps as complete and display dossier
-        setStepStatus("step-dorking", "completed");
-        setStepStatus("step-linkedin", "completed");
-        setStepStatus("step-corporate", "completed");
-        setStepStatus("step-synthesis", "completed");
+        updateBrowserStep("target-step-1", "completed");
+        updateBrowserStep("target-step-2", "completed");
+        updateBrowserStep("target-step-3", "completed");
+        updateBrowserStep("target-step-4", "completed");
         
-        if (dossierOutput) {
-          dossierOutput.innerHTML = finalReportHtml;
-        }
+        if (floatingLoader) floatingLoader.classList.remove("active");
+        if (textCanvas) textCanvas.innerHTML = finalReportHtml;
         
         appendAgentLog(`🤖 Live Web Scraping Task Complete!<br>Dossier compiled successfully.`);
         return;
@@ -2311,8 +2285,9 @@ Provide:
       if (queries[step]) {
         const query = queries[step];
         browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        browserStatus.textContent = `Status: Searching Google for "${query}"...`;
-        setStepStatus("step-dorking", "running");
+        updateBrowserStep("target-step-1", "running");
+        if (loaderSubtitle) loaderSubtitle.textContent = "Google Dorking search index matching...";
+        if (readingTitle) readingTitle.textContent = query;
         
         // Render a search result page
         let resultsHtml = "";
@@ -2327,7 +2302,7 @@ Provide:
         });
 
         browserViewport.innerHTML = `
-          <div class="browser-cursor" id="browser-cursor" style="position: absolute; width: 14px; height: 14px; background: rgba(204,120,92,0.8); border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,0,0,0.3); z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
+          <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
           <div class="google-search-mock" style="padding:15px; background:#ffffff; height:100%; overflow-y:auto; font-family:sans-serif;">
             <div class="google-logo-sm" style="font-size:16px; font-weight:bold; margin-bottom:12px; color:#4285F4;">
               <span style="color:#4285F4;">G</span><span style="color:#EA4335;">o</span><span style="color:#FBBC05;">o</span><span style="color:#4285F4;">g</span><span style="color:#34A853;">l</span><span style="color:#EA4335;">e</span>
@@ -2340,7 +2315,7 @@ Provide:
         
         // Animate pointer to first result and click
         setTimeout(() => {
-          const cursorEl = document.getElementById("browser-cursor");
+          const cursorEl = document.getElementById("agent-browser-cursor");
           if (cursorEl) {
             cursorEl.style.left = "40px";
             cursorEl.style.top = "70px";
@@ -2350,26 +2325,29 @@ Provide:
         setTimeout(() => {
           const link = document.getElementById("sim-link-0");
           if (link) link.style.color = "#551a8b"; // Purple click state
-          browserStatus.textContent = "Status: Clicking search reference link...";
+          const cursorEl = document.getElementById("agent-browser-cursor");
+          if (cursorEl) cursorEl.classList.add("hand"); // Hand shape
         }, 1600);
 
         // Move to crawl the website of the chunk in the next micro-step
         setTimeout(() => {
-          setStepStatus("step-dorking", "completed");
+          updateBrowserStep("target-step-1", "completed");
           if (chunks[step]) {
             const chunk = chunks[step];
             const urlStr = chunk.web.uri;
             const titleStr = chunk.web.title;
             browserUrl.value = urlStr;
-            browserStatus.textContent = `Status: Crawling page: ${urlStr}...`;
             
             // Set running status based on URL type
             if (urlStr.includes("linkedin.com")) {
-              setStepStatus("step-linkedin", "running");
+              updateBrowserStep("target-step-2", "running");
+              if (loaderSubtitle) loaderSubtitle.textContent = "Scraping profiles via Firecrawl...";
+              if (readingTitle) readingTitle.textContent = "linkedin.com/in/" + contact.firstName.toLowerCase();
               appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Crawling LinkedIn profile node...`);
               
               const initials = contact.fullName.split(" ").map(n => n[0]).join("");
               browserViewport.innerHTML = `
+                <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 40px; top: 70px;"></div>
                 <div class="linkedin-profile-mock" style="font-family:sans-serif; text-align:left; background:#f3f6f8; height:100%; overflow-y:auto;">
                   <div class="linkedin-header-card" style="background:#ffffff; border-bottom:1px solid #e0e0e0; padding-bottom:12px;">
                     <div class="linkedin-banner" style="height:45px; background:linear-gradient(90deg, #a0b2c6, #cbd5e1);"></div>
@@ -2391,14 +2369,17 @@ Provide:
               `;
               
               setTimeout(() => {
-                setStepStatus("step-linkedin", "completed");
+                updateBrowserStep("target-step-2", "completed");
               }, 1800);
             } else {
-              setStepStatus("step-corporate", "running");
+              updateBrowserStep("target-step-3", "running");
+              if (loaderSubtitle) loaderSubtitle.textContent = "Crawling company value statements...";
+              if (readingTitle) readingTitle.textContent = contact.company + " Homepage";
               appendAgentLog(`🤖 <em>[CRAWLER]</em> Crawling corporate page assets: <em>${urlStr}</em>`);
               
               // Corporate page or blog
               browserViewport.innerHTML = `
+                <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 40px; top: 70px;"></div>
                 <div style="font-family:sans-serif; text-align:left; background:#f8f9fa; height:100%; overflow-y:auto;">
                   <div style="background:#1b263b; color:#ffffff; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="font-weight:bold; font-size:11px;">${contact.company.toUpperCase()}</div>
@@ -2417,7 +2398,7 @@ Provide:
               `;
               
               setTimeout(() => {
-                setStepStatus("step-corporate", "completed");
+                updateBrowserStep("target-step-3", "completed");
               }, 1800);
             }
 
@@ -2437,7 +2418,7 @@ Provide:
 
     // Trigger Outbound Synthesis Step status before running first simulation step
     setTimeout(() => {
-      setStepStatus("step-synthesis", "running");
+      updateBrowserStep("target-step-4", "running");
     }, 100);
 
     // Run first step
@@ -2446,11 +2427,12 @@ Provide:
   } catch (err) {
     console.error(err);
     database.agentRunning = false;
-    browserStatus.textContent = "Status: Search Grounding Failed";
-    setStepStatus("step-dorking", "disabled");
-    setStepStatus("step-linkedin", "disabled");
-    setStepStatus("step-corporate", "disabled");
-    setStepStatus("step-synthesis", "disabled");
+    browserUrl.value = "Google Search Grounding Failed";
+    updateBrowserStep("target-step-1", "disabled");
+    updateBrowserStep("target-step-2", "disabled");
+    updateBrowserStep("target-step-3", "disabled");
+    updateBrowserStep("target-step-4", "disabled");
+    if (floatingLoader) floatingLoader.classList.remove("active");
     
     appendAgentLog(`❌ <strong>Execution Failed!</strong><br>
     Unable to query Gemini API. Reason: <em>${err.message}</em><br><br>
