@@ -138,7 +138,7 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
    SIDEBAR RAIL  — 64px → 220px on hover
    ═══════════════════════════════════════════════════════ */
 .sidebar-panel {
-  width: var(--nav-width);
+  width: var(--nav-width-open);
   background: var(--surface-soft);
   border-right: 1px solid var(--hairline);
   display: flex;
@@ -150,11 +150,6 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
   flex-shrink: 0;
   z-index: 100;
   overflow: hidden;
-  transition: width 0.22s var(--ease-out-expo);
-}
-
-.sidebar-panel:hover {
-  width: var(--nav-width-open);
 }
 
 /* Legacy toggle hidden */
@@ -175,12 +170,6 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
   transition: padding var(--transition);
 }
 
-.sidebar-panel:not(:hover) .sidebar-header {
-  padding: 0;
-  justify-content: center;
-  gap: 0;
-}
-
 .brand-spike {
   width: 24px;
   height: 24px;
@@ -194,17 +183,12 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  letter-spacing: -0.03em;
-  transition: max-width 0.22s var(--ease-out-expo), opacity 0.18s ease;
-}
-
-.sidebar-panel:hover .brand-name {
   opacity: 1;
   max-width: 150px;
+  overflow: hidden;
+  letter-spacing: -0.03em;
 }
+
 
 /* Sidebar nav items */
 .sidebar-nav {
@@ -262,27 +246,47 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
 }
 
 .nav-label {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: max-width var(--transition), opacity var(--transition);
-}
-
-.sidebar-panel:not(:hover) .sidebar-nav button {
-  padding: 10px 0;
-  justify-content: center;
-  gap: 0;
-}
-
-.sidebar-panel:hover .sidebar-nav button {
-  gap: 12px;
-  padding: 10px 12px;
-}
-
-.sidebar-panel:hover .nav-label {
   max-width: 150px;
   opacity: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar-nav button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.sidebar-nav button:hover {
+  color: var(--ink);
+  background: var(--surface-card);
+}
+
+.sidebar-nav button.active {
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  flex-shrink: 0;
 }
 
 /* Sidebar controls section */
@@ -304,11 +308,6 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
   padding: 0 4px;
   margin-bottom: 4px;
   white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.14s ease;
-}
-
-.sidebar-panel:hover .controls-title {
   opacity: 1;
 }
 
@@ -319,12 +318,11 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
 .sidebar-ctrl-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  gap: 10px;
   width: 100%;
-  padding: 6px 0;
+  padding: 6px 12px;
+  justify-content: flex-start;
   overflow: hidden;
-  transition: gap var(--transition), padding var(--transition), justify-content var(--transition);
 }
 
 .sidebar-ctrl-btn .btn-icon {
@@ -332,21 +330,8 @@ h5 { font-size: 16px; font-weight: 600; letter-spacing: 0; }
 }
 
 .btn-label {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  transition: max-width var(--transition), opacity var(--transition);
-}
-
-.sidebar-panel:hover .sidebar-ctrl-btn {
-  gap: 10px;
-  padding: 6px 12px;
-  justify-content: flex-start;
-}
-
-.sidebar-panel:hover .btn-label {
   opacity: 1;
+  white-space: nowrap;
 }
 
 
@@ -1377,6 +1362,111 @@ dialog textarea:focus {
   justify-content: flex-end;
   margin-top: 20px;
 }
+
+.custom-dialog {
+  padding: 24px;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid var(--hairline);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.close-dialog-btn {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+  transition: color var(--transition);
+}
+
+.close-dialog-btn:hover {
+  color: var(--ink);
+}
+
+.dialog-intro-text {
+  font-size: 13px;
+  color: var(--body);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  border-top: 1.5px solid var(--hairline);
+  padding-top: 12px;
+}
+
+.referrals-summary-total {
+  margin-top: 12px;
+  text-align: right;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.referral-count-label {
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 600;
+  color: var(--brand-teal);
+  transition: color var(--transition);
+}
+
+.referral-count-label:hover {
+  color: var(--brand-pink);
+}
+
+.influencer-form-panel {
+  margin-bottom: 20px;
+}
+
+.influencer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.influencer-form-btn-wrap {
+  display: flex;
+  align-items: flex-end;
+}
+
+@media (max-width: 900px) {
+  .influencer-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .influencer-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 
 /* ─── TELEMETRY ─────────────────────────────────────── */
@@ -2668,16 +2758,6 @@ dialog textarea:focus {
   color: var(--ink);
 }
 
-.sidebar-panel:not(:hover) .chevron-indicator {
-  display: none;
-}
-
-.sidebar-panel:not(:hover) .nav-category-header {
-  padding: 12px 0;
-  justify-content: center;
-  gap: 0;
-}
-
 .chevron-indicator {
   margin-left: auto;
   font-size: 8px;
@@ -2705,10 +2785,6 @@ dialog textarea:focus {
   max-height: 300px;
   opacity: 1;
   transition: max-height 0.25s var(--ease-out-expo), opacity 0.2s ease, padding 0.2s ease;
-}
-
-.sidebar-panel:not(:hover) .nav-subtabs {
-  display: none;
 }
 
 .subtab-btn {
@@ -2782,14 +2858,6 @@ dialog textarea:focus {
 }
 
 .agent-mode-toggle-btn:hover { opacity: 0.9; }
-
-.sidebar-panel:not(:hover) .agent-mode-toggle-btn {
-  padding: 10px 0;
-  justify-content: center;
-  gap: 0;
-  width: 44px;
-  margin: 0 auto;
-}
 
 .agent-radar-dot {
   width: 8px;
@@ -3415,28 +3483,6 @@ dialog textarea:focus {
   gap: 12px;
   overflow: hidden;
   transition: padding var(--transition);
-}
-
-.sidebar-panel:not(:hover) .sidebar-auth-section {
-  padding: 12px 0;
-  justify-content: center;
-  gap: 0;
-}
-
-.sidebar-panel:not(:hover) .clerk-user-profile-wrap {
-  justify-content: center;
-  gap: 0;
-}
-
-.sidebar-panel:not(:hover) .sidebar-signin-btn {
-  padding: 8px 0;
-  width: 44px;
-  justify-content: center;
-  gap: 0;
-}
-
-.sidebar-panel:not(:hover) .sidebar-signin-btn .nav-label {
-  display: none;
 }
 
 #clerk-user-button {
@@ -4089,7 +4135,7 @@ dialog textarea:focus {
   }
 
   .sidebar-panel {
-    width: var(--nav-width);
+    width: var(--nav-width-open);
   }
 
   .tutorial-phases-grid {
@@ -4578,4 +4624,10 @@ dialog textarea:focus {
 .sandbox-menu-btn.active {
   background: var(--primary) !important;
   color: #ffffff !important;
+}
+
+.table-cell-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }

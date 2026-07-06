@@ -273,6 +273,49 @@
 
         <!-- ═══ TAB: Influencers ═══ -->
         <section class="tab-content" id="tab-panel-influencers">
+          <!-- Manual Add Influencer Glass Panel -->
+          <div class="glass-panel influencer-form-panel">
+            <div class="section-title">Add Influencer Manually</div>
+            <form id="manual-influencer-form" onsubmit="handleManualInfluencerSubmit(event)">
+              <div class="influencer-form-grid">
+                <div class="form-group">
+                  <label for="manual-inf-name">Full Name</label>
+                  <input type="text" class="input-control" id="manual-inf-name" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-title">Job Title</label>
+                  <input type="text" class="input-control" id="manual-inf-title" placeholder="VP of IT / Operations" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-company">Company</label>
+                  <input type="text" class="input-control" id="manual-inf-company" placeholder="Summit Credit Union" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-email">Email Address</label>
+                  <input type="email" class="input-control" id="manual-inf-email" placeholder="john.doe@summitcu.org" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-phone">Phone (Optional)</label>
+                  <input type="text" class="input-control" id="manual-inf-phone" placeholder="+1 (555) 019-2834">
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-temp">Lead Status</label>
+                  <select class="select-control" id="manual-inf-temp">
+                    <option value="Hot Lead">Hot Lead</option>
+                    <option value="Cold Lead">Cold Lead</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-match">Match Score (%)</label>
+                  <input type="number" class="input-control" id="manual-inf-match" value="95" min="0" max="100">
+                </div>
+                <div class="form-group influencer-form-btn-wrap">
+                  <button type="submit" class="btn btn-primary" style="width: 100%;">Add Influencer</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
           <div class="table-container-card">
             <div class="table-filter-bar">
               <input type="text" id="influencers-search-input" placeholder="Search influencers by name or company..." oninput="filterInfluencersTable()">
@@ -293,10 +336,18 @@
             <div class="table-wrapper">
               <table id="table-influencers">
                 <thead>
-                  <tr><th>Name</th><th>Job Title</th><th>Company Name</th><th>Lead Status</th><th>Match Score</th><th>Asset Size</th><th>Action</th></tr>
+                  <tr>
+                    <th>Name</th>
+                    <th>Job Title</th>
+                    <th>Company Name</th>
+                    <th>Lead Status</th>
+                    <th>Match Score</th>
+                    <th>Referrals &amp; Credits</th>
+                    <th>Action</th>
+                  </tr>
                 </thead>
                 <tbody id="table-influencers-body">
-                  <tr><td colspan="7" class="table-placeholder">No influencers found. Please load CSV data first.</td></tr>
+                  <tr><td colspan="7" class="table-placeholder">No influencers found. Please load CSV data or add manually above.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -691,6 +742,81 @@
       </div>
     </div>
   </div>
+
+  <!-- ═══ DIALOG: Add Referral Contact ═══ -->
+  <dialog id="referral-dialog" class="glass-panel custom-dialog">
+    <div class="dialog-header">
+      <h3>Add Referred Contact</h3>
+      <button class="close-dialog-btn" onclick="closeReferralDialog()">×</button>
+    </div>
+    <form id="referral-form" onsubmit="handleReferralSubmit(event)">
+      <input type="hidden" id="referral-influencer-email" value="">
+      <div class="dialog-body">
+        <p class="dialog-intro-text">Reward <span id="reward-target-name">Influencer</span> with <strong>10 credits</strong> for providing this contact.</p>
+        <div class="form-group">
+          <label for="ref-name">Full Name</label>
+          <input type="text" class="input-control" id="ref-name" placeholder="Sarah Jenkins" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-title">Job Title</label>
+          <input type="text" class="input-control" id="ref-title" placeholder="Chief Information Officer" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-company">Company</label>
+          <input type="text" class="input-control" id="ref-company" placeholder="Apex Federal Credit Union" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-email">Email Address</label>
+          <input type="email" class="input-control" id="ref-email" placeholder="sjenkins@apexfcu.org" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-phone">Phone Number (Optional)</label>
+          <input type="text" class="input-control" id="ref-phone" placeholder="+1 (555) 345-6789">
+        </div>
+        <div class="form-group">
+          <label for="ref-credits">Credits to Award</label>
+          <input type="number" class="input-control" id="ref-credits" value="10" min="0">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeReferralDialog()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit &amp; Reward</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ═══ DIALOG: View Referrals Details ═══ -->
+  <dialog id="referrals-view-dialog" class="glass-panel custom-dialog">
+    <div class="dialog-header">
+      <h3>Referrals &amp; Rewards</h3>
+      <button class="close-dialog-btn" onclick="closeReferralsViewDialog()">×</button>
+    </div>
+    <div class="dialog-body">
+      <p class="dialog-intro-text">Contacts referred by <strong id="referrals-view-influencer-name">Influencer</strong>:</p>
+      <div class="table-wrapper text-sm">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Job Title</th>
+              <th>Company</th>
+              <th>Email</th>
+              <th>Credits Granted</th>
+            </tr>
+          </thead>
+          <tbody id="referrals-view-table-body">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div class="referrals-summary-total">
+        Total Credits Earned: <strong id="referrals-view-total-credits">0</strong>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeReferralsViewDialog()">Close</button>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

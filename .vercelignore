@@ -1,6 +1,5 @@
 # Ignore Python backend files for static Vercel deployment
-main.py
-verify_bdr.py
+*.py
 requirements.txt
 agents/
 cli/
