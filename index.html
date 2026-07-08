@@ -79,13 +79,13 @@
             <span class="chevron-indicator">▼</span>
           </div>
           <div class="nav-subtabs" id="subtabs-contacts">
-            <button class="subtab-btn active" id="tab-btn-import" onclick="switchTab('import')">
+            <button class="subtab-btn active" id="tab-btn-upload" onclick="switchTab('upload')">
               <span class="subtab-dot"></span>
-              <span class="subtab-label">Import</span>
+              <span class="subtab-label">Upload</span>
             </button>
-            <button class="subtab-btn" id="tab-btn-uploads" onclick="switchTab('uploads')">
+            <button class="subtab-btn" id="tab-btn-analyse" onclick="switchTab('analyse')">
               <span class="subtab-dot"></span>
-              <span class="subtab-label">Uploads</span>
+              <span class="subtab-label">Analyse</span>
             </button>
             <button class="subtab-btn" id="tab-btn-influencers" onclick="switchTab('influencers')">
               <span class="subtab-dot"></span>
@@ -108,17 +108,13 @@
             <span class="chevron-indicator">▼</span>
           </div>
           <div class="nav-subtabs" id="subtabs-campaign">
-            <button class="subtab-btn" id="tab-btn-campaign-email" onclick="switchTab('campaign-email')">
+            <button class="subtab-btn" id="tab-btn-campaign-outbound" onclick="switchTab('campaign-outbound')">
               <span class="subtab-dot"></span>
-              <span class="subtab-label">Email</span>
+              <span class="subtab-label">Outbound</span>
             </button>
-            <button class="subtab-btn" id="tab-btn-campaign-linkedin" onclick="switchTab('campaign-linkedin')">
+            <button class="subtab-btn" id="tab-btn-campaign-schedule" onclick="switchTab('campaign-schedule')">
               <span class="subtab-dot"></span>
-              <span class="subtab-label">LinkedIn</span>
-            </button>
-            <button class="subtab-btn" id="tab-btn-campaign-call" onclick="switchTab('campaign-call')">
-              <span class="subtab-dot"></span>
-              <span class="subtab-label">Call</span>
+              <span class="subtab-label">Schedule</span>
             </button>
           </div>
         </div>
@@ -193,8 +189,8 @@
 
       <main>
 
-        <!-- ═══ TAB: Import ═══ -->
-        <section class="tab-content active" id="tab-panel-import">
+        <!-- ═══ TAB: Upload ═══ -->
+        <section class="tab-content active" id="tab-panel-upload">
           <div class="glass-panel">
             <div class="import-actions-row">
               <div class="import-file-wrap">
@@ -204,50 +200,50 @@
                   Upload BDR CSV Dataset
                 </button>
               </div>
-              <div class="data-summary-count" id="import-stats-summary">No CSV data loaded yet.</div>
+              <div class="data-summary-count" id="upload-stats-summary">No CSV data loaded yet.</div>
             </div>
           </div>
 
           <div class="table-container-card">
             <div class="table-filter-bar">
               <div class="search-input-wrap">
-                <input type="text" id="import-search-input" placeholder="Search contacts..." oninput="filterImportTable()">
+                <input type="text" id="upload-search-input" placeholder="Search contacts..." oninput="filterUploadTable()">
               </div>
               <div class="filters-row">
-                <select class="select-control" id="filter-industry" onchange="filterImportTable()">
+                <select class="select-control" id="filter-industry" onchange="filterUploadTable()">
                   <option value="">All Industries</option>
                   <option value="Credit Union">Credit Union</option>
                   <option value="Banking">Banking</option>
                   <option value="Financial Services">Financial Services</option>
                 </select>
-                <select class="select-control" id="filter-source" onchange="filterImportTable()">
+                <select class="select-control" id="filter-source" onchange="filterUploadTable()">
                   <option value="">All Sources</option>
                 </select>
               </div>
             </div>
             <div class="table-wrapper">
-              <table id="table-import-data">
+              <table id="table-upload-data">
                 <thead>
-                  <tr id="table-import-headers">
+                  <tr id="table-upload-headers">
                     <th>Name</th><th>Job Title</th><th>Company</th><th>Email</th><th>Industry</th><th>Source File</th>
                   </tr>
                 </thead>
-                <tbody id="table-import-body">
+                <tbody id="table-upload-body">
                   <tr><td colspan="6" class="table-placeholder">Upload a CSV dataset to begin.</td></tr>
                 </tbody>
               </table>
             </div>
-            <div class="table-pagination" id="import-pagination"></div>
+            <div class="table-pagination" id="upload-pagination"></div>
           </div>
         </section>
 
-        <!-- ═══ TAB: Uploads Chatbot ═══ -->
-        <section class="tab-content" id="tab-panel-uploads">
+        <!-- ═══ TAB: Analyse Chatbot ═══ -->
+        <section class="tab-content" id="tab-panel-analyse">
           <div class="chat-container">
             <div class="chat-header">
               <span class="chat-header-title">CSV Analytics Assistant</span>
             </div>
-            <div class="chat-messages" id="uploads-chat-messages">
+            <div class="chat-messages" id="analyse-chat-messages">
               <div class="chat-bubble bot">
                 Hello! I am your GTM list assistant. Ask me questions about the uploaded CSV records, such as:
                 <ul>
@@ -258,15 +254,15 @@
                 </ul>
               </div>
             </div>
-            <div class="suggested-queries-bar" id="uploads-suggestions">
+            <div class="suggested-queries-bar" id="analyse-suggestions">
               <button class="query-pill" onclick="sendSuggestedQuery('How many total contacts are in the CSV?')">Total count</button>
               <button class="query-pill" onclick="sendSuggestedQuery('How many CIOs, CTOs or IT Directors?')">CIO/CTO count</button>
               <button class="query-pill" onclick="sendSuggestedQuery('What is the breakdown of industries?')">Industry breakdown</button>
               <button class="query-pill" onclick="sendSuggestedQuery('List the top 5 states by credit unions')">Top states</button>
             </div>
             <div class="chat-input-area">
-              <input type="text" id="uploads-chat-input" placeholder="Ask about the loaded list data..." onkeydown="if(event.key === 'Enter') sendUploadsChatMessage()">
-              <button class="btn btn-primary btn-sm" onclick="sendUploadsChatMessage()">Send ➔</button>
+              <input type="text" id="analyse-chat-input" placeholder="Ask about the loaded list data..." onkeydown="if(event.key === 'Enter') sendAnalyseChatMessage()">
+              <button class="btn btn-primary btn-sm" onclick="sendAnalyseChatMessage()">Send ➔</button>
             </div>
           </div>
         </section>
@@ -406,74 +402,56 @@
           </div>
         </section>
 
-        <!-- ═══ TAB: Email Campaign ═══ -->
-        <section class="tab-content" id="tab-panel-campaign-email">
+        <!-- ═══ TAB: Outbound Campaign ═══ -->
+        <section class="tab-content" id="tab-panel-campaign-outbound">
           <div class="split-pane-layout">
             <div class="left-list-pane">
               <div class="table-filter-bar">
-                <input type="text" id="email-search-input" placeholder="Search contacts..." oninput="filterEmailTable()">
+                <input type="text" id="outbound-search-input" placeholder="Search prospects..." oninput="filterOutboundTable()">
               </div>
               <div class="table-wrapper text-sm">
-                <table id="table-campaign-email">
-                  <thead><tr><th>Name</th><th>Company</th><th>Email ID</th><th>Lead Temp</th><th>Status</th></tr></thead>
-                  <tbody id="table-campaign-email-body">
-                    <tr><td colspan="5" class="table-placeholder">No emails found. Please load CSV data first.</td></tr>
+                <table id="table-campaign-outbound">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Company</th>
+                      <th>Lead Temp</th>
+                      <th>Email Status</th>
+                      <th>LinkedIn Status</th>
+                      <th>Call Log</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-campaign-outbound-body">
+                    <tr><td colspan="7" class="table-placeholder">No prospects found. Please load CSV data first.</td></tr>
                   </tbody>
                 </table>
               </div>
-              <div class="table-pagination" id="email-pagination"></div>
+              <div class="table-pagination" id="outbound-pagination"></div>
             </div>
-            <div class="right-drawer-pane" id="email-drawer">
-              <div class="drawer-header"><h3>AI Email Outbound Drafter</h3><button class="close-drawer-btn" onclick="closeDrawer('email')">×</button></div>
-              <div class="drawer-body" id="email-drawer-body"><div class="drawer-empty-state">Select a contact from the list to load the AI email drafter.</div></div>
+            <div class="right-drawer-pane" id="outbound-drawer">
+              <div class="drawer-header">
+                <h3>Omnichannel Outbound Console</h3>
+                <button class="close-drawer-btn" onclick="closeDrawer('outbound')">×</button>
+              </div>
+              <div class="drawer-body" id="outbound-drawer-body">
+                <div class="drawer-empty-state">Select a contact from the list to load the outbound console.</div>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- ═══ TAB: LinkedIn Campaign ═══ -->
-        <section class="tab-content" id="tab-panel-campaign-linkedin">
-          <div class="split-pane-layout">
-            <div class="left-list-pane">
-              <div class="table-filter-bar">
-                <input type="text" id="linkedin-search-input" placeholder="Search contacts..." oninput="filterLinkedinTable()">
-              </div>
-              <div class="table-wrapper text-sm">
-                <table id="table-campaign-linkedin">
-                  <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Lead Temp</th><th>Status</th></tr></thead>
-                  <tbody id="table-campaign-linkedin-body">
-                    <tr><td colspan="5" class="table-placeholder">No LinkedIn actions found. Load data first.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="table-pagination" id="linkedin-pagination"></div>
+        <!-- ═══ TAB: Campaign Schedule ═══ -->
+        <section class="tab-content" id="tab-panel-campaign-schedule">
+          <div class="table-container-card">
+            <div class="table-title" style="margin-bottom: 8px;">
+              <h3 style="font-size: 16px; margin: 0;">Scheduled Meetings &amp; Briefings</h3>
             </div>
-            <div class="right-drawer-pane" id="linkedin-drawer">
-              <div class="drawer-header"><h3>LinkedIn Custom DM Composer</h3><button class="close-drawer-btn" onclick="closeDrawer('linkedin')">×</button></div>
-              <div class="drawer-body" id="linkedin-drawer-body"><div class="drawer-empty-state">Select a contact from the list to compose a LinkedIn message.</div></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ═══ TAB: Call Campaign ═══ -->
-        <section class="tab-content" id="tab-panel-campaign-call">
-          <div class="split-pane-layout">
-            <div class="left-list-pane">
-              <div class="table-filter-bar">
-                <input type="text" id="call-search-input" placeholder="Search phone numbers..." oninput="filterCallTable()">
-              </div>
-              <div class="table-wrapper text-sm">
-                <table id="table-campaign-call">
-                  <thead><tr><th>Name</th><th>Company</th><th>Phone Number</th><th>Lead Temp</th><th>Last Call Note</th><th>Call</th></tr></thead>
-                  <tbody id="table-campaign-call-body">
-                    <tr><td colspan="6" class="table-placeholder">No phone records found. Load data first.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="table-pagination" id="call-pagination"></div>
-            </div>
-            <div class="right-drawer-pane" id="call-drawer">
-              <div class="drawer-header"><h3>Interactive Dialer Terminal</h3><button class="close-drawer-btn" onclick="closeDrawer('call')">×</button></div>
-              <div class="drawer-body" id="call-drawer-body"><div class="drawer-empty-state">Select a contact to load the calling console.</div></div>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px; margin-top: 0;">
+              Track upcoming briefings with prospects who have accepted the calendar invites sent via Email / LinkedIn. Credits are automatically awarded to their referring influencers.
+            </p>
+            <div id="schedule-meetings-list" class="meetings-grid">
+              <!-- Meeting cards rendered dynamically -->
             </div>
           </div>
         </section>

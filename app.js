@@ -34,12 +34,13 @@ let database = {
     linkedinSent: 0,
     callsMade: 0,
     enrichedCount: 0
-  }
+  },
+  meetings: []
 };
 window.database = database;
 
 // Main tab switching logic (handles subtabs and collapses others)
-let currentTabId = 'import';
+let currentTabId = 'upload';
 
 document.addEventListener("DOMContentLoaded", () => {
   // Load saved API Keys
@@ -83,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
   checkEnrichButtonState();
 
   // If URL hash or default is set, open it
-  switchTab('import');
+  switchTab('upload');
 
   // Check for auto loading in local storage
   const savedData = localStorage.getItem("gtm_cached_database");
@@ -141,18 +142,17 @@ function switchTab(tabId) {
   closeDrawer('email');
   closeDrawer('linkedin');
   closeDrawer('call');
+  closeDrawer('outbound');
 
   // Trigger tab-specific renders
-  if (tabId === 'import') {
-    filterImportTable();
+  if (tabId === 'upload') {
+    filterUploadTable();
   } else if (tabId === 'influencers') {
     filterInfluencersTable();
-  } else if (tabId === 'campaign-email') {
-    filterEmailTable();
-  } else if (tabId === 'campaign-linkedin') {
-    filterLinkedinTable();
-  } else if (tabId === 'campaign-call') {
-    filterCallTable();
+  } else if (tabId === 'campaign-outbound') {
+    filterOutboundTable();
+  } else if (tabId === 'campaign-schedule') {
+    renderScheduleMeetings();
   } else if (tabId === 'events-list') {
     renderEventsList();
   } else if (tabId === 'enrich') {
@@ -177,12 +177,12 @@ function updateHeader(tabId) {
   if (!titleEl || !subtitleEl) return;
 
   switch (tabId) {
-    case 'import':
-      titleEl.textContent = "Import Contacts";
+    case 'upload':
+      titleEl.textContent = "Upload Contacts";
       subtitleEl.textContent = "Upload manual CSV or load target database of credit union accounts.";
       break;
-    case 'uploads':
-      titleEl.textContent = "Uploads Chatbot Analysis";
+    case 'analyse':
+      titleEl.textContent = "Analyse List Data";
       subtitleEl.textContent = "Query the loaded CSV list using client-side natural language analytics.";
       break;
     case 'influencers':
@@ -193,17 +193,13 @@ function updateHeader(tabId) {
       titleEl.textContent = "AgentSource B2B Data Enrichment";
       subtitleEl.textContent = "Verify key and enrich leads with verified corporate intelligence.";
       break;
-    case 'campaign-email':
-      titleEl.textContent = "Email Outbound Sequences";
-      subtitleEl.textContent = "Draft AI email copy and release sequences individually.";
+    case 'campaign-outbound':
+      titleEl.textContent = "Omnichannel Campaign Outbound";
+      subtitleEl.textContent = "Engage prospects across Email, LinkedIn, and Phone channels in one console.";
       break;
-    case 'campaign-linkedin':
-      titleEl.textContent = "LinkedIn Social Touches";
-      subtitleEl.textContent = "Compose customized LinkedIn messages and connection notes.";
-      break;
-    case 'campaign-call':
-      titleEl.textContent = "Outbound Call Dialer";
-      subtitleEl.textContent = "Place simulated outbound calls to phone numbers and log outcomes.";
+    case 'campaign-schedule':
+      titleEl.textContent = "Campaign Briefings & Meetings";
+      subtitleEl.textContent = "Track scheduled appointments, review briefs, and launch briefings.";
       break;
     case 'events-list':
       titleEl.textContent = "Events Lists & Attendances";
@@ -404,7 +400,7 @@ function handleCSVFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  const summaryEl = document.getElementById("import-stats-summary");
+  const summaryEl = document.getElementById("upload-stats-summary");
   if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--primary)">Reading local file: ${file.name}...</span>`;
 
   const reader = new FileReader();
@@ -468,7 +464,7 @@ function initLoadedData() {
 }
 
 function updateStatsSummaryText() {
-  const summaryEl = document.getElementById("import-stats-summary");
+  const summaryEl = document.getElementById("upload-stats-summary");
   if (!summaryEl) return;
 
   const total = database.contacts.length;
@@ -564,22 +560,23 @@ function paginateData(dataArray, pageNum, containerId, pageChangeCallbackName) {
   return pageData;
 }
 
-// Subtab: Import table renderer
-function filterImportTable() {
-  database.filteredImport = getFilteredData(database.contacts, "import-search-input", "filter-industry", "filter-source", null, null);
-  changeImportPage(1);
+// Subtab: Upload table renderer
+function filterUploadTable() {
+  const prospectsOnly = database.contacts.filter(c => c.isInfluencer !== true);
+  database.filteredUpload = getFilteredData(prospectsOnly, "upload-search-input", "filter-industry", "filter-source", null, null);
+  changeUploadPage(1);
 }
 
-function changeImportPage(page) {
-  database.currentImportPage = page;
-  const pageData = paginateData(database.filteredImport, page, "import-pagination", "changeImportPage");
+function changeUploadPage(page) {
+  database.currentUploadPage = page;
+  const pageData = paginateData(database.filteredUpload, page, "upload-pagination", "changeUploadPage");
 
-  const tbody = document.getElementById("table-import-body");
+  const tbody = document.getElementById("table-upload-body");
   if (!tbody) return;
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">No matching records found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">No matching prospects found.</td></tr>`;
     return;
   }
 
@@ -597,10 +594,19 @@ function changeImportPage(page) {
   });
 }
 
+// Keep backward compatibility wrappers for simulation logic
+function filterImportTable() {
+  filterUploadTable();
+}
+
+window.filterUploadTable = filterUploadTable;
+window.changeUploadPage = changeUploadPage;
+window.filterImportTable = filterImportTable;
+
 // --- SUBTAB: INFLUENCERS RENDERER ---
 
 function filterInfluencersTable() {
-  const influencersOnly = database.contacts.filter(c => c.isInfluencer !== false);
+  const influencersOnly = database.contacts.filter(c => c.isInfluencer === true);
   database.filteredInfluencers = getFilteredData(influencersOnly, "influencers-search-input", null, null, "filter-lead-temp", "filter-influencer-match");
   changeInfluencersPage(1);
 }
@@ -648,15 +654,11 @@ function changeInfluencersPage(page) {
 }
 
 function openCampaignTarget(email, channel) {
-  if (channel === 'call') {
-    switchTab('campaign-call');
-    // Load call contact
-    const contact = database.contacts.find(c => c.email === email);
-    if (contact) loadCallDrawer(contact);
-  } else {
-    switchTab('campaign-email');
-    const contact = database.contacts.find(c => c.email === email);
-    if (contact) loadEmailDrawer(contact);
+  switchTab('campaign-outbound');
+  const contact = database.contacts.find(c => c.email === email);
+  if (contact) {
+    const targetChannel = (channel === 'call') ? 'call' : 'email';
+    loadOutboundDrawer(contact, targetChannel);
   }
 }
 
@@ -843,39 +845,40 @@ window.closeReferralDialog = closeReferralDialog;
 window.handleReferralSubmit = handleReferralSubmit;
 window.viewReferralsDetails = viewReferralsDetails;
 window.closeReferralsViewDialog = closeReferralsViewDialog;
+window.sendAnalyseChatMessage = sendAnalyseChatMessage;
 
 
-// --- SUBTAB: UPLOADS CHATBOT ENGINE ---
+// --- SUBTAB: ANALYSE CHATBOT ENGINE ---
 
 function sendSuggestedQuery(text) {
-  const input = document.getElementById("uploads-chat-input");
+  const input = document.getElementById("analyse-chat-input");
   if (input) {
     input.value = text;
-    sendUploadsChatMessage();
+    sendAnalyseChatMessage();
   }
 }
 
-async function sendUploadsChatMessage() {
-  const input = document.getElementById("uploads-chat-input");
+async function sendAnalyseChatMessage() {
+  const input = document.getElementById("analyse-chat-input");
   if (!input || !input.value.trim()) return;
 
   const query = input.value.trim();
   input.value = "";
 
-  appendUploadsMessage("user", query);
+  appendAnalyseMessage("user", query);
 
   // Show loading
-  const loadingId = appendUploadsMessage("bot", "Analyzing data, please hold...", true);
+  const loadingId = appendAnalyseMessage("bot", "Analyzing data, please hold...", true);
 
   // Run analytic query
   setTimeout(async () => {
-    const answer = await processUploadsQuery(query);
-    removeUploadsLoading(loadingId, answer);
+    const answer = await processAnalyseQuery(query);
+    removeAnalyseLoading(loadingId, answer);
   }, 600);
 }
 
-function appendUploadsMessage(sender, text, isLoading = false) {
-  const container = document.getElementById("uploads-chat-messages");
+function appendAnalyseMessage(sender, text, isLoading = false) {
+  const container = document.getElementById("analyse-chat-messages");
   if (!container) return "";
 
   const bubble = document.createElement("div");
@@ -889,18 +892,18 @@ function appendUploadsMessage(sender, text, isLoading = false) {
   return msgId;
 }
 
-function removeUploadsLoading(msgId, finalText) {
+function removeAnalyseLoading(msgId, finalText) {
   const el = document.getElementById(msgId);
   if (el) {
     el.innerHTML = finalText;
-    el.closest("#uploads-chat-messages").scrollTop = el.closest("#uploads-chat-messages").scrollHeight;
+    el.closest("#analyse-chat-messages").scrollTop = el.closest("#analyse-chat-messages").scrollHeight;
   }
 }
 
 // Fast analytics search engine
-async function processUploadsQuery(query) {
+async function processAnalyseQuery(query) {
   if (database.contacts.length === 0) {
-    return "The database is empty. Please go to the <strong>Import</strong> tab and load your list database first.";
+    return "The database is empty. Please go to the <strong>Upload</strong> tab and load your list database first.";
   }
 
   const q = query.toLowerCase();
@@ -1380,23 +1383,24 @@ function enrichDataRecords() {
   database.stats.enrichedCount = database.contacts.length;
 }
 
-// --- SUBTAB: EMAIL CAMPAIGN ---
+// --- SUBTAB: OUTBOUND CAMPAIGN (OMNICHANNEL) ---
 
-function filterEmailTable() {
-  database.filteredEmail = getFilteredData(database.contacts, "email-search-input", null, null, null, null);
-  changeEmailPage(1);
+function filterOutboundTable() {
+  const prospectsOnly = database.contacts.filter(c => c.isInfluencer !== true);
+  database.filteredOutbound = getFilteredData(prospectsOnly, "outbound-search-input", null, null, null, null);
+  changeOutboundPage(1);
 }
 
-function changeEmailPage(page) {
-  database.currentEmailPage = page;
-  const pageData = paginateData(database.filteredEmail, page, "email-pagination", "changeEmailPage");
+function changeOutboundPage(page) {
+  database.currentOutboundPage = page;
+  const pageData = paginateData(database.filteredOutbound, page, "outbound-pagination", "changeOutboundPage");
 
-  const tbody = document.getElementById("table-campaign-email-body");
+  const tbody = document.getElementById("table-campaign-outbound-body");
   if (!tbody) return;
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-placeholder">No contacts available.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No prospects available.</td></tr>`;
     return;
   }
 
@@ -1404,65 +1408,131 @@ function changeEmailPage(page) {
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
     tr.onclick = (e) => {
-      // Don't trigger drawer if clicking button
-      if (e.target.tagName !== 'BUTTON') loadEmailDrawer(c);
+      if (e.target.tagName !== 'BUTTON') loadOutboundDrawer(c);
     };
 
     const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
-    const statusText = c.emailsSent ? `<span style="color:var(--success);font-weight:600;">Sent</span>` : `<span style="color:var(--muted)">Not Sent</span>`;
+    const emailStatus = c.emailsSent 
+      ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
+      : (c.emailDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
+    const linkedinStatus = c.linkedinSent 
+      ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
+      : (c.linkedinDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
+    const callStatus = c.callsMade.length > 0 
+      ? `<span style="color:var(--success);font-weight:500;">${c.callsMade.length} calls</span>` 
+      : `<span style="color:var(--muted)">None</span>`;
 
     tr.innerHTML = `
       <td><strong>${c.fullName}</strong></td>
       <td>${c.company}</td>
-      <td><code>${c.email || "N/A"}</code></td>
       <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp}</span></td>
-      <td>${statusText}</td>
+      <td>${emailStatus}</td>
+      <td>${linkedinStatus}</td>
+      <td>${callStatus}</td>
+      <td><button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">Prospect</button></td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-function loadEmailDrawer(contact) {
+function loadOutboundDrawer(contact, initialChannel = 'email') {
   database.selectedContact = contact;
-  const drawer = document.getElementById("email-drawer");
-  const body = document.getElementById("email-drawer-body");
+  const drawer = document.getElementById("outbound-drawer");
+  const body = document.getElementById("outbound-drawer-body");
 
   if (!drawer || !body) return;
 
   drawer.style.transform = "translateX(0)";
   drawer.style.opacity = "1";
 
-  // Pre-generate draft template
+  // Pre-generate drafts if not set
   if (!contact.emailDraft) {
     contact.emailDraft = {
       subject: `Safe database compliance for ${contact.company}`,
-      body: `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many credit union tech leaders we speak to are evaluating LLMs for operations, but are worried about auditing data compliance.\n\nWe provide query validation guardrails specifically built for financial databases.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent`
+      body: `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many credit union tech leaders we speak to are evaluating LLMs for operations, but are worried about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent`
     };
+  }
+
+  if (!contact.linkedinDraft) {
+    contact.linkedinDraft = `Hi ${contact.firstName}, noticed your technology development focus at ${contact.company}. We are helping credit unions secure database LLM interfaces. Connect?`;
   }
 
   body.innerHTML = `
     <div class="drawer-meta-section">
       <div class="meta-row"><span class="meta-label">Recipient:</span><span class="meta-value">${contact.fullName}</span></div>
-      <div class="meta-row"><span class="meta-label">Company:</span><span class="meta-value">${contact.company}</span></div>
       <div class="meta-row"><span class="meta-label">Job Title:</span><span class="meta-value">${contact.jobTitle}</span></div>
+      <div class="meta-row"><span class="meta-label">Company:</span><span class="meta-value">${contact.company}</span></div>
       <div class="meta-row"><span class="meta-label">Lifecycle Stage:</span><span class="meta-value">${contact.leadTemp}</span></div>
+      <div class="meta-row"><span class="meta-label">Phone:</span><span class="meta-value">${contact.phone || "N/A"}</span></div>
+      <div class="meta-row"><span class="meta-label">Email:</span><span class="meta-value">${contact.email || "N/A"}</span></div>
     </div>
 
-    <div class="form-group">
-      <label>Email Subject</label>
-      <input type="text" class="input-control" id="email-draft-subject" value="${contact.emailDraft.subject}">
+    <div class="drawer-tab-strip">
+      <button class="drawer-tab-btn" id="btn-outbound-channel-email" onclick="switchDrawerChannel('email')">Email</button>
+      <button class="drawer-tab-btn" id="btn-outbound-channel-linkedin" onclick="switchDrawerChannel('linkedin')">LinkedIn</button>
+      <button class="drawer-tab-btn" id="btn-outbound-channel-call" onclick="switchDrawerChannel('call')">Phone Call</button>
     </div>
 
-    <div class="form-group" style="margin-top:12px;">
-      <label>Email Body</label>
-      <textarea class="input-control" id="email-draft-body" style="height: 220px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
-    </div>
-
-    <div style="margin-top:20px; display:flex; gap:10px;">
-      <button class="btn btn-primary" onclick="sendOutboundEmail()" style="flex:1;">Send Campaign Email</button>
-      <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="padding: 10px;">AI Re-draft</button>
-    </div>
+    <div id="outbound-channel-container"></div>
   `;
+
+  switchDrawerChannel(initialChannel);
+}
+
+function switchDrawerChannel(channel) {
+  const container = document.getElementById("outbound-channel-container");
+  if (!container) return;
+
+  document.querySelectorAll(".drawer-tab-btn").forEach(btn => btn.classList.remove("active"));
+  const activeBtn = document.getElementById(`btn-outbound-channel-${channel}`);
+  if (activeBtn) activeBtn.classList.add("active");
+
+  const contact = database.selectedContact;
+  if (!contact) return;
+
+  if (channel !== 'call' && callTimer) {
+    hangupOutboundCall();
+  }
+
+  if (channel === 'email') {
+    container.innerHTML = `
+      <div class="form-group">
+        <label>Email Subject</label>
+        <input type="text" class="input-control" id="email-draft-subject" value="${contact.emailDraft.subject}">
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <label>Email Body</label>
+        <textarea class="input-control" id="email-draft-body" style="height: 220px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
+      </div>
+
+      <div style="margin-top:20px; display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="sendOutboundEmail()" style="flex:1;">Send Campaign Email</button>
+        <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="padding: 10px;">AI Re-draft</button>
+      </div>
+    `;
+  } else if (channel === 'linkedin') {
+    container.innerHTML = `
+      <div class="form-group">
+        <label>LinkedIn handle: <span style="font-size:12px;color:var(--primary); font-weight:normal;">${contact.linkedinUrl || "linkedin.com/in/" + contact.firstName.toLowerCase()}</span></label>
+      </div>
+
+      <div class="form-group" style="margin-top:12px;">
+        <label>Connection Invitation Note (Max 300 chars)</label>
+        <textarea class="input-control" id="linkedin-draft-text" style="height: 120px; font-size:13px;" maxlength="300">${contact.linkedinDraft}</textarea>
+      </div>
+
+      <div style="margin-top:20px; display:flex; gap:10px;">
+        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="flex:1;">Send Invite Note</button>
+        <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="padding: 10px;">AI Re-draft</button>
+      </div>
+    `;
+  } else if (channel === 'call') {
+    container.innerHTML = `
+      <div id="call-drawer-body" style="display:flex; flex-direction:column; gap:12px;"></div>
+    `;
+    renderDialerInterface("idle");
+  }
 }
 
 function sendOutboundEmail() {
@@ -1479,9 +1549,8 @@ function sendOutboundEmail() {
   saveDatabaseCache();
   addLogConsole("enrich", `[OUTBOUND] Released email campaign to ${contact.email}`, "success");
 
-  // Reload
-  filterEmailTable();
-  loadEmailDrawer(contact);
+  filterOutboundTable();
+  loadOutboundDrawer(contact, 'email');
 }
 
 function animateTextWordByWord(element, text, duration = 30) {
@@ -1592,87 +1661,6 @@ Include subject line and email body in simple text format. Keep it under 4 sente
   }
 }
 
-function closeDrawer(drawerId) {
-  const drawer = document.getElementById(`${drawerId}-drawer`);
-  if (drawer) {
-    drawer.style.transform = "translateX(100%)";
-    drawer.style.opacity = "0";
-  }
-}
-
-// --- SUBTAB: LINKEDIN CAMPAIGN ---
-
-function filterLinkedinTable() {
-  database.filteredLinkedin = getFilteredData(database.contacts, "linkedin-search-input", null, null, null, null);
-  changeLinkedinPage(1);
-}
-
-function changeLinkedinPage(page) {
-  database.currentLinkedinPage = page;
-  const pageData = paginateData(database.filteredLinkedin, page, "linkedin-pagination", "changeLinkedinPage");
-
-  const tbody = document.getElementById("table-campaign-linkedin-body");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-placeholder">No contacts available.</td></tr>`;
-    return;
-  }
-
-  pageData.forEach(c => {
-    const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.onclick = (e) => {
-      if (e.target.tagName !== 'BUTTON') loadLinkedinDrawer(c);
-    };
-
-    const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
-    const statusText = c.linkedinSent ? `<span style="color:var(--success);font-weight:600;">Message Sent</span>` : `<span style="color:var(--muted)">Unsent</span>`;
-
-    tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
-      <td>${c.jobTitle}</td>
-      <td>${c.company}</td>
-      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp}</span></td>
-      <td>${statusText}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function loadLinkedinDrawer(contact) {
-  database.selectedContact = contact;
-  const drawer = document.getElementById("linkedin-drawer");
-  const body = document.getElementById("linkedin-drawer-body");
-
-  if (!drawer || !body) return;
-
-  drawer.style.transform = "translateX(0)";
-  drawer.style.opacity = "1";
-
-  if (!contact.linkedinDraft) {
-    contact.linkedinDraft = `Hi ${contact.firstName}, noticed your technology development focus at ${contact.company}. I'm connecting with credit union leaders working on secure pipeline structures. Would love to swap notes.`;
-  }
-
-  body.innerHTML = `
-    <div class="drawer-meta-section">
-      <div class="meta-row"><span class="meta-label">Recipient:</span><span class="meta-value">${contact.fullName}</span></div>
-      <div class="meta-row"><span class="meta-label">LinkedIn handle:</span><span class="meta-value" style="font-size:12px;color:var(--primary);">${contact.linkedinUrl || "linkedin.com/in/" + contact.firstName.toLowerCase()}</span></div>
-    </div>
-
-    <div class="form-group">
-      <label>Connection Invitation Note (Max 300 chars)</label>
-      <textarea class="input-control" id="linkedin-draft-text" style="height: 120px; font-size:13px;" maxlength="300">${contact.linkedinDraft}</textarea>
-    </div>
-
-    <div style="margin-top:20px; display:flex; gap:10px;">
-      <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="flex:1;">Send Invite Note</button>
-      <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="padding: 10px;">AI Re-draft</button>
-    </div>
-  `;
-}
-
 function sendOutboundLinkedin() {
   const contact = database.selectedContact;
   if (!contact) return;
@@ -1685,8 +1673,8 @@ function sendOutboundLinkedin() {
   saveDatabaseCache();
   addLogConsole("enrich", `[LINKEDIN] Dispatched connection request with note to ${contact.fullName}`, "success");
 
-  filterLinkedinTable();
-  loadLinkedinDrawer(contact);
+  filterOutboundTable();
+  loadOutboundDrawer(contact, 'linkedin');
 }
 
 async function generateLLMLinkedinDraft() {
@@ -1738,7 +1726,7 @@ async function generateLLMLinkedinDraft() {
 
     const reDrafts = [
       `Hi ${contact.firstName}, saw your tech role at ${contact.company}. We're helping credit unions secure database LLM interfaces. Connect?`,
-      `Hi ${contact.firstName}, noticed your IT project leadership at ${contact.company}. Swapping notes on financial data validation tools. Let's connect.`
+      `Hi ${contact.firstName}, noticed your background at ${contact.company}. We construct secure gateways for financial LLM setups. Love to connect.`
     ];
     finalNote = reDrafts[Math.floor(Math.random() * reDrafts.length)];
   }
@@ -1754,66 +1742,155 @@ async function generateLLMLinkedinDraft() {
   }
 }
 
-// --- SUBTAB: CALL DIALER ---
+// Backward compatibility table and drawer loaders for other integrations
+function filterEmailTable() { filterOutboundTable(); }
+function filterLinkedinTable() { filterOutboundTable(); }
+function filterCallTable() { filterOutboundTable(); }
 
-function filterCallTable() {
-  database.filteredCall = getFilteredData(database.contacts, "call-search-input", null, null, null, null);
-  changeCallPage(1);
+function loadEmailDrawer(contact) { loadOutboundDrawer(contact, 'email'); }
+function loadLinkedinDrawer(contact) { loadOutboundDrawer(contact, 'linkedin'); }
+function loadCallDrawer(contact) { loadOutboundDrawer(contact, 'call'); }
+
+window.filterEmailTable = filterEmailTable;
+window.filterLinkedinTable = filterLinkedinTable;
+window.filterCallTable = filterCallTable;
+window.loadEmailDrawer = loadEmailDrawer;
+window.loadLinkedinDrawer = loadLinkedinDrawer;
+window.loadCallDrawer = loadCallDrawer;
+
+window.filterOutboundTable = filterOutboundTable;
+window.changeOutboundPage = changeOutboundPage;
+window.loadOutboundDrawer = loadOutboundDrawer;
+window.switchDrawerChannel = switchDrawerChannel;
+window.sendOutboundEmail = sendOutboundEmail;
+window.sendOutboundLinkedin = sendOutboundLinkedin;
+window.generateLLMEmailDraft = generateLLMEmailDraft;
+window.generateLLMLinkedinDraft = generateLLMLinkedinDraft;
+
+// --- CAMPAIGN SCHEDULE & BRIEFINGS RENDERING ---
+
+function initMockMeetings() {
+  if (!database.meetings) {
+    database.meetings = [];
+  }
+  if (database.meetings.length === 0 && database.contacts && database.contacts.length > 0) {
+    const prospects = database.contacts.filter(c => c.isInfluencer !== true);
+    if (prospects.length >= 2) {
+      const influencer1 = database.contacts.find(c => c.isInfluencer === true) || { fullName: "John Doe", referralCredits: 10 };
+      const influencer2 = database.contacts.find(c => c.isInfluencer === true && c.fullName !== influencer1.fullName) || { fullName: "Jane Smith", referralCredits: 20 };
+      
+      database.meetings = [
+        {
+          id: "meet-1",
+          contactName: prospects[0].fullName,
+          contactTitle: prospects[0].jobTitle,
+          contactCompany: prospects[0].company,
+          contactEmail: prospects[0].email,
+          contactPhone: prospects[0].phone || "+1 (555) 345-6789",
+          platform: "Google Meet",
+          meetingUrl: "https://meet.google.com/abc-defg-hij",
+          timeString: "Tomorrow at 10:00 AM (EST)",
+          influencerName: influencer1.fullName,
+          influencerCredits: 10,
+          notes: `Interested in secure BDR query validation guardrails for ${prospects[0].company}. Main concern is preventing database prompt injection in user queries. Referred by ${influencer1.fullName}.`
+        },
+        {
+          id: "meet-2",
+          contactName: prospects[1].fullName,
+          contactTitle: prospects[1].jobTitle,
+          contactCompany: prospects[1].company,
+          contactEmail: prospects[1].email,
+          contactPhone: prospects[1].phone || "+1 (555) 789-0123",
+          platform: "Microsoft Teams",
+          meetingUrl: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_xyz",
+          timeString: "Friday, July 10 at 2:00 PM (EST)",
+          influencerName: influencer2.fullName,
+          influencerCredits: 20,
+          notes: `Seeking to integrate Apollo and Lemlist pipelines with secure checkpointers. Main pain point: duplicate contacts management. Referred by ${influencer2.fullName}.`
+        }
+      ];
+    }
+  }
 }
 
-function changeCallPage(page) {
-  database.currentCallPage = page;
-  const pageData = paginateData(database.filteredCall, page, "call-pagination", "changeCallPage");
+function renderScheduleMeetings() {
+  initMockMeetings();
+  const list = document.getElementById("schedule-meetings-list");
+  if (!list) return;
+  list.innerHTML = "";
 
-  const tbody = document.getElementById("table-campaign-call-body");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">No phone records found.</td></tr>`;
+  if (database.meetings.length === 0) {
+    list.innerHTML = `<div class="table-placeholder">No meetings scheduled yet. Meetings appear here when a prospect books a time slot.</div>`;
     return;
   }
 
-  pageData.forEach(c => {
-    const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.onclick = (e) => {
-      if (e.target.tagName !== 'BUTTON') loadCallDrawer(c);
-    };
+  database.meetings.forEach((m, idx) => {
+    const card = document.createElement("div");
+    card.className = "meeting-card";
+    
+    const badgeClass = m.platform === "Google Meet" ? "google-meet" : "teams";
+    
+    card.innerHTML = `
+      <div class="meeting-card-header">
+        <div class="meeting-card-meta">
+          <h4>${m.contactName}</h4>
+          <div class="title-company">${m.contactTitle} at <strong>${m.contactCompany}</strong></div>
+          <div class="time-string">🗓️ ${m.timeString}</div>
+        </div>
+        <div class="meeting-card-side">
+          <span class="meeting-badge ${badgeClass}">${m.platform}</span>
+        </div>
+      </div>
 
-    const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
-    const lastNote = c.callsMade.length > 0 ? c.callsMade[c.callsMade.length - 1].outcome : "No calls logged";
+      <div class="meeting-card-details">
+        <div class="meeting-info-row">
+          <span>Email:</span>
+          <strong>${m.contactEmail}</strong>
+        </div>
+        <div class="meeting-info-row">
+          <span>Phone:</span>
+          <strong>${m.contactPhone}</strong>
+        </div>
+        <div class="meeting-info-row">
+          <span>Referral Partner:</span>
+          <strong style="color:var(--brand-teal);">${m.influencerName} (${m.influencerCredits} credits awarded)</strong>
+        </div>
+        
+        <button class="row-action-link" style="text-align:left; margin-top:4px;" onclick="toggleMeetingNotes(${idx})">
+          📄 View Preparation Notes &amp; History
+        </button>
+        
+        <div class="meeting-prep-notes" id="meeting-prep-notes-${idx}">
+          <strong>Pre-Meeting Intelligence Summary:</strong>
+          <p style="margin: 6px 0 0 0;">${m.notes}</p>
+          <div style="margin-top: 10px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--hairline); padding-top:8px;">
+            💡 <em>Action Item:</em> Prioritize discussing secure financial API gateways.
+          </div>
+        </div>
+      </div>
 
-    tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
-      <td>${c.company}</td>
-      <td><code>${c.phone || "N/A"}</code></td>
-      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp}</span></td>
-      <td style="font-size:12px;color:var(--muted);">${lastNote}</td>
-      <td><button class="btn btn-secondary btn-sm" style="height:28px;padding:0 10px;border-color:var(--success);color:var(--success);" onclick="loadCallDrawer(window.database.contacts.find(con => con.id === ${c.id}))">Call</button></td>
+      <div class="meeting-actions">
+        <a href="${m.meetingUrl}" target="_blank" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; text-decoration:none; height:34px; line-height:34px; padding:0 14px;">
+          Join ${m.platform}
+        </a>
+      </div>
     `;
-    tbody.appendChild(tr);
+    list.appendChild(card);
   });
 }
+
+function toggleMeetingNotes(idx) {
+  const el = document.getElementById(`meeting-prep-notes-${idx}`);
+  if (el) el.classList.toggle("open");
+}
+
+window.toggleMeetingNotes = toggleMeetingNotes;
+window.renderScheduleMeetings = renderScheduleMeetings;
 
 // Interactive calling simulation
 let callTimer = null;
 let callingAudioContext = null;
 let callingOscillator = null;
-
-function loadCallDrawer(contact) {
-  database.selectedContact = contact;
-  const drawer = document.getElementById("call-drawer");
-  const body = document.getElementById("call-drawer-body");
-
-  if (!drawer || !body) return;
-
-  drawer.style.transform = "translateX(0)";
-  drawer.style.opacity = "1";
-
-  // Render dialer terminal
-  renderDialerInterface("idle");
-}
 
 function renderDialerInterface(state, durationText = "00:00") {
   const contact = database.selectedContact;
