@@ -35,7 +35,8 @@ let database = {
     callsMade: 0,
     enrichedCount: 0
   },
-  meetings: []
+  meetings: [],
+  currentOutboundSubtab: 'prospects'
 };
 window.database = database;
 
@@ -1547,9 +1548,29 @@ function enrichDataRecords() {
 
 // --- SUBTAB: OUTBOUND CAMPAIGN (OMNICHANNEL) ---
 
+function switchOutboundSubtab(subtab) {
+  database.currentOutboundSubtab = subtab;
+  
+  const btnProspects = document.getElementById("outbound-subtab-prospects");
+  const btnInfluencers = document.getElementById("outbound-subtab-influencers");
+  
+  if (btnProspects && btnInfluencers) {
+    if (subtab === 'prospects') {
+      btnProspects.classList.add("active");
+      btnInfluencers.classList.remove("active");
+    } else {
+      btnProspects.classList.remove("active");
+      btnInfluencers.classList.add("active");
+    }
+  }
+  
+  filterOutboundTable();
+}
+
 function filterOutboundTable() {
-  const prospectsOnly = database.contacts.filter(c => c.isInfluencer !== true);
-  database.filteredOutbound = getFilteredData(prospectsOnly, "outbound-search-input", null, null, null, null);
+  const isInfluencer = (database.currentOutboundSubtab === 'influencers');
+  const targetList = database.contacts.filter(c => c.isInfluencer === isInfluencer);
+  database.filteredOutbound = getFilteredData(targetList, "outbound-search-input", null, null, null, null);
   changeOutboundPage(1);
 }
 
@@ -1562,7 +1583,7 @@ function changeOutboundPage(page) {
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No prospects available.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No contacts available.</td></tr>`;
     return;
   }
 
@@ -1580,18 +1601,22 @@ function changeOutboundPage(page) {
     const linkedinStatus = c.linkedinSent 
       ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
       : (c.linkedinDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
-    const callStatus = c.callsMade.length > 0 
-      ? `<span style="color:var(--success);font-weight:500;">${c.callsMade.length} calls</span>` 
-      : `<span style="color:var(--muted)">None</span>`;
+    
+    let callStatus = "None";
+    if (c.callsMade && c.callsMade.length > 0) {
+      callStatus = `<span style="color:var(--success);font-weight:500;">${c.callsMade.length} calls</span>`;
+    }
+
+    const actionText = c.isInfluencer ? "Influencer" : "Prospect";
 
     tr.innerHTML = `
       <td><strong>${c.fullName}</strong></td>
-      <td>${c.company}</td>
-      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp}</span></td>
+      <td>${c.company || "N/A"}</td>
+      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp || "Warm"}</span></td>
       <td>${emailStatus}</td>
       <td>${linkedinStatus}</td>
       <td>${callStatus}</td>
-      <td><button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">Prospect</button></td>
+      <td><button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">${actionText}</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1609,24 +1634,36 @@ function loadOutboundDrawer(contact, initialChannel = 'email') {
 
   // Pre-generate drafts if not set
   if (!contact.emailDraft) {
-    contact.emailDraft = {
-      subject: `Safe database compliance for ${contact.company}`,
-      body: `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many credit union tech leaders we speak to are evaluating LLMs for operations, but are worried about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent`
-    };
+    if (contact.isInfluencer) {
+      contact.emailDraft = {
+        subject: `Briefing partnership / Referral check-in`,
+        body: `Hi ${contact.firstName},\n\nI was looking through some of your industry contacts in credit unions. We're launching secure LLM query gateways.\n\nWho in credit union IT leadership should we talk to? For every introduction, we credit your account with BDR partner benefits.\n\nBest,\nSDR Campaign Agent`
+      };
+    } else {
+      contact.emailDraft = {
+        subject: `Safe database compliance for ${contact.company}`,
+        body: `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many credit union tech leaders we speak to are evaluating LLMs for operations, but are worried about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent`
+      };
+    }
   }
 
   if (!contact.linkedinDraft) {
-    contact.linkedinDraft = `Hi ${contact.firstName}, noticed your technology development focus at ${contact.company}. We are helping credit unions secure database LLM interfaces. Connect?`;
+    if (contact.isInfluencer) {
+      contact.linkedinDraft = `Hi ${contact.firstName}, connecting with tech advisors regarding credit union database security. Would love to partner on referrals.`;
+    } else {
+      contact.linkedinDraft = `Hi ${contact.firstName}, noticed your technology development focus at ${contact.company}. We are helping credit unions secure database LLM interfaces. Connect?`;
+    }
   }
 
   body.innerHTML = `
     <div class="drawer-meta-section">
-      <div class="meta-row"><span class="meta-label">Recipient:</span><span class="meta-value">${contact.fullName}</span></div>
-      <div class="meta-row"><span class="meta-label">Job Title:</span><span class="meta-value">${contact.jobTitle}</span></div>
-      <div class="meta-row"><span class="meta-label">Company:</span><span class="meta-value">${contact.company}</span></div>
-      <div class="meta-row"><span class="meta-label">Lifecycle Stage:</span><span class="meta-value">${contact.leadTemp}</span></div>
+      <div class="meta-row"><span class="meta-label">Recipient:</span><span class="meta-value">${contact.fullName} (${contact.isInfluencer ? "Influencer" : "Prospect"})</span></div>
+      <div class="meta-row"><span class="meta-label">Job Title:</span><span class="meta-value">${contact.jobTitle || "N/A"}</span></div>
+      <div class="meta-row"><span class="meta-label">Company:</span><span class="meta-value">${contact.company || "N/A"}</span></div>
+      <div class="meta-row"><span class="meta-label">Lifecycle Stage:</span><span class="meta-value">${contact.leadTemp || "Warm Lead"}</span></div>
       <div class="meta-row"><span class="meta-label">Phone:</span><span class="meta-value">${contact.phone || "N/A"}</span></div>
       <div class="meta-row"><span class="meta-label">Email:</span><span class="meta-value">${contact.email || "N/A"}</span></div>
+      ${contact.isInfluencer ? `<div class="meta-row"><span class="meta-label">Credits Awarded:</span><span class="meta-value" style="color:var(--brand-teal); font-weight:600;">${contact.referralCredits || 0} Credits</span></div>` : ""}
     </div>
 
     <div class="drawer-tab-strip">
@@ -1697,6 +1734,104 @@ function switchDrawerChannel(channel) {
   }
 }
 
+function triggerMockInfluencerResponse(influencer, channel) {
+  const choices = [
+    {
+      type: "add_prospect",
+      message: `Hi! I'd highly recommend contacting Marcus Vance, VP of IT Operations at Alliance Bank Group (mvance@alliancebank.com). I've let him know you will reach out.`,
+      prospect: {
+        id: Date.now(),
+        firstName: "Marcus",
+        lastName: "Vance",
+        fullName: "Marcus Vance",
+        email: "mvance@alliancebank.com",
+        jobTitle: "VP of IT Operations",
+        company: "Alliance Bank Group",
+        phone: "+1 (555) 543-2109",
+        industry: "Banking",
+        sourceFile: "mock_influencers_referral.csv",
+        assetSize: "$1.2B",
+        state: "IL",
+        enriched: true,
+        matchPercentage: 92,
+        leadTemp: "Hot Lead",
+        emailsSent: false,
+        linkedinSent: false,
+        callsMade: [],
+        referredBy: influencer.fullName,
+        isInfluencer: false
+      },
+      credits: 10,
+      consoleMsg: `[INCOMING] Influencer ${influencer.fullName} referred Marcus Vance (Alliance Bank Group) via ${channel}.`
+    },
+    {
+      type: "add_meeting",
+      message: `Hey, great chatting. I've set up a Google Meet call with Arthur Dent, IT Director at Galaxy Insurance Services (adent@galaxyinsurance.com). Here is the meet link: https://meet.google.com/abc-defg-hij. Let's schedule it for next Wednesday at 11:00 AM.`,
+      meeting: {
+        id: "meet-" + Date.now(),
+        contactName: "Arthur Dent",
+        contactTitle: "IT Director",
+        contactCompany: "Galaxy Insurance Services",
+        contactEmail: "adent@galaxyinsurance.com",
+        contactPhone: "+1 (555) 150-7890",
+        platform: "Google Meet",
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        timeString: "Next Wednesday at 11:00 AM (EST)",
+        influencerName: influencer.fullName,
+        influencerCredits: 20,
+        notes: `Briefed by partner ${influencer.fullName}. Main focus is general tech auditing and secure pipelines.`
+      },
+      credits: 20,
+      consoleMsg: `[INCOMING] Influencer ${influencer.fullName} scheduled Google Meet with Arthur Dent via ${channel}.`
+    }
+  ];
+
+  const pick = choices[Math.floor(Math.random() * choices.length)];
+
+  setTimeout(() => {
+    if (!influencer.referrals) {
+      influencer.referrals = [];
+    }
+    
+    const refName = pick.type === "add_prospect" ? pick.prospect.fullName : pick.meeting.contactName;
+    const isDuplicate = influencer.referrals.some(r => r.fullName === refName);
+    if (!isDuplicate) {
+      influencer.referrals.push({
+        fullName: refName,
+        jobTitle: pick.type === "add_prospect" ? pick.prospect.jobTitle : pick.meeting.contactTitle,
+        company: pick.type === "add_prospect" ? pick.prospect.company : pick.meeting.contactCompany,
+        email: pick.type === "add_prospect" ? pick.prospect.email : pick.meeting.contactEmail,
+        credits: pick.credits,
+        date: new Date().toLocaleDateString()
+      });
+      influencer.referralCredits = (influencer.referralCredits || 0) + pick.credits;
+    }
+
+    if (pick.type === "add_prospect") {
+      const exists = database.contacts.some(c => c.email === pick.prospect.email);
+      if (!exists) {
+        database.contacts.push(pick.prospect);
+      }
+    } else if (pick.type === "add_meeting") {
+      if (!database.meetings) {
+        database.meetings = [];
+      }
+      const exists = database.meetings.some(m => m.contactEmail === pick.meeting.contactEmail);
+      if (!exists) {
+        database.meetings.push(pick.meeting);
+      }
+    }
+
+    saveDatabaseCache();
+
+    addLogConsole("enrich", pick.consoleMsg, "success");
+    addLogConsole("enrich", `[REPLY] "${pick.message}"`, "info");
+
+    filterOutboundTable();
+    loadOutboundDrawer(influencer, channel);
+  }, 3000);
+}
+
 function sendOutboundEmail() {
   const contact = database.selectedContact;
   if (!contact) return;
@@ -1713,6 +1848,10 @@ function sendOutboundEmail() {
 
   filterOutboundTable();
   loadOutboundDrawer(contact, 'email');
+
+  if (contact.isInfluencer) {
+    triggerMockInfluencerResponse(contact, 'email');
+  }
 }
 
 function animateTextWordByWord(element, text, duration = 30) {
@@ -1837,6 +1976,10 @@ function sendOutboundLinkedin() {
 
   filterOutboundTable();
   loadOutboundDrawer(contact, 'linkedin');
+
+  if (contact.isInfluencer) {
+    triggerMockInfluencerResponse(contact, 'linkedin');
+  }
 }
 
 async function generateLLMLinkedinDraft() {
@@ -1928,6 +2071,8 @@ window.sendOutboundEmail = sendOutboundEmail;
 window.sendOutboundLinkedin = sendOutboundLinkedin;
 window.generateLLMEmailDraft = generateLLMEmailDraft;
 window.generateLLMLinkedinDraft = generateLLMLinkedinDraft;
+window.switchOutboundSubtab = switchOutboundSubtab;
+window.triggerMockInfluencerResponse = triggerMockInfluencerResponse;
 
 // --- CAMPAIGN SCHEDULE & BRIEFINGS RENDERING ---
 
@@ -2164,7 +2309,11 @@ function logCallOutcome(outcome) {
   addLogConsole("enrich", `[CALL LOGGED] ${contact.fullName} - Outcome: ${outcome}`, "info");
 
   hangupOutboundCall();
-  filterCallTable();
+  filterOutboundTable();
+  
+  if (contact.isInfluencer) {
+    triggerMockInfluencerResponse(contact, 'call');
+  }
 }
 
 // Web Audio API Ringtone Generator

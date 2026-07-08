@@ -406,13 +406,19 @@
         <section class="tab-content" id="tab-panel-campaign-outbound">
           <div class="split-pane-layout">
             <div class="left-list-pane">
+              <!-- Inline Switcher for Outbound sub-segments -->
+              <div class="drawer-tab-strip" style="margin-bottom: 12px; border-bottom: 1px solid var(--hairline);">
+                <button class="drawer-tab-btn active" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospects</button>
+                <button class="drawer-tab-btn" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
+              </div>
+
               <div class="table-filter-bar">
-                <input type="text" id="outbound-search-input" placeholder="Search prospects..." oninput="filterOutboundTable()">
+                <input type="text" id="outbound-search-input" placeholder="Search..." oninput="filterOutboundTable()">
               </div>
               <div class="table-wrapper text-sm">
                 <table id="table-campaign-outbound">
                   <thead>
-                    <tr>
+                    <tr id="table-campaign-outbound-headers">
                       <th>Name</th>
                       <th>Company</th>
                       <th>Lead Temp</th>
@@ -423,7 +429,7 @@
                     </tr>
                   </thead>
                   <tbody id="table-campaign-outbound-body">
-                    <tr><td colspan="7" class="table-placeholder">No prospects found. Please load CSV data first.</td></tr>
+                    <tr><td colspan="7" class="table-placeholder">No records found. Please load CSV data first.</td></tr>
                   </tbody>
                 </table>
               </div>
