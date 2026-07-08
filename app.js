@@ -88,6 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Check for auto loading in local storage
   const savedData = localStorage.getItem("gtm_cached_database");
+  let loadedFromCache = false;
   if (savedData) {
     try {
       const parsed = JSON.parse(savedData);
@@ -98,10 +99,144 @@ document.addEventListener("DOMContentLoaded", () => {
       if (database.contacts.length > 0) {
         initLoadedData();
         addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} cached contacts from LocalStorage.`, "info");
+        loadedFromCache = true;
       }
     } catch (e) {
       console.error("Error reading cached db", e);
     }
+  }
+
+  if (!loadedFromCache) {
+    // Populate default database with rich mock data so it looks premium and working on first load!
+    database.contacts = [
+      {
+        id: 101,
+        firstName: "Sarah",
+        lastName: "Jenkins",
+        fullName: "Sarah Jenkins",
+        email: "sjenkins@apexfcu.org",
+        jobTitle: "Chief Information Officer",
+        company: "Apex Federal Credit Union",
+        phone: "+1 (555) 345-6789",
+        industry: "Credit Union",
+        sourceFile: "mock_gtm_pipeline_leads.csv",
+        assetSize: "$450M",
+        state: "MI",
+        attendedDinner: "Attended",
+        visitedBooth: "Yes",
+        enriched: true,
+        matchPercentage: 96,
+        leadTemp: "Hot Lead",
+        emailsSent: true,
+        linkedinSent: false,
+        callsMade: [{ date: "07/06/2026 10:30 AM", outcome: "Spoke to prospect - Interested" }],
+        emailDraft: {
+          subject: "Safe database compliance for Apex Federal Credit Union",
+          body: "Hi Sarah,\n\nI saw your profile as Chief Information Officer at Apex Federal Credit Union. Tech leaders are adopting database LLMs but worry about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent"
+        },
+        linkedinDraft: null,
+        isInfluencer: false,
+        referredBy: "Bob Miller"
+      },
+      {
+        id: 102,
+        firstName: "Alex",
+        lastName: "Patel",
+        fullName: "Alex Patel",
+        email: "apatel@summitmutual.com",
+        jobTitle: "Director of IT Security",
+        company: "Summit Mutual Credit Union",
+        phone: "+1 (555) 789-0123",
+        industry: "Credit Union",
+        sourceFile: "mock_gtm_pipeline_leads.csv",
+        assetSize: "$250M",
+        state: "CO",
+        attendedDinner: "",
+        visitedBooth: "",
+        enriched: false,
+        matchPercentage: 90,
+        leadTemp: "Cold Lead",
+        emailsSent: false,
+        linkedinSent: false,
+        callsMade: [],
+        emailDraft: null,
+        linkedinDraft: null,
+        isInfluencer: false,
+        referredBy: "Sarah Vance"
+      },
+      {
+        id: 201,
+        firstName: "Bob",
+        lastName: "Miller",
+        fullName: "Bob Miller",
+        email: "bob.miller@milleradvisory.com",
+        jobTitle: "B2B Consultant",
+        company: "Miller Advisory Group",
+        phone: "+1 (555) 987-6543",
+        industry: "Consulting",
+        sourceFile: "mock_influencers.csv",
+        assetSize: "",
+        state: "NY",
+        attendedDinner: "",
+        visitedBooth: "",
+        enriched: false,
+        matchPercentage: 95,
+        leadTemp: "Hot Lead",
+        emailsSent: false,
+        linkedinSent: false,
+        callsMade: [],
+        emailDraft: null,
+        linkedinDraft: null,
+        isInfluencer: true,
+        referrals: [
+          {
+            fullName: "Sarah Jenkins",
+            jobTitle: "Chief Information Officer",
+            company: "Apex Federal Credit Union",
+            email: "sjenkins@apexfcu.org",
+            credits: 10,
+            date: "07/07/2026"
+          }
+        ],
+        referralCredits: 10
+      },
+      {
+        id: 202,
+        firstName: "Sarah",
+        lastName: "Vance",
+        fullName: "Sarah Vance",
+        email: "svance@vanceconsulting.net",
+        jobTitle: "Senior Advisor",
+        company: "Vance Consulting Group",
+        phone: "+1 (555) 123-4567",
+        industry: "Consulting",
+        sourceFile: "mock_influencers.csv",
+        assetSize: "",
+        state: "IL",
+        enriched: false,
+        matchPercentage: 92,
+        leadTemp: "Cold Lead",
+        emailsSent: false,
+        linkedinSent: false,
+        callsMade: [],
+        isInfluencer: true,
+        referrals: [
+          {
+            fullName: "Alex Patel",
+            jobTitle: "Director of IT Security",
+            company: "Summit Mutual Credit Union",
+            email: "apatel@summitmutual.com",
+            credits: 20,
+            date: "07/07/2026"
+          }
+        ],
+        referralCredits: 20
+      }
+    ];
+
+    initLoadedData();
+    saveDatabaseCache();
+    addLogConsole("enrich", "[SYSTEM] No cached database. Initialized with sandbox mock data.", "info");
   }
 
   // Dynamically load Clerk Auth SDK using active configuration
@@ -409,11 +544,29 @@ function handleCSVFileUpload(event) {
     const lines = parseCSV(text);
     const parsed = processCSVLines(lines);
 
-    database.contacts = parsed;
+    const isInfluencerFile = file.name.toLowerCase().includes("influencer");
+    parsed.forEach(c => {
+      c.isInfluencer = isInfluencerFile;
+      if (isInfluencerFile) {
+        c.referrals = [];
+        c.referralCredits = 0;
+        c.matchPercentage = c.matchPercentage || 95;
+      }
+    });
+
+    if (isInfluencerFile) {
+      const prospects = database.contacts.filter(c => c.isInfluencer !== true);
+      database.contacts = [...prospects, ...parsed];
+    } else {
+      const influencers = database.contacts.filter(c => c.isInfluencer === true);
+      database.contacts = [...influencers, ...parsed];
+    }
+
     initLoadedData();
     saveDatabaseCache();
 
-    addLogConsole("enrich", `[SYSTEM] Uploaded ${parsed.length} contacts from ${file.name}.`, "success");
+    const typeLabel = isInfluencerFile ? "influencers" : "contacts";
+    addLogConsole("enrich", `[SYSTEM] Uploaded ${parsed.length} ${typeLabel} from ${file.name}.`, "success");
   };
   reader.readAsText(file);
 }
@@ -837,6 +990,15 @@ function closeReferralsViewDialog() {
   const dialog = document.getElementById("referrals-view-dialog");
   if (dialog) dialog.close();
 }
+
+function closeDrawer(drawerId) {
+  const drawer = document.getElementById(`${drawerId}-drawer`);
+  if (drawer) {
+    drawer.style.transform = "translateX(100%)";
+    drawer.style.opacity = "0";
+  }
+}
+window.closeDrawer = closeDrawer;
 
 // Bind to window context
 window.handleManualInfluencerSubmit = handleManualInfluencerSubmit;
