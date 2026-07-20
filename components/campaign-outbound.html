@@ -1,0 +1,41 @@
+          <div class="split-pane-layout">
+            <div class="left-list-pane">
+              <!-- Inline Switcher for Outbound sub-segments -->
+              <div class="drawer-tab-strip" style="margin-bottom: 12px; border-bottom: 1px solid var(--hairline);">
+                <button class="drawer-tab-btn active" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospects</button>
+                <button class="drawer-tab-btn" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
+              </div>
+
+              <div class="table-filter-bar">
+                <input type="text" id="outbound-search-input" placeholder="Search..." oninput="filterOutboundTable()">
+              </div>
+              <div class="table-wrapper text-sm">
+                <table id="table-campaign-outbound">
+                  <thead>
+                    <tr id="table-campaign-outbound-headers">
+                      <th>Name</th>
+                      <th>Company</th>
+                      <th>Lead Temp</th>
+                      <th>Email Status</th>
+                      <th>LinkedIn Status</th>
+                      <th>Call Log</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-campaign-outbound-body">
+                    <tr><td colspan="7" class="table-placeholder">No records found. Please load CSV data first.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-pagination" id="outbound-pagination"></div>
+            </div>
+            <div class="right-drawer-pane" id="outbound-drawer">
+              <div class="drawer-header">
+                <h3>Omnichannel Outbound Console</h3>
+                <button class="close-drawer-btn" onclick="closeDrawer('outbound')">×</button>
+              </div>
+              <div class="drawer-body" id="outbound-drawer-body">
+                <div class="drawer-empty-state">Select a contact from the list to load the outbound console.</div>
+              </div>
+            </div>
+          </div>

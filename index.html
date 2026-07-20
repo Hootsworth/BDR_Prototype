@@ -16,18 +16,75 @@
 
 <body onload="loadClerkSDK()">
 
+  <!-- ═══ APP LOADING OVERLAY ═══ -->
+  <div class="app-loading-screen" id="app-loading-screen">
+    <div class="loading-animation-container">
+      <div class="loading-logo">⚡</div>
+      <div class="loading-spinner-bar">
+        <div class="loading-spinner-fill"></div>
+      </div>
+      <div class="loading-text">Initializing GTM Campaign Engine...</div>
+    </div>
+  </div>
+
   <!-- ═══ CLERK MANDATORY LOGIN GATE ═══ -->
   <div class="clerk-auth-gate" id="clerk-auth-gate">
-    <div class="auth-card">
-      <div class="auth-card-header">
-        <div class="auth-brand-icon">
-          <div class="radar-logo-ping"></div>
-          <span class="radar-logo-icon">⚡</span>
+    <!-- Left Column: Design / Marketing Pitch (2/3) -->
+    <div class="auth-marketing-side">
+      <div class="auth-marketing-content">
+        <div class="auth-marketing-badge">⚡ GTM Engine v2.5</div>
+        <h1 class="auth-marketing-title">Autonomous Lead Research &amp; Outbound Orchestration</h1>
+        <p class="auth-marketing-subtitle">Scale your BDR pipeline with AI agents that crawl the web, personalize copy, and coordinate campaigns autonomously.</p>
+        
+        <div class="auth-marketing-features">
+          <div class="marketing-feature-item">
+            <div class="feature-item-icon">🚀</div>
+            <div class="feature-item-text">
+              <strong>Deep Lead Grounding</strong>
+              <span>Perform live Google Search grounding and LinkedIn profile scans on every contact.</span>
+            </div>
+          </div>
+          <div class="marketing-feature-item">
+            <div class="feature-item-icon">📧</div>
+            <div class="feature-item-text">
+              <strong>Omnichannel Outbound</strong>
+              <span>Deploy highly personalized outreach across Email, LinkedIn, and Phone channels.</span>
+            </div>
+          </div>
+          <div class="marketing-feature-item">
+            <div class="feature-item-icon">🤖</div>
+            <div class="feature-item-text">
+              <strong>Autonomous BDR Agents</strong>
+              <span>Simulate multi-agent web workflows using the Model Context Protocol (MCP).</span>
+            </div>
+          </div>
         </div>
-        <h2>GTM Campaign Console</h2>
-        <p>Autonomous lead research &amp; outbound orchestration platform</p>
+
+        <div class="auth-marketing-footer">
+          Inspired by Clay.com design system. Protected by Clerk Authentication.
+        </div>
       </div>
-      <div id="clerk-signin-mount"></div>
+      <div class="radar-ping-visual-container">
+        <div class="radar-ping-circle c1"></div>
+        <div class="radar-ping-circle c2"></div>
+        <div class="radar-ping-circle c3"></div>
+      </div>
+    </div>
+    
+    <!-- Right Column: Login Panel (1/3) -->
+    <div class="auth-login-side">
+      <div class="auth-login-form-wrap">
+        <div class="auth-login-brand">
+          <div class="auth-brand-logo-glow">⚡</div>
+          <span class="auth-login-brand-name">GTM Console</span>
+        </div>
+        <div class="auth-login-header">
+          <h2>Welcome Back</h2>
+          <p>Sign in to orchestrate your outbound pipeline</p>
+        </div>
+        
+        <div id="clerk-signin-mount" class="signin-widget-container"></div>
+      </div>
     </div>
   </div>
 
@@ -45,6 +102,12 @@
           <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />
         </svg>
         <span class="brand-name">GTM Console</span>
+        <button class="sidebar-toggle-trigger" onclick="toggleSidebarCollapse()" title="Collapse Sidebar" style="margin-left: auto; background: transparent; border: none; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-xs); color: var(--muted);">
+          <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+            <polyline points="11 17 6 12 11 7"></polyline>
+            <polyline points="18 17 13 12 18 7"></polyline>
+          </svg>
+        </button>
       </div>
 
       <!-- Clerk Auth Section -->
@@ -68,6 +131,26 @@
 
       <nav class="sidebar-nav" id="app-nav-bar" aria-label="Main Navigation">
 
+        <!-- Category: Dashboard -->
+        <div class="nav-category-group expanded" id="cat-group-dashboard">
+          <div class="nav-category-header" onclick="toggleNavCategory('dashboard')">
+            <svg class="nav-icon nav-icon--peach" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="9" rx="1" />
+              <rect x="14" y="3" width="7" height="5" rx="1" />
+              <rect x="14" y="12" width="7" height="9" rx="1" />
+              <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+            <span class="nav-label">Dashboard</span>
+            <span class="chevron-indicator">▼</span>
+          </div>
+          <div class="nav-subtabs" id="subtabs-dashboard">
+            <button class="subtab-btn active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Overview</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Category 1: Contacts -->
         <div class="nav-category-group expanded" id="cat-group-contacts">
           <div class="nav-category-header" onclick="toggleNavCategory('contacts')">
@@ -79,7 +162,7 @@
             <span class="chevron-indicator">▼</span>
           </div>
           <div class="nav-subtabs" id="subtabs-contacts">
-            <button class="subtab-btn active" id="tab-btn-upload" onclick="switchTab('upload')">
+            <button class="subtab-btn" id="tab-btn-upload" onclick="switchTab('upload')">
               <span class="subtab-dot"></span>
               <span class="subtab-label">Upload</span>
             </button>
@@ -176,628 +259,152 @@
     <!-- ─── MAIN CONTENT ─── -->
     <div class="main-content-wrapper">
 
-      <header>
+      <header class="main-app-header">
         <div class="brand">
-          <h1 id="active-panel-title">Import Contacts</h1>
-          <p class="subtitle" id="active-panel-subtitle">Load and preview your list data sources.</p>
+          <h1 id="active-panel-title">GTM Orchestrator Dashboard</h1>
+          <p class="subtitle" id="active-panel-subtitle">Monitor campaign metrics, agent execution progress, and meeting conversion rates.</p>
+        </div>
+        
+        <div class="header-actions">
+          <!-- Notification Dropdown -->
+          <div class="header-notification-center">
+            <button class="header-action-btn" id="btn-notification-bell" onclick="toggleNotificationDropdown()" title="Notifications">
+              <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span class="notification-badge" id="notification-badge-dot"></span>
+            </button>
+            
+            <div class="notification-dropdown" id="notification-dropdown">
+              <div class="notification-header">
+                <h3>Notifications</h3>
+                <button class="text-link-btn" onclick="clearNotifications()">Clear all</button>
+              </div>
+              <div class="notification-list" id="notification-list">
+                <div class="notification-item unread">
+                  <span class="notification-icon">🤖</span>
+                  <div class="notification-content">
+                    <p class="notification-text">Enrichment pipeline parsed credit union contacts successfully.</p>
+                    <span class="notification-time">Just now</span>
+                  </div>
+                </div>
+                <div class="notification-item">
+                  <span class="notification-icon">📅</span>
+                  <div class="notification-content">
+                    <p class="notification-text">Calendly slot synchronized for Sarah Jenkins.</p>
+                    <span class="notification-time">10 minutes ago</span>
+                  </div>
+                </div>
+                <div class="notification-item">
+                  <span class="notification-icon">🚀</span>
+                  <div class="notification-content">
+                    <p class="notification-text">Lemlist outbound sequence successfully configured.</p>
+                    <span class="notification-time">1 hour ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documentation / Support Link -->
+          <a href="https://clay.com" target="_blank" class="header-action-btn" title="Documentation">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+          </a>
+        </div>
+      </header>
+
+      <header style="display: none;">
+        <div class="brand">
+          <h1 id="active-panel-title-backup">Import Contacts</h1>
+          <p class="subtitle" id="active-panel-subtitle-backup">Load and preview your list data sources.</p>
         </div>
       </header>
 
       <main>
 
-        <!-- ═══ TAB: Upload ═══ -->
-        <section class="tab-content active" id="tab-panel-upload">
-          <div class="glass-panel">
-            <div class="import-actions-row">
-              <div class="import-file-wrap">
-                <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSVFileUpload(event)" hidden>
-                <button class="btn btn-primary" onclick="document.getElementById('csv-file-input').click()">
-                  <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                  Upload BDR CSV Dataset
-                </button>
-              </div>
-              <div class="data-summary-count" id="upload-stats-summary">No CSV data loaded yet.</div>
-            </div>
-          </div>
+        <!-- ═══ TAB: Dashboard ═══ -->
+        <section class="tab-content active" id="tab-panel-dashboard">
+          <!-- Dynamically loaded from components/dashboard.html -->
+        </section>
 
-          <div class="table-container-card">
-            <div class="table-filter-bar">
-              <div class="search-input-wrap">
-                <input type="text" id="upload-search-input" placeholder="Search contacts..." oninput="filterUploadTable()">
-              </div>
-              <div class="filters-row">
-                <select class="select-control" id="filter-industry" onchange="filterUploadTable()">
-                  <option value="">All Industries</option>
-                  <option value="Credit Union">Credit Union</option>
-                  <option value="Banking">Banking</option>
-                  <option value="Financial Services">Financial Services</option>
-                </select>
-                <select class="select-control" id="filter-source" onchange="filterUploadTable()">
-                  <option value="">All Sources</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-wrapper">
-              <table id="table-upload-data">
-                <thead>
-                  <tr id="table-upload-headers">
-                    <th>Name</th><th>Job Title</th><th>Company</th><th>Email</th><th>Industry</th><th>Source File</th>
-                  </tr>
-                </thead>
-                <tbody id="table-upload-body">
-                  <tr><td colspan="6" class="table-placeholder">Upload a CSV dataset to begin.</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="table-pagination" id="upload-pagination"></div>
-          </div>
+        <!-- ═══ TAB: Upload ═══ -->
+        <section class="tab-content" id="tab-panel-upload">
+          <!-- Dynamically loaded from components/upload.html -->
         </section>
 
         <!-- ═══ TAB: Analyse Chatbot ═══ -->
         <section class="tab-content" id="tab-panel-analyse">
-          <div class="chat-container">
-            <div class="chat-header">
-              <span class="chat-header-title">CSV Analytics Assistant</span>
-            </div>
-            <div class="chat-messages" id="analyse-chat-messages">
-              <div class="chat-bubble bot">
-                Hello! I am your GTM list assistant. Ask me questions about the uploaded CSV records, such as:
-                <ul>
-                  <li>"How many contacts are loaded?"</li>
-                  <li>"How many CIOs or CTOs are in the list?"</li>
-                  <li>"List the top 5 states by contact count"</li>
-                  <li>"What is the average asset size?"</li>
-                </ul>
-              </div>
-            </div>
-            <div class="suggested-queries-bar" id="analyse-suggestions">
-              <button class="query-pill" onclick="sendSuggestedQuery('How many total contacts are in the CSV?')">Total count</button>
-              <button class="query-pill" onclick="sendSuggestedQuery('How many CIOs, CTOs or IT Directors?')">CIO/CTO count</button>
-              <button class="query-pill" onclick="sendSuggestedQuery('What is the breakdown of industries?')">Industry breakdown</button>
-              <button class="query-pill" onclick="sendSuggestedQuery('List the top 5 states by credit unions')">Top states</button>
-            </div>
-            <div class="chat-input-area">
-              <input type="text" id="analyse-chat-input" placeholder="Ask about the loaded list data..." onkeydown="if(event.key === 'Enter') sendAnalyseChatMessage()">
-              <button class="btn btn-primary btn-sm" onclick="sendAnalyseChatMessage()">Send ➔</button>
-            </div>
-          </div>
+          <!-- Dynamically loaded from components/analytics.html -->
         </section>
 
         <!-- ═══ TAB: Influencers ═══ -->
         <section class="tab-content" id="tab-panel-influencers">
-          <!-- Manual Add Influencer Glass Panel -->
-          <div class="glass-panel influencer-form-panel">
-            <div class="section-title">Add Influencer Manually</div>
-            <form id="manual-influencer-form" onsubmit="handleManualInfluencerSubmit(event)">
-              <div class="influencer-form-grid">
-                <div class="form-group">
-                  <label for="manual-inf-name">Full Name</label>
-                  <input type="text" class="input-control" id="manual-inf-name" placeholder="John Doe" required>
-                </div>
-                <div class="form-group">
-                  <label for="manual-inf-title">Job Title</label>
-                  <input type="text" class="input-control" id="manual-inf-title" placeholder="VP of IT / Operations" required>
-                </div>
-                <div class="form-group">
-                  <label for="manual-inf-company">Company</label>
-                  <input type="text" class="input-control" id="manual-inf-company" placeholder="Summit Credit Union" required>
-                </div>
-                <div class="form-group">
-                  <label for="manual-inf-email">Email Address</label>
-                  <input type="email" class="input-control" id="manual-inf-email" placeholder="john.doe@summitcu.org" required>
-                </div>
-                <div class="form-group">
-                  <label for="manual-inf-phone">Phone (Optional)</label>
-                  <input type="text" class="input-control" id="manual-inf-phone" placeholder="+1 (555) 019-2834">
-                </div>
-                <div class="form-group">
-                  <label for="manual-inf-temp">Lead Status</label>
-                  <select class="select-control" id="manual-inf-temp">
-                    <option value="Hot Lead">Hot Lead</option>
-                    <option value="Cold Lead">Cold Lead</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="manual-inf-match">Match Score (%)</label>
-                  <input type="number" class="input-control" id="manual-inf-match" value="95" min="0" max="100">
-                </div>
-                <div class="form-group influencer-form-btn-wrap">
-                  <button type="submit" class="btn btn-primary" style="width: 100%;">Add Influencer</button>
-                </div>
-              </div>
-            </form>
-          </div>
-
-          <div class="table-container-card">
-            <div class="table-filter-bar">
-              <input type="text" id="influencers-search-input" placeholder="Search influencers by name or company..." oninput="filterInfluencersTable()">
-              <div class="filters-row">
-                <select class="select-control" id="filter-lead-temp" onchange="filterInfluencersTable()">
-                  <option value="">All Lead Temps</option>
-                  <option value="Hot Lead">Hot Leads</option>
-                  <option value="Cold Lead">Cold Leads</option>
-                </select>
-                <select class="select-control" id="filter-influencer-match" onchange="filterInfluencersTable()">
-                  <option value="">All Match %</option>
-                  <option value="high">High (&gt;90%)</option>
-                  <option value="medium">Medium (80-90%)</option>
-                  <option value="low">Low (&lt;80%)</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-wrapper">
-              <table id="table-influencers">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Job Title</th>
-                    <th>Company Name</th>
-                    <th>Lead Status</th>
-                    <th>Match Score</th>
-                    <th>Referrals &amp; Credits</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody id="table-influencers-body">
-                  <tr><td colspan="7" class="table-placeholder">No influencers found. Please load CSV data or add manually above.</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="table-pagination" id="influencers-pagination"></div>
-          </div>
+          <!-- Dynamically loaded from components/influencers.html -->
         </section>
 
         <!-- ═══ TAB: Enrich ═══ -->
         <section class="tab-content" id="tab-panel-enrich">
-          <div class="settings-layout">
-            <div class="glass-panel">
-              <div class="section-title">Enrichment Configurations</div>
-              <div class="form-group">
-                <label for="key-explorium">Explorium / AgentSource API Key</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="key-explorium" placeholder="agentsource-…" onchange="saveExploriumKey()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-explorium', this)">Show</button>
-                </div>
-                <small class="form-help">Enter your Explorium key to enable data enrichment pipelines.</small>
-              </div>
-              <div class="form-group">
-                <label for="select-enrich-provider">LLM Helper Provider (Optional)</label>
-                <select class="select-control" id="select-enrich-provider" onchange="saveLLMSettings()">
-                  <option value="openai">OpenAI</option>
-                  <option value="gemini">Gemini</option>
-                  <option value="claude">Claude</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="key-llm-helper">LLM API Key</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="key-llm-helper" placeholder="sk-..." onchange="saveLLMHelperKey()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-llm-helper', this)">Show</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="glass-panel enrich-console-panel">
-              <div class="section-title">Enrichment Console</div>
-              <div class="enrichment-console-controls">
-                <button class="btn btn-primary" id="btn-run-enrich" onclick="runDataEnrichment()" disabled>
-                  <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                  Enrich Data via Explorium
-                </button>
-                <div class="enrich-progress-bar-wrap" id="enrich-progress-container">
-                  <div class="enrich-progress-label" id="enrich-progress-label">Enriching 0%</div>
-                  <div class="enrich-progress-track">
-                    <div class="enrich-progress-fill" id="enrich-progress-fill"></div>
-                  </div>
-                </div>
-              </div>
-              <div class="console-box" id="enrich-console-box">
-                <div class="console-line system">[SYSTEM] Awaiting AgentSource API Key verification...</div>
-              </div>
-            </div>
-          </div>
+          <!-- Dynamically loaded from components/enrich.html -->
         </section>
 
         <!-- ═══ TAB: Outbound Campaign ═══ -->
         <section class="tab-content" id="tab-panel-campaign-outbound">
-          <div class="split-pane-layout">
-            <div class="left-list-pane">
-              <!-- Inline Switcher for Outbound sub-segments -->
-              <div class="drawer-tab-strip" style="margin-bottom: 12px; border-bottom: 1px solid var(--hairline);">
-                <button class="drawer-tab-btn active" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospects</button>
-                <button class="drawer-tab-btn" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
-              </div>
-
-              <div class="table-filter-bar">
-                <input type="text" id="outbound-search-input" placeholder="Search..." oninput="filterOutboundTable()">
-              </div>
-              <div class="table-wrapper text-sm">
-                <table id="table-campaign-outbound">
-                  <thead>
-                    <tr id="table-campaign-outbound-headers">
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Lead Temp</th>
-                      <th>Email Status</th>
-                      <th>LinkedIn Status</th>
-                      <th>Call Log</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-campaign-outbound-body">
-                    <tr><td colspan="7" class="table-placeholder">No records found. Please load CSV data first.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="table-pagination" id="outbound-pagination"></div>
-            </div>
-            <div class="right-drawer-pane" id="outbound-drawer">
-              <div class="drawer-header">
-                <h3>Omnichannel Outbound Console</h3>
-                <button class="close-drawer-btn" onclick="closeDrawer('outbound')">×</button>
-              </div>
-              <div class="drawer-body" id="outbound-drawer-body">
-                <div class="drawer-empty-state">Select a contact from the list to load the outbound console.</div>
-              </div>
-            </div>
-          </div>
+          <!-- Dynamically loaded from components/campaign-outbound.html -->
         </section>
 
         <!-- ═══ TAB: Campaign Schedule ═══ -->
         <section class="tab-content" id="tab-panel-campaign-schedule">
-          <div class="table-container-card">
-            <div class="table-title" style="margin-bottom: 8px;">
-              <h3 style="font-size: 16px; margin: 0;">Scheduled Meetings &amp; Briefings</h3>
-            </div>
-            <p style="font-size: 13px; color: var(--muted); margin-bottom: 20px; margin-top: 0;">
-              Track upcoming briefings with prospects who have accepted the calendar invites sent via Email / LinkedIn. Credits are automatically awarded to their referring influencers.
-            </p>
-            <div id="schedule-meetings-list" class="meetings-grid">
-              <!-- Meeting cards rendered dynamically -->
-            </div>
-          </div>
+          <!-- Dynamically loaded from components/campaign-schedule.html -->
         </section>
 
         <!-- ═══ TAB: Events List ═══ -->
         <section class="tab-content" id="tab-panel-events-list">
-          <div class="glass-panel">
-            <div class="section-title">Select Outbound Campaign Event</div>
-            <div class="form-group">
-              <select class="select-control" id="select-event-view" onchange="renderEventsList()">
-                <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
-                <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
-                <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
-              </select>
-            </div>
-          </div>
-          <div class="table-container-card">
-            <div class="table-title">
-              <h3 id="events-list-title">GAC 2023 Dinner Attendees</h3>
-              <span class="badge-count" id="events-list-count">0 attendees</span>
-            </div>
-            <div class="table-wrapper">
-              <table id="table-events-attendees">
-                <thead><tr><th>Name</th><th>Job Title</th><th>Company</th><th>Email</th><th>Status</th><th>Notes</th></tr></thead>
-                <tbody id="table-events-attendees-body">
-                  <tr><td colspan="6" class="table-placeholder">No attendees found. Load data first.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <!-- Dynamically loaded from components/events-list.html -->
         </section>
 
         <!-- ═══ TAB: Events Register ═══ -->
         <section class="tab-content" id="tab-panel-events-register">
-          <div class="glass-panel register-form-panel">
-            <div class="section-title">Register Contact for Event</div>
-            <form id="event-registration-form" onsubmit="handleEventRegistration(event)">
-              <div class="form-group form-group--relative">
-                <label for="event-reg-contact-search">Search Contact</label>
-                <input type="text" class="input-control" id="event-reg-contact-search" placeholder="Type contact name..." oninput="handleRegContactSearch(this.value)">
-                <input type="hidden" id="event-reg-contact-id" value="">
-                <div class="autocomplete-dropdown" id="reg-contact-autocomplete"></div>
-              </div>
-              <div class="form-group">
-                <label for="select-reg-event">Campaign Event</label>
-                <select class="select-control" id="select-reg-event" required>
-                  <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
-                  <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
-                  <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="input-reg-status">Registration Status</label>
-                <select class="select-control" id="input-reg-status">
-                  <option value="Attended">Attended</option>
-                  <option value="Registered">Registered</option>
-                  <option value="Invited">Invited</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="input-reg-notes">Event Notes</label>
-                <textarea class="input-control textarea-control" id="input-reg-notes" placeholder="Add specific notes (e.g. table number, topics discussed...)"></textarea>
-              </div>
-              <div class="form-group form-group--actions">
-                <button type="submit" class="btn btn-primary">Confirm Registration</button>
-              </div>
-            </form>
-          </div>
+          <!-- Dynamically loaded from components/events-register.html -->
         </section>
 
         <!-- ═══ TAB: Agent Mode ═══ -->
         <section class="tab-content" id="tab-panel-agent-mode">
-          <div class="agent-mode-wrapper">
-            
-            <!-- Left Side: Content Panel (Always-On Chat Interface) -->
-            <div class="agent-content-panel">
-              
-              <!-- Chat Thread Area -->
-              <div class="agent-chat-thread-container" id="agent-chat-history-container">
-                <div class="chat-thread" id="agent-chat-history">
-                  <div class="agent-chat-msg agent-msg">
-                    <div class="avatar" style="font-size: 20px;">🤖</div>
-                    <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; border: 1.5px solid var(--hairline);">
-                      Hello! I am your Autonomous GTM Agent. Type <strong>@</strong> followed by a contact's name (e.g. <code>@John Tennus</code>) to research a lead, or ask me any general GTM sales question!
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Floating Agent Execution Progress Loader -->
-              <div class="agent-floating-loader" id="agent-floating-loader">
-                <div class="loader-head">
-                  <div class="loader-ring"></div>
-                  <div>
-                    <div class="loader-title" id="agent-loader-title">Agentic Research In Progress</div>
-                    <div class="loader-subtitle" id="agent-loader-subtitle">Planning research path...</div>
-                  </div>
-                </div>
-                <div class="reading-tab">
-                  <div class="reading-label">Active Crawler Target</div>
-                  <div class="reading-title" id="agent-reading-title">Standing by</div>
-                </div>
-              </div>
-
-              <!-- Chat Compose Input Bar -->
-              <div class="agent-input-container">
-                <div class="agent-autocomplete-list" id="agent-autocomplete-list"></div>
-                <div class="chat-compose">
-                  <textarea id="agent-chat-input" placeholder="Ask anything... e.g. research @John Tennus, summarize company updates, draft outbound copy. (Type @ to list)" onkeydown="handleAgentChatKeyDown(event)" autocomplete="off"></textarea>
-                  <button class="btn-chat" id="btn-agent-chat-send" onclick="sendAgentChatMessage()">↗</button>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- Right Side: Mini Browser Simulator -->
-            <div class="agent-browser-panel">
-              <div class="mini-browser">
-                <div class="browser-topbar">
-                  <span class="browser-dot red"></span>
-                  <span class="browser-dot yellow"></span>
-                  <span class="browser-dot green"></span>
-                  <div class="browser-url">
-                    <input type="text" id="agent-browser-url-input" class="browser-url-field" value="https://google.com" readonly>
-                  </div>
-                </div>
-                <div class="browser-stage" id="agent-browser-viewport">
-                  <div class="browser-empty" id="agent-browser-empty">Browser viewport appears here when the agent navigates</div>
-                  <div class="browser-cursor" id="agent-browser-cursor"></div>
-                </div>
-                <!-- Crawler Targets / Checklist -->
-                <div class="browser-targets" id="agent-browser-targets" style="max-height: 180px;">
-                  <div class="browser-target" id="target-step-1"><strong>1. Google Grounding:</strong> Awaiting search index...</div>
-                  <div class="browser-target" id="target-step-2"><strong>2. LinkedIn Scrape:</strong> Awaiting profile fetch...</div>
-                  <div class="browser-target" id="target-step-3"><strong>3. Corporate Crawl:</strong> Awaiting value extract...</div>
-                  <div class="browser-target" id="target-step-4"><strong>4. B2B Enrichment:</strong> Awaiting lead details...</div>
-                  <div class="browser-target" id="target-step-5"><strong>5. Email Copywriter:</strong> Awaiting email synthesis...</div>
-                  <div class="browser-target" id="target-step-6"><strong>6. LinkedIn outreach:</strong> Awaiting connection invite...</div>
-                  <div class="browser-target" id="target-step-7"><strong>7. Lemlist Campaign:</strong> Awaiting sequence sync...</div>
-                </div>
-              </div>
-            </div>
-
-          </div>
+          <!-- Dynamically loaded from components/agent-mode.html -->
         </section>
 
         <!-- ═══ TAB: Settings ═══ -->
         <section class="tab-content" id="tab-panel-settings-keys">
-          <div class="settings-layout">
-            <div class="glass-panel">
-              <div class="section-title">Autonomous Agent Credentials</div>
-              
-              <!-- Gemini API Key -->
-              <div class="form-group">
-                <label for="key-gemini">Gemini API Key</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="key-gemini" placeholder="AIzaSy..." onchange="saveGeminiKey()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-gemini', this)">Show</button>
-                </div>
-                <small class="form-help">Required for running the live Agent Mode, real-time web search grounding (dorking), and answering any queries.</small>
-              </div>
-
-              <!-- Gemini Model Selection -->
-              <div class="form-group">
-                <label for="select-gemini-model">Gemini Model Choice</label>
-                <select class="select-control" id="select-gemini-model" onchange="saveGeminiModel()">
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fastest)</option>
-                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Best for complex reasoning)</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                </select>
-                <small class="form-help">Select the LLM model to power your B2B research agent.</small>
-              </div>
-
-              <!-- Google Search Grounding Toggle -->
-              <div class="form-group toggle-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
-                <input type="checkbox" id="toggle-gemini-search" onchange="saveGeminiSearchGrounding()" checked style="width: 18px; height: 18px; cursor: pointer;">
-                <label for="toggle-gemini-search" style="font-weight: 500; cursor: pointer; margin-bottom: 0;">Enable Google Search Grounding</label>
-              </div>
-              <small class="form-help" style="margin-left: 28px; display: block; margin-top: -10px;">Allows the agent to search the live web and compile real-time dorking dossier intelligence.</small>
-            </div>
-
-            <div class="glass-panel">
-              <div class="section-title">Other Platform Keys</div>
-              
-              <!-- Explorium Key -->
-              <div class="form-group">
-                <label for="settings-key-explorium">Explorium / AgentSource API Key</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="settings-key-explorium" placeholder="agentsource-..." onchange="syncExploriumKeyFromSettings()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-explorium', this)">Show</button>
-                </div>
-                <small class="form-help">Used for automated B2B enrichment pipelines on the Enrich tab.</small>
-              </div>
-
-              <!-- OpenAI Helper Key -->
-              <div class="form-group">
-                <label for="settings-key-openai">OpenAI API Key (Legacy Helper)</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="settings-key-openai" placeholder="sk-..." onchange="syncOpenAIKeyFromSettings()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-openai', this)">Show</button>
-                </div>
-                <small class="form-help">Used as an alternative LLM helper for offline email drafting templates.</small>
-              </div>
-
-              <!-- Lemlist MCP Server Configuration -->
-              <div class="form-group" style="margin-top: 15px;">
-                <label for="settings-lemlist-mcp-command">Lemlist MCP Server Command</label>
-                <input type="text" class="input-control" id="settings-lemlist-mcp-command" placeholder="npx" value="npx" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
-              </div>
-              <div class="form-group" style="margin-top: 10px;">
-                <label for="settings-lemlist-mcp-args">Lemlist MCP Server Arguments</label>
-                <input type="text" class="input-control" id="settings-lemlist-mcp-args" placeholder="mcp-remote https://app.lemlist.com/mcp" value="mcp-remote https://app.lemlist.com/mcp" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
-                <small class="form-help">Model Context Protocol (MCP) server configuration. Connects agent campaigns dynamically over JSON-RPC protocols.</small>
-              </div>
-            </div>
-
-            <!-- Sandboxes -->
-            <div class="glass-panel" style="margin-top: 20px;">
-              <div class="section-title">B2B Integration Sandboxes</div>
-              <p class="section-desc" style="font-size: 11.5px; color: var(--muted); margin-bottom: 15px; line-height:1.5;">
-                Inspect database syncs, sent email outboxes, connection invitation notes, active sequences, and validation scores:
-              </p>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('apollo')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🚀 Apollo.io</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('outlook')" style="display:flex; align-items:center; gap:6px; justify-content:center;">📧 Outlook</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('linkedin')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🌐 LinkedIn</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('lemlist')" style="display:flex; align-items:center; gap:6px; justify-content:center;">⚡ Lemlist</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('zerobounce')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🔍 ZeroBounce</button>
-              </div>
-            </div>
-
-          </div>
+          <!-- Dynamically loaded from components/settings-keys.html -->
         </section>
 
       </main>
     </div>
   </div>
 
-  <!-- ═══ MODAL: Platform Sandbox Simulator ═══ -->
-  <div class="settings-overlay" id="sandbox-modal" aria-hidden="true" style="display: none; align-items: center; justify-content: center; z-index: 1000;">
-    <div class="settings-panel" style="width: min(960px, calc(100vw - 4rem)); height: 80vh; max-height: 720px; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden;">
-      <div class="settings-head" style="padding: 16px 20px; border-bottom: 1.5px solid var(--hairline);">
-        <div>
-          <h2 style="display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 4px 0;">🛠️ B2B Stack Integration Sandbox</h2>
-          <p style="font-size:12px; color:var(--muted); margin:0;">Inspect mock portal tables, campaign lists, verification states, and sent logs for test contacts.</p>
-        </div>
-        <button class="btn-icon" onclick="closeSandbox()" title="Close" style="border:none; background:transparent; font-size:24px; cursor:pointer; color:var(--ink);">&times;</button>
-      </div>
-      
-      <div style="display: flex; flex: 1; min-height: 0; background: var(--canvas);">
-        <!-- Sandbox Sidebar -->
-        <div style="width: 220px; border-right: 1.5px solid var(--hairline); background: var(--surface-soft); padding: 16px; display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
-          <button class="sandbox-menu-btn active" id="sb-menu-apollo" onclick="switchSandboxTab('apollo')">🚀 Apollo Contact Board</button>
-          <button class="sandbox-menu-btn" id="sb-menu-outlook" onclick="switchSandboxTab('outlook')">📧 Outlook Sent Mail</button>
-          <button class="sandbox-menu-btn" id="sb-menu-linkedin" onclick="switchSandboxTab('linkedin')">🌐 LinkedIn Profiles</button>
-          <button class="sandbox-menu-btn" id="sb-menu-lemlist" onclick="switchSandboxTab('lemlist')">⚡ Lemlist Sequences</button>
-          <button class="sandbox-menu-btn" id="sb-menu-zerobounce" onclick="switchSandboxTab('zerobounce')">🔍 ZeroBounce Status</button>
-        </div>
-        
-        <!-- Sandbox Main Body -->
-        <div id="sandbox-viewport" style="flex: 1; padding: 20px; overflow-y: auto; background: var(--canvas); min-height: 0;">
-          <!-- Content injected here via JS -->
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Dialogs and overlays are dynamically appended from components/dialogs.html -->
 
-  <!-- ═══ DIALOG: Add Referral Contact ═══ -->
-  <dialog id="referral-dialog" class="glass-panel custom-dialog">
-    <div class="dialog-header">
-      <h3>Add Referred Contact</h3>
-      <button class="close-dialog-btn" onclick="closeReferralDialog()">×</button>
-    </div>
-    <form id="referral-form" onsubmit="handleReferralSubmit(event)">
-      <input type="hidden" id="referral-influencer-email" value="">
-      <div class="dialog-body">
-        <p class="dialog-intro-text">Reward <span id="reward-target-name">Influencer</span> with <strong>10 credits</strong> for providing this contact.</p>
-        <div class="form-group">
-          <label for="ref-name">Full Name</label>
-          <input type="text" class="input-control" id="ref-name" placeholder="Sarah Jenkins" required>
-        </div>
-        <div class="form-group">
-          <label for="ref-title">Job Title</label>
-          <input type="text" class="input-control" id="ref-title" placeholder="Chief Information Officer" required>
-        </div>
-        <div class="form-group">
-          <label for="ref-company">Company</label>
-          <input type="text" class="input-control" id="ref-company" placeholder="Apex Federal Credit Union" required>
-        </div>
-        <div class="form-group">
-          <label for="ref-email">Email Address</label>
-          <input type="email" class="input-control" id="ref-email" placeholder="sjenkins@apexfcu.org" required>
-        </div>
-        <div class="form-group">
-          <label for="ref-phone">Phone Number (Optional)</label>
-          <input type="text" class="input-control" id="ref-phone" placeholder="+1 (555) 345-6789">
-        </div>
-        <div class="form-group">
-          <label for="ref-credits">Credits to Award</label>
-          <input type="number" class="input-control" id="ref-credits" value="10" min="0">
-        </div>
-      </div>
-      <div class="dialog-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeReferralDialog()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Submit &amp; Reward</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- ═══ DIALOG: View Referrals Details ═══ -->
-  <dialog id="referrals-view-dialog" class="glass-panel custom-dialog">
-    <div class="dialog-header">
-      <h3>Referrals &amp; Rewards</h3>
-      <button class="close-dialog-btn" onclick="closeReferralsViewDialog()">×</button>
-    </div>
-    <div class="dialog-body">
-      <p class="dialog-intro-text">Contacts referred by <strong id="referrals-view-influencer-name">Influencer</strong>:</p>
-      <div class="table-wrapper text-sm">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Job Title</th>
-              <th>Company</th>
-              <th>Email</th>
-              <th>Credits Granted</th>
-            </tr>
-          </thead>
-          <tbody id="referrals-view-table-body">
-            <!-- Rendered dynamically -->
-          </tbody>
-        </table>
-      </div>
-      <div class="referrals-summary-total">
-        Total Credits Earned: <strong id="referrals-view-total-credits">0</strong>
-      </div>
-    </div>
-    <div class="dialog-footer">
-      <button type="button" class="btn btn-secondary" onclick="closeReferralsViewDialog()">Close</button>
-    </div>
-  </dialog>
-
-  <script src="app.js"></script>
+  <!-- Import Modular Application Layers -->
+  <script src="src/database.js"></script>
+  <script src="src/auth.js"></script>
+  
+  <!-- Components Controllers -->
+  <script src="src/components/dashboard.js"></script>
+  <script src="src/components/upload.js"></script>
+  <script src="src/components/tables.js"></script>
+  <script src="src/components/outbound.js"></script>
+  <script src="src/components/calendar.js"></script>
+  <script src="src/components/analytics.js"></script>
+  <script src="src/components/sandbox.js"></script>
+  <script src="src/components/agent.js"></script>
+  <script src="src/components/influencers.js"></script>
+  <script src="src/components/events.js"></script>
+  <script src="src/components/settings.js"></script>
+  
+  <!-- Main Application Entrypoint -->
+  <script src="src/main.js"></script>
 </body>
 </html>

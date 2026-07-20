@@ -1,0 +1,47 @@
+          <div class="settings-layout">
+            <div class="glass-panel">
+              <div class="section-title">Enrichment Configurations</div>
+              <div class="form-group">
+                <label for="key-explorium">Explorium / AgentSource API Key</label>
+                <div class="key-input-container">
+                  <input type="password" class="input-control" id="key-explorium" placeholder="agentsource-…" onchange="saveExploriumKey()">
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-explorium', this)">Show</button>
+                </div>
+                <small class="form-help">Enter your Explorium key to enable data enrichment pipelines.</small>
+              </div>
+              <div class="form-group">
+                <label for="select-enrich-provider">LLM Helper Provider (Optional)</label>
+                <select class="select-control" id="select-enrich-provider" onchange="saveLLMSettings()">
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="claude">Claude</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="key-llm-helper">LLM API Key</label>
+                <div class="key-input-container">
+                  <input type="password" class="input-control" id="key-llm-helper" placeholder="sk-..." onchange="saveLLMHelperKey()">
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-llm-helper', this)">Show</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-panel enrich-console-panel">
+              <div class="section-title">Enrichment Console</div>
+              <div class="enrichment-console-controls">
+                <button class="btn btn-primary" id="btn-run-enrich" onclick="runDataEnrichment()" disabled>
+                  <svg class="btn-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                  Enrich Data via Explorium
+                </button>
+                <div class="enrich-progress-bar-wrap" id="enrich-progress-container">
+                  <div class="enrich-progress-label" id="enrich-progress-label">Enriching 0%</div>
+                  <div class="enrich-progress-track">
+                    <div class="enrich-progress-fill" id="enrich-progress-fill"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="console-box" id="enrich-console-box">
+                <div class="console-line system">[SYSTEM] Awaiting AgentSource API Key verification...</div>
+              </div>
+            </div>
+          </div>

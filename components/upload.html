@@ -1,0 +1,64 @@
+          <div class="glass-panel" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
+            <div class="upload-dropzone" id="upload-dropzone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('csv-file-input').click()" style="border: 2px dashed var(--hairline); border-radius: var(--radius-lg); padding: 40px 20px; text-align: center; background: var(--surface-card); cursor: pointer; margin: 16px; transition: background 0.2s, border-color 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSVFileUpload(event)" hidden>
+              <div class="dropzone-content" style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                <div class="dropzone-icon" style="font-size: 32px; width: 60px; height: 60px; background: var(--surface-soft); border: 1.5px solid var(--hairline); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 3px 3px 0 var(--hairline);">📥</div>
+                <h3 class="dropzone-title" style="font-size: 16px; font-weight: 700; color: var(--ink); margin: 0;">Drag &amp; drop your CSV dataset here</h3>
+                <p class="dropzone-subtitle" style="font-size: 13px; color: var(--muted); margin: 0;">or click to browse from your computer (CSV format, max 25MB)</p>
+              </div>
+            </div>
+            <div class="upload-stats-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--surface-soft); border-top: 1.5px solid var(--hairline);">
+              <div class="data-summary-count" id="upload-stats-summary" style="font-size: 13px; font-weight: 600; color: var(--body);">No CSV data loaded yet.</div>
+              <button class="btn btn-secondary btn-sm" id="btn-show-mapping" onclick="openColumnMapper()" style="display: none; height: 32px; padding: 0 12px; font-size: 12px;">Configure Field Mapping</button>
+            </div>
+          </div>
+
+          <div class="table-container-card">
+            <div class="table-filter-bar">
+              <div class="search-input-wrap">
+                <input type="text" id="upload-search-input" placeholder="Search contacts..." oninput="filterUploadTable()">
+              </div>
+              <div class="filters-row">
+                <select class="select-control" id="filter-industry" onchange="filterUploadTable()">
+                  <option value="">All Industries</option>
+                  <option value="Credit Union">Credit Union</option>
+                  <option value="Banking">Banking</option>
+                  <option value="Financial Services">Financial Services</option>
+                </select>
+                <select class="select-control" id="filter-source" onchange="filterUploadTable()">
+                  <option value="">All Sources</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table id="table-upload-data">
+                <thead>
+                  <tr id="table-upload-headers">
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-all-upload" onchange="toggleSelectAllUpload(this)" style="cursor:pointer; width:15px; height:15px;"></th>
+                    <th onclick="sortTable('upload', 'fullName')" style="cursor: pointer; user-select: none;">Name <span style="font-size:10px; color:var(--muted);">↕</span></th>
+                    <th onclick="sortTable('upload', 'jobTitle')" style="cursor: pointer; user-select: none;">Job Title <span style="font-size:10px; color:var(--muted);">↕</span></th>
+                    <th onclick="sortTable('upload', 'company')" style="cursor: pointer; user-select: none;">Company <span style="font-size:10px; color:var(--muted);">↕</span></th>
+                    <th onclick="sortTable('upload', 'email')" style="cursor: pointer; user-select: none;">Email <span style="font-size:10px; color:var(--muted);">↕</span></th>
+                    <th onclick="sortTable('upload', 'industry')" style="cursor: pointer; user-select: none;">Industry <span style="font-size:10px; color:var(--muted);">↕</span></th>
+                    <th>Source File</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="table-upload-body">
+                  <tr><td colspan="7" class="table-placeholder">Upload a CSV dataset to begin.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-pagination" id="upload-pagination"></div>
+            
+            <!-- Bulk Actions Bar -->
+            <div class="table-bulk-actions-bar" id="upload-bulk-bar" style="display: none; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface-soft); border-top: 1.5px solid var(--hairline); border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md);">
+              <div style="font-size: 13px; font-weight: 700; color: var(--ink);">
+                Selected <span id="upload-selected-count" style="color:var(--brand-pink);">0</span> contacts
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary btn-sm" onclick="bulkEnrichSelected()" style="height:32px; font-size:12.5px; display:flex; align-items:center; gap:4px; padding:0 12px;">⚡ Bulk Enrich</button>
+                <button class="btn btn-secondary btn-sm" onclick="bulkDeleteSelected()" style="height:32px; font-size:12.5px; border-color:var(--error); color:var(--error); display:flex; align-items:center; gap:4px; padding:0 12px;">🗑️ Bulk Delete</button>
+              </div>
+            </div>
+          </div>

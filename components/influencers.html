@@ -1,0 +1,80 @@
+          <!-- Manual Add Influencer Glass Panel -->
+          <div class="glass-panel influencer-form-panel">
+            <div class="section-title">Add Influencer Manually</div>
+            <form id="manual-influencer-form" onsubmit="handleManualInfluencerSubmit(event)">
+              <div class="influencer-form-grid">
+                <div class="form-group">
+                  <label for="manual-inf-name">Full Name</label>
+                  <input type="text" class="input-control" id="manual-inf-name" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-title">Job Title</label>
+                  <input type="text" class="input-control" id="manual-inf-title" placeholder="VP of IT / Operations" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-company">Company</label>
+                  <input type="text" class="input-control" id="manual-inf-company" placeholder="Summit Credit Union" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-email">Email Address</label>
+                  <input type="email" class="input-control" id="manual-inf-email" placeholder="john.doe@summitcu.org" required>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-phone">Phone (Optional)</label>
+                  <input type="text" class="input-control" id="manual-inf-phone" placeholder="+1 (555) 019-2834">
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-temp">Lead Status</label>
+                  <select class="select-control" id="manual-inf-temp">
+                    <option value="Hot Lead">Hot Lead</option>
+                    <option value="Cold Lead">Cold Lead</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="manual-inf-match">Match Score (%)</label>
+                  <input type="number" class="input-control" id="manual-inf-match" value="95" min="0" max="100">
+                </div>
+                <div class="form-group influencer-form-btn-wrap">
+                  <button type="submit" class="btn btn-primary" style="width: 100%;">Add Influencer</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="table-container-card">
+            <div class="table-filter-bar">
+              <input type="text" id="influencers-search-input" placeholder="Search influencers by name or company..." oninput="filterInfluencersTable()">
+              <div class="filters-row">
+                <select class="select-control" id="filter-lead-temp" onchange="filterInfluencersTable()">
+                  <option value="">All Lead Temps</option>
+                  <option value="Hot Lead">Hot Leads</option>
+                  <option value="Cold Lead">Cold Leads</option>
+                </select>
+                <select class="select-control" id="filter-influencer-match" onchange="filterInfluencersTable()">
+                  <option value="">All Match %</option>
+                  <option value="high">High (&gt;90%)</option>
+                  <option value="medium">Medium (80-90%)</option>
+                  <option value="low">Low (&lt;80%)</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table id="table-influencers">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Job Title</th>
+                    <th>Company Name</th>
+                    <th>Lead Status</th>
+                    <th>Match Score</th>
+                    <th>Referrals &amp; Credits</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="table-influencers-body">
+                  <tr><td colspan="7" class="table-placeholder">No influencers found. Please load CSV data or add manually above.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-pagination" id="influencers-pagination"></div>
+          </div>

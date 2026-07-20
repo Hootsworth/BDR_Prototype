@@ -1,0 +1,35 @@
+          <div class="glass-panel register-form-panel">
+            <div class="section-title">Register Contact for Event</div>
+            <form id="event-registration-form" onsubmit="handleEventRegistration(event)">
+              <div class="form-group form-group--relative">
+                <label for="event-reg-contact-search">Search Contact</label>
+                <input type="text" class="input-control" id="event-reg-contact-search" placeholder="Type contact name..." oninput="handleRegContactSearch(this.value)">
+                <input type="hidden" id="event-reg-contact-id" value="">
+                <div class="autocomplete-dropdown" id="reg-contact-autocomplete"></div>
+              </div>
+              <div class="form-group">
+                <label for="select-reg-event">Campaign Event</label>
+                <select class="select-control" id="select-reg-event" required>
+                  <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
+                  <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
+                  <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="input-reg-status">Registration Status</label>
+                <select class="select-control" id="input-reg-status">
+                  <option value="Attended">Attended</option>
+                  <option value="Registered">Registered</option>
+                  <option value="Invited">Invited</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="input-reg-notes">Event Notes</label>
+                <textarea class="input-control textarea-control" id="input-reg-notes" placeholder="Add specific notes (e.g. table number, topics discussed...)"></textarea>
+              </div>
+              <div class="form-group form-group--actions">
+                <button type="submit" class="btn btn-primary">Confirm Registration</button>
+              </div>
+            </form>
+          </div>

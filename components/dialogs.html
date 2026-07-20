@@ -1,0 +1,136 @@
+  <!-- ═══ MODAL: Platform Sandbox Simulator ═══ -->
+  <div class="settings-overlay" id="sandbox-modal" aria-hidden="true" style="display: none; align-items: center; justify-content: center; z-index: 1000;">
+    <div class="settings-panel" style="width: min(960px, calc(100vw - 4rem)); height: 80vh; max-height: 720px; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden;">
+      <div class="settings-head" style="padding: 16px 20px; border-bottom: 1.5px solid var(--hairline);">
+        <div>
+          <h2 style="display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 4px 0;">🛠️ B2B Stack Integration Sandbox</h2>
+          <p style="font-size:12px; color:var(--muted); margin:0;">Inspect mock portal tables, campaign lists, verification states, and sent logs for test contacts.</p>
+        </div>
+        <button class="btn-icon" onclick="closeSandbox()" title="Close" style="border:none; background:transparent; font-size:24px; cursor:pointer; color:var(--ink);">&times;</button>
+      </div>
+      
+      <div style="display: flex; flex: 1; min-height: 0; background: var(--canvas);">
+        <!-- Sandbox Sidebar -->
+        <div style="width: 220px; border-right: 1.5px solid var(--hairline); background: var(--surface-soft); padding: 16px; display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
+          <button class="sandbox-menu-btn active" id="sb-menu-apollo" onclick="switchSandboxTab('apollo')">🚀 Apollo Contact Board</button>
+          <button class="sandbox-menu-btn" id="sb-menu-outlook" onclick="switchSandboxTab('outlook')">📧 Outlook Sent Mail</button>
+          <button class="sandbox-menu-btn" id="sb-menu-linkedin" onclick="switchSandboxTab('linkedin')">🌐 LinkedIn Profiles</button>
+          <button class="sandbox-menu-btn" id="sb-menu-lemlist" onclick="switchSandboxTab('lemlist')">⚡ Lemlist Sequences</button>
+          <button class="sandbox-menu-btn" id="sb-menu-zerobounce" onclick="switchSandboxTab('zerobounce')">🔍 ZeroBounce Status</button>
+        </div>
+        
+        <!-- Sandbox Main Body -->
+        <div id="sandbox-viewport" style="flex: 1; padding: 20px; overflow-y: auto; background: var(--canvas); min-height: 0;">
+          <!-- Content injected here via JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DIALOG: Briefing Room Console ═══ -->
+  <dialog id="briefing-dialog" class="glass-panel custom-dialog" style="width: 720px; max-width: 90vw; padding: 24px; border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); background: var(--surface-card); box-shadow: 6px 6px 0 var(--hairline);">
+    <div class="dialog-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:16px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink);">GTM Briefing Room</h3>
+      <button class="close-dialog-btn" onclick="closeBriefingConsole()" style="background:transparent; border:none; font-size:20px; cursor:pointer;">×</button>
+    </div>
+    <div class="dialog-body" id="briefing-dialog-body">
+      <!-- Populated Dynamically -->
+    </div>
+    <div class="dialog-footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; border-top:1px solid var(--hairline); padding-top:16px;">
+      <button type="button" class="btn btn-primary" onclick="closeBriefingConsole()" style="height:36px; padding:0 20px; font-size:13px;">Acknowledge &amp; Close Briefing</button>
+    </div>
+  </dialog>
+
+  <!-- ═══ DIALOG: CSV Column Field Mapper ═══ -->
+  <dialog id="column-mapper-dialog" class="glass-panel custom-dialog" style="width: 480px; padding: 24px; border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); background: var(--surface-card); box-shadow: 6px 6px 0 var(--hairline);">
+    <div class="dialog-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="margin:0; font-size:16px; font-weight:700;">Configure CSV Field Mapping</h3>
+      <button class="close-dialog-btn" onclick="closeColumnMapper()" style="background:transparent; border:none; font-size:20px; cursor:pointer;">×</button>
+    </div>
+    <div class="dialog-body" style="margin-bottom: 20px;">
+      <p class="dialog-intro-text" style="font-size:12.5px; color:var(--muted); margin-bottom:16px; line-height:1.5;">Map your CSV columns to standard BDR Campaign database attributes to verify list ingestion details.</p>
+      
+      <div class="field-mapping-list" id="field-mapping-container" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+        <!-- Populated Dynamically -->
+      </div>
+    </div>
+    <div class="dialog-footer" style="display:flex; justify-content:flex-end; gap:10px;">
+      <button type="button" class="btn btn-secondary" onclick="closeColumnMapper()" style="height:36px; padding:0 16px; font-size:13px;">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="confirmColumnMapping()" style="height:36px; padding:0 16px; font-size:13px;">Save &amp; Ingest List</button>
+    </div>
+  </dialog>
+
+  <!-- ═══ DIALOG: Add Referral Contact ═══ -->
+  <dialog id="referral-dialog" class="glass-panel custom-dialog">
+    <div class="dialog-header">
+      <h3>Add Referred Contact</h3>
+      <button class="close-dialog-btn" onclick="closeReferralDialog()">×</button>
+    </div>
+    <form id="referral-form" onsubmit="handleReferralSubmit(event)">
+      <input type="hidden" id="referral-influencer-email" value="">
+      <div class="dialog-body">
+        <p class="dialog-intro-text">Reward <span id="reward-target-name">Influencer</span> with <strong>10 credits</strong> for providing this contact.</p>
+        <div class="form-group">
+          <label for="ref-name">Full Name</label>
+          <input type="text" class="input-control" id="ref-name" placeholder="Sarah Jenkins" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-title">Job Title</label>
+          <input type="text" class="input-control" id="ref-title" placeholder="Chief Information Officer" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-company">Company</label>
+          <input type="text" class="input-control" id="ref-company" placeholder="Apex Federal Credit Union" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-email">Email Address</label>
+          <input type="email" class="input-control" id="ref-email" placeholder="sjenkins@apexfcu.org" required>
+        </div>
+        <div class="form-group">
+          <label for="ref-phone">Phone Number (Optional)</label>
+          <input type="text" class="input-control" id="ref-phone" placeholder="+1 (555) 345-6789">
+        </div>
+        <div class="form-group">
+          <label for="ref-credits">Credits to Award</label>
+          <input type="number" class="input-control" id="ref-credits" value="10" min="0">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeReferralDialog()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit &amp; Reward</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ═══ DIALOG: View Referrals Details ═══ -->
+  <dialog id="referrals-view-dialog" class="glass-panel custom-dialog">
+    <div class="dialog-header">
+      <h3>Referrals &amp; Rewards</h3>
+      <button class="close-dialog-btn" onclick="closeReferralsViewDialog()">×</button>
+    </div>
+    <div class="dialog-body">
+      <p class="dialog-intro-text">Contacts referred by <strong id="referrals-view-influencer-name">Influencer</strong>:</p>
+      <div class="table-wrapper text-sm">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Job Title</th>
+              <th>Company</th>
+              <th>Email</th>
+              <th>Credits Granted</th>
+            </tr>
+          </thead>
+          <tbody id="referrals-view-table-body">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div class="referrals-summary-total">
+        Total Credits Earned: <strong id="referrals-view-total-credits">0</strong>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeReferralsViewDialog()">Close</button>
+    </div>
+  </dialog>

@@ -81,11 +81,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const settingsLemlistArgsInput = document.getElementById("settings-lemlist-mcp-args");
   if (settingsLemlistArgsInput) settingsLemlistArgsInput.value = database.lemlistMcpArgs;
 
+  // Load Calendly & Calendar settings
+  database.calendlyUrl = localStorage.getItem("gtm_calendly_url") || "https://calendly.com/aditya-dixit/30min";
+  database.calendarSyncService = localStorage.getItem("gtm_calendar_sync_service") || "google";
+
+  const calendlyInput = document.getElementById("settings-calendly-url");
+  if (calendlyInput) calendlyInput.value = database.calendlyUrl;
+
+  const calendarSyncSelect = document.getElementById("settings-calendar-sync");
+  if (calendarSyncSelect) calendarSyncSelect.value = database.calendarSyncService;
+
   // Render initial keys state
   checkEnrichButtonState();
 
   // If URL hash or default is set, open it
-  switchTab('upload');
+  switchTab('dashboard');
+
+  // Restore sidebar collapse state
+  if (localStorage.getItem("gtm_sidebar_collapsed") === "true") {
+    const sidebar = document.getElementById("sidebar-panel");
+    if (sidebar) sidebar.classList.add("collapsed");
+  }
 
   // Check for auto loading in local storage
   const savedData = localStorage.getItem("gtm_cached_database");
@@ -281,7 +297,9 @@ function switchTab(tabId) {
   closeDrawer('outbound');
 
   // Trigger tab-specific renders
-  if (tabId === 'upload') {
+  if (tabId === 'dashboard') {
+    renderDashboard();
+  } else if (tabId === 'upload') {
     filterUploadTable();
   } else if (tabId === 'influencers') {
     filterInfluencersTable();
@@ -313,6 +331,10 @@ function updateHeader(tabId) {
   if (!titleEl || !subtitleEl) return;
 
   switch (tabId) {
+    case 'dashboard':
+      titleEl.textContent = "GTM Orchestrator Dashboard";
+      subtitleEl.textContent = "Monitor campaign metrics, agent execution progress, and meeting conversion rates.";
+      break;
     case 'upload':
       titleEl.textContent = "Upload Contacts";
       subtitleEl.textContent = "Upload manual CSV or load target database of credit union accounts.";
@@ -392,6 +414,21 @@ function addLogConsole(consoleId, lineText, type = "system") {
   line.textContent = `[${new Date().toLocaleTimeString()}] ${lineText}`;
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
+
+  // Sync to dashboard feed
+  if (!database.recentActivities) database.recentActivities = [];
+  let displayTxt = lineText.replace(/^\[[A-Z\s_-]+\]\s*/, '');
+  database.recentActivities.unshift({
+    type: type === "system" ? "info" : type,
+    text: displayTxt,
+    time: new Date().toLocaleTimeString()
+  });
+  if (database.recentActivities.length > 25) {
+    database.recentActivities.pop();
+  }
+  if (currentTabId === 'dashboard') {
+    renderDashboard();
+  }
 }
 
 // Auto load key visibility
@@ -543,31 +580,11 @@ function handleCSVFileUpload(event) {
   reader.onload = function (e) {
     const text = e.target.result;
     const lines = parseCSV(text);
-    const parsed = processCSVLines(lines);
-
-    const isInfluencerFile = file.name.toLowerCase().includes("influencer");
-    parsed.forEach(c => {
-      c.isInfluencer = isInfluencerFile;
-      if (isInfluencerFile) {
-        c.referrals = [];
-        c.referralCredits = 0;
-        c.matchPercentage = c.matchPercentage || 95;
-      }
-    });
-
-    if (isInfluencerFile) {
-      const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-      database.contacts = [...prospects, ...parsed];
-    } else {
-      const influencers = database.contacts.filter(c => c.isInfluencer === true);
-      database.contacts = [...influencers, ...parsed];
+    if (lines.length < 2) {
+      alert("Uploaded CSV file is empty or invalid.");
+      return;
     }
-
-    initLoadedData();
-    saveDatabaseCache();
-
-    const typeLabel = isInfluencerFile ? "influencers" : "contacts";
-    addLogConsole("enrich", `[SYSTEM] Uploaded ${parsed.length} ${typeLabel} from ${file.name}.`, "success");
+    openColumnMapper(lines, file.name);
   };
   reader.readAsText(file);
 }
@@ -612,9 +629,10 @@ function initLoadedData() {
   // Update stats summary text
   updateStatsSummaryText();
 
-  // Render tables
+  // Render tables and dashboard
   filterImportTable();
   updateSystemStatusDot();
+  renderDashboard();
 }
 
 function updateStatsSummaryText() {
@@ -730,19 +748,35 @@ function changeUploadPage(page) {
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">No matching prospects found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-placeholder">No matching prospects found.</td></tr>`;
     return;
   }
 
   pageData.forEach(c => {
     const tr = document.createElement("tr");
+    const initials = getInitials(c.fullName);
+    const color = getAvatarColor(c.fullName);
+    const isChecked = database.selectedUploadRows && database.selectedUploadRows.includes(c.id) ? "checked" : "";
+    
     tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
+      <td style="text-align: center;"><input type="checkbox" class="row-check-upload" data-id="${c.id}" ${isChecked} onchange="toggleSelectUploadRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
+      <td>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline); flex-shrink:0;">${initials}</div>
+          <strong>${c.fullName}</strong>
+        </div>
+      </td>
       <td>${c.jobTitle}</td>
       <td>${c.company}</td>
       <td><code>${c.email || "N/A"}</code></td>
-      <td>${c.industry}</td>
-      <td><span style="font-size:11px;color:var(--muted);">${c.sourceFile.split("/").pop()}</span></td>
+      <td><span class="badge-tag" style="background:var(--surface-soft); border:1px solid var(--hairline); font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; color:var(--ink);">${c.industry}</span></td>
+      <td><span style="font-size:11px;color:var(--muted);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
+      <td>
+        <div class="table-cell-actions" style="display:flex; gap:10px;">
+          <button class="row-action-link" style="color:var(--brand-pink); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="openCampaignTarget('${c.email}', 'email')">Outbound</button>
+          <button class="row-action-link" style="color:var(--error); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="deleteContactRecord(${c.id})">Delete</button>
+        </div>
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -780,26 +814,34 @@ function changeInfluencersPage(page) {
 
   pageData.forEach(c => {
     const tr = document.createElement("tr");
+    const initials = getInitials(c.fullName);
+    const color = getAvatarColor(c.fullName);
     const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
     const matchClass = c.matchPercentage < 80 ? "low" : "";
     const referrals = c.referrals || [];
     const credits = c.referralCredits || 0;
 
     tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
+      <td>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline); flex-shrink:0;">${initials}</div>
+          <strong>${c.fullName}</strong>
+        </div>
+      </td>
       <td>${c.jobTitle}</td>
       <td>${c.company}</td>
-      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp}</span></td>
-      <td><span class="badge-match-score ${matchClass}">${c.matchPercentage}%</span></td>
+      <td><span class="badge-lead-temp ${tempClass}" style="border: 1px solid var(--hairline); box-shadow: 1px 1px 0 var(--hairline); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;">${c.leadTemp}</span></td>
+      <td><span class="badge-match-score ${matchClass}" style="border: 1px solid var(--hairline); box-shadow: 1px 1px 0 var(--hairline); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;">${c.matchPercentage}%</span></td>
       <td>
-        <span class="referral-count-label" onclick="viewReferralsDetails('${c.email}')">
+        <span class="referral-count-label" onclick="viewReferralsDetails('${c.email}')" style="cursor:pointer; text-decoration:underline; font-weight:700; color:var(--brand-pink); font-size: 13px;">
           ${referrals.length} referrals (${credits} credits)
         </span>
       </td>
       <td>
-        <div class="table-cell-actions">
-          <button class="row-action-link" onclick="openCampaignTarget('${c.email}', '${c.phone ? "call" : "email"}')">Prospect</button>
-          <button class="row-action-link" onclick="openAddReferralModal('${c.email}')">Add Referral</button>
+        <div class="table-cell-actions" style="display:flex; gap:10px;">
+          <button class="row-action-link" style="background:transparent; border:none; cursor:pointer; font-weight:700; color:var(--ink);" onclick="openCampaignTarget('${c.email}', '${c.phone ? "call" : "email"}')">Prospect</button>
+          <button class="row-action-link" style="background:transparent; border:none; cursor:pointer; font-weight:700; color:var(--ink);" onclick="openAddReferralModal('${c.email}')">Refer</button>
+          <button class="row-action-link" style="color:var(--error); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="deleteContactRecord(${c.id})">Delete</button>
         </div>
       </td>
     `;
@@ -1044,13 +1086,38 @@ function appendAnalyseMessage(sender, text, isLoading = false) {
   const container = document.getElementById("analyse-chat-messages");
   if (!container) return "";
 
+  const wrapper = document.createElement("div");
+  wrapper.className = `chat-message-row ${sender}`;
+  wrapper.style = "display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;";
+  if (sender === "user") {
+    wrapper.style.justifyContent = "flex-end";
+    wrapper.style.flexDirection = "row-reverse";
+  }
+
+  const avatar = document.createElement("div");
+  avatar.className = "chat-avatar";
+  avatar.style = "width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: rgba(255,255,255,0.08); color: var(--on-dark); box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.15);";
+  
+  if (sender === "user") {
+    const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "Demo User";
+    avatar.innerText = getInitials(userFullName);
+    avatar.style.background = "var(--primary)";
+    avatar.style.color = "#ffffff";
+    avatar.style.borderColor = "var(--primary-active)";
+  } else {
+    avatar.innerText = "🤖";
+  }
+
   const bubble = document.createElement("div");
   const msgId = "msg-" + Math.random().toString(36).slice(2, 9);
   bubble.id = msgId;
   bubble.className = `chat-bubble ${sender}`;
   bubble.innerHTML = text;
 
-  container.appendChild(bubble);
+  wrapper.appendChild(avatar);
+  wrapper.appendChild(bubble);
+
+  container.appendChild(wrapper);
   container.scrollTop = container.scrollHeight;
   return msgId;
 }
@@ -1059,7 +1126,8 @@ function removeAnalyseLoading(msgId, finalText) {
   const el = document.getElementById(msgId);
   if (el) {
     el.innerHTML = finalText;
-    el.closest("#analyse-chat-messages").scrollTop = el.closest("#analyse-chat-messages").scrollHeight;
+    const container = document.getElementById("analyse-chat-messages");
+    if (container) container.scrollTop = container.scrollHeight;
   }
 }
 
@@ -1616,7 +1684,12 @@ function changeOutboundPage(page) {
       <td>${emailStatus}</td>
       <td>${linkedinStatus}</td>
       <td>${callStatus}</td>
-      <td><button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">${actionText}</button></td>
+      <td>
+        <div class="table-cell-actions">
+          <button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">${actionText}</button>
+          <button class="row-action-link" style="color:var(--error);" onclick="deleteContactRecord(${c.id})">Delete</button>
+        </div>
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -1670,12 +1743,17 @@ function loadOutboundDrawer(contact, initialChannel = 'email') {
       <button class="drawer-tab-btn" id="btn-outbound-channel-email" onclick="switchDrawerChannel('email')">Email</button>
       <button class="drawer-tab-btn" id="btn-outbound-channel-linkedin" onclick="switchDrawerChannel('linkedin')">LinkedIn</button>
       <button class="drawer-tab-btn" id="btn-outbound-channel-call" onclick="switchDrawerChannel('call')">Phone Call</button>
+      <button class="drawer-tab-btn" id="btn-outbound-channel-calendar" onclick="switchDrawerChannel('calendar')">Calendar</button>
     </div>
 
     <div id="outbound-channel-container"></div>
+    <div id="outbound-timeline-container"></div>
   `;
 
   switchDrawerChannel(initialChannel);
+  
+  const timeline = document.getElementById("outbound-timeline-container");
+  if (timeline) timeline.innerHTML = renderContactTimeline(contact);
 }
 
 function switchDrawerChannel(channel) {
@@ -1705,9 +1783,12 @@ function switchDrawerChannel(channel) {
         <textarea class="input-control" id="email-draft-body" style="height: 220px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
       </div>
 
-      <div style="margin-top:20px; display:flex; gap:10px;">
-        <button class="btn btn-primary" onclick="sendOutboundEmail()" style="flex:1;">Send Campaign Email</button>
-        <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="padding: 10px;">AI Re-draft</button>
+      <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-primary" onclick="sendOutboundEmail()" style="width:100%;">Send Campaign Email</button>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:13px; height:44px;">Insert Calendly</button>
+          <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
+        </div>
       </div>
     `;
   } else if (channel === 'linkedin') {
@@ -1721,9 +1802,12 @@ function switchDrawerChannel(channel) {
         <textarea class="input-control" id="linkedin-draft-text" style="height: 120px; font-size:13px;" maxlength="300">${contact.linkedinDraft}</textarea>
       </div>
 
-      <div style="margin-top:20px; display:flex; gap:10px;">
-        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="flex:1;">Send Invite Note</button>
-        <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="padding: 10px;">AI Re-draft</button>
+      <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Send Invite Note</button>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <button class="btn btn-secondary" onclick="insertCalendlyLink('linkedin-draft-text')" style="font-size:13px; height:44px;">Insert Calendly</button>
+          <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
+        </div>
       </div>
     `;
   } else if (channel === 'call') {
@@ -1731,6 +1815,51 @@ function switchDrawerChannel(channel) {
       <div id="call-drawer-body" style="display:flex; flex-direction:column; gap:12px;"></div>
     `;
     renderDialerInterface("idle");
+  } else if (channel === 'calendar') {
+    const existingMeet = database.meetings ? database.meetings.find(m => m.contactEmail === contact.email) : null;
+    if (existingMeet) {
+      container.innerHTML = `
+        <div class="calendar-booking-dossier" style="background:var(--surface-soft); border:1.5px solid var(--primary); border-radius:var(--radius-md); padding:16px; margin-bottom:12px;">
+          <h4 style="margin:0 0 8px 0; color:var(--brand-pink); font-size:14.5px;">Scheduled Meeting</h4>
+          <div style="font-size:13px; line-height:1.6; color:var(--body);">
+            <strong>Time:</strong> ${existingMeet.timeString}<br>
+            <strong>Platform:</strong> ${existingMeet.platform}<br>
+            <strong>Link:</strong> <a href="${existingMeet.meetingUrl}" target="_blank" style="color:var(--brand-teal); font-weight:600; text-decoration:underline;">Join ${existingMeet.platform}</a><br>
+            <div style="margin-top:8px; border-top:1px solid var(--hairline); padding-top:6px;">
+              <strong>Briefing Summary:</strong><br>
+              <p style="margin:4px 0 0 0; color:var(--ink);">${existingMeet.notes || "No notes logged."}</p>
+            </div>
+            <div style="margin-top:12px;">
+              <button class="btn btn-secondary btn-sm" onclick="exportICSFile('${contact.email}')" style="width:100%; border-color:var(--brand-teal); color:var(--brand-teal);">Download .ICS Invite File</button>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="form-group">
+          <label>Schedule Outbound Meeting</label>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+            <div>
+              <label style="font-size:11.5px; color:var(--muted); font-weight:500;">Select Platform</label>
+              <select class="select-control" id="booking-platform" style="width:100%;">
+                <option value="Google Meet">Google Meet</option>
+                <option value="Microsoft Teams">Microsoft Teams</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--muted); font-weight:500;">Date & Time</label>
+              <input type="datetime-local" class="input-control" id="booking-datetime" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--muted); font-weight:500;">Briefing dossier / Prep notes</label>
+              <textarea class="input-control" id="booking-notes" style="width:100%; height:80px; font-size:13px;" placeholder="Identify tech setups or referred partners..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="saveManualMeeting()" style="margin-top:8px; width:100%;">Book &amp; Sync Calendar</button>
+          </div>
+        </div>
+      `;
+    }
   }
 }
 
@@ -2086,6 +2215,12 @@ function initMockMeetings() {
       const influencer1 = database.contacts.find(c => c.isInfluencer === true) || { fullName: "John Doe", referralCredits: 10 };
       const influencer2 = database.contacts.find(c => c.isInfluencer === true && c.fullName !== influencer1.fullName) || { fullName: "Jane Smith", referralCredits: 20 };
       
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(10, 0, 0, 0);
+
+      const july10 = new Date(2026, 6, 10, 14, 0, 0);
+
       database.meetings = [
         {
           id: "meet-1",
@@ -2096,10 +2231,11 @@ function initMockMeetings() {
           contactPhone: prospects[0].phone || "+1 (555) 345-6789",
           platform: "Google Meet",
           meetingUrl: "https://meet.google.com/abc-defg-hij",
-          timeString: "Tomorrow at 10:00 AM (EST)",
+          timeString: tomorrow.toLocaleDateString() + " at 10:00 AM (EST)",
           influencerName: influencer1.fullName,
           influencerCredits: 10,
-          notes: `Interested in secure BDR query validation guardrails for ${prospects[0].company}. Main concern is preventing database prompt injection in user queries. Referred by ${influencer1.fullName}.`
+          notes: `Interested in secure BDR query validation guardrails for ${prospects[0].company}. Main concern is preventing database prompt injection in user queries. Referred by ${influencer1.fullName}.`,
+          datetimeRaw: tomorrow.toISOString()
         },
         {
           id: "meet-2",
@@ -2110,80 +2246,176 @@ function initMockMeetings() {
           contactPhone: prospects[1].phone || "+1 (555) 789-0123",
           platform: "Microsoft Teams",
           meetingUrl: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_xyz",
-          timeString: "Friday, July 10 at 2:00 PM (EST)",
+          timeString: "07/10/2026 at 02:00 PM (EST)",
           influencerName: influencer2.fullName,
           influencerCredits: 20,
-          notes: `Seeking to integrate Apollo and Lemlist pipelines with secure checkpointers. Main pain point: duplicate contacts management. Referred by ${influencer2.fullName}.`
+          notes: `Seeking to integrate Apollo and Lemlist pipelines with secure checkpointers. Main pain point: duplicate contacts management. Referred by ${influencer2.fullName}.`,
+          datetimeRaw: july10.toISOString()
         }
       ];
     }
   }
 }
 
-function renderScheduleMeetings() {
-  initMockMeetings();
-  const list = document.getElementById("schedule-meetings-list");
-  if (!list) return;
+let currentCalDate = new Date(2026, 6, 1);
+
+function renderCalendar() {
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const grid = document.getElementById("calendar-days-grid");
+  const monthYearLabel = document.getElementById("calendar-month-year");
+  if (!grid || !monthYearLabel) return;
+
+  const year = currentCalDate.getFullYear();
+  const month = currentCalDate.getMonth();
+  monthYearLabel.textContent = `${monthNames[month]} ${year}`;
+
+  grid.innerHTML = "";
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+
+  // Add empty spaces for padding
+  for (let i = 0; i < firstDayIndex; i++) {
+    const emptyCell = document.createElement("div");
+    emptyCell.style.height = "55px";
+    emptyCell.style.border = "1px solid var(--hairline-soft)";
+    emptyCell.style.borderRadius = "6px";
+    emptyCell.style.background = "var(--surface-soft)";
+    emptyCell.style.opacity = "0.5";
+    grid.appendChild(emptyCell);
+  }
+
+  // Add actual days
+  for (let day = 1; day <= totalDays; day++) {
+    const cell = document.createElement("div");
+    cell.style.height = "55px";
+    cell.style.border = "1.5px solid var(--primary)";
+    cell.style.borderRadius = "6px";
+    cell.style.padding = "4px";
+    cell.style.display = "flex";
+    cell.style.flexDirection = "column";
+    cell.style.justifyContent = "space-between";
+    cell.style.cursor = "pointer";
+    cell.style.background = "var(--canvas)";
+    cell.style.position = "relative";
+    cell.style.transition = "background-color 0.15s ease";
+
+    const dayLabel = document.createElement("span");
+    dayLabel.textContent = day;
+    dayLabel.style.fontSize = "12px";
+    dayLabel.style.fontWeight = "600";
+    dayLabel.style.color = "var(--ink)";
+    cell.appendChild(dayLabel);
+
+    const cellDateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dayMeetings = (database.meetings || []).filter(m => {
+      if (m.datetimeRaw) {
+        const mDate = new Date(m.datetimeRaw);
+        return mDate.getFullYear() === year && mDate.getMonth() === month && mDate.getDate() === day;
+      }
+      return false;
+    });
+
+    if (dayMeetings.length > 0) {
+      const dot = document.createElement("div");
+      dot.style.width = "8px";
+      dot.style.height = "8px";
+      dot.style.borderRadius = "50%";
+      dot.style.background = "var(--brand-pink)";
+      dot.style.position = "absolute";
+      dot.style.bottom = "8px";
+      dot.style.right = "8px";
+      cell.appendChild(dot);
+      
+      cell.style.borderColor = "var(--brand-pink)";
+      cell.style.background = "var(--surface-soft)";
+    }
+
+    cell.onclick = () => {
+      document.querySelectorAll("#calendar-days-grid > div").forEach(c => {
+        c.style.background = "var(--canvas)";
+      });
+      cell.style.background = "var(--surface-card)";
+      selectCalendarDate(year, month, day, dayMeetings);
+    };
+
+    grid.appendChild(cell);
+  }
+}
+
+function changeCalendarMonth(offset) {
+  currentCalDate.setMonth(currentCalDate.getMonth() + offset);
+  renderCalendar();
+}
+
+function selectCalendarDate(year, month, day, meetings) {
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const title = document.getElementById("selected-date-title");
+  const subtitle = document.getElementById("selected-date-subtitle");
+  const list = document.getElementById("selected-date-meetings-list");
+  if (!title || !subtitle || !list) return;
+
+  title.textContent = `${monthNames[month]} ${day}, ${year}`;
+  subtitle.textContent = `${meetings.length} meeting(s) scheduled for this date.`;
   list.innerHTML = "";
 
-  if (database.meetings.length === 0) {
-    list.innerHTML = `<div class="table-placeholder">No meetings scheduled yet. Meetings appear here when a prospect books a time slot.</div>`;
+  if (meetings.length === 0) {
+    list.innerHTML = `<div class="table-placeholder" style="border: none; padding: 40px 10px;">No briefings scheduled for this date.</div>`;
     return;
   }
 
-  database.meetings.forEach((m, idx) => {
+  meetings.forEach((meet, idx) => {
     const card = document.createElement("div");
     card.className = "meeting-card";
-    
-    const badgeClass = m.platform === "Google Meet" ? "google-meet" : "teams";
-    
+    const badgeClass = meet.platform === "Google Meet" ? "google-meet" : "teams";
+
     card.innerHTML = `
       <div class="meeting-card-header">
         <div class="meeting-card-meta">
-          <h4>${m.contactName}</h4>
-          <div class="title-company">${m.contactTitle} at <strong>${m.contactCompany}</strong></div>
-          <div class="time-string">🗓️ ${m.timeString}</div>
+          <h4>${meet.contactName}</h4>
+          <div class="title-company">${meet.contactTitle} at ${meet.contactCompany}</div>
+          <div class="time-string">Date: ${meet.timeString}</div>
         </div>
         <div class="meeting-card-side">
-          <span class="meeting-badge ${badgeClass}">${m.platform}</span>
+          <span class="meeting-badge ${badgeClass}">${meet.platform}</span>
         </div>
       </div>
-
       <div class="meeting-card-details">
         <div class="meeting-info-row">
-          <span>Email:</span>
-          <strong>${m.contactEmail}</strong>
-        </div>
-        <div class="meeting-info-row">
           <span>Phone:</span>
-          <strong>${m.contactPhone}</strong>
+          <strong>${meet.contactPhone}</strong>
         </div>
         <div class="meeting-info-row">
-          <span>Referral Partner:</span>
-          <strong style="color:var(--brand-teal);">${m.influencerName} (${m.influencerCredits} credits awarded)</strong>
+          <span>Email:</span>
+          <strong><code>${meet.contactEmail}</code></strong>
         </div>
-        
-        <button class="row-action-link" style="text-align:left; margin-top:4px;" onclick="toggleMeetingNotes(${idx})">
-          📄 View Preparation Notes &amp; History
-        </button>
-        
-        <div class="meeting-prep-notes" id="meeting-prep-notes-${idx}">
-          <strong>Pre-Meeting Intelligence Summary:</strong>
-          <p style="margin: 6px 0 0 0;">${m.notes}</p>
-          <div style="margin-top: 10px; font-size:11.5px; color:var(--muted); border-top:1px solid var(--hairline); padding-top:8px;">
-            💡 <em>Action Item:</em> Prioritize discussing secure financial API gateways.
-          </div>
+        <div class="meeting-info-row">
+          <span>Referring Partner:</span>
+          <span style="font-weight:600; color:var(--brand-teal);">${meet.influencerName} (${meet.influencerCredits} credits)</span>
         </div>
-      </div>
-
-      <div class="meeting-actions">
-        <a href="${m.meetingUrl}" target="_blank" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; text-decoration:none; height:34px; line-height:34px; padding:0 14px;">
-          Join ${m.platform}
-        </a>
+        <div style="margin-top: 12px; display:flex; gap: 6px;">
+          <a class="btn btn-primary btn-sm" href="${meet.meetingUrl}" target="_blank" style="flex:1.2; text-align:center; height:30px; padding:0; display:flex; align-items:center; justify-content:center; font-size:12px;">Join Meeting</a>
+          <button class="btn btn-secondary btn-sm" onclick="openBriefingConsole('${meet.id}')" style="height:30px; padding:0 10px; font-size:12px; font-weight:700;">Briefing Room</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportICSFile('${meet.contactEmail}')" style="height:30px; padding:0 8px; font-size:12px;">Invite</button>
+        </div>
       </div>
     `;
     list.appendChild(card);
   });
+}
+
+function renderScheduleMeetings() {
+  initMockMeetings();
+  renderCalendar();
+  
+  const title = document.getElementById("selected-date-title");
+  const subtitle = document.getElementById("selected-date-subtitle");
+  const list = document.getElementById("selected-date-meetings-list");
+  if (title && subtitle && list) {
+    title.textContent = "No Date Selected";
+    subtitle.textContent = "Select a highlighted date to view briefings.";
+    list.innerHTML = `<div class="table-placeholder" style="border: none; padding: 40px 10px;">Select a date on the calendar grid to inspect briefing details.</div>`;
+  }
 }
 
 function toggleMeetingNotes(idx) {
@@ -2310,6 +2542,7 @@ function logCallOutcome(outcome) {
 
   hangupOutboundCall();
   filterOutboundTable();
+  loadOutboundDrawer(contact, 'call');
   
   if (contact.isInfluencer) {
     triggerMockInfluencerResponse(contact, 'call');
@@ -2587,13 +2820,15 @@ function sendAgentChatMessage() {
   if (text === "") return;
 
   // Append user bubble
+  const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "Demo User";
+  const userInitials = getInitials(userFullName);
+  const userAvatarColor = getAvatarColor(userFullName);
+
   const userDiv = document.createElement("div");
   userDiv.className = "agent-chat-msg user-msg";
-  userDiv.style = "display: flex; gap: 10px; align-items: flex-start; justify-content: flex-end;";
   userDiv.innerHTML = `
-    <div class="msg-bubble" style="background: var(--primary); color: #ffffff; padding: 10px 14px; border-radius: 16px 4px 16px 16px; font-size: 13px; line-height: 1.5; max-width: 85%; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--primary-active);">
-      ${text}
-    </div>
+    <div class="avatar" style="background:${userAvatarColor}; color:#fff; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline);">${userInitials}</div>
+    <div class="msg-bubble">${text}</div>
   `;
   history.appendChild(userDiv);
   input.value = "";
@@ -2697,10 +2932,9 @@ function sendAgentChatMessage() {
     setTimeout(() => {
       const botDiv = document.createElement("div");
       botDiv.className = "agent-chat-msg agent-msg";
-      botDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
       botDiv.innerHTML = `
-          <div class="avatar" style="font-size: 20px;">🤖</div>
-          <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13px; line-height: 1.5; border: 1.5px solid var(--hairline);">
+          <div class="avatar">🤖</div>
+          <div class="msg-bubble">
             I am ready. Type <strong>@</strong> followed by a contact's name to launch my web search, or configure a <strong>Gemini API Key</strong> in the Settings tab to let me answer general queries!
           </div>
         `;
@@ -3328,10 +3562,9 @@ function appendAgentLog(message) {
 
   const msgDiv = document.createElement("div");
   msgDiv.className = "agent-chat-msg agent-msg";
-  msgDiv.style = "display: flex; gap: 10px; align-items: flex-start;";
   msgDiv.innerHTML = `
-    <div class="avatar" style="font-size: 20px;">🤖</div>
-    <div class="msg-bubble" style="background: var(--surface-card); color: var(--ink); padding: 10px 14px; border-radius: 4px 16px 16px 16px; font-size: 13.5px; line-height: 1.5; max-width: 85%; border: 1.5px solid var(--hairline);">
+    <div class="avatar">🤖</div>
+    <div class="msg-bubble">
       ${message}
     </div>
   `;
@@ -3360,6 +3593,9 @@ function loadClerkSDK() {
 async function initClerkAuth(publishableKey) {
   if (!window.Clerk) {
     console.error("Clerk JS SDK script not resolved yet.");
+    // Hide loader if Clerk fails to load script
+    const loader = document.getElementById("app-loading-screen");
+    if (loader) loader.remove();
     return;
   }
 
@@ -3374,8 +3610,20 @@ async function initClerkAuth(publishableKey) {
     });
 
     updateClerkUIState();
+
+    // Fade out and remove loading overlay
+    const loader = document.getElementById("app-loading-screen");
+    if (loader) {
+      loader.classList.add("fade-out");
+      setTimeout(() => {
+        loader.style.display = "none";
+      }, 400);
+    }
   } catch (err) {
     console.error("Error loading Clerk:", err);
+    // Ensure loader is removed on error
+    const loader = document.getElementById("app-loading-screen");
+    if (loader) loader.remove();
   }
 }
 
@@ -3758,4 +4006,981 @@ window.verifyZeroBounce = function (idx) {
   switchSandboxTab('zerobounce');
 };
 
+// --- CALENDAR & CALENDLY CUSTOM INTEGRATION METHODS ---
+
+function deleteContactRecord(id) {
+  if (!confirm("Are you sure you want to delete this contact and all their associated outreach history?")) {
+    return;
+  }
+  
+  const contactIndex = database.contacts.findIndex(c => c.id === id);
+  if (contactIndex === -1) return;
+  
+  const contact = database.contacts[contactIndex];
+  database.contacts.splice(contactIndex, 1);
+  
+  if (database.meetings) {
+    database.meetings = database.meetings.filter(m => m.contactEmail !== contact.email);
+  }
+  
+  saveDatabaseCache();
+  addLogConsole("enrich", `[SYSTEM] Deleted contact record for ${contact.fullName}`, "warning");
+  
+  filterUploadTable();
+  filterInfluencersTable();
+  filterOutboundTable();
+  if (currentTabId === 'campaign-schedule') {
+    renderScheduleMeetings();
+  }
+}
+
+function saveCalendlySettings() {
+  const el = document.getElementById("settings-calendly-url");
+  if (el) {
+    database.calendlyUrl = el.value;
+    localStorage.setItem("gtm_calendly_url", el.value);
+    addLogConsole("enrich", `[SYSTEM] Saved Calendly booking page URL to settings.`, "info");
+  }
+}
+
+function saveCalendarSyncSettings() {
+  const el = document.getElementById("settings-calendar-sync");
+  if (el) {
+    database.calendarSyncService = el.value;
+    localStorage.setItem("gtm_calendar_sync_service", el.value);
+    addLogConsole("enrich", `[SYSTEM] Updated primary calendar synchronization provider to: ${el.value.toUpperCase()}`, "info");
+  }
+}
+
+function insertCalendlyLink(textareaId) {
+  const textarea = document.getElementById(textareaId);
+  if (!textarea) return;
+
+  const calendlyUrl = database.calendlyUrl || "https://calendly.com/aditya-dixit/30min";
+  const insertionText = `\n\nHere is my booking link to schedule a brief call: ${calendlyUrl}`;
+  
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const val = textarea.value;
+
+  if (typeof start === 'number') {
+    textarea.value = val.substring(0, start) + insertionText + val.substring(end);
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + insertionText.length;
+  } else {
+    textarea.value += insertionText;
+  }
+
+  const contact = database.selectedContact;
+  if (contact) {
+    if (textareaId === 'email-draft-body') {
+      const subjectInput = document.getElementById("email-draft-subject");
+      contact.emailDraft = {
+        subject: subjectInput ? subjectInput.value : contact.emailDraft.subject,
+        body: textarea.value
+      };
+    } else if (textareaId === 'linkedin-draft-text') {
+      contact.linkedinDraft = textarea.value;
+    }
+    saveDatabaseCache();
+  }
+}
+
+function saveManualMeeting() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+
+  const platform = document.getElementById("booking-platform").value;
+  const datetimeVal = document.getElementById("booking-datetime").value;
+  const notes = document.getElementById("booking-notes").value;
+
+  if (!datetimeVal) {
+    alert("Please select a date and time for the meeting.");
+    return;
+  }
+
+  const dt = new Date(datetimeVal);
+  const timeString = dt.toLocaleDateString() + " at " + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const meetingId = Math.random().toString(36).substring(2, 11);
+  const meetingUrl = platform === "Google Meet" 
+    ? `https://meet.google.com/${meetingId.slice(0,3)}-${meetingId.slice(3,7)}-${meetingId.slice(7,10)}`
+    : `https://teams.microsoft.com/l/meetup-join/${meetingId}`;
+
+  let influencerName = "Direct Outreach";
+  let influencerCredits = 0;
+  
+  if (contact.referredBy) {
+    const influencer = database.contacts.find(c => c.isInfluencer === true && c.fullName === contact.referredBy);
+    if (influencer) {
+      influencerName = influencer.fullName;
+      influencerCredits = 20;
+      if (!influencer.referrals) influencer.referrals = [];
+      const isDuplicate = influencer.referrals.some(r => r.email === contact.email);
+      if (!isDuplicate) {
+        influencer.referrals.push({
+          fullName: contact.fullName,
+          jobTitle: contact.jobTitle,
+          company: contact.company,
+          email: contact.email,
+          credits: 20,
+          date: new Date().toLocaleDateString()
+        });
+        influencer.referralCredits = (influencer.referralCredits || 0) + 20;
+      }
+    }
+  }
+
+  const newMeet = {
+    id: "meet-" + Date.now(),
+    contactName: contact.fullName,
+    contactTitle: contact.jobTitle,
+    contactCompany: contact.company,
+    contactEmail: contact.email,
+    contactPhone: contact.phone || "+1 (555) 000-0000",
+    platform: platform,
+    meetingUrl: meetingUrl,
+    timeString: timeString,
+    influencerName: influencerName,
+    influencerCredits: influencerCredits,
+    notes: notes,
+    datetimeRaw: datetimeVal
+  };
+
+  if (!database.meetings) database.meetings = [];
+  database.meetings.push(newMeet);
+  contact.leadTemp = "Hot Lead";
+
+  saveDatabaseCache();
+  addLogConsole("enrich", `[CALENDAR SYNC] Booked meeting with ${contact.fullName} on ${platform} (${timeString}).`, "success");
+  
+  if (database.calendarSyncService === 'google') {
+    const startStr = dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const endStr = new Date(dt.getTime() + 30 * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Outbound Briefing: " + contact.company)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(notes + "\n\nJoin Link: " + meetingUrl)}&location=${encodeURIComponent(platform)}`;
+    
+    window.open(gCalUrl, "_blank");
+    addLogConsole("enrich", `[GOOGLE CALENDAR] Sync request complete. Opened new calendar event creation page.`, "success");
+  } else {
+    exportICSFile(contact.email);
+    addLogConsole("enrich", `[${database.calendarSyncService.toUpperCase()} CALENDAR] Sync complete. Exported local iCal meeting invitation.`, "success");
+  }
+
+  filterOutboundTable();
+  loadOutboundDrawer(contact, 'calendar');
+}
+
+function simulateCalendlyWebhook() {
+  if (!database.contacts || database.contacts.length === 0) {
+    alert("Please upload database contacts first.");
+    return;
+  }
+
+  const prospects = database.contacts.filter(c => c.isInfluencer !== true);
+  if (prospects.length === 0) {
+    alert("No prospects found to schedule with.");
+    return;
+  }
+
+  const unscheduled = prospects.find(p => !database.meetings || !database.meetings.some(m => m.contactEmail === p.email));
+  const contact = unscheduled || prospects[0];
+
+  const now = new Date();
+  const meetingDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  meetingDate.setHours(10, 0, 0, 0);
+
+  const timeString = meetingDate.toLocaleDateString() + " at 10:00 AM (EST)";
+  const platform = "Google Meet";
+  const meetingId = Math.random().toString(36).substring(2, 11);
+  const meetingUrl = `https://meet.google.com/${meetingId.slice(0,3)}-${meetingId.slice(3,7)}-${meetingId.slice(7,10)}`;
+
+  let influencerName = "Direct Outreach";
+  let influencerCredits = 0;
+  
+  if (contact.referredBy) {
+    const influencer = database.contacts.find(c => c.isInfluencer === true && c.fullName === contact.referredBy);
+    if (influencer) {
+      influencerName = influencer.fullName;
+      influencerCredits = 20;
+      if (!influencer.referrals) influencer.referrals = [];
+      const isDuplicate = influencer.referrals.some(r => r.email === contact.email);
+      if (!isDuplicate) {
+        influencer.referrals.push({
+          fullName: contact.fullName,
+          jobTitle: contact.jobTitle,
+          company: contact.company,
+          email: contact.email,
+          credits: 20,
+          date: new Date().toLocaleDateString()
+        });
+        influencer.referralCredits = (influencer.referralCredits || 0) + 20;
+      }
+    }
+  }
+
+  const newMeet = {
+    id: "meet-" + Date.now(),
+    contactName: contact.fullName,
+    contactTitle: contact.jobTitle,
+    contactCompany: contact.company,
+    contactEmail: contact.email,
+    contactPhone: contact.phone || "+1 (555) 000-0000",
+    platform: platform,
+    meetingUrl: meetingUrl,
+    timeString: timeString,
+    influencerName: influencerName,
+    influencerCredits: influencerCredits,
+    notes: `Simulated Calendly Webhook slot booking for ${contact.company}.`,
+    datetimeRaw: meetingDate.toISOString()
+  };
+
+  if (!database.meetings) database.meetings = [];
+  database.meetings.push(newMeet);
+  contact.leadTemp = "Hot Lead";
+
+  saveDatabaseCache();
+  
+  addLogConsole("enrich", `[CALENDLY WEBHOOK] Incoming Calendly Slot Booking webhook payload received.`, "success");
+  addLogConsole("enrich", `[CALENDLY WEBHOOK] Automatically booked slot for ${contact.fullName} on ${platform} (${timeString}).`, "success");
+  
+  exportICSFile(contact.email);
+  addLogConsole("enrich", `[CALENDAR SYNC] Triggered local calendar sync and ICS export download.`, "success");
+
+  filterOutboundTable();
+  if (currentTabId === 'campaign-schedule') {
+    renderScheduleMeetings();
+  }
+}
+
+function exportICSFile(email) {
+  const meet = database.meetings ? database.meetings.find(m => m.contactEmail === email) : null;
+  if (!meet) return;
+
+  const dt = meet.datetimeRaw ? new Date(meet.datetimeRaw) : new Date();
+  const startStr = dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const endStr = new Date(dt.getTime() + 30 * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  const icsContent = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Hootsworth BDR//Campaign Console//EN",
+    "BEGIN:VEVENT",
+    `UID:${meet.id}@hootsworth-bdr.app`,
+    `DTSTAMP:${startStr}`,
+    `DTSTART:${startStr}`,
+    `DTEND:${endStr}`,
+    `SUMMARY:Outbound Briefing: ${meet.contactCompany}`,
+    `DESCRIPTION:${meet.notes ? meet.notes.replace(/\n/g, "\\n") : ""}\\n\\nJoin Link: ${meet.meetingUrl}`,
+    `LOCATION:${meet.platform}`,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8;' });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute("download", `briefing_${meet.contactName.replace(/\s+/g, "_").toLowerCase()}.ics`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Bind to window context
+window.deleteContactRecord = deleteContactRecord;
+window.saveCalendlySettings = saveCalendlySettings;
+window.saveCalendarSyncSettings = saveCalendarSyncSettings;
+window.insertCalendlyLink = insertCalendlyLink;
+window.simulateCalendlyWebhook = simulateCalendlyWebhook;
+window.saveManualMeeting = saveManualMeeting;
+window.exportICSFile = exportICSFile;
+window.changeCalendarMonth = changeCalendarMonth;
+window.renderDashboard = renderDashboard;
+window.renderDashboardActivityFeed = renderDashboardActivityFeed;
+
+
+// --- DASHBOARD DATA AND ACTIVITY RENDERING ---
+
+function renderDashboard() {
+  const totalContactsEl = document.getElementById("dashboard-total-contacts");
+  const enrichedContactsEl = document.getElementById("dashboard-enriched-contacts");
+  const outboundSentEl = document.getElementById("dashboard-outbound-sent");
+  const meetingsBookedEl = document.getElementById("dashboard-meetings-booked");
+  const agentStatusTextEl = document.getElementById("dashboard-agent-status-text");
+  const pipelinePctEl = document.getElementById("dashboard-pipeline-pct");
+  const pipelineFillEl = document.getElementById("dashboard-pipeline-fill");
+  const hotLeadsCountEl = document.getElementById("dashboard-hot-leads-count");
+  const openBriefsCountEl = document.getElementById("dashboard-open-briefs-count");
+  const apiStatusChipEl = document.getElementById("dashboard-api-status-chip");
+
+  if (!totalContactsEl) return;
+
+  const total = database.contacts.length;
+  const enriched = database.contacts.filter(c => c.enriched).length;
+  const emailsCount = database.contacts.filter(c => c.emailsSent).length;
+  const linkedinCount = database.contacts.filter(c => c.linkedinSent).length;
+  const outbound = emailsCount + linkedinCount + (database.stats.emailsSent || 0) + (database.stats.linkedinSent || 0);
+  
+  // Calculate meetings booked from the schedule
+  const meetings = database.meetings ? database.meetings.length : 0;
+  const hotLeads = database.contacts.filter(c => c.leadTemp === "Hot Lead").length;
+  
+  totalContactsEl.textContent = total.toLocaleString();
+  enrichedContactsEl.textContent = enriched.toLocaleString();
+  outboundSentEl.textContent = outbound.toLocaleString();
+  meetingsBookedEl.textContent = meetings.toLocaleString();
+
+  // Progress Bar
+  const enrichmentPct = total > 0 ? Math.round((enriched / total) * 100) : 0;
+  if (pipelinePctEl) pipelinePctEl.textContent = `${enrichmentPct}%`;
+  if (pipelineFillEl) pipelineFillEl.style.width = `${enrichmentPct}%`;
+
+  // Hot Leads & Briefings
+  if (hotLeadsCountEl) hotLeadsCountEl.textContent = hotLeads.toLocaleString();
+  if (openBriefsCountEl) openBriefsCountEl.textContent = meetings.toLocaleString();
+
+  // API sync key status chip
+  if (apiStatusChipEl) {
+    if (database.exploriumApiKey) {
+      apiStatusChipEl.textContent = "Verified";
+      apiStatusChipEl.style.color = "var(--success)";
+      apiStatusChipEl.style.borderColor = "var(--success)";
+    } else {
+      apiStatusChipEl.textContent = "Offline";
+      apiStatusChipEl.style.color = "var(--muted)";
+      apiStatusChipEl.style.borderColor = "var(--hairline)";
+    }
+  }
+
+  // Agent Status Text
+  if (agentStatusTextEl) {
+    if (total === 0) {
+      agentStatusTextEl.textContent = "Inactive. Please upload a CSV dataset to initialize campaigns.";
+    } else if (enrichmentPct < 100) {
+      agentStatusTextEl.textContent = `Enrichment pipeline active. Enriched ${enriched} of ${total} leads.`;
+    } else {
+      agentStatusTextEl.textContent = "Idle. All leads verified and ready for outbound sequences.";
+    }
+  }
+
+  // Activity Feed
+  renderDashboardActivityFeed();
+}
+
+function renderDashboardActivityFeed() {
+  const feedEl = document.getElementById("dashboard-activity-feed");
+  if (!feedEl) return;
+
+  if (!database.recentActivities || database.recentActivities.length === 0) {
+    // Generate default initial history logs if empty
+    database.recentActivities = [
+      { type: "success", text: "GTM Console loaded successfully.", time: new Date().toLocaleTimeString() },
+      { type: "info", text: "Simulated sandbox databases initialized.", time: new Date().toLocaleTimeString() },
+      { type: "info", text: "Connected to Clerk auth gate servers.", time: new Date().toLocaleTimeString() }
+    ];
+
+    if (database.contacts.length > 0) {
+      database.recentActivities.unshift(
+        { type: "success", text: `Cached list containing ${database.contacts.length} leads loaded successfully.`, time: new Date().toLocaleTimeString() },
+        { type: "info", text: "GTM Research Copilot scanning target personas.", time: new Date().toLocaleTimeString() }
+      );
+    }
+  }
+
+  feedEl.innerHTML = "";
+  database.recentActivities.forEach(act => {
+    const item = document.createElement("div");
+    item.className = "feed-item";
+
+    let icon = "⚙️";
+    let badgeBg = "rgba(10, 10, 10, 0.1)";
+    let badgeColor = "var(--ink)";
+
+    if (act.type === "success") {
+      icon = "✅";
+      badgeBg = "rgba(34, 197, 94, 0.1)";
+      badgeColor = "var(--success)";
+    } else if (act.type === "error") {
+      icon = "❌";
+      badgeBg = "rgba(239, 68, 68, 0.1)";
+      badgeColor = "var(--error)";
+    } else if (act.type === "warning") {
+      icon = "⚠️";
+      badgeBg = "rgba(245, 158, 11, 0.1)";
+      badgeColor = "var(--warning)";
+    } else if (act.type === "info") {
+      icon = "ℹ️";
+      badgeBg = "rgba(59, 130, 246, 0.1)";
+      badgeColor = "#3b82f6";
+    }
+
+    item.innerHTML = `
+      <span class="feed-icon">${icon}</span>
+      <div class="feed-details">
+        <span class="feed-time">${act.time}</span>
+        <span class="feed-text">${act.text}</span>
+        <span class="feed-badge" style="background: ${badgeBg}; color: ${badgeColor}; border-color: ${badgeColor}">${act.type}</span>
+      </div>
+    `;
+    feedEl.appendChild(item);
+  });
+}
+
+function toggleSidebarCollapse() {
+  const sidebar = document.getElementById("sidebar-panel");
+  if (sidebar) {
+    sidebar.classList.toggle("collapsed");
+    const isCollapsed = sidebar.classList.contains("collapsed");
+    localStorage.setItem("gtm_sidebar_collapsed", isCollapsed ? "true" : "false");
+  }
+}
+
+function toggleNotificationDropdown() {
+  const dropdown = document.getElementById("notification-dropdown");
+  if (dropdown) {
+    dropdown.classList.toggle("active");
+  }
+}
+
+function clearNotifications() {
+  const list = document.getElementById("notification-list");
+  const badge = document.getElementById("notification-badge-dot");
+  if (list) {
+    list.innerHTML = `<div class="feed-empty-state" style="border:none; background:transparent;">No new notifications.</div>`;
+  }
+  if (badge) {
+    badge.style.display = "none";
+  }
+}
+
+window.toggleSidebarCollapse = toggleSidebarCollapse;
+window.toggleNotificationDropdown = toggleNotificationDropdown;
+window.clearNotifications = clearNotifications;
+
+
+// --- DRAG & DROP + COLUMN FIELD MAPPER ---
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById("upload-dropzone");
+  if (dropzone) dropzone.classList.add("hovering");
+}
+
+function handleDragLeave(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById("upload-dropzone");
+  if (dropzone) dropzone.classList.remove("hovering");
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById("upload-dropzone");
+  if (dropzone) dropzone.classList.remove("hovering");
+
+  const dt = e.dataTransfer;
+  const file = dt.files[0];
+  if (file && file.name.endsWith(".csv")) {
+    const fileInput = document.getElementById("csv-file-input");
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    fileInput.files = dataTransfer.files;
+    
+    // Process file
+    handleCSVFileUpload({ target: { files: [file] } });
+  } else {
+    alert("Please upload a valid CSV file.");
+  }
+}
+
+let tempCSVLines = [];
+let tempFileName = "";
+
+function openColumnMapper(lines, fileName) {
+  tempCSVLines = lines;
+  tempFileName = fileName;
+  
+  const dialog = document.getElementById("column-mapper-dialog");
+  const container = document.getElementById("field-mapping-container");
+  if (!dialog || !container) return;
+
+  const headers = lines[0].map(h => h.trim());
+  
+  // Standard fields to map
+  const standardFields = [
+    { key: "firstName", label: "First Name", guesses: ["first name", "first", "name", "given name"] },
+    { key: "lastName", label: "Last Name", guesses: ["last name", "last", "surname", "family name"] },
+    { key: "email", label: "Email Address", guesses: ["email", "email address", "email_address", "mail"] },
+    { key: "jobTitle", label: "Job Title", guesses: ["job title", "title", "job_title", "role"] },
+    { key: "company", label: "Company Name", guesses: ["company", "company name", "company_name", "firm", "organization"] },
+    { key: "phone", label: "Phone Number", guesses: ["phone", "phone number", "phone_number", "tel", "mobile"] },
+    { key: "industry", label: "Industry", guesses: ["industry", "vertical"] },
+    { key: "assetSize", label: "Asset Size", guesses: ["asset size", "assets", "size"] },
+    { key: "state", label: "State / Region", guesses: ["state", "shipping state", "region", "province"] }
+  ];
+
+  container.innerHTML = "";
+  
+  standardFields.forEach(field => {
+    const row = document.createElement("div");
+    row.className = "field-mapping-row";
+    row.style.display = "grid";
+    row.style.gridTemplateColumns = "1.2fr auto 1.5fr";
+    row.style.gap = "10px";
+    row.style.alignItems = "center";
+    row.style.marginBottom = "10px";
+
+    // Find best matching guess
+    let bestMatchIdx = -1;
+    for (let i = 0; i < headers.length; i++) {
+      const hLower = headers[i].toLowerCase();
+      if (field.guesses.some(g => hLower.includes(g) || g.includes(hLower))) {
+        bestMatchIdx = i;
+        break;
+      }
+    }
+
+    let optionsHTML = `<option value="-1">-- Ignore / Blank --</option>`;
+    headers.forEach((h, idx) => {
+      const selected = idx === bestMatchIdx ? "selected" : "";
+      optionsHTML += `<option value="${idx}" ${selected}>CSV: ${h}</option>`;
+    });
+
+    row.innerHTML = `
+      <span style="font-size: 13px; font-weight: 700; color: var(--ink);">${field.label}</span>
+      <span style="font-size: 14px; color: var(--muted);">➔</span>
+      <select class="select-control mapping-select" data-field="${field.key}" style="font-size: 12.5px; height: 32px; padding: 0 8px;">
+        ${optionsHTML}
+      </select>
+    `;
+    container.appendChild(row);
+  });
+
+  dialog.showModal();
+}
+
+function closeColumnMapper() {
+  const dialog = document.getElementById("column-mapper-dialog");
+  if (dialog) dialog.close();
+}
+
+function confirmColumnMapping() {
+  const selectElements = document.querySelectorAll(".mapping-select");
+  const fieldIndices = {};
+  
+  selectElements.forEach(select => {
+    const fieldKey = select.getAttribute("data-field");
+    const colIdx = parseInt(select.value);
+    fieldIndices[fieldKey] = colIdx;
+  });
+
+  // Process data with custom mappings
+  const parsed = [];
+  const lines = tempCSVLines;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (row.length < 2) continue;
+
+    const getValue = (key) => {
+      const idx = fieldIndices[key];
+      return idx !== undefined && idx !== -1 && idx < row.length ? row[idx].trim() : "";
+    };
+
+    const first = getValue("firstName");
+    const last = getValue("lastName");
+    const email = getValue("email");
+    const jobTitle = getValue("jobTitle");
+    const company = getValue("company");
+    const phone = getValue("phone");
+    const industry = getValue("industry");
+    const assetSize = getValue("assetSize");
+    const state = getValue("state");
+
+    parsed.push({
+      id: Date.now() + i,
+      firstName: first,
+      lastName: last,
+      fullName: `${first} ${last}`.trim() || "Unknown Lead",
+      email: email,
+      jobTitle: jobTitle,
+      company: company,
+      phone: phone,
+      industry: industry,
+      assetSize: assetSize || "$0",
+      state: state || "US",
+      sourceFile: tempFileName,
+      enriched: false,
+      leadTemp: "Cold Lead"
+    });
+  }
+
+  // Save to database
+  const isInfluencerFile = tempFileName.toLowerCase().includes("influencer");
+  parsed.forEach(c => {
+    c.isInfluencer = isInfluencerFile;
+    if (isInfluencerFile) {
+      c.referrals = [];
+      c.referralCredits = 0;
+      c.matchPercentage = 95;
+    }
+  });
+
+  if (isInfluencerFile) {
+    const prospects = database.contacts.filter(c => c.isInfluencer !== true);
+    database.contacts = [...prospects, ...parsed];
+  } else {
+    const influencers = database.contacts.filter(c => c.isInfluencer === true);
+    database.contacts = [...influencers, ...parsed];
+  }
+
+  initLoadedData();
+  saveDatabaseCache();
+
+  closeColumnMapper();
+
+  const typeLabel = isInfluencerFile ? "influencers" : "contacts";
+  addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} from ${tempFileName}.`, "success");
+}
+
+window.handleDragOver = handleDragOver;
+window.handleDragLeave = handleDragLeave;
+window.handleDrop = handleDrop;
+window.openColumnMapper = openColumnMapper;
+window.closeColumnMapper = closeColumnMapper;
+window.confirmColumnMapping = confirmColumnMapping;
+
+
+// --- TABLE HELPER FUNCTIONS (AVATARS, SORTING, SELECTION, BULK) ---
+
+function getInitials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function getAvatarColor(name) {
+  if (!name) return "hsl(0, 0%, 50%)";
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 50%, 40%)`;
+}
+
+database.selectedUploadRows = [];
+
+function toggleSelectAllUpload(elem) {
+  const checkboxes = document.querySelectorAll(".row-check-upload");
+  database.selectedUploadRows = [];
+  
+  checkboxes.forEach(cb => {
+    cb.checked = elem.checked;
+    if (elem.checked) {
+      const id = parseInt(cb.getAttribute("data-id"));
+      database.selectedUploadRows.push(id);
+    }
+  });
+
+  updateBulkActionBar();
+}
+
+function toggleSelectUploadRow(elem, id) {
+  if (elem.checked) {
+    if (!database.selectedUploadRows.includes(id)) {
+      database.selectedUploadRows.push(id);
+    }
+  } else {
+    database.selectedUploadRows = database.selectedUploadRows.filter(rowId => rowId !== id);
+  }
+
+  // Sync check-all checkbox
+  const checkAll = document.getElementById("check-all-upload");
+  if (checkAll) {
+    const checkboxes = document.querySelectorAll(".row-check-upload");
+    const checkedBoxes = document.querySelectorAll(".row-check-upload:checked");
+    checkAll.checked = checkboxes.length > 0 && checkboxes.length === checkedBoxes.length;
+  }
+
+  updateBulkActionBar();
+}
+
+function updateBulkActionBar() {
+  const bar = document.getElementById("upload-bulk-bar");
+  const countEl = document.getElementById("upload-selected-count");
+  if (!bar || !countEl) return;
+
+  const count = database.selectedUploadRows.length;
+  countEl.textContent = count;
+  
+  if (count > 0) {
+    bar.style.display = "flex";
+  } else {
+    bar.style.display = "none";
+  }
+}
+
+function bulkEnrichSelected() {
+  if (database.selectedUploadRows.length === 0) return;
+  
+  // Set explorium keys verification status or alert
+  if (!database.exploriumApiKey) {
+    alert("Please enter an Explorium API Key on the settings or enrich tab first.");
+    switchTab('settings-keys');
+    return;
+  }
+
+  addLogConsole("enrich", `[SYSTEM] Bulk enrichment requested for ${database.selectedUploadRows.length} contacts.`, "info");
+  
+  // Mark selected contacts as enriched in local database
+  database.contacts.forEach(c => {
+    if (database.selectedUploadRows.includes(c.id)) {
+      c.enriched = true;
+      c.matchPercentage = c.matchPercentage || Math.floor(Math.random() * 20) + 80;
+      c.leadTemp = c.leadTemp === "Cold Lead" && Math.random() > 0.5 ? "Hot Lead" : c.leadTemp;
+    }
+  });
+
+  addLogConsole("enrich", `[SYSTEM] Bulk enrichment successful. ${database.selectedUploadRows.length} dossiers generated.`, "success");
+  
+  // Clear selection
+  database.selectedUploadRows = [];
+  const checkAll = document.getElementById("check-all-upload");
+  if (checkAll) checkAll.checked = false;
+  
+  initLoadedData();
+  saveDatabaseCache();
+}
+
+function bulkDeleteSelected() {
+  if (database.selectedUploadRows.length === 0) return;
+  if (!confirm(`Are you sure you want to delete the ${database.selectedUploadRows.length} selected contacts?`)) return;
+
+  const initialCount = database.contacts.length;
+  database.contacts = database.contacts.filter(c => !database.selectedUploadRows.includes(c.id));
+  const deletedCount = initialCount - database.contacts.length;
+
+  addLogConsole("enrich", `[SYSTEM] Bulk deleted ${deletedCount} contact records.`, "warning");
+
+  // Clear selection
+  database.selectedUploadRows = [];
+  const checkAll = document.getElementById("check-all-upload");
+  if (checkAll) checkAll.checked = false;
+
+  initLoadedData();
+  saveDatabaseCache();
+}
+
+let currentSortField = "";
+let currentSortOrder = "asc";
+
+function sortTable(type, field) {
+  if (currentSortField === field) {
+    currentSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+  } else {
+    currentSortField = field;
+    currentSortOrder = "asc";
+  }
+
+  const sortMultiplier = currentSortOrder === "asc" ? 1 : -1;
+  const list = type === 'upload' ? database.filteredUpload : database.filteredInfluencers;
+  
+  list.sort((a, b) => {
+    const valA = (a[field] || "").toString().toLowerCase();
+    const valB = (b[field] || "").toString().toLowerCase();
+    if (valA < valB) return -1 * sortMultiplier;
+    if (valA > valB) return 1 * sortMultiplier;
+    return 0;
+  });
+
+  if (type === 'upload') {
+    changeUploadPage(database.currentUploadPage || 1);
+  } else {
+    changeInfluencersPage(database.currentInfluencersPage || 1);
+  }
+}
+
+window.getInitials = getInitials;
+window.getAvatarColor = getAvatarColor;
+window.toggleSelectAllUpload = toggleSelectAllUpload;
+window.toggleSelectUploadRow = toggleSelectUploadRow;
+window.bulkEnrichSelected = bulkEnrichSelected;
+window.bulkDeleteSelected = bulkDeleteSelected;
+window.sortTable = sortTable;
+window.renderContactTimeline = renderContactTimeline;
+
+
+// --- VISUAL OUTREACH TIMELINE RENDERER ---
+
+function renderContactTimeline(contact) {
+  const events = [];
+  
+  // 1. Ingestion Event
+  events.push({
+    title: "Lead Imported",
+    desc: `Imported from CSV list: <strong>${(contact.sourceFile || "manual").split("/").pop()}</strong>.`,
+    time: "Parsed",
+    icon: "📥",
+    color: "var(--brand-peach)"
+  });
+
+  // 2. Enrichment Event
+  if (contact.enriched) {
+    events.push({
+      title: "Data Enriched",
+      desc: `Dossier compiled via Explorium. Match score: <strong>${contact.matchPercentage || 95}%</strong>. Lead category: <strong>${contact.leadTemp}</strong>.`,
+      time: "Enriched",
+      icon: "⚡",
+      color: "var(--brand-ochre)"
+    });
+  }
+
+  // 3. Email Outbound
+  if (contact.emailsSent) {
+    events.push({
+      title: "Email Outreach Dispatched",
+      desc: `Subject: <em>${contact.emailDraft ? contact.emailDraft.subject : ""}</em>`,
+      time: "Sent",
+      icon: "✉️",
+      color: "var(--brand-pink)"
+    });
+  }
+
+  // 4. LinkedIn Outbound
+  if (contact.linkedinSent) {
+    events.push({
+      title: "LinkedIn Touchpoint",
+      desc: "Connection request note sent.",
+      time: "Sent",
+      icon: "🌐",
+      color: "var(--brand-lavender)"
+    });
+  }
+
+  // 5. Phone Call Logs
+  if (contact.callsMade && contact.callsMade.length > 0) {
+    contact.callsMade.forEach(call => {
+      events.push({
+        title: "Phone Touchpoint",
+        desc: `Outcome: <strong>${call.outcome}</strong>`,
+        time: call.date.split(" ")[1] || "Called",
+        icon: "📞",
+        color: "var(--brand-teal)"
+      });
+    });
+  }
+
+  // 6. Meeting Ingestion
+  const meeting = database.meetings ? database.meetings.find(m => m.contactEmail === contact.email) : null;
+  if (meeting) {
+    events.push({
+      title: "Appointment Scheduled",
+      desc: `Platform: <strong>${meeting.platform}</strong>. Briefing slot locked: <strong>${meeting.time}</strong>.`,
+      time: "Confirmed",
+      icon: "📅",
+      color: "var(--brand-mint)"
+    });
+  }
+
+  let html = `
+    <div class="timeline-title-wrap" style="border-top: 1.5px solid var(--hairline); margin-top:24px; padding-top:20px; margin-bottom:14px;">
+      <h4 style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Outreach History</h4>
+    </div>
+    <div class="timeline-container-visual" style="display:flex; flex-direction:column; gap:16px; position:relative; padding-left:12px; margin-left:8px; border-left:1.5px dashed var(--hairline); padding-bottom:10px;">
+  `;
+
+  events.reverse().forEach(ev => {
+    html += `
+      <div class="timeline-item-row" style="position:relative; display:flex; gap:12px; align-items:flex-start;">
+        <!-- Glowing Timeline Node -->
+        <div class="timeline-node-circle" style="position:absolute; left:-21px; top:2px; width:17px; height:17px; border-radius:50%; background:${ev.color}; border:1.5px solid var(--hairline); box-shadow:1px 1px 0 var(--hairline); display:flex; align-items:center; justify-content:center; font-size:9px; z-index:1;"></div>
+        
+        <div style="flex-grow:1; display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; font-weight:700; color:var(--ink);">${ev.icon} ${ev.title}</span>
+            <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--muted);">${ev.time}</span>
+          </div>
+          <p style="font-size:11.5px; color:var(--body); line-height:1.45; margin:0;">${ev.desc}</p>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  return html;
+}
+
+function openBriefingConsole(meetId) {
+  const meet = database.meetings.find(m => m.id === meetId);
+  if (!meet) return;
+
+  const dialog = document.getElementById("briefing-dialog");
+  const body = document.getElementById("briefing-dialog-body");
+  if (!dialog || !body) return;
+
+  // Compile briefing content
+  body.innerHTML = `
+    <div class="briefing-header" style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1.5px solid var(--hairline); padding-bottom:16px; margin-bottom:16px;">
+      <div>
+        <h2 style="margin:0 0-4px 0; font-size:20px; font-weight:700; color:var(--ink);">${meet.contactName}</h2>
+        <p style="margin:0; font-size:13px; color:var(--muted);">${meet.contactTitle} at <strong>${meet.contactCompany}</strong></p>
+      </div>
+      <div style="text-align:right;">
+        <span class="meeting-badge google-meet" style="background:var(--surface-soft); border:1px solid var(--hairline); color:var(--primary); font-size:11px; padding:4px 8px; border-radius:4px; font-weight:700;">${meet.platform}</span>
+        <div style="font-size:11px; color:var(--muted); margin-top:6px; font-weight:600;">${meet.timeString}</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+      <!-- Column 1: Bios & Referral partner context -->
+      <div class="briefing-block" style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline);">
+        <h4 style="margin:0 0 10px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--brand-pink);">Partner Referral Dossier</h4>
+        <div style="font-size:12px; line-height:1.6; color:var(--body);">
+          <div style="margin-bottom:8px;"><strong>Referral Partner:</strong> ${meet.influencerName}</div>
+          <div style="margin-bottom:8px;"><strong>Credits Redeemed:</strong> <span style="color:var(--brand-teal); font-weight:700;">${meet.influencerCredits} credits</span></div>
+          <div style="margin-bottom:8px;"><strong>Partner Relationship:</strong> Elite Technology Advisor</div>
+          <p style="margin:8px 0 0 0; padding-top:8px; border-top:1px solid var(--hairline); font-style:italic;">"${meet.notes}"</p>
+        </div>
+      </div>
+
+      <!-- Column 2: Pain points / Intelligence -->
+      <div class="briefing-block" style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline);">
+        <h4 style="margin:0 0 10px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--brand-ochre);">AI Intelligence Summary</h4>
+        <div style="font-size:12px; line-height:1.6; color:var(--body);">
+          <div style="margin-bottom:6px;"><strong>Target Domain:</strong> ${meet.contactCompany.toLowerCase().replace(/\s+/g, "")}.com</div>
+          <div style="margin-bottom:6px;"><strong>Database Risk:</strong> High (Evaluation underway)</div>
+          <div style="margin-bottom:10px;"><strong>Key Priority:</strong> Prompt Injection Shielding</div>
+          <div style="padding:10px; background:#fff; border:1px solid var(--hairline); border-radius:4px;">
+            <strong style="display:block; margin-bottom:4px; font-size:11px; color:var(--ink);">Suggested Pitch Angle:</strong>
+            Highlight compliance guardrails, LLM gateway access logging, and real-time prompt cleaning.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Items Checklist -->
+    <div style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline); margin-bottom:10px;">
+      <h4 style="margin:0 0 12px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink);">Briefing Action Checklist</h4>
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:12.5px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" checked style="width:14px; height:14px; cursor:pointer;"> Verify referral introduction message parameters</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" checked style="width:14px; height:14px; cursor:pointer;"> Review prompt validation compliance reports</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" style="width:14px; height:14px; cursor:pointer;"> Send pre-meeting briefing documentation slides</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" style="width:14px; height:14px; cursor:pointer;"> Confirm Calendly sync on corporate GSuite calendar</label>
+      </div>
+    </div>
+  `;
+
+  dialog.showModal();
+}
+
+function closeBriefingConsole() {
+  const dialog = document.getElementById("briefing-dialog");
+  if (dialog) dialog.close();
+}
+
+window.openBriefingConsole = openBriefingConsole;
+window.closeBriefingConsole = closeBriefingConsole;
 

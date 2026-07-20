@@ -1,0 +1,29 @@
+          <div class="chat-container">
+            <div class="chat-header">
+              <span class="chat-header-title">CSV Analytics Assistant</span>
+            </div>
+            <div class="chat-messages" id="analyse-chat-messages">
+              <div class="chat-message-row bot" style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;">
+                <div class="chat-avatar" style="width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: rgba(255,255,255,0.08); color: var(--on-dark); box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.15);">🤖</div>
+                <div class="chat-bubble bot">
+                  Hello! I am your GTM list assistant. Ask me questions about the uploaded CSV records, such as:
+                  <ul>
+                    <li>"How many contacts are loaded?"</li>
+                    <li>"How many CIOs or CTOs are in the list?"</li>
+                    <li>"List the top 5 states by contact count"</li>
+                    <li>"What is the average asset size?"</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div class="suggested-queries-bar" id="analyse-suggestions">
+              <button class="query-pill" onclick="sendSuggestedQuery('How many total contacts are in the CSV?')">Total count</button>
+              <button class="query-pill" onclick="sendSuggestedQuery('How many CIOs, CTOs or IT Directors?')">CIO/CTO count</button>
+              <button class="query-pill" onclick="sendSuggestedQuery('What is the breakdown of industries?')">Industry breakdown</button>
+              <button class="query-pill" onclick="sendSuggestedQuery('List the top 5 states by credit unions')">Top states</button>
+            </div>
+            <div class="chat-input-area">
+              <input type="text" id="analyse-chat-input" placeholder="Ask about the loaded list data..." onkeydown="if(event.key === 'Enter') sendAnalyseChatMessage()">
+              <button class="btn btn-primary btn-sm" onclick="sendAnalyseChatMessage()">Send ➔</button>
+            </div>
+          </div>

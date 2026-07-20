@@ -1,0 +1,93 @@
+          <!-- KPI Metrics Row -->
+          <div class="dashboard-kpi-grid">
+            <div class="dashboard-kpi-card brand-pink">
+              <div class="kpi-header">
+                <span class="kpi-title">Total Contacts</span>
+                <span class="kpi-icon">👥</span>
+              </div>
+              <div class="kpi-value" id="dashboard-total-contacts">0</div>
+              <div class="kpi-subtext">Registered leads in system</div>
+            </div>
+            
+            <div class="dashboard-kpi-card brand-teal">
+              <div class="kpi-header">
+                <span class="kpi-title font-on-dark">Verified &amp; Enriched</span>
+                <span class="kpi-icon">⚡</span>
+              </div>
+              <div class="kpi-value" id="dashboard-enriched-contacts">0</div>
+              <div class="kpi-subtext font-on-dark">Enriched dossiers compiled</div>
+            </div>
+
+            <div class="dashboard-kpi-card brand-lavender">
+              <div class="kpi-header">
+                <span class="kpi-title">Outbound Dispatched</span>
+                <span class="kpi-icon">✉️</span>
+              </div>
+              <div class="kpi-value" id="dashboard-outbound-sent">0</div>
+              <div class="kpi-subtext">Emails &amp; LinkedIn sequences</div>
+            </div>
+
+            <div class="dashboard-kpi-card brand-peach">
+              <div class="kpi-header">
+                <span class="kpi-title">Meetings Booked</span>
+                <span class="kpi-icon">📅</span>
+              </div>
+              <div class="kpi-value" id="dashboard-meetings-booked">0</div>
+              <div class="kpi-subtext">Briefings synced to calendar</div>
+            </div>
+          </div>
+
+          <!-- Dashboard Splitted Detail Panels -->
+          <div class="dashboard-split-layout">
+            <!-- Active Campaign Console Status -->
+            <div class="glass-panel dashboard-status-panel">
+              <div class="section-title">BDR Agent Orchestrator</div>
+              
+              <div class="dashboard-agent-widget">
+                <div class="agent-widget-head">
+                  <div class="agent-avatar-wrap">
+                    <div class="agent-avatar-glowing">🤖</div>
+                    <div class="agent-avatar-status-dot online"></div>
+                  </div>
+                  <div>
+                    <h3 class="agent-widget-title" style="font-size: 16px; font-weight:700;">GTM Research Copilot</h3>
+                    <p class="agent-widget-desc" id="dashboard-agent-status-text">Active. Upload a CSV to deploy research pipelines.</p>
+                  </div>
+                </div>
+                
+                <div class="dashboard-progress-section">
+                  <div class="progress-info-row">
+                    <span class="progress-info-label">Enrichment Coverage</span>
+                    <span class="progress-info-val" id="dashboard-pipeline-pct">0%</span>
+                  </div>
+                  <div class="dashboard-progress-track">
+                    <div class="dashboard-progress-fill" id="dashboard-pipeline-fill" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="agent-stats-summary-grid">
+                  <div class="agent-stat-box">
+                    <span class="agent-stat-val" id="dashboard-hot-leads-count">0</span>
+                    <span class="agent-stat-lbl">Hot Leads</span>
+                  </div>
+                  <div class="agent-stat-box">
+                    <span class="agent-stat-val" id="dashboard-open-briefs-count">0</span>
+                    <span class="agent-stat-lbl">Briefings</span>
+                  </div>
+                  <div class="agent-stat-box">
+                    <span class="agent-stat-val" id="dashboard-api-status-chip">Offline</span>
+                    <span class="agent-stat-lbl">Explorium Sync</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Agent Execution Activity Feed -->
+            <div class="glass-panel dashboard-feed-panel">
+              <div class="section-title">Real-Time Execution Logs</div>
+              <div class="dashboard-activity-feed" id="dashboard-activity-feed">
+                <!-- Activity Feed Items Injected Dynamically -->
+                <div class="feed-empty-state">No execution logs registered yet. Initialize campaigns to view progress.</div>
+              </div>
+            </div>
+          </div>
