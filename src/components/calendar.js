@@ -286,14 +286,17 @@ function saveManualMeeting() {
   saveDatabaseCache();
   addLogConsole("enrich", `[CALENDAR SYNC] Booked meeting with ${contact.fullName} on ${platform} (${timeString}).`, "success");
   
-  if (database.calendarSyncService === 'google') {
+  // Dispatch live API syncs to Google Calendar & Slack
+  dispatchLiveBackendSync(newMeet, dt, notes);
+
+  if (database.calendarSyncService === 'google' && !database.googleAccessToken) {
     const startStr = dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     const endStr = new Date(dt.getTime() + 30 * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Outbound Briefing: " + contact.company)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(notes + "\n\nJoin Link: " + meetingUrl)}&location=${encodeURIComponent(platform)}`;
     
     window.open(gCalUrl, "_blank");
     addLogConsole("enrich", `[GOOGLE CALENDAR] Sync request complete. Opened new calendar event creation page.`, "success");
-  } else {
+  } else if (database.calendarSyncService !== 'google') {
     exportICSFile(contact.email);
     addLogConsole("enrich", `[${database.calendarSyncService.toUpperCase()} CALENDAR] Sync complete. Exported local iCal meeting invitation.`, "success");
   }
@@ -375,8 +378,70 @@ function simulateCalendlyWebhook() {
   addLogConsole("enrich", `[CALENDLY WEBHOOK] Incoming Calendly Slot Booking webhook payload received.`, "success");
   addLogConsole("enrich", `[CALENDLY WEBHOOK] Automatically booked slot for ${contact.fullName} on ${platform} (${timeString}).`, "success");
   
+  // Dispatch live API syncs to Google Calendar & Slack
+  dispatchLiveBackendSync(newMeet, meetingDate, newMeet.notes);
+
   exportICSFile(contact.email);
   addLogConsole("enrich", `[CALENDAR SYNC] Triggered local calendar sync and ICS export download.`, "success");
+}
+
+function dispatchLiveBackendSync(meet, dt, notes) {
+  if (database.googleAccessToken) {
+    const eventPayload = {
+      summary: `Outbound Briefing: ${meet.contactCompany}`,
+      description: `${notes}\n\nJoin Link: ${meet.meetingUrl}`,
+      location: meet.platform,
+      start: { dateTime: dt.toISOString() },
+      end: { dateTime: new Date(dt.getTime() + 30 * 60 * 1000).toISOString() },
+      attendees: [{ email: meet.contactEmail }]
+    };
+
+    const keyQuery = database.googleApiKey ? `?key=${encodeURIComponent(database.googleApiKey)}` : "";
+    fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events${keyQuery}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${database.googleAccessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(eventPayload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.id) {
+        addLogConsole("enrich", `[GOOGLE CALENDAR API] Live event created! Event ID: ${data.id}`, "success");
+      } else if (data.error) {
+        addLogConsole("enrich", `[GOOGLE CALENDAR API] Creation failed: ${data.error.message}`, "error");
+        if (data.error.code === 401) {
+          database.googleAccessToken = "";
+          localStorage.removeItem("gtm_google_access_token");
+          if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
+        }
+      }
+    })
+    .catch(err => {
+      console.error("Google Calendar API fetch error:", err);
+      addLogConsole("enrich", `[GOOGLE CALENDAR API] Network error: ${err.message}`, "error");
+    });
+  }
+
+  if (database.slackWebhookUrl) {
+    const slackPayload = {
+      text: `*New Briefing Scheduled!*\n*Prospect:* ${meet.contactName} (${meet.contactTitle || 'N/A'})\n*Company:* ${meet.contactCompany}\n*Platform:* ${meet.platform}\n*Time:* ${meet.timeString}\n*Referred By:* ${meet.influencerName} (${meet.influencerCredits} credits awarded)\n*Join Link:* ${meet.meetingUrl}`
+    };
+
+    fetch(database.slackWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: JSON.stringify(slackPayload)
+    })
+    .then(res => {
+      addLogConsole("enrich", `[SLACK INTEGRATION] Posted real-time briefing notification to Slack channel.`, "success");
+    })
+    .catch(err => {
+      console.error("Slack webhook dispatch error:", err);
+      addLogConsole("enrich", `[SLACK INTEGRATION] Webhook dispatch error: ${err.message}`, "error");
+    });
+  }
 }
 
 function openBriefingConsole(meetId) {

@@ -107,4 +107,49 @@
                 <small class="form-help" style="display: block; margin-top: 4px;">Simulates a prospect booking a slot on your Calendly page, instantly scheduling it in the system and firing a sync to your primary calendar.</small>
               </div>
             </div>
+
+            <!-- Google Calendar Live Backend Integration -->
+            <div class="glass-panel" style="margin-top: 20px;">
+              <div class="section-title">Google Calendar API Live Backend</div>
+              <p class="section-desc" style="font-size: 11.5px; color: var(--muted); margin-bottom: 12px;">
+                Connect your real Google Calendar account via OAuth 2.0 to make appointments directly in your calendar database.
+              </p>
+
+              <div class="form-group">
+                <label for="settings-google-client-id">Google OAuth Client ID</label>
+                <input type="text" class="input-control" id="settings-google-client-id" placeholder="1234567890-abcdef.apps.googleusercontent.com" onchange="saveGoogleCalendarCredentials()">
+                <small class="form-help">Obtained from Google Cloud Console under APIs &amp; Services &gt; Credentials.</small>
+              </div>
+
+              <div class="form-group" style="margin-top: 10px;">
+                <label for="settings-google-api-key">Google Calendar API Key (Optional)</label>
+                <input type="password" class="input-control" id="settings-google-api-key" placeholder="AIzaSy..." onchange="saveGoogleCalendarCredentials()">
+                <small class="form-help">Optional public API key for direct Google Calendar REST queries.</small>
+              </div>
+
+              <div style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--hairline); padding-top: 12px;">
+                <button class="btn btn-primary btn-sm" id="btn-connect-google-calendar" onclick="connectGoogleCalendarAccount()" style="display:flex; align-items:center; gap:6px;">
+                  Connect Google Calendar
+                </button>
+                <span id="google-calendar-status-text" style="font-size: 12px; color: var(--muted); font-weight: 500;">Status: Not Connected</span>
+              </div>
+            </div>
+
+            <!-- Slack Webhook Live Integration -->
+            <div class="glass-panel" style="margin-top: 20px;">
+              <div class="section-title">Slack Notifications Integration</div>
+              <p class="section-desc" style="font-size: 11.5px; color: var(--muted); margin-bottom: 12px;">
+                Send real-time alerts to your team's Slack channel whenever a briefing is scheduled.
+              </p>
+
+              <div class="form-group">
+                <label for="settings-slack-webhook-url">Slack Incoming Webhook URL</label>
+                <input type="text" class="input-control" id="settings-slack-webhook-url" placeholder="https://hooks.slack.com/services/T00/B00/XXXX" onchange="saveSlackWebhookUrl()">
+                <small class="form-help">Create an Incoming Webhook in your Slack Workspace settings.</small>
+              </div>
+
+              <div style="margin-top: 12px;">
+                <button class="btn btn-secondary btn-sm" onclick="testSlackWebhookNotification()" style="width: 100%;">Test Slack Webhook Alert</button>
+              </div>
+            </div>
           </div>

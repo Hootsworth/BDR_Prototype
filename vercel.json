@@ -18,6 +18,14 @@
       "use": "@vercel/static"
     },
     {
+      "src": "components/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "src/**",
+      "use": "@vercel/static"
+    },
+    {
       "src": "cursors/**",
       "use": "@vercel/static"
     }

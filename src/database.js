@@ -8,6 +8,10 @@ let database = {
   filteredCall: [],     // Filtered phone numbers
   exploriumApiKey: "",  // Explorium API Key
   llmHelperKey: "",     // OpenAI/Gemini Key
+  googleClientId: "",   // Google OAuth Client ID
+  googleApiKey: "",     // Google Public API Key
+  googleAccessToken: "",// Active Google OAuth Token
+  slackWebhookUrl: "",  // Slack Incoming Webhook URL
   selectedContact: null, // Selected contact for right drawer details
   currentImportPage: 1,
   currentInfluencersPage: 1,

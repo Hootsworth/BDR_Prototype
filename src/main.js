@@ -100,6 +100,23 @@ async function bootstrapApp() {
   const calendarSyncSelect = document.getElementById("settings-calendar-sync");
   if (calendarSyncSelect) calendarSyncSelect.value = database.calendarSyncService;
 
+  // Load Google Calendar & Slack settings
+  database.googleClientId = localStorage.getItem("gtm_google_client_id") || "";
+  database.googleApiKey = localStorage.getItem("gtm_google_api_key") || "";
+  database.googleAccessToken = localStorage.getItem("gtm_google_access_token") || "";
+  database.slackWebhookUrl = localStorage.getItem("gtm_slack_webhook_url") || "";
+
+  const googleClientIdInput = document.getElementById("settings-google-client-id");
+  if (googleClientIdInput) googleClientIdInput.value = database.googleClientId;
+
+  const googleApiKeyInput = document.getElementById("settings-google-api-key");
+  if (googleApiKeyInput) googleApiKeyInput.value = database.googleApiKey;
+
+  const slackWebhookInput = document.getElementById("settings-slack-webhook-url");
+  if (slackWebhookInput) slackWebhookInput.value = database.slackWebhookUrl;
+
+  if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
+
   // Render initial keys state
   if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
 

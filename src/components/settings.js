@@ -108,6 +108,104 @@ function saveLLMSettings() {
   }
 }
 
+function saveGoogleCalendarCredentials() {
+  const clientId = (document.getElementById("settings-google-client-id")?.value || "").trim();
+  const apiKey = (document.getElementById("settings-google-api-key")?.value || "").trim();
+  
+  database.googleClientId = clientId;
+  database.googleApiKey = apiKey;
+  
+  localStorage.setItem("gtm_google_client_id", clientId);
+  localStorage.setItem("gtm_google_api_key", apiKey);
+  
+  addLogConsole("enrich", `[SYSTEM] Saved Google Calendar OAuth credentials to settings.`, "info");
+}
+
+function connectGoogleCalendarAccount() {
+  saveGoogleCalendarCredentials();
+  
+  if (!database.googleClientId) {
+    alert("Please enter a valid Google OAuth Client ID first.");
+    return;
+  }
+
+  if (typeof google === "undefined" || !google.accounts || !google.accounts.oauth2) {
+    alert("Google Identity Services SDK is still loading. Please try again in a moment.");
+    return;
+  }
+
+  try {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: database.googleClientId,
+      scope: 'https://www.googleapis.com/auth/calendar.events',
+      callback: (tokenResponse) => {
+        if (tokenResponse && tokenResponse.access_token) {
+          database.googleAccessToken = tokenResponse.access_token;
+          localStorage.setItem("gtm_google_access_token", tokenResponse.access_token);
+          
+          checkGoogleCalendarStatus();
+          addLogConsole("enrich", `[GOOGLE CALENDAR] Successfully authenticated via OAuth 2.0. Live backend connected!`, "success");
+        } else {
+          addLogConsole("enrich", `[GOOGLE CALENDAR] OAuth authorization failed or was dismissed.`, "error");
+        }
+      },
+    });
+    client.requestAccessToken({ prompt: 'consent' });
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    addLogConsole("enrich", `[GOOGLE CALENDAR] OAuth error: ${err.message}`, "error");
+    alert(`Google OAuth error: ${err.message}`);
+  }
+}
+
+function checkGoogleCalendarStatus() {
+  const statusEl = document.getElementById("google-calendar-status-text");
+  const btn = document.getElementById("btn-connect-google-calendar");
+  if (!statusEl) return;
+
+  if (database.googleAccessToken) {
+    statusEl.textContent = "Status: Connected (OAuth Active)";
+    statusEl.style.color = "var(--success)";
+    if (btn) btn.textContent = "Reconnect Google Calendar";
+  } else {
+    statusEl.textContent = "Status: Not Connected";
+    statusEl.style.color = "var(--muted)";
+    if (btn) btn.textContent = "Connect Google Calendar";
+  }
+}
+
+function saveSlackWebhookUrl() {
+  const url = (document.getElementById("settings-slack-webhook-url")?.value || "").trim();
+  database.slackWebhookUrl = url;
+  localStorage.setItem("gtm_slack_webhook_url", url);
+  addLogConsole("enrich", `[SYSTEM] Saved Slack Incoming Webhook URL to settings.`, "info");
+}
+
+function testSlackWebhookNotification() {
+  saveSlackWebhookUrl();
+  if (!database.slackWebhookUrl) {
+    alert("Please enter a valid Slack Incoming Webhook URL first.");
+    return;
+  }
+
+  const testPayload = {
+    text: "⚡ *GTM Engine Console Integration Test*\nSlack Webhook alerts are successfully connected to your BDR Campaign Orchestrator!"
+  };
+
+  fetch(database.slackWebhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: JSON.stringify(testPayload)
+  }).then(res => {
+    addLogConsole("enrich", `[SLACK INTEGRATION] Test notification sent to Slack channel! Status: ${res.status}`, "success");
+    alert("Slack test alert sent successfully!");
+  }).catch(err => {
+    console.error("Slack webhook error:", err);
+    addLogConsole("enrich", `[SLACK INTEGRATION] Webhook dispatch error: ${err.message}`, "error");
+    alert(`Slack webhook error: ${err.message}`);
+  });
+}
+
 window.saveExploriumKey = saveExploriumKey;
 window.saveLLMHelperKey = saveLLMHelperKey;
 window.saveGeminiKey = saveGeminiKey;
@@ -119,3 +217,8 @@ window.saveLemlistMcpConfig = saveLemlistMcpConfig;
 window.checkEnrichButtonState = checkEnrichButtonState;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.saveLLMSettings = saveLLMSettings;
+window.saveGoogleCalendarCredentials = saveGoogleCalendarCredentials;
+window.connectGoogleCalendarAccount = connectGoogleCalendarAccount;
+window.checkGoogleCalendarStatus = checkGoogleCalendarStatus;
+window.saveSlackWebhookUrl = saveSlackWebhookUrl;
+window.testSlackWebhookNotification = testSlackWebhookNotification;
