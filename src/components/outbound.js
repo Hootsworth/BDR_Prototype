@@ -359,6 +359,43 @@ function sendOutboundEmail() {
   saveDatabaseCache();
   addLogConsole("enrich", `[OUTBOUND] Released email campaign to ${contact.email}`, "success");
 
+  // Dispatch via Gmail API if Google OAuth token is active
+  if (database.googleAccessToken) {
+    const emailLines = [
+      `To: ${contact.email}`,
+      `Subject: ${subject}`,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      body
+    ].join('\r\n');
+
+    const base64EncodedEmail = btoa(unescape(encodeURIComponent(emailLines)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${database.googleAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raw: base64EncodedEmail })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.id) {
+        addLogConsole("enrich", `[GMAIL API] Live campaign email sent to ${contact.email} via connected Google account! Message ID: ${data.id}`, "success");
+      } else if (data.error) {
+        addLogConsole("enrich", `[GMAIL API] Sending error: ${data.error.message}`, "error");
+      }
+    })
+    .catch(err => {
+      console.error("Gmail API error:", err);
+      addLogConsole("enrich", `[GMAIL API] Network error: ${err.message}`, "error");
+    });
+  }
+
   filterOutboundTable();
   loadOutboundDrawer(contact, 'email');
 

@@ -75,6 +75,9 @@ function updateClerkUIState() {
     if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
     if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
 
+    // Attempt to automatically retrieve Clerk Google OAuth Token for Calendar & Gmail
+    fetchClerkGoogleOAuthToken();
+
     // Unmount signin widget if it was mounted
     if (signinContainer && signinContainer.dataset.mounted === "true") {
       try {
@@ -146,7 +149,26 @@ function triggerClerkSignIn() {
   }
 }
 
+async function fetchClerkGoogleOAuthToken() {
+  if (window.Clerk && window.Clerk.user) {
+    try {
+      const tokens = await window.Clerk.user.getOauthAccessToken('oauth_google');
+      if (tokens && tokens.length > 0 && tokens[0].token) {
+        database.googleAccessToken = tokens[0].token;
+        localStorage.setItem("gtm_google_access_token", tokens[0].token);
+        if (typeof checkGoogleCalendarStatus === "function") {
+          checkGoogleCalendarStatus();
+        }
+        addLogConsole("enrich", `[CLERK AUTH] Linked Google account session. Calendar & Gmail APIs connected!`, "success");
+      }
+    } catch (err) {
+      // Quietly ignore if session is not signed in via Google OAuth provider
+    }
+  }
+}
+
 window.loadClerkSDK = loadClerkSDK;
 window.initClerkAuth = initClerkAuth;
 window.updateClerkUIState = updateClerkUIState;
 window.triggerClerkSignIn = triggerClerkSignIn;
+window.fetchClerkGoogleOAuthToken = fetchClerkGoogleOAuthToken;
