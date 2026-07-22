@@ -164,14 +164,27 @@ function switchDrawerChannel(channel) {
 
       <div class="form-group" style="margin-top:12px;">
         <label>Email Body</label>
-        <textarea class="input-control" id="email-draft-body" style="height: 220px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
+        <textarea class="input-control" id="email-draft-body" style="height: 180px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
       </div>
 
-      <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+      <div class="email-preview-card" style="margin-top: 12px; padding: 14px; border: 1px solid var(--hairline-soft, #e7e5e4); border-radius: 8px; background: var(--surface-card, #f5f0e0);">
+        <span style="font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Email Rendered Preview:</span>
+        <div style="font-size: 13px; line-height: 1.5; color: var(--ink); white-space: pre-line;">
+          ${contact.emailDraft.body}
+        </div>
+        <div style="margin-top: 14px;">
+          <button class="btn btn-primary btn-sm" onclick="openInfluencerPortal('${contact.email}')" style="cursor: pointer;">
+            Submit Referral &amp; View Rewards &rarr;
+          </button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
         <button class="btn btn-primary" onclick="sendOutboundEmail()" style="width:100%;">Send Campaign Email</button>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:13px; height:44px;">Insert Calendly</button>
-          <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+          <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Calendly</button>
+          <button class="btn btn-secondary" onclick="insertPortalLinkToDraft('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Portal Link</button>
+          <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="font-size:12px; height:40px; padding:0 6px;">AI Re-draft</button>
         </div>
       </div>
     `;
@@ -862,6 +875,18 @@ function renderContactTimeline(contact) {
   return html;
 }
 
+function insertPortalLinkToDraft(textareaId) {
+  const area = document.getElementById(textareaId);
+  if (area) {
+    const portalSnippet = `\n\nSubmit your contact referrals & view your credit rewards here: https://gtm-console.app/influencer-portal`;
+    area.value += portalSnippet;
+    if (database.selectedContact && database.selectedContact.emailDraft) {
+      database.selectedContact.emailDraft.body = area.value;
+    }
+  }
+}
+
+window.insertPortalLinkToDraft = insertPortalLinkToDraft;
 window.switchOutboundSubtab = switchOutboundSubtab;
 window.filterOutboundTable = filterOutboundTable;
 window.changeOutboundPage = changeOutboundPage;

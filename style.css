@@ -5655,3 +5655,534 @@ body::after {
   border-color: var(--brand-pink) !important;
   box-shadow: 0 0 16px rgba(255, 62, 126, 0.1) !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════ */
+/* ═══ INFLUENCER PORTAL — CLAY DESIGN SYSTEM STYLES ════════════════ */
+/* ══════════════════════════════════════════════════════════════════ */
+
+.influencer-portal-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+/* Header & Profile Selector */
+.portal-header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--hairline, #0a0a0a);
+}
+
+.portal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.portal-avatar-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary, #0a0a0a);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  border: 1.5px solid var(--hairline, #0a0a0a);
+}
+
+.portal-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.portal-user-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.portal-user-title-row h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink, #0a0a0a);
+}
+
+.portal-tier-badge {
+  background: var(--brand-ochre, #e8b94a);
+  color: var(--ink, #0a0a0a);
+  border: 1px solid var(--hairline, #0a0a0a);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.portal-user-sub {
+  font-size: 13px;
+  color: var(--muted, #6a6a6a);
+  margin: 0;
+}
+
+.portal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.portal-switcher-wrap,
+.portal-link-share-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.portal-switcher-wrap label,
+.share-code-label {
+  font-size: 11px;
+  color: var(--muted, #6a6a6a);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.share-code-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.share-code-input-group input {
+  width: 220px;
+  font-family: var(--font-code, monospace);
+  font-size: 12px;
+}
+
+/* Subtab Bar */
+.portal-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-soft, #faf5e8);
+  padding: 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--hairline, #0a0a0a);
+}
+
+.portal-tab-btn {
+  padding: 10px 18px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--body, #3a3a3a);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.portal-tab-btn:hover {
+  background: var(--surface-card, #f5f0e0);
+  color: var(--ink, #0a0a0a);
+}
+
+.portal-tab-btn.active {
+  background: var(--primary, #0a0a0a);
+  color: #ffffff;
+}
+
+.portal-subtab-view {
+  display: none;
+}
+
+.portal-subtab-view.active {
+  display: block;
+}
+
+/* Metrics Cards Grid */
+.portal-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.portal-metric-card {
+  padding: 20px;
+  border-radius: 12px;
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  box-shadow: 2px 2px 0 var(--hairline, #0a0a0a);
+  color: var(--ink, #0a0a0a);
+}
+
+.portal-metric-card.card-peach { background: var(--brand-peach, #ffb084); }
+.portal-metric-card.card-mint { background: var(--brand-mint, #a4d4c5); }
+.portal-metric-card.card-lavender { background: var(--brand-lavender, #b8a4ed); }
+.portal-metric-card.card-sky { background: #a8c8e8; }
+
+.metric-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink, #0a0a0a);
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 4px 0 2px 0;
+  color: var(--ink, #0a0a0a);
+  font-family: var(--font-display, sans-serif);
+}
+
+.metric-subtext {
+  font-size: 11.5px;
+  color: var(--body, #3a3a3a);
+  font-weight: 500;
+}
+
+/* Actions Banner */
+.portal-actions-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  margin-top: 20px;
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 var(--hairline, #0a0a0a);
+}
+
+.actions-banner-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink, #0a0a0a);
+}
+
+.actions-banner-text p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--body, #3a3a3a);
+}
+
+.actions-banner-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Rewards Grid Store */
+.portal-section-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.portal-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.portal-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ink, #0a0a0a);
+}
+
+.portal-section-subtitle {
+  font-size: 13px;
+  color: var(--muted, #6a6a6a);
+  margin: 2px 0 0 0;
+}
+
+.credit-balance-pill {
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  color: var(--ink, #0a0a0a);
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rewards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.reward-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 var(--hairline, #0a0a0a);
+  transition: transform 0.15s ease;
+}
+
+.reward-card:hover {
+  transform: translateY(-2px);
+}
+
+.reward-badge-cost {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: var(--primary, #0a0a0a);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.reward-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  color: var(--ink, #0a0a0a);
+  padding-right: 70px;
+}
+
+.reward-desc {
+  font-size: 12.5px;
+  color: var(--body, #3a3a3a);
+  margin: 0 0 16px 0;
+  line-height: 1.45;
+  flex-grow: 1;
+}
+
+.reward-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline-soft, #e7e5e4);
+}
+
+.reward-value-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted, #6a6a6a);
+}
+
+/* Submit Form Card */
+.submit-form-card {
+  padding: 26px;
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--hairline, #0a0a0a);
+}
+
+.form-card-header h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink, #0a0a0a);
+}
+
+.form-card-header p {
+  margin: 0 0 20px 0;
+  font-size: 13.5px;
+  color: var(--body, #3a3a3a);
+}
+
+.portal-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.portal-form-grid .full-width {
+  grid-column: span 2;
+}
+
+.portal-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline-soft, #e7e5e4);
+}
+
+/* LinkedIn Scanner Mockup */
+.linkedin-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 var(--hairline, #0a0a0a);
+}
+
+.linkedin-status-info h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink, #0a0a0a);
+}
+
+.linkedin-status-info p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--body, #3a3a3a);
+}
+
+.badge-matching-ai {
+  background: var(--brand-lavender, #b8a4ed);
+  color: var(--ink, #0a0a0a);
+  border: 1px solid var(--hairline, #0a0a0a);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.suggestions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.linkedin-suggestion-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--surface-card, #f5f0e0);
+  border: 1.5px solid var(--hairline, #0a0a0a);
+  border-radius: 12px;
+  box-shadow: 2px 2px 0 var(--hairline, #0a0a0a);
+}
+
+.sug-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+}
+
+.sug-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary, #0a0a0a);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.sug-meta h4 {
+  margin: 0 0 2px 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink, #0a0a0a);
+}
+
+.sug-meta p {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  color: var(--body, #3a3a3a);
+}
+
+.sug-network-tag {
+  font-size: 11px;
+  color: var(--muted, #6a6a6a);
+  font-weight: 600;
+}
+
+.sug-match-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--brand-mint, #a4d4c5);
+  color: var(--ink, #0a0a0a);
+  border: 1px solid var(--hairline, #0a0a0a);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.sug-body {
+  margin: 12px 0;
+  flex-grow: 1;
+}
+
+.sug-notes {
+  font-size: 12px;
+  color: var(--muted, #6a6a6a);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.sug-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline-soft, #e7e5e4);
+}
+
+.sug-reward-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink, #0a0a0a);
+}
+
+/* Toast Notifications */
+.portal-toast-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--primary, #0a0a0a);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--hairline, #0a0a0a);
+  z-index: 9999;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.portal-toast-notification.show {
+  transform: translateY(0);
+  opacity: 1;
+}

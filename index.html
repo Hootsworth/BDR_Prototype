@@ -175,6 +175,10 @@
               <span class="subtab-dot"></span>
               <span class="subtab-label">Influencers</span>
             </button>
+            <button class="subtab-btn" id="tab-btn-influencer-portal" onclick="switchTab('influencer-portal')">
+              <span class="subtab-dot"></span>
+              <span class="subtab-label">Influencer Portal</span>
+            </button>
             <button class="subtab-btn" id="tab-btn-enrich" onclick="switchTab('enrich')">
               <span class="subtab-dot"></span>
               <span class="subtab-label">Enrich</span>
@@ -347,6 +351,11 @@
           <!-- Dynamically loaded from components/influencers.html -->
         </section>
 
+        <!-- ═══ TAB: Influencer Portal ═══ -->
+        <section class="tab-content" id="tab-panel-influencer-portal">
+          <!-- Dynamically loaded from components/influencer-portal.html -->
+        </section>
+
         <!-- ═══ TAB: Enrich ═══ -->
         <section class="tab-content" id="tab-panel-enrich">
           <!-- Dynamically loaded from components/enrich.html -->
@@ -402,6 +411,7 @@
   <script src="src/components/sandbox.js"></script>
   <script src="src/components/agent.js"></script>
   <script src="src/components/influencers.js"></script>
+  <script src="src/components/influencer-portal.js"></script>
   <script src="src/components/events.js"></script>
   <script src="src/components/settings.js"></script>
   

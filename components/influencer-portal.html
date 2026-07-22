@@ -1,0 +1,302 @@
+<!-- ═══ INFLUENCER PORTAL & REWARDS DASHBOARD (CLAY DESIGN SYSTEM) ═══ -->
+<div class="influencer-portal-container">
+
+  <!-- Active Influencer Header & Profile Selector Card -->
+  <div class="glass-panel portal-header-card">
+    <div class="portal-header-left">
+      <div class="portal-avatar-badge">
+        <span class="portal-avatar-initials" id="portal-inf-initials">BM</span>
+      </div>
+      <div class="portal-user-meta">
+        <div class="portal-user-title-row">
+          <h2 id="portal-inf-name">Bob Miller</h2>
+          <span class="portal-tier-badge" id="portal-inf-tier">Gold Partner</span>
+        </div>
+        <p class="portal-user-sub" id="portal-inf-company">Miller Advisory Group • bob.miller@milleradvisory.com</p>
+      </div>
+    </div>
+
+    <div class="portal-header-right">
+      <div class="portal-switcher-wrap">
+        <label for="portal-influencer-select">Active Session:</label>
+        <select class="select-control" id="portal-influencer-select" onchange="changeActivePortalInfluencer(this.value)">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+      <div class="portal-link-share-box">
+        <span class="share-code-label">Referral Link:</span>
+        <div class="share-code-input-group">
+          <input type="text" class="input-control" id="portal-referral-link" value="https://gtm-console.app/ref/BOBM2026" readonly>
+          <button class="btn btn-secondary" onclick="copyPortalReferralLink()">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subtab Navigation Bar -->
+  <div class="portal-tab-bar">
+    <button class="portal-tab-btn active" id="btn-portal-tab-dashboard" onclick="switchPortalSubtab('dashboard')">
+      Influencer Dashboard &amp; Rewards
+    </button>
+    <button class="portal-tab-btn" id="btn-portal-tab-submit" onclick="switchPortalSubtab('submit')">
+      Submit Contact Referral
+    </button>
+    <button class="portal-tab-btn" id="btn-portal-tab-linkedin" onclick="switchPortalSubtab('linkedin')">
+      LinkedIn Network Assistant
+    </button>
+  </div>
+
+  <!-- ════ SUBTAB 1: INFLUENCER DASHBOARD ════ -->
+  <div class="portal-subtab-view active" id="portal-subtab-view-dashboard">
+
+    <!-- Metrics Cards Grid -->
+    <div class="portal-metrics-grid">
+      <div class="portal-metric-card card-peach">
+        <div class="metric-details">
+          <span class="metric-label">Total Referrals Given</span>
+          <h3 class="metric-value" id="portal-stat-referrals-count">0</h3>
+          <span class="metric-subtext">Contacts submitted</span>
+        </div>
+      </div>
+
+      <div class="portal-metric-card card-mint">
+        <div class="metric-details">
+          <span class="metric-label">Meetings Converted</span>
+          <h3 class="metric-value" id="portal-stat-meetings-count">0</h3>
+          <span class="metric-subtext">Qualified BDR intros</span>
+        </div>
+      </div>
+
+      <div class="portal-metric-card card-lavender">
+        <div class="metric-details">
+          <span class="metric-label">Total Credits Earned</span>
+          <h3 class="metric-value" id="portal-stat-total-credits">0</h3>
+          <span class="metric-subtext">Lifetime partner rewards</span>
+        </div>
+      </div>
+
+      <div class="portal-metric-card card-sky">
+        <div class="metric-details">
+          <span class="metric-label">Available Credit Balance</span>
+          <h3 class="metric-value" id="portal-stat-available-credits">0</h3>
+          <span class="metric-subtext">Ready to redeem</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Action Banner -->
+    <div class="portal-actions-banner">
+      <div class="actions-banner-text">
+        <h3>Earn Credits for Every Contact Referral</h3>
+        <p>Earn +25 reward credits for every qualified contact introduction and +100 credits when a meeting is booked.</p>
+      </div>
+      <div class="actions-banner-buttons">
+        <button class="btn btn-primary" onclick="switchPortalSubtab('submit')">+ Submit Contact</button>
+        <button class="btn btn-secondary" onclick="switchPortalSubtab('linkedin')">Connect LinkedIn</button>
+      </div>
+    </div>
+
+    <!-- SECTION: REWARDS & PERKS STORE -->
+    <div class="portal-section-wrapper" style="margin-top: 24px;">
+      <div class="portal-section-header">
+        <div>
+          <h3 class="portal-section-title">Rewards &amp; Perks Store</h3>
+          <p class="portal-section-subtitle">Redeem your earned credits for payouts, gift cards, tech gadgets, or advisory perks.</p>
+        </div>
+        <div class="credit-balance-pill">
+          Available: <strong id="store-balance-display">0 Credits</strong>
+        </div>
+      </div>
+
+      <div class="rewards-grid" id="rewards-store-grid">
+        <!-- Reward 1 -->
+        <div class="reward-card">
+          <div class="reward-badge-cost">100 Credits</div>
+          <h4 class="reward-title">$100 Cash Direct Payout</h4>
+          <p class="reward-desc">Direct PayPal or bank transfer payout deposited within 24 hours.</p>
+          <div class="reward-footer">
+            <span class="reward-value-tag">$100 USD</span>
+            <button class="btn btn-primary btn-sm" onclick="handleRedeemReward('cash_100', 100, '$100 Cash Direct Payout')">Redeem Now</button>
+          </div>
+        </div>
+
+        <!-- Reward 2 -->
+        <div class="reward-card">
+          <div class="reward-badge-cost">200 Credits</div>
+          <h4 class="reward-title">$250 Amazon / Apple Gift Card</h4>
+          <p class="reward-desc">Digital gift card code delivered instantly to your verified email.</p>
+          <div class="reward-footer">
+            <span class="reward-value-tag">$250 Value</span>
+            <button class="btn btn-primary btn-sm" onclick="handleRedeemReward('gift_250', 200, '$250 Amazon/Apple Gift Card')">Redeem Now</button>
+          </div>
+        </div>
+
+        <!-- Reward 3 -->
+        <div class="reward-card">
+          <div class="reward-badge-cost">150 Credits</div>
+          <h4 class="reward-title">Executive Dinner VIP Pass</h4>
+          <p class="reward-desc">All-inclusive VIP ticket to our upcoming Credit Union Leader Dinner in Las Vegas.</p>
+          <div class="reward-footer">
+            <span class="reward-value-tag">VIP Pass</span>
+            <button class="btn btn-primary btn-sm" onclick="handleRedeemReward('vip_dinner', 150, 'Executive Dinner VIP Pass')">Redeem Now</button>
+          </div>
+        </div>
+
+        <!-- Reward 4 -->
+        <div class="reward-card">
+          <div class="reward-badge-cost">250 Credits</div>
+          <h4 class="reward-title">Apple AirPods Pro (2nd Gen)</h4>
+          <p class="reward-desc">Brand new noise-canceling wireless earbuds shipped directly to your door.</p>
+          <div class="reward-footer">
+            <span class="reward-value-tag">$249 Value</span>
+            <button class="btn btn-primary btn-sm" onclick="handleRedeemReward('airpods', 250, 'Apple AirPods Pro')">Redeem Now</button>
+          </div>
+        </div>
+
+        <!-- Reward 5 -->
+        <div class="reward-card">
+          <div class="reward-badge-cost">75 Credits</div>
+          <h4 class="reward-title">1-on-1 GTM Strategy Advisory</h4>
+          <p class="reward-desc">60-minute private consultation with our VP of Sales on pipeline scaling strategy.</p>
+          <div class="reward-footer">
+            <span class="reward-value-tag">60 Min Brief</span>
+            <button class="btn btn-primary btn-sm" onclick="handleRedeemReward('advisory_session', 75, '1-on-1 GTM Strategy Advisory')">Redeem Now</button>
+          </div>
+        </div>
+
+        <!-- Reward 6 -->
+        <div class="reward-card">
+          <div class="reward-badge-cost">300 Credits</div>
+          <h4 class="reward-title">50% Off Annual GTM License</h4>
+          <p class="reward-desc">Half-price credit on your team's annual Autonomous BDR Platform subscription.</p>
+          <div class="reward-footer">
+            <span class="reward-value-tag">50% Discount</span>
+            <button class="btn btn-primary btn-sm" onclick="handleRedeemReward('license_discount', 300, '50% Off Annual GTM License')">Redeem Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION: REFERRED CONTACTS HISTORY TABLE -->
+    <div class="portal-section-wrapper" style="margin-top: 32px;">
+      <div class="portal-section-header">
+        <h3 class="portal-section-title">Submitted Referrals &amp; Status</h3>
+      </div>
+      <div class="table-container-card">
+        <div class="table-wrapper">
+          <table class="table-custom" id="portal-referrals-table">
+            <thead>
+              <tr>
+                <th>Contact Name</th>
+                <th>Job Title</th>
+                <th>Company</th>
+                <th>Email</th>
+                <th>Date Added</th>
+                <th>Outreach Status</th>
+                <th style="text-align: right;">Credits Earned</th>
+              </tr>
+            </thead>
+            <tbody id="portal-referrals-table-body">
+              <tr>
+                <td colspan="7" class="table-placeholder">No contacts submitted yet. Click "Submit Contact" to submit your first referral.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ════ SUBTAB 2: SUBMIT CONTACT FORM ════ -->
+  <div class="portal-subtab-view" id="portal-subtab-view-submit">
+    <div class="glass-panel submit-form-card">
+      <div class="form-card-header">
+        <h3>Submit Contact Information</h3>
+        <p>Provide contact details for an industry peer, client, or decision maker in your network. You will receive <strong>+25 credits</strong> upon submission.</p>
+      </div>
+
+      <form id="portal-submit-contact-form" onsubmit="handlePortalContactSubmission(event)">
+        <div class="portal-form-grid">
+
+          <div class="form-group">
+            <label for="portal-input-fullname">Full Name *</label>
+            <input type="text" class="input-control" id="portal-input-fullname" placeholder="e.g. David Vance" required>
+          </div>
+
+          <div class="form-group">
+            <label for="portal-input-title">Job Title *</label>
+            <input type="text" class="input-control" id="portal-input-title" placeholder="e.g. VP of Information Technology" required>
+          </div>
+
+          <div class="form-group">
+            <label for="portal-input-company">Company / Credit Union *</label>
+            <input type="text" class="input-control" id="portal-input-company" placeholder="e.g. First National Credit Union" required>
+          </div>
+
+          <div class="form-group">
+            <label for="portal-input-email">Email Address *</label>
+            <input type="email" class="input-control" id="portal-input-email" placeholder="e.g. dvance@firstnationalcu.org" required>
+          </div>
+
+          <div class="form-group">
+            <label for="portal-input-phone">Phone Number (Optional)</label>
+            <input type="text" class="input-control" id="portal-input-phone" placeholder="e.g. +1 (555) 234-5678">
+          </div>
+
+          <div class="form-group">
+            <label for="portal-input-linkedin">LinkedIn Profile URL (Optional)</label>
+            <input type="url" class="input-control" id="portal-input-linkedin" placeholder="e.g. https://linkedin.com/in/david-vance">
+          </div>
+
+          <div class="form-group full-width">
+            <label for="portal-input-notes">Relationship Context / Introduction Notes</label>
+            <textarea class="input-control" id="portal-input-notes" rows="3" placeholder="How do you know this contact? (e.g. Worked together on core system migration)."></textarea>
+          </div>
+
+        </div>
+
+        <div class="portal-form-footer">
+          <button type="button" class="btn btn-secondary" onclick="switchPortalSubtab('dashboard')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Contact (+25 Credits)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ════ SUBTAB 3: LINKEDIN CONNECTIONS & AI SUGGESTIONS MOCKUP ════ -->
+  <div class="portal-subtab-view" id="portal-subtab-view-linkedin">
+
+    <div class="glass-panel linkedin-status-card" id="linkedin-status-card">
+      <div class="linkedin-card-content">
+        <div class="linkedin-status-info">
+          <h3 id="linkedin-connect-title">LinkedIn Account Status: Disconnected</h3>
+          <p id="linkedin-connect-desc">Connect your LinkedIn profile so GTM Console can analyze your 1st-degree connections and highlight relevant Credit Union IT leaders.</p>
+        </div>
+      </div>
+      <div class="linkedin-card-action">
+        <button class="btn btn-primary" id="btn-toggle-linkedin-connect" onclick="toggleLinkedInConnection()">
+          <span id="linkedin-btn-text">Connect LinkedIn Profile</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="portal-section-wrapper" style="margin-top: 24px;">
+      <div class="portal-section-header">
+        <div>
+          <h3 class="portal-section-title">AI Suggested Contacts from Your Network</h3>
+          <p class="portal-section-subtitle">Our matching engine cross-references your network against target credit union accounts.</p>
+        </div>
+        <span class="badge-matching-ai" id="badge-ai-count">3 High Match Suggestions</span>
+      </div>
+
+      <div class="suggestions-grid" id="linkedin-suggestions-grid">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+  </div>
+
+</div>

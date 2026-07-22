@@ -5,6 +5,7 @@ const componentsList = {
   'upload': 'components/upload.html',
   'analyse': 'components/analytics.html',
   'influencers': 'components/influencers.html',
+  'influencer-portal': 'components/influencer-portal.html',
   'enrich': 'components/enrich.html',
   'campaign-outbound': 'components/campaign-outbound.html',
   'campaign-schedule': 'components/campaign-schedule.html',
@@ -333,6 +334,8 @@ function switchTab(tabId) {
     filterUploadTable();
   } else if (tabId === 'influencers' && typeof filterInfluencersTable === "function") {
     filterInfluencersTable();
+  } else if (tabId === 'influencer-portal' && typeof renderInfluencerPortal === "function") {
+    renderInfluencerPortal();
   } else if (tabId === 'campaign-outbound' && typeof filterOutboundTable === "function") {
     filterOutboundTable();
   } else if (tabId === 'campaign-schedule' && typeof renderScheduleMeetings === "function") {
@@ -374,6 +377,10 @@ function updateHeader(tabId) {
     case 'influencers':
       titleEl.textContent = "Influencers Match Matching";
       subtitleEl.textContent = "Assess target personas, ICP compatibility scores, and lead temperature classification.";
+      break;
+    case 'influencer-portal':
+      titleEl.textContent = "Influencer Rewards & Referral Portal";
+      subtitleEl.textContent = "Submit network contacts, track earned reward credits, redeem perks, and connect LinkedIn.";
       break;
     case 'enrich':
       titleEl.textContent = "AgentSource B2B Data Enrichment";
