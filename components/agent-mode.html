@@ -1,91 +1,132 @@
-<div class="agent-mode-wrapper" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1400px; margin: 0 auto; height: 750px;">
-  
-  <!-- Left Side: Content Panel (Always-On Chat Interface) -->
-  <div class="agent-content-panel" style="background: var(--surface-card); border-radius: var(--radius-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow-md); display: flex; flex-direction: column; overflow: hidden; position: relative;">
-    
-    <!-- Chat Thread Area -->
-    <div class="agent-chat-thread-container" id="agent-chat-history-container" style="flex-grow: 1; padding: 20px; overflow-y: auto;">
-      <div class="chat-thread" id="agent-chat-history">
-        <div class="agent-chat-msg agent-msg" style="display: flex; gap: 12px; align-items: flex-start;">
-          <div class="avatar" style="font-size: 18px; width: 32px; height: 32px; background: var(--surface-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center;">🤖</div>
-          <div class="msg-bubble" style="background: var(--surface-soft); color: var(--ink); padding: 12px 16px; border-radius: var(--radius-md); font-size: 14px; line-height: 1.6; max-width: 80%;">
-            Hello! I am your Autonomous GTM Agent. Type <strong style="color: var(--primary);">@</strong> followed by a contact's name (e.g. <code>@John Tennus</code>) to research a lead, or ask me any general GTM sales question![cite: 1]
+<!-- ═══ AUTONOMOUS GTM AGENT MODE (CLAY DESIGN SYSTEM) ═══ -->
+<div class="agent-mode-container" style="display: flex; flex-direction: column; gap: 20px; max-width: 1400px; margin: 0 auto; width: 100%;">
+
+  <!-- Agent Mode Header & Quick Actions Toolbar -->
+  <div class="glass-panel" style="padding: 16px 24px; border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); background: var(--surface-card); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div style="width: 42px; height: 42px; border-radius: 50%; background: var(--brand-lavender); border: 1.5px solid var(--hairline); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 2px 2px 0 var(--hairline);">
+        🤖
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 style="font-family: var(--font-display); font-size: 17px; font-weight: 800; color: var(--ink); margin: 0;">Autonomous GTM Copilot</h2>
+          <span class="badge-status-converted" style="background: var(--brand-mint); color: var(--ink); font-weight: 700; padding: 2px 8px; border-radius: 12px; font-size: 11px; border: 1px solid var(--hairline);">Online &amp; Active</span>
+        </div>
+        <p style="font-size: 12.5px; color: var(--muted); margin: 2px 0 0 0;">Orchestrates end-to-end BDR workflows: search grounding, enrichment, outbound, calling, meetings, &amp; influencer rewards.</p>
+      </div>
+    </div>
+
+    <!-- Quick Action Presets -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('enrich_all')" style="height: 32px; font-size: 12px; padding: 0 10px;">⚡ Bulk Enrich</button>
+      <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('send_outbound')" style="height: 32px; font-size: 12px; padding: 0 10px;">📧 Send Outbound</button>
+      <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('linkedin_invites')" style="height: 32px; font-size: 12px; padding: 0 10px;">🔗 LinkedIn Invites</button>
+      <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('phone_calls')" style="height: 32px; font-size: 12px; padding: 0 10px;">📞 Phone Calls</button>
+      <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('sync_meetings')" style="height: 32px; font-size: 12px; padding: 0 10px;">📅 Sync Meetings</button>
+      <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('portal_referrals')" style="height: 32px; font-size: 12px; padding: 0 10px;">🎁 Portal Rewards</button>
+    </div>
+  </div>
+
+  <!-- Agent Workspace 2-Column Split -->
+  <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 20px; min-height: 680px;">
+
+    <!-- Left Column: Agent Chat & Directives Console -->
+    <div class="glass-panel" style="background: var(--surface-card); border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; overflow: hidden;">
+      
+      <div style="padding: 14px 20px; background: var(--surface-soft); border-bottom: 1.5px solid var(--hairline); display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: 0.5px;">Command Thread</span>
+        <span style="font-size: 11px; font-weight: 600; color: var(--muted);">Type <strong style="color:var(--ink);">@</strong> to select contacts</span>
+      </div>
+
+      <!-- Chat History Stream -->
+      <div id="agent-chat-history-container" style="flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; max-height: 480px;">
+        <div id="agent-chat-history" style="display: flex; flex-direction: column; gap: 14px;">
+          
+          <!-- Bot Welcome Bubble -->
+          <div class="agent-chat-msg agent-msg" style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="font-size: 18px; width: 34px; height: 34px; background: var(--surface-soft); border: 1.5px solid var(--hairline); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">🤖</div>
+            <div class="msg-bubble" style="background: var(--surface-soft); color: var(--ink); padding: 14px 16px; border-radius: var(--radius-md); border: 1.5px solid var(--hairline); font-size: 13.5px; line-height: 1.6; max-width: 85%;">
+              Welcome to the <strong>Autonomous GTM Agent Console</strong>. I can execute any action across the application on your behalf.<br><br>
+              Try typing commands like:<br>
+              • <code>enrich @contact</code> or <code>bulk enrich</code><br>
+              • <code>send email @contact</code> or <code>send linkedin @contact</code><br>
+              • <code>call @contact</code> or <code>book meeting @contact</code><br>
+              • <code>submit referral</code> or <code>enrich referral</code><br>
+              • <code>register event @contact</code> or <code>redeem reward</code>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Floating Progress Indicator -->
+      <div id="agent-floating-loader" style="margin: 0 16px; padding: 10px 14px; background: var(--surface-soft); border: 1.5px solid var(--hairline); border-radius: var(--radius-md); display: none; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 14px; height: 14px; border: 2px solid var(--ink); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+          <div>
+            <div id="agent-loader-title" style="font-size: 12px; font-weight: 700; color: var(--ink);">Agent Executing Workflow...</div>
+            <div id="agent-loader-subtitle" style="font-size: 11px; color: var(--muted);">Analyzing parameters...</div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Floating Agent Execution Progress Loader -->
-    <div class="agent-floating-loader" id="agent-floating-loader" style="margin: 0 20px; padding: 12px 16px; background: var(--primary-soft); border: 1px solid rgba(37, 99, 235, 0.15); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-      <div class="loader-head" style="display: flex; align-items: center; gap: 12px;">
-        <div class="loader-ring" style="width: 16px; height: 16px; border: 2px solid var(--primary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-        <div>
-          <div class="loader-title" id="agent-loader-title" style="font-size: 13px; font-weight: 600; color: var(--primary);">Agentic Research In Progress[cite: 1]</div>
-          <div class="loader-subtitle" id="agent-loader-subtitle" style="font-size: 11px; color: var(--muted);">Planning research path...[cite: 1]</div>
+        <div style="text-align: right;">
+          <div style="font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);">Target</div>
+          <div id="agent-reading-title" style="font-size: 11.5px; font-weight: 600; color: var(--ink);">Processing</div>
         </div>
       </div>
-      <div class="reading-tab" style="text-align: right;">
-        <div class="reading-label" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);">Active Crawler Target[cite: 1]</div>
-        <div class="reading-title" id="agent-reading-title" style="font-size: 12px; font-weight: 500; color: var(--ink);">Standing by[cite: 1]</div>
+
+      <!-- Input Compose Bar -->
+      <div style="padding: 16px; border-top: 1.5px solid var(--hairline); position: relative; background: var(--surface-card);">
+        <div class="agent-autocomplete-list" id="agent-autocomplete-list"></div>
+        <div style="display: flex; background: var(--surface-soft); border-radius: var(--radius-md); padding: 8px; border: 1.5px solid var(--hairline); align-items: flex-end;">
+          <textarea id="agent-chat-input" placeholder="Type a command or @contact name to execute actions..." onkeydown="handleAgentChatKeyDown(event)" autocomplete="off" style="width: 100%; border: none; background: transparent; resize: none; height: 42px; padding: 6px; font-size: 13.5px; outline: none; color: var(--ink); font-family: var(--font-body);"></textarea>
+          <button class="btn btn-primary" id="btn-agent-chat-send" onclick="sendAgentChatMessage()" style="height: 36px; padding: 0 14px; font-size: 13px; font-weight: 700;">Execute ↗</button>
+        </div>
       </div>
+
     </div>
 
-    <!-- Chat Compose Input Bar -->
-    <div class="agent-input-container" style="padding: 20px; position: relative;">
-      <div class="agent-autocomplete-list" id="agent-autocomplete-list"></div>
-      <div class="chat-compose" style="display: flex; background: var(--surface-soft); border-radius: var(--radius-md); padding: 8px; align-items: flex-end; border: 1px solid transparent; transition: border 0.2s;">
-        <textarea id="agent-chat-input" placeholder="Ask anything... e.g. research @John Tennus, summarize company updates, draft outbound copy. (Type @ to list)" onkeydown="handleAgentChatKeyDown(event)" autocomplete="off" style="width: 100%; border: none; background: transparent; resize: none; height: 44px; padding: 8px; font-size: 14px; outline: none; color: var(--ink); line-height: 1.4;"></textarea>[cite: 1]
-        <button class="btn-chat" id="btn-agent-chat-send" onclick="sendAgentChatMessage()" style="background: var(--primary); color: white; border: none; width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; transition: background 0.2s;">↗</button>[cite: 1]
+    <!-- Right Column: Interactive Agent Viewport & Pipeline Checklist -->
+    <div class="glass-panel" style="background: var(--surface-card); border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; overflow: hidden;">
+      
+      <!-- Mini Browser Window Header -->
+      <div style="padding: 12px 18px; background: var(--surface-soft); border-bottom: 1.5px solid var(--hairline); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+          <span style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: inline-block;"></span>
+          <span style="font-size: 12px; font-weight: 700; color: var(--ink); margin-left: 8px;">Agent Execution Viewport</span>
+        </div>
+        <div style="display: flex; align-items: center; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: 4px; padding: 2px 8px; width: 220px;">
+          <span style="font-size: 10px; margin-right: 4px;">🔒</span>
+          <input type="text" id="agent-browser-url-input" value="https://gtm-copilot.internal/executor" readonly style="border: none; background: transparent; font-size: 11px; color: var(--ink); width: 100%; outline: none;">
+        </div>
       </div>
+
+      <!-- Live Viewport Output Area -->
+      <div id="agent-browser-viewport" style="flex-grow: 1; padding: 20px; background: var(--surface-soft); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; min-height: 240px;">
+        <div id="agent-browser-empty" style="color: var(--muted); font-size: 13px; line-height: 1.5; max-width: 320px;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🤖⚙️</div>
+          <strong style="color: var(--ink); font-weight: 700;">Live Execution Viewport</strong><br>
+          Select a quick action above or type a command to watch the agent perform actions in real-time.
+        </div>
+      </div>
+
+      <!-- Automated Action Checklist Matrix -->
+      <div style="padding: 16px; background: var(--surface-card); border-top: 1.5px solid var(--hairline); display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-family: var(--font-display); font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Automated Capability Matrix</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" id="agent-browser-targets">
+          <div class="browser-target" id="target-step-1" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline);"><strong>1. Lead Enrichment:</strong> <span style="color:var(--muted);">Ready</span></div>
+          <div class="browser-target" id="target-step-2" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline);"><strong>2. Outbound Dispatch:</strong> <span style="color:var(--muted);">Ready</span></div>
+          <div class="browser-target" id="target-step-3" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline);"><strong>3. LinkedIn Invites:</strong> <span style="color:var(--muted);">Ready</span></div>
+          <div class="browser-target" id="target-step-4" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline);"><strong>4. AI Voice Calling:</strong> <span style="color:var(--muted);">Ready</span></div>
+          <div class="browser-target" id="target-step-5" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline);"><strong>5. Calendar Sync:</strong> <span style="color:var(--muted);">Ready</span></div>
+          <div class="browser-target" id="target-step-6" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline);"><strong>6. Event Check-in:</strong> <span style="color:var(--muted);">Ready</span></div>
+          <div class="browser-target" id="target-step-7" style="font-size: 11.5px; color: var(--body); padding: 8px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); border: 1px solid var(--hairline); grid-column: span 2;"><strong>7. Portal Credit &amp; Rewards:</strong> <span style="color:var(--muted);">Ready</span></div>
+        </div>
+      </div>
+
     </div>
 
   </div>
 
-  <!-- Right Side: Mini Browser Simulator -->
-  <div class="agent-browser-panel" style="background: var(--surface-card); border-radius: var(--radius-lg); border: 1px solid var(--hairline); box-shadow: var(--shadow-md); display: flex; flex-direction: column; overflow: hidden;">
-    <div class="mini-browser" style="display: flex; flex-direction: column; height: 100%;">
-      <div class="browser-topbar" style="display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--surface-soft); border-bottom: 1px solid var(--hairline); flex-shrink: 0;">
-        <!-- Mac-style dots -->
-        <div style="display: flex; gap: 8px; flex-shrink: 0;">
-          <span class="browser-dot red" style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>[cite: 1]
-          <span class="browser-dot yellow" style="width: 12px; height: 12px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>[cite: 1]
-          <span class="browser-dot green" style="width: 12px; height: 12px; border-radius: 50%; background: #22c55e; display: inline-block;"></span>[cite: 1]
-        </div>
-        
-        <!-- Browser controls -->
-        <div style="display: flex; gap: 12px; color: var(--muted); font-size: 13px; flex-shrink: 0; user-select: none;">
-          <span style="cursor: not-allowed; opacity: 0.5;">◀</span>[cite: 1]
-          <span style="cursor: not-allowed; opacity: 0.5;">▶</span>[cite: 1]
-          <span style="cursor: pointer;" onclick="addLogConsole('enrich', '[BROWSER] Reloading viewport...', 'info')">⟳</span>[cite: 1]
-        </div>
-
-        <!-- URL address input container -->
-        <div class="browser-url" style="flex-grow: 1; display: flex; align-items: center; background: var(--surface-card); border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 0 12px; height: 32px; gap: 8px;">
-          <span style="font-size: 12px; color: var(--success); user-select: none;">🔒</span>[cite: 1]
-          <input type="text" id="agent-browser-url-input" class="browser-url-field" value="https://google.com" readonly style="border: none; background: transparent; font-size: 12px; color: var(--ink); width: 100%; outline: none;">[cite: 1]
-        </div>
-      </div>
-      
-      <div class="browser-stage" id="agent-browser-viewport" style="flex-grow: 1; background: #fafafa; display: flex; align-items: center; justify-content: center; position: relative; min-height: 200px;">
-        <div class="browser-empty" id="agent-browser-empty" style="color: var(--muted); font-size: 13px; max-width: 280px; text-align: center; line-height: 1.5;">Browser viewport appears here when the agent navigates</div>[cite: 1]
-        <div class="browser-cursor" id="agent-browser-cursor"></div>[cite: 1]
-      </div>
-      
-      <!-- Crawler Targets / Checklist -->
-      <div class="browser-targets" id="agent-browser-targets" style="max-height: 220px; overflow-y: auto; padding: 16px; background: var(--surface-card); border-top: 1px solid var(--hairline); display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-        <div class="browser-target" id="target-step-1" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm);"><strong>1. Google Grounding:</strong> Awaiting search index...</div>[cite: 1]
-        <div class="browser-target" id="target-step-2" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm);"><strong>2. LinkedIn Scrape:</strong> Awaiting profile fetch...</div>[cite: 1]
-        <div class="browser-target" id="target-step-3" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm);"><strong>3. Corporate Crawl:</strong> Awaiting value extract...</div>[cite: 1]
-        <div class="browser-target" id="target-step-4" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm);"><strong>4. B2B Enrichment:</strong> Awaiting lead details...</div>[cite: 1]
-        <div class="browser-target" id="target-step-5" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm);"><strong>5. Email Copywriter:</strong> Awaiting email synthesis...</div>[cite: 1]
-        <div class="browser-target" id="target-step-6" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm);"><strong>6. LinkedIn outreach:</strong> Awaiting connection invite...</div>[cite: 1]
-        <div class="browser-target" id="target-step-7" style="font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--surface-soft); border-radius: var(--radius-sm); grid-column: span 2;"><strong>7. Lemlist Campaign:</strong> Awaiting sequence sync...</div>[cite: 1]
-      </div>
-    </div>
-  </div>
 </div>
-
-<style>
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .chat-compose:focus-within { border-color: var(--primary) !important; }
-</style>

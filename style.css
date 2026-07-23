@@ -5053,29 +5053,14 @@ dialog textarea:focus {
   text-transform: uppercase;
 }
 
-.font-on-dark {
-  color: var(--on-primary);
-}
-
-.kpi-icon {
-  font-size: 18px;
-}
-
-.kpi-value {
-  font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--ink);
-  line-height: 1;
-}
-
-.brand-teal .kpi-value, .brand-teal .kpi-title, .brand-teal .kpi-subtext {
-  color: var(--on-primary);
+.card-mint {
+  background: var(--brand-mint, #a4d4c5);
 }
 
 .kpi-subtext {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ink-soft, #262626);
+  font-weight: 500;
 }
 
 .dashboard-split-layout {
