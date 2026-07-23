@@ -193,12 +193,13 @@
                 <th>Email</th>
                 <th>Date Added</th>
                 <th>Outreach Status</th>
+                <th>Enrichment</th>
                 <th style="text-align: right;">Credits Earned</th>
               </tr>
             </thead>
             <tbody id="portal-referrals-table-body">
               <tr>
-                <td colspan="7" class="table-placeholder">No contacts submitted yet. Click "Submit Contact" to submit your first referral.</td>
+                <td colspan="8" class="table-placeholder">No contacts submitted yet. Click "Submit Contact" to submit your first referral.</td>
               </tr>
             </tbody>
           </table>
@@ -253,6 +254,14 @@
           <div class="form-group full-width">
             <label for="portal-input-notes">Relationship Context / Introduction Notes</label>
             <textarea class="input-control" id="portal-input-notes" rows="3" placeholder="How do you know this contact? (e.g. Worked together on core system migration)."></textarea>
+          </div>
+
+          <div class="form-group full-width" style="margin-top: 6px; padding: 12px; border: 1.5px solid var(--hairline-soft, #e7e5e4); border-radius: 8px; background: var(--surface-soft, #faf5e8);">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer;">
+              <input type="checkbox" id="portal-input-autoenrich" style="width: 16px; height: 16px; cursor: pointer;">
+              ⚡ Automatically Enrich Contact upon submission (Uses 15 Credits)
+            </label>
+            <span style="font-size: 12px; color: var(--muted); margin-left: 24px; display: block; margin-top: 2px;">Instantly performs B2B background check, verifies email/phone, and pulls company asset intelligence.</span>
           </div>
 
         </div>

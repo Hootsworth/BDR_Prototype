@@ -40,7 +40,8 @@ let database = {
     enrichedCount: 0
   },
   meetings: [],
-  currentOutboundSubtab: 'prospects'
+  currentOutboundSubtab: 'prospects',
+  autoEnrich: false
 };
 window.database = database;
 

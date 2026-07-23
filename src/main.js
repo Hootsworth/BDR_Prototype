@@ -121,6 +121,10 @@ async function bootstrapApp() {
   // Render initial keys state
   if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
 
+  database.autoEnrich = localStorage.getItem("gtm_auto_enrich") === "true";
+  const autoEnrichCheckbox = document.getElementById("toggle-auto-enrich");
+  if (autoEnrichCheckbox) autoEnrichCheckbox.checked = database.autoEnrich;
+
   // If URL hash or default is set, open it
   switchTab('dashboard');
 
@@ -370,9 +374,9 @@ function updateHeader(tabId) {
       titleEl.textContent = "Upload Contacts";
       subtitleEl.textContent = "Upload manual CSV or load target database of credit union accounts.";
       break;
-    case 'analyse':
-      titleEl.textContent = "Analyse List Data";
-      subtitleEl.textContent = "Query the loaded CSV list using client-side natural language analytics.";
+    case 'enrich':
+      titleEl.textContent = "AgentSource B2B Data Enrichment";
+      subtitleEl.textContent = "Verify key and enrich leads with verified corporate intelligence.";
       break;
     case 'influencers':
       titleEl.textContent = "Influencers Match Matching";

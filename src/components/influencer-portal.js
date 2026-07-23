@@ -165,12 +165,27 @@ function handlePortalContactSubmission(event) {
   const linkedin = document.getElementById("portal-input-linkedin").value.trim();
   const notes = document.getElementById("portal-input-notes").value.trim();
 
+  const autoEnrichCheckbox = document.getElementById("portal-input-autoenrich");
+  const wantsAutoEnrich = autoEnrichCheckbox && autoEnrichCheckbox.checked;
+  const enrichCost = 15;
+
   if (!fullName || !email) return;
 
   const exists = database.contacts.find(c => c.email.toLowerCase() === email.toLowerCase());
   if (exists) {
     alert(`A contact with email "${email}" is already registered in the system.`);
     return;
+  }
+
+  let isEnriched = false;
+  if (wantsAutoEnrich) {
+    const currentCredits = inf.referralCredits || 0;
+    if (currentCredits < enrichCost) {
+      alert(`Insufficient Credits for Auto-Enrichment!\n\nYou currently have ${currentCredits} credits, but auto-enriching requires ${enrichCost} credits.\n\nThe contact will be submitted as a standard referral.`);
+    } else {
+      inf.referralCredits = currentCredits - enrichCost;
+      isEnriched = true;
+    }
   }
 
   const creditsEarned = 25;
@@ -188,8 +203,9 @@ function handlePortalContactSubmission(event) {
     notes: notes,
     industry: "Credit Union",
     sourceFile: `Referred by ${inf.fullName}`,
-    enriched: true,
-    matchPercentage: 95,
+    enriched: isEnriched,
+    assetSize: isEnriched ? "$450M" : "$0",
+    matchPercentage: isEnriched ? 98 : 90,
     leadTemp: "Hot Lead",
     emailsSent: false,
     linkedinSent: false,
@@ -210,6 +226,7 @@ function handlePortalContactSubmission(event) {
     email: email,
     credits: creditsEarned,
     status: "Pending Review",
+    enriched: isEnriched,
     date: new Date().toLocaleDateString()
   });
 
@@ -219,9 +236,10 @@ function handlePortalContactSubmission(event) {
 
   document.getElementById("portal-submit-contact-form").reset();
 
-  addLogConsole("enrich", `[INFLUENCER PORTAL] ${inf.fullName} submitted referral: ${fullName} (${company}). +${creditsEarned} credits awarded!`, "success");
+  const autoEnrichMsg = isEnriched ? " (Auto-Enriched -15 Cr)" : "";
+  addLogConsole("enrich", `[INFLUENCER PORTAL] ${inf.fullName} submitted referral: ${fullName} (${company}). +${creditsEarned} credits awarded!${autoEnrichMsg}`, "success");
 
-  showPortalToast(`Referral Submitted! +${creditsEarned} Reward Credits earned.`);
+  showPortalToast(`Referral Submitted! +${creditsEarned} Reward Credits earned.${isEnriched ? ' (Contact Enriched -15 Cr)' : ''}`);
 
   renderInfluencerPortal();
   switchPortalSubtab('dashboard');
@@ -235,13 +253,19 @@ function renderPortalReferralsTable(inf) {
 
   const referrals = inf.referrals || [];
   if (referrals.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No contacts submitted yet. Click "Submit Contact" to submit your first referral.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="table-placeholder">No contacts submitted yet. Click "Submit Contact" to submit your first referral.</td></tr>`;
     return;
   }
 
   referrals.forEach(r => {
     const tr = document.createElement("tr");
     const statusText = r.status || "Pending Review";
+    const contact = database.contacts.find(c => c.email.toLowerCase() === r.email.toLowerCase());
+    const isEnriched = r.enriched || (contact && contact.enriched);
+
+    const enrichCellHTML = isEnriched
+      ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:10px; background:var(--brand-mint, #a4d4c5); color:var(--ink); font-weight:700; font-size:11px; border:1px solid var(--hairline);">Enriched ✓</span>`
+      : `<button class="btn btn-secondary btn-sm" onclick="enrichReferralWithCredits('${r.email}', 15)" style="font-size:11px; height:28px; padding:0 8px; border-color:var(--hairline); cursor:pointer;">⚡ Enrich (-15 Cr)</button>`;
 
     tr.innerHTML = `
       <td><strong>${r.fullName}</strong></td>
@@ -250,10 +274,48 @@ function renderPortalReferralsTable(inf) {
       <td>${r.email}</td>
       <td>${r.date || new Date().toLocaleDateString()}</td>
       <td><span class="badge-lead-temp ${statusText === 'Converted' || statusText === 'Meeting Booked' ? 'hot' : 'cold'}">${statusText}</span></td>
+      <td>${enrichCellHTML}</td>
       <td style="text-align: right; font-weight: 700; color: var(--ink);">+${r.credits} Credits</td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+function enrichReferralWithCredits(email, creditCost = 15) {
+  const inf = getActiveInfluencer();
+  if (!inf) return;
+
+  const currentCredits = inf.referralCredits || 0;
+  if (currentCredits < creditCost) {
+    alert(`Insufficient Credits!\n\nYou currently have ${currentCredits} credits, but enriching a contact costs ${creditCost} credits.\n\nSubmit more contacts to earn additional credits.`);
+    return;
+  }
+
+  if (!confirm(`Enrich Contact Referral:\n\nSpend ${creditCost} Credits to perform B2B data enrichment for ${email}?`)) {
+    return;
+  }
+
+  inf.referralCredits = currentCredits - creditCost;
+
+  const referral = (inf.referrals || []).find(r => r.email.toLowerCase() === email.toLowerCase());
+  if (referral) {
+    referral.enriched = true;
+  }
+
+  const contact = database.contacts.find(c => c.email.toLowerCase() === email.toLowerCase());
+  if (contact) {
+    contact.enriched = true;
+    contact.matchPercentage = Math.max(contact.matchPercentage || 90, 98);
+    contact.leadTemp = "Hot Lead";
+    if (!contact.assetSize || contact.assetSize === "$0") contact.assetSize = "$450M";
+  }
+
+  saveDatabaseCache();
+
+  addLogConsole("enrich", `[INFLUENCER PORTAL] ${inf.fullName} spent ${creditCost} credits to enrich ${email}.`, "success");
+  showPortalToast(`⚡ Contact enriched successfully! (-${creditCost} Credits)`);
+
+  renderInfluencerPortal();
 }
 
 function handleRedeemReward(rewardId, creditCost, rewardTitle) {
@@ -441,3 +503,4 @@ window.handleRedeemReward = handleRedeemReward;
 window.toggleLinkedInConnection = toggleLinkedInConnection;
 window.submitLinkedInSuggestion = submitLinkedInSuggestion;
 window.copyPortalReferralLink = copyPortalReferralLink;
+window.enrichReferralWithCredits = enrichReferralWithCredits;

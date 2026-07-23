@@ -9,7 +9,13 @@
             </div>
             <div class="upload-stats-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--surface-soft); border-top: 1.5px solid var(--hairline);">
               <div class="data-summary-count" id="upload-stats-summary" style="font-size: 13px; font-weight: 600; color: var(--body);">No CSV data loaded yet.</div>
-              <button class="btn btn-secondary btn-sm" id="btn-show-mapping" onclick="openColumnMapper()" style="display: none; height: 32px; padding: 0 12px; font-size: 12px;">Configure Field Mapping</button>
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink); cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="toggle-auto-enrich" onchange="toggleAutoEnrichSetting(this.checked)" style="cursor: pointer; width: 15px; height: 15px;">
+                  ⚡ Auto-Enrich Uploaded Contacts
+                </label>
+                <button class="btn btn-secondary btn-sm" id="btn-show-mapping" onclick="openColumnMapper()" style="display: none; height: 32px; padding: 0 12px; font-size: 12px;">Configure Field Mapping</button>
+              </div>
             </div>
           </div>
 

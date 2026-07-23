@@ -229,6 +229,15 @@ function confirmColumnMapping() {
     }
   });
 
+  if (database.autoEnrich) {
+    parsed.forEach(c => {
+      c.enriched = true;
+      if (!c.matchPercentage) c.matchPercentage = 95;
+      c.leadTemp = "Hot Lead";
+      if (!c.assetSize || c.assetSize === "$0") c.assetSize = "$350M";
+    });
+  }
+
   if (isInfluencerFile) {
     const prospects = database.contacts.filter(c => c.isInfluencer !== true);
     database.contacts = [...prospects, ...parsed];
@@ -243,7 +252,16 @@ function confirmColumnMapping() {
   closeColumnMapper();
 
   const typeLabel = isInfluencerFile ? "influencers" : "contacts";
-  addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} from ${tempFileName}.`, "success");
+  const autoEnrichMsg = database.autoEnrich ? " (Auto-Enriched ⚡)" : "";
+  addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} from ${tempFileName}${autoEnrichMsg}.`, "success");
+}
+
+function toggleAutoEnrichSetting(checked) {
+  database.autoEnrich = checked;
+  localStorage.setItem("gtm_auto_enrich", checked ? "true" : "false");
+  if (typeof addLogConsole === "function") {
+    addLogConsole("enrich", `[SYSTEM] Automatic enrichment setting ${checked ? 'ENABLED' : 'DISABLED'}.`, "info");
+  }
 }
 
 window.handleDragOver = handleDragOver;
@@ -254,3 +272,4 @@ window.handleCSVFileUpload = handleCSVFileUpload;
 window.openColumnMapper = openColumnMapper;
 window.closeColumnMapper = closeColumnMapper;
 window.confirmColumnMapping = confirmColumnMapping;
+window.toggleAutoEnrichSetting = toggleAutoEnrichSetting;
