@@ -243,6 +243,26 @@ function testSlackWebhookNotification() {
   });
 }
 
+function switchSettingsNav(panelId) {
+  // Toggle active button in left sidebar
+  document.querySelectorAll("[id^='set-nav-btn-']").forEach(btn => {
+    btn.classList.remove("active");
+  });
+  const activeBtn = document.getElementById(`set-nav-btn-${panelId}`);
+  if (activeBtn) activeBtn.classList.add("active");
+
+  // Toggle active view in right content area
+  document.querySelectorAll(".set-panel-view").forEach(panel => {
+    panel.style.display = "none";
+    panel.classList.remove("active");
+  });
+  const activePanel = document.getElementById(`set-panel-view-${panelId}`);
+  if (activePanel) {
+    activePanel.style.display = "block";
+    activePanel.classList.add("active");
+  }
+}
+
 window.saveExploriumKey = saveExploriumKey;
 window.saveLLMHelperKey = saveLLMHelperKey;
 window.saveGeminiKey = saveGeminiKey;
@@ -261,3 +281,4 @@ window.connectGoogleCalendarAccount = connectGoogleCalendarAccount;
 window.checkGoogleCalendarStatus = checkGoogleCalendarStatus;
 window.saveSlackWebhookUrl = saveSlackWebhookUrl;
 window.testSlackWebhookNotification = testSlackWebhookNotification;
+window.switchSettingsNav = switchSettingsNav;

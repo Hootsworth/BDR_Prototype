@@ -1,191 +1,249 @@
-          <div class="settings-layout">
-            <div class="glass-panel">
-              <div class="section-title">Autonomous Agent Credentials</div>
-              
-              <!-- Gemini API Key -->
-              <div class="form-group">
-                <label for="key-gemini">Gemini API Key</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="key-gemini" placeholder="AIzaSy..." onchange="saveGeminiKey()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-gemini', this)">Show</button>
-                </div>
-                <small class="form-help">Required for running the live Agent Mode, real-time web search grounding (dorking), and answering any queries.</small>
-              </div>
+<!-- ═══ ASTRYX SETTINGS-SIDEBAR LAYOUT (v0.1.8 Architecture) ═══ -->
+<div style="display: grid; grid-template-columns: 240px 1fr; gap: 24px; width: 100%; min-height: 550px;">
 
-              <!-- Gemini Model Selection -->
-              <div class="form-group">
-                <label for="select-gemini-model">Gemini Model Choice</label>
-                <select class="select-control" id="select-gemini-model" onchange="saveGeminiModel()">
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fastest)</option>
-                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (Best for complex reasoning)</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                </select>
-                <small class="form-help">Select the LLM model to power your B2B research agent.</small>
-              </div>
+  <!-- ─── LEFT SIDENAV PANEL (LayoutPanel) ─── -->
+  <aside style="background: var(--color-bg-surface, #ffffff); border: 1px solid var(--color-border-subtle, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 16px 12px; display: flex; flex-direction: column; gap: 16px; height: fit-content;">
+    <div>
+      <h3 style="font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--color-text-primary, #0f172a); margin-bottom: 12px; padding-left: 8px;">Account Settings</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <button class="astryx-sidenav-item active" id="set-nav-btn-credentials" onclick="switchSettingsNav('credentials')">
+          <span>🔑</span>
+          <span>API &amp; Agent Keys</span>
+        </button>
 
-              <!-- Google Search Grounding Toggle -->
-              <div class="form-group toggle-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
-                <input type="checkbox" id="toggle-gemini-search" onchange="saveGeminiSearchGrounding()" checked style="width: 18px; height: 18px; cursor: pointer;">
-                <label for="toggle-gemini-search" style="font-weight: 500; cursor: pointer; margin-bottom: 0;">Enable Google Search Grounding</label>
-              </div>
-              <small class="form-help" style="margin-left: 28px; display: block; margin-top: -10px;">Allows the agent to search the live web and compile real-time dorking dossier intelligence.</small>
-            </div>
+        <button class="astryx-sidenav-item" id="set-nav-btn-lemlist" onclick="switchSettingsNav('lemlist')">
+          <span>⚡</span>
+          <span>Lemlist MCP</span>
+        </button>
 
-            <div class="glass-panel">
-              <div class="section-title">Other Platform Keys</div>
-              
-              <!-- Explorium Key -->
-              <div class="form-group">
-                <label for="settings-key-explorium">Explorium / AgentSource API Key</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="settings-key-explorium" placeholder="agentsource-..." onchange="syncExploriumKeyFromSettings()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-explorium', this)">Show</button>
-                </div>
-                <small class="form-help">Used for automated B2B enrichment pipelines on the Enrich tab.</small>
-              </div>
+        <button class="astryx-sidenav-item" id="set-nav-btn-google" onclick="switchSettingsNav('google')">
+          <span>📅</span>
+          <span>Google Email &amp; Calendar</span>
+        </button>
 
-              <!-- OpenAI Helper Key -->
-              <div class="form-group">
-                <label for="settings-key-openai">OpenAI API Key (Legacy Helper)</label>
-                <div class="key-input-container">
-                  <input type="password" class="input-control" id="settings-key-openai" placeholder="sk-..." onchange="syncOpenAIKeyFromSettings()">
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-openai', this)">Show</button>
-                </div>
-                <small class="form-help">Used as an alternative LLM helper for offline email drafting templates.</small>
-              </div>
+        <button class="astryx-sidenav-item" id="set-nav-btn-slack" onclick="switchSettingsNav('slack')">
+          <span>🔔</span>
+          <span>Slack Alerts</span>
+        </button>
 
-              <!-- Lemlist MCP Integration Section -->
-              <div style="margin-top: 20px; padding: 16px; border: 1px solid var(--color-border-subtle, #e2e8f0); border-radius: 8px; background: var(--color-bg-subtle, #f8fafc);">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="astryx-status-dot success" id="lemlist-mcp-status-dot" style="width: 10px; height: 10px;"></span>
-                    <strong style="font-size: 13.5px; color: var(--color-text-primary, #0f172a);">Lemlist MCP Server Integration</strong>
-                  </div>
-                  <span class="astryx-badge info" id="lemlist-mcp-badge">MCP Remote Transport</span>
-                </div>
+        <button class="astryx-sidenav-item" id="set-nav-btn-sandboxes" onclick="switchSettingsNav('sandboxes')">
+          <span>🧪</span>
+          <span>B2B Sandboxes</span>
+        </button>
 
-                <div class="form-group" style="margin-bottom: 10px;">
-                  <label for="settings-lemlist-email">Lemlist Account Email / Username</label>
-                  <input type="email" class="input-control" id="settings-lemlist-email" placeholder="user@domain.com" onchange="saveLemlistSettings()">
-                </div>
+        <button class="astryx-sidenav-item" id="set-nav-btn-calendly" onclick="switchSettingsNav('calendly')">
+          <span>🔗</span>
+          <span>Calendly Sync</span>
+        </button>
+      </div>
+    </div>
+  </aside>
 
-                <div class="form-group" style="margin-bottom: 10px;">
-                  <label for="key-lemlist-api">Lemlist API Key</label>
-                  <div class="key-input-container">
-                    <input type="password" class="input-control" id="key-lemlist-api" placeholder="apiKey_..." onchange="saveLemlistSettings()">
-                    <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-lemlist-api', this)">Show</button>
-                  </div>
-                  <small class="form-help">Find your Lemlist API Key under Settings ➔ Integrations in your Lemlist dashboard.</small>
-                </div>
+  <!-- ─── RIGHT CONTENT AREA (LayoutContent) ─── -->
+  <div style="display: flex; flex-direction: column; gap: 20px;">
 
-                <div class="form-group" style="margin-bottom: 10px;">
-                  <label for="settings-lemlist-mcp-command">MCP Command</label>
-                  <input type="text" class="input-control" id="settings-lemlist-mcp-command" placeholder="npx" value="npx" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
-                </div>
+    <!-- SECTION 1: API & AGENT KEYS -->
+    <div class="astryx-card set-panel-view active" id="set-panel-view-credentials">
+      <div class="astryx-card-header">
+        <h3 class="astryx-card-title">Autonomous Agent &amp; API Credentials</h3>
+        <span class="astryx-badge info">API Configurations</span>
+      </div>
 
-                <div class="form-group" style="margin-bottom: 14px;">
-                  <label for="settings-lemlist-mcp-args">MCP Remote Transport Target</label>
-                  <input type="text" class="input-control" id="settings-lemlist-mcp-args" placeholder="mcp-remote https://app.lemlist.com/mcp" value="mcp-remote https://app.lemlist.com/mcp" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
-                  <small class="form-help">Model Context Protocol (MCP) server configuration connecting JSON-RPC agent tools to Lemlist API.</small>
-                </div>
+      <!-- Gemini API Key -->
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="key-gemini" style="font-weight: 600; font-size: 13px;">Gemini API Key</label>
+        <div class="key-input-container" style="display: flex; gap: 8px; margin-top: 4px;">
+          <input type="password" class="input-control" id="key-gemini" placeholder="AIzaSy..." onchange="saveGeminiKey()" style="flex-grow: 1;">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-gemini', this)">Show</button>
+        </div>
+        <small class="form-help">Required for running live Agent Mode, real-time Google Search grounding (dorking), and dossier intelligence.</small>
+      </div>
 
-                <div style="display: flex; gap: 10px; align-items: center;">
-                  <button class="btn btn-primary btn-sm" type="button" onclick="testAndAuthenticateLemlistMCP()" style="display: flex; align-items: center; gap: 6px;">
-                    ⚡ Authenticate &amp; Connect Lemlist MCP
-                  </button>
-                  <button class="btn btn-secondary btn-sm" type="button" onclick="openSandbox('lemlist')">
-                    Inspect MCP Sandbox
-                  </button>
-                </div>
-              </div>
-            </div>
+      <!-- Gemini Model Selection -->
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="select-gemini-model" style="font-weight: 600; font-size: 13px;">Gemini Model Choice</label>
+        <select class="select-control" id="select-gemini-model" onchange="saveGeminiModel()" style="width: 100%; margin-top: 4px;">
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Fastest)</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro (Best for complex reasoning)</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        </select>
+        <small class="form-help">Select the LLM model to power your B2B research agent.</small>
+      </div>
 
-            <!-- Sandboxes -->
-            <div class="glass-panel" style="margin-top: 20px;">
-              <div class="section-title">B2B Integration Sandboxes</div>
-              <p class="section-desc" style="font-size: 11.5px; color: var(--muted); margin-bottom: 15px; line-height:1.5;">
-                Inspect database syncs, sent email outboxes, connection invitation notes, active sequences, and validation scores:
-              </p>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('apollo')" style="display:flex; align-items:center; gap:6px; justify-content:center;">Apollo.io</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('outlook')" style="display:flex; align-items:center; gap:6px; justify-content:center;">Outlook</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('linkedin')" style="display:flex; align-items:center; gap:6px; justify-content:center;">LinkedIn</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('lemlist')" style="display:flex; align-items:center; gap:6px; justify-content:center;">Lemlist</button>
-                <button class="btn btn-secondary btn-sm" onclick="openSandbox('zerobounce')" style="display:flex; align-items:center; gap:6px; justify-content:center;">ZeroBounce</button>
-              </div>
-            </div>
+      <!-- Google Search Grounding Toggle -->
+      <div class="form-group toggle-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+        <input type="checkbox" id="toggle-gemini-search" onchange="saveGeminiSearchGrounding()" checked style="width: 18px; height: 18px; cursor: pointer;">
+        <label for="toggle-gemini-search" style="font-weight: 600; font-size: 13px; cursor: pointer;">Enable Google Search Grounding</label>
+      </div>
 
-            <!-- Calendar & Calendly Integration Settings -->
-            <div class="glass-panel" style="margin-top: 20px;">
-              <div class="section-title">Calendar &amp; Calendly Integration</div>
-              
-              <div class="form-group">
-                <label for="settings-calendly-url">Personal Calendly Booking URL</label>
-                <input type="text" class="input-control" id="settings-calendly-url" placeholder="https://calendly.com/your-username/30min" value="https://calendly.com/aditya-dixit/30min" onchange="saveCalendlySettings()">
-                <small class="form-help">This link will be appended when you insert Calendly links into outbound drafts.</small>
-              </div>
+      <hr style="border: 0; border-top: 1px solid var(--color-border-subtle, #e2e8f0); margin: 20px 0;">
 
-              <div class="form-group" style="margin-top: 15px;">
-                <label for="settings-calendar-sync">Primary Sync Service</label>
-                <select class="select-control" id="settings-calendar-sync" onchange="saveCalendarSyncSettings()">
-                  <option value="google">Google Calendar (oAuth Simulated Sync)</option>
-                  <option value="apple">Apple Calendar (Local iCal / ICS Sync)</option>
-                  <option value="microsoft">Microsoft Outlook / Teams Calendar (Office 365 Sync)</option>
-                </select>
-                <small class="form-help">Determines target provider for simulated calendar synchronizations and event links.</small>
-              </div>
+      <!-- Explorium Key -->
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="settings-key-explorium" style="font-weight: 600; font-size: 13px;">Explorium / AgentSource API Key</label>
+        <div class="key-input-container" style="display: flex; gap: 8px; margin-top: 4px;">
+          <input type="password" class="input-control" id="settings-key-explorium" placeholder="agentsource-..." onchange="syncExploriumKeyFromSettings()" style="flex-grow: 1;">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-explorium', this)">Show</button>
+        </div>
+        <small class="form-help">Used for automated B2B enrichment pipelines on the Enrich tab.</small>
+      </div>
 
-              <div style="margin-top: 15px; border-top: 1px solid var(--hairline); padding-top: 15px;">
-                <button class="btn btn-secondary btn-sm" onclick="simulateCalendlyWebhook()" style="width: 100%; border-color: var(--brand-pink); color: var(--brand-pink);">Simulate Incoming Calendly Booking Webhook</button>
-                <small class="form-help" style="display: block; margin-top: 4px;">Simulates a prospect booking a slot on your Calendly page, instantly scheduling it in the system and firing a sync to your primary calendar.</small>
-              </div>
-            </div>
+      <!-- OpenAI Key -->
+      <div class="form-group">
+        <label for="settings-key-openai" style="font-weight: 600; font-size: 13px;">OpenAI API Key (Legacy Helper)</label>
+        <div class="key-input-container" style="display: flex; gap: 8px; margin-top: 4px;">
+          <input type="password" class="input-control" id="settings-key-openai" placeholder="sk-..." onchange="syncOpenAIKeyFromSettings()" style="flex-grow: 1;">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-openai', this)">Show</button>
+        </div>
+        <small class="form-help">Used as an alternative LLM helper for offline email drafting templates.</small>
+      </div>
+    </div>
 
-            <!-- Google Workspace (Calendar & Email) Integration -->
-            <div class="glass-panel" style="margin-top: 20px;">
-              <div class="section-title">Google Email (Gmail) &amp; Calendar Integrations</div>
-              <p class="section-desc" style="font-size: 12px; color: var(--color-text-secondary, #475569); margin-bottom: 14px; line-height: 1.5;">
-                <strong>Zero-Configuration Active Integration:</strong> Logging or signing into your account automatically connects your <strong>Google Email (Gmail)</strong> and <strong>Google Calendar</strong> services. No manual OAuth setup, Client IDs, or API keys required!
-              </p>
+    <!-- SECTION 2: LEMLIST MCP INTEGRATION -->
+    <div class="astryx-card set-panel-view" id="set-panel-view-lemlist" style="display: none;">
+      <div class="astryx-card-header">
+        <h3 class="astryx-card-title">Lemlist MCP Server Integration</h3>
+        <span class="astryx-badge info" id="lemlist-mcp-badge">MCP Remote Transport</span>
+      </div>
 
-              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px; border-radius: 8px; margin-bottom: 14px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="astryx-status-dot success" id="google-auto-status-dot"></span>
-                    <strong style="font-size: 13px; color: #166534;">Google Services Connected via Account Login</strong>
-                  </div>
-                  <span class="astryx-badge success" id="google-auto-badge">Auto-Active</span>
-                </div>
-                <ul style="font-size: 12px; color: #15803d; margin: 0; padding-left: 18px; line-height: 1.6;">
-                  <li>📅 <strong>Google Calendar:</strong> Automatically creates briefings and syncs meeting invites upon login.</li>
-                  <li>✉️ <strong>Google Email (Gmail):</strong> Sends personalized BDR outbound campaigns directly from your authenticated email.</li>
-                </ul>
-              </div>
+      <p style="font-size: 12.5px; color: var(--color-text-secondary, #475569); line-height: 1.5; margin-bottom: 16px;">
+        Model Context Protocol (MCP) server for Lemlist campaign sequence automation. Connect agent campaigns over JSON-RPC protocols.
+      </p>
 
-              <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 4px;">
-                <button class="btn btn-primary btn-sm" id="btn-connect-google-calendar" onclick="connectGoogleCalendarAccount()" style="display:flex; align-items:center; gap:6px;">
-                  ⚡ Verify &amp; Re-sync Active Session
-                </button>
-                <span id="google-calendar-status-text" style="font-size: 12px; color: var(--color-status-success, #10b981); font-weight: 600;">Status: Connected (Active Session)</span>
-              </div>
-            </div>
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label for="settings-lemlist-email" style="font-weight: 600; font-size: 13px;">Lemlist Account Email / Username</label>
+        <input type="email" class="input-control" id="settings-lemlist-email" placeholder="user@domain.com" onchange="saveLemlistSettings()" style="width: 100%; margin-top: 4px;">
+      </div>
 
-            <!-- Slack Webhook Live Integration -->
-            <div class="glass-panel" style="margin-top: 20px;">
-              <div class="section-title">Slack Notifications Integration</div>
-              <p class="section-desc" style="font-size: 11.5px; color: var(--muted); margin-bottom: 12px;">
-                Send real-time alerts to your team's Slack channel whenever a briefing is scheduled.
-              </p>
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label for="key-lemlist-api" style="font-weight: 600; font-size: 13px;">Lemlist API Key</label>
+        <div class="key-input-container" style="display: flex; gap: 8px; margin-top: 4px;">
+          <input type="password" class="input-control" id="key-lemlist-api" placeholder="apiKey_..." onchange="saveLemlistSettings()" style="flex-grow: 1;">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-lemlist-api', this)">Show</button>
+        </div>
+      </div>
 
-              <div class="form-group">
-                <label for="settings-slack-webhook-url">Slack Incoming Webhook URL</label>
-                <input type="text" class="input-control" id="settings-slack-webhook-url" placeholder="https://hooks.slack.com/services/T00/B00/XXXX" onchange="saveSlackWebhookUrl()">
-                <small class="form-help">Create an Incoming Webhook in your Slack Workspace settings.</small>
-              </div>
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label for="settings-lemlist-mcp-command" style="font-weight: 600; font-size: 13px;">MCP Command</label>
+        <input type="text" class="input-control" id="settings-lemlist-mcp-command" placeholder="npx" value="npx" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px; width: 100%; margin-top: 4px;">
+      </div>
 
-              <div style="margin-top: 12px;">
-                <button class="btn btn-secondary btn-sm" onclick="testSlackWebhookNotification()" style="width: 100%;">Test Slack Webhook Alert</button>
-              </div>
-            </div>
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="settings-lemlist-mcp-args" style="font-weight: 600; font-size: 13px;">MCP Remote Transport Target</label>
+        <input type="text" class="input-control" id="settings-lemlist-mcp-args" placeholder="mcp-remote https://app.lemlist.com/mcp" value="mcp-remote https://app.lemlist.com/mcp" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px; width: 100%; margin-top: 4px;">
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-primary btn-sm" type="button" onclick="testAndAuthenticateLemlistMCP()" style="display: flex; align-items: center; gap: 6px;">
+          ⚡ Authenticate &amp; Connect Lemlist MCP
+        </button>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="openSandbox('lemlist')">
+          Inspect MCP Sandbox
+        </button>
+      </div>
+    </div>
+
+    <!-- SECTION 3: GOOGLE EMAIL & CALENDAR -->
+    <div class="astryx-card set-panel-view" id="set-panel-view-google" style="display: none;">
+      <div class="astryx-card-header">
+        <h3 class="astryx-card-title">Google Email (Gmail) &amp; Calendar Integrations</h3>
+        <span class="astryx-badge success">Zero-OAuth Active</span>
+      </div>
+
+      <p style="font-size: 12.5px; color: var(--color-text-secondary, #475569); line-height: 1.5; margin-bottom: 16px;">
+        <strong>Zero-Configuration Integration:</strong> Signing or logging into your account automatically binds your <strong>Google Email (Gmail)</strong> and <strong>Google Calendar</strong> services directly to your session. No manual OAuth setup or API keys required!
+      </p>
+
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="astryx-status-dot success" id="google-auto-status-dot"></span>
+            <strong style="font-size: 13.5px; color: #166534;">Google Workspace Connected via Account Session</strong>
           </div>
+          <span class="astryx-badge success">Auto-Active</span>
+        </div>
+        <ul style="font-size: 12px; color: #15803d; margin: 0; padding-left: 18px; line-height: 1.6;">
+          <li>📅 <strong>Google Calendar:</strong> Automatically creates briefings and syncs meeting invites upon login.</li>
+          <li>✉️ <strong>Google Email (Gmail):</strong> Dispatches personalized BDR cold outreach campaigns directly from your authenticated email.</li>
+        </ul>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <button class="btn btn-primary btn-sm" id="btn-connect-google-calendar" onclick="connectGoogleCalendarAccount()" style="display:flex; align-items:center; gap:6px;">
+          ⚡ Verify &amp; Re-sync Active Session
+        </button>
+        <span id="google-calendar-status-text" style="font-size: 12.5px; color: var(--color-status-success, #10b981); font-weight: 600;">Status: Connected (Active Session)</span>
+      </div>
+    </div>
+
+    <!-- SECTION 4: SLACK ALERTS -->
+    <div class="astryx-card set-panel-view" id="set-panel-view-slack" style="display: none;">
+      <div class="astryx-card-header">
+        <h3 class="astryx-card-title">Slack Notifications Integration</h3>
+        <span class="astryx-badge info">Incoming Webhook</span>
+      </div>
+
+      <p style="font-size: 12.5px; color: var(--color-text-secondary, #475569); line-height: 1.5; margin-bottom: 16px;">
+        Send real-time alerts to your team's Slack channel whenever a briefing or meeting is scheduled.
+      </p>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="settings-slack-webhook-url" style="font-weight: 600; font-size: 13px;">Slack Incoming Webhook URL</label>
+        <input type="text" class="input-control" id="settings-slack-webhook-url" placeholder="https://hooks.slack.com/services/T00/B00/XXXX" onchange="saveSlackWebhookUrl()" style="width: 100%; margin-top: 4px;">
+        <small class="form-help">Create an Incoming Webhook in your Slack Workspace settings.</small>
+      </div>
+
+      <button class="btn btn-secondary btn-sm" onclick="testSlackWebhookNotification()" style="width: 100%;">Test Slack Webhook Alert</button>
+    </div>
+
+    <!-- SECTION 5: B2B SANDBOXES -->
+    <div class="astryx-card set-panel-view" id="set-panel-view-sandboxes" style="display: none;">
+      <div class="astryx-card-header">
+        <h3 class="astryx-card-title">B2B Integration Sandboxes</h3>
+        <span class="astryx-badge info">API Inspectors</span>
+      </div>
+
+      <p style="font-size: 12.5px; color: var(--color-text-secondary, #475569); line-height: 1.5; margin-bottom: 16px;">
+        Inspect live database syncs, sent email outboxes, connection invitation notes, active sequences, and validation scores:
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+        <button class="btn btn-secondary btn-sm" onclick="openSandbox('apollo')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🚀 Apollo.io</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSandbox('outlook')" style="display:flex; align-items:center; gap:6px; justify-content:center;">📧 Outlook</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSandbox('linkedin')" style="display:flex; align-items:center; gap:6px; justify-content:center;">💼 LinkedIn</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSandbox('lemlist')" style="display:flex; align-items:center; gap:6px; justify-content:center;">⚡ Lemlist</button>
+        <button class="btn btn-secondary btn-sm" onclick="openSandbox('zerobounce')" style="display:flex; align-items:center; gap:6px; justify-content:center;">🛡️ ZeroBounce</button>
+      </div>
+    </div>
+
+    <!-- SECTION 6: CALENDLY SYNC -->
+    <div class="astryx-card set-panel-view" id="set-panel-view-calendly" style="display: none;">
+      <div class="astryx-card-header">
+        <h3 class="astryx-card-title">Calendly Booking Integration</h3>
+        <span class="astryx-badge info">Booking Webhook</span>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="settings-calendly-url" style="font-weight: 600; font-size: 13px;">Personal Calendly Booking URL</label>
+        <input type="text" class="input-control" id="settings-calendly-url" placeholder="https://calendly.com/your-username/30min" value="https://calendly.com/aditya-dixit/30min" onchange="saveCalendlySettings()" style="width: 100%; margin-top: 4px;">
+        <small class="form-help">This link is appended when you insert Calendly links into outbound drafts and influencer portal meeting links.</small>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="settings-calendar-sync" style="font-weight: 600; font-size: 13px;">Primary Calendar Provider</label>
+        <select class="select-control" id="settings-calendar-sync" onchange="saveCalendarSyncSettings()" style="width: 100%; margin-top: 4px;">
+          <option value="google">Google Calendar (Active Session Sync)</option>
+          <option value="apple">Apple Calendar (Local iCal / ICS Sync)</option>
+          <option value="microsoft">Microsoft Outlook / Teams Calendar (Office 365 Sync)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-secondary btn-sm" onclick="simulateCalendlyWebhook()" style="width: 100%; border-color: var(--color-brand-accent, #2563eb); color: var(--color-brand-accent, #2563eb);">
+        ⚡ Simulate Incoming Calendly Booking Webhook
+      </button>
+    </div>
+
+  </div>
+</div>
