@@ -297,18 +297,25 @@ async function bootstrapApp() {
 function switchTab(tabId) {
   window.currentTabId = tabId;
 
+  // Hide main app sidebar when on Settings page
+  const sidebar = document.getElementById("sidebar-panel");
+  const backBtn = document.getElementById("btn-back-from-settings");
+
+  if (tabId === 'settings-keys') {
+    if (sidebar) sidebar.style.display = "none";
+    if (backBtn) backBtn.style.display = "inline-flex";
+  } else {
+    if (sidebar) sidebar.style.display = "flex";
+    if (backBtn) backBtn.style.display = "none";
+  }
+
   // Toggle active tab buttons in navigation
-  document.querySelectorAll(".subtab-btn").forEach(btn => {
+  document.querySelectorAll(".subtab-btn, .astryx-sidenav-item").forEach(btn => {
     btn.classList.remove("active");
   });
   const activeBtn = document.getElementById(`tab-btn-${tabId}`);
   if (activeBtn) {
     activeBtn.classList.add("active");
-    // Ensure parent category group is expanded
-    const categoryGroup = activeBtn.closest(".nav-category-group");
-    if (categoryGroup && !categoryGroup.classList.contains("expanded")) {
-      categoryGroup.classList.add("expanded");
-    }
   }
 
   // Toggle active main sections
