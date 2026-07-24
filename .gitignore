@@ -16,3 +16,7 @@ __pycache__/
 # Classified data sources
 master_merged_data.csv
 *.csv
+
+# Node modules & Vercel
+node_modules/
+.vercel/
