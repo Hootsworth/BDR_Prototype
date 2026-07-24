@@ -197,18 +197,31 @@ function renderLemlistSandbox(viewport) {
         <td style="padding:8px;"><code>${c.email}</code></td>
         <td style="padding:8px; font-family:monospace;">#lemlist_${template}</td>
         <td style="padding:8px; color:var(--brand-coral); font-weight:bold;">100% (Sent)</td>
-        <td style="padding:8px; color:var(--muted); font-size:11px;">Draft Review Only</td>
+        <td style="padding:8px; color:var(--muted); font-size:11px;">MCP Sequence Active ⚡</td>
       </tr>
     `;
   });
 
+  const isConnected = database.lemlistConnected;
+  const statusBadge = isConnected ? '<span class="badge badge-success" style="background:#dcfce7; color:#166534; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700;">Connected ✓</span>' : '<span class="badge badge-warning" style="background:#fef3c7; color:#92400e; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700;">Auth Pending</span>';
+
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">⚡ Lemlist Campaigns Dashboard</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">View prospective sequences pushed from GTM Console. Total Pushed: <strong>${enrolled.length}</strong>. Direct dispatch is locked under review guardrails.</p>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <h3 style="text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin:0;">⚡ Lemlist MCP Server Integration</h3>
+        ${statusBadge}
+      </div>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">Model Context Protocol (MCP) server for Lemlist automated campaign sequencing. Total Leads Enrolled: <strong>${enrolled.length}</strong>.</p>
       
-      <div style="background:#f8f9fa; border:1px solid var(--hairline); border-radius: var(--radius-sm); padding:10px 14px; margin-bottom:16px; font-size:11.5px; text-align:left;">
-        <span style="font-weight:600; color:var(--ink);">Active MCP Server:</span> <code>${database.lemlistMcpCommand} ${database.lemlistMcpArgs}</code>
+      <div style="background:var(--surface-soft, #f8fafc); border:1px solid var(--hairline, #e2e8f0); border-radius: var(--radius-sm, 6px); padding:12px 16px; margin-bottom:16px; font-size:12px; text-align:left; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div><strong>Authenticated Account:</strong> <code>${database.lemlistEmail || 'Not Authenticated'}</code></div>
+        <div><strong>API Key Status:</strong> <code>${database.lemlistApiKey ? 'Configured (apiKey_***)' : 'Missing Key'}</code></div>
+        <div style="grid-column: span 2;"><strong>MCP Remote Transport:</strong> <code>${database.lemlistMcpCommand || 'npx'} ${database.lemlistMcpArgs || 'mcp-remote https://app.lemlist.com/mcp'}</code></div>
+      </div>
+
+      <div style="background:#0f172a; color:#38bdf8; font-family:monospace; font-size:11px; padding:10px 14px; border-radius:6px; margin-bottom:16px; line-height:1.5;">
+        <div>--> {"jsonrpc":"2.0","method":"tools/list","params":{}}</div>
+        <div style="color:#4ade80;"><-- {"jsonrpc":"2.0","result":{"tools":["enroll_contact","list_campaigns","get_outbox_stats"]}}</div>
       </div>
 
       <table style="width:100%; border-collapse:collapse; font-size:12px;">
@@ -222,7 +235,7 @@ function renderLemlistSandbox(viewport) {
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="5" style="padding:30px; text-align:center; color:var(--muted);">No sequences synced yet. Start campaign flows in Agent Mode.</td></tr>'}
+          ${rows || '<tr><td colspan="5" style="padding:24px; text-align:center; color:var(--muted);">No sequences enrolled yet. Enroll contacts via Outbound or Agent Mode.</td></tr>'}
         </tbody>
       </table>
     </div>

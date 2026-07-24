@@ -55,15 +55,49 @@
                 <small class="form-help">Used as an alternative LLM helper for offline email drafting templates.</small>
               </div>
 
-              <!-- Lemlist MCP Server Configuration -->
-              <div class="form-group" style="margin-top: 15px;">
-                <label for="settings-lemlist-mcp-command">Lemlist MCP Server Command</label>
-                <input type="text" class="input-control" id="settings-lemlist-mcp-command" placeholder="npx" value="npx" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
-              </div>
-              <div class="form-group" style="margin-top: 10px;">
-                <label for="settings-lemlist-mcp-args">Lemlist MCP Server Arguments</label>
-                <input type="text" class="input-control" id="settings-lemlist-mcp-args" placeholder="mcp-remote https://app.lemlist.com/mcp" value="mcp-remote https://app.lemlist.com/mcp" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
-                <small class="form-help">Model Context Protocol (MCP) server configuration. Connects agent campaigns dynamically over JSON-RPC protocols.</small>
+              <!-- Lemlist MCP Integration Section -->
+              <div style="margin-top: 20px; padding: 16px; border: 1px solid var(--color-border-subtle, #e2e8f0); border-radius: 8px; background: var(--color-bg-subtle, #f8fafc);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="astryx-status-dot success" id="lemlist-mcp-status-dot" style="width: 10px; height: 10px;"></span>
+                    <strong style="font-size: 13.5px; color: var(--color-text-primary, #0f172a);">Lemlist MCP Server Integration</strong>
+                  </div>
+                  <span class="astryx-badge info" id="lemlist-mcp-badge">MCP Remote Transport</span>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                  <label for="settings-lemlist-email">Lemlist Account Email / Username</label>
+                  <input type="email" class="input-control" id="settings-lemlist-email" placeholder="user@domain.com" onchange="saveLemlistSettings()">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                  <label for="key-lemlist-api">Lemlist API Key</label>
+                  <div class="key-input-container">
+                    <input type="password" class="input-control" id="key-lemlist-api" placeholder="apiKey_..." onchange="saveLemlistSettings()">
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-lemlist-api', this)">Show</button>
+                  </div>
+                  <small class="form-help">Find your Lemlist API Key under Settings ➔ Integrations in your Lemlist dashboard.</small>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 10px;">
+                  <label for="settings-lemlist-mcp-command">MCP Command</label>
+                  <input type="text" class="input-control" id="settings-lemlist-mcp-command" placeholder="npx" value="npx" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label for="settings-lemlist-mcp-args">MCP Remote Transport Target</label>
+                  <input type="text" class="input-control" id="settings-lemlist-mcp-args" placeholder="mcp-remote https://app.lemlist.com/mcp" value="mcp-remote https://app.lemlist.com/mcp" onchange="saveLemlistMcpConfig()" style="font-family: monospace; font-size: 12.5px;">
+                  <small class="form-help">Model Context Protocol (MCP) server configuration connecting JSON-RPC agent tools to Lemlist API.</small>
+                </div>
+
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <button class="btn btn-primary btn-sm" type="button" onclick="testAndAuthenticateLemlistMCP()" style="display: flex; align-items: center; gap: 6px;">
+                    ⚡ Authenticate &amp; Connect Lemlist MCP
+                  </button>
+                  <button class="btn btn-secondary btn-sm" type="button" onclick="openSandbox('lemlist')">
+                    Inspect MCP Sandbox
+                  </button>
+                </div>
               </div>
             </div>
 

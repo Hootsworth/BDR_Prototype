@@ -24,10 +24,10 @@
         </select>
       </div>
       <div class="portal-link-share-box">
-        <span class="share-code-label">Referral Link:</span>
+        <span class="share-code-label">Personalized Meeting Calendar Link:</span>
         <div class="share-code-input-group">
-          <input type="text" class="input-control" id="portal-referral-link" value="https://gtm-console.app/ref/BOBM2026" readonly>
-          <button class="btn btn-secondary" onclick="copyPortalReferralLink()">Copy</button>
+          <input type="text" class="input-control" id="portal-meeting-calendar-link" value="https://calendly.com/aditya-dixit/30min?influencer=Bob+Miller" readonly style="font-family: monospace; font-size: 12px;">
+          <button class="btn btn-secondary" onclick="copyPortalCalendarLink()">Copy Calendar Link</button>
         </div>
       </div>
     </div>
@@ -39,7 +39,7 @@
       Influencer Dashboard &amp; Rewards
     </button>
     <button class="portal-tab-btn" id="btn-portal-tab-submit" onclick="switchPortalSubtab('submit')">
-      Submit Contact Referral
+      Personalized Meeting Links &amp; Invites
     </button>
     <button class="portal-tab-btn" id="btn-portal-tab-linkedin" onclick="switchPortalSubtab('linkedin')">
       LinkedIn Network Assistant
@@ -210,67 +210,73 @@
   </div>
 
 
-  <!-- ════ SUBTAB 2: SUBMIT CONTACT FORM ════ -->
+  <!-- ════ SUBTAB 2: PERSONALIZED MEETING LINKS & INVITE CARDS ════ -->
   <div class="portal-subtab-view" id="portal-subtab-view-submit">
     <div class="glass-panel submit-form-card">
       <div class="form-card-header">
-        <h3>Submit Contact Information</h3>
-        <p>Provide contact details for an industry peer, client, or decision maker in your network. You will receive <strong>+25 credits</strong> upon submission.</p>
+        <h3>Personalized Meeting Calendar Link Generator</h3>
+        <p>Share your branded calendar link with prospective contacts. Your influencer label is embedded directly inside the calendar invitation so the contact immediately knows the meeting invite comes from you.</p>
       </div>
 
-      <form id="portal-submit-contact-form" onsubmit="handlePortalContactSubmission(event)">
-        <div class="portal-form-grid">
-
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+        
+        <!-- Left: Link Configuration -->
+        <div style="display: flex; flex-direction: column; gap: 14px;">
           <div class="form-group">
-            <label for="portal-input-fullname">Full Name *</label>
-            <input type="text" class="input-control" id="portal-input-fullname" placeholder="e.g. David Vance" required>
-          </div>
-
-          <div class="form-group">
-            <label for="portal-input-title">Job Title *</label>
-            <input type="text" class="input-control" id="portal-input-title" placeholder="e.g. VP of Information Technology" required>
+            <label for="portal-input-label-tag">Your Influencer Label / Sponsor Tag *</label>
+            <input type="text" class="input-control" id="portal-input-label-tag" value="Bob Miller (Gold Partner)" oninput="updatePersonalizedCalendarLink()" placeholder="e.g. Bob Miller (Miller Advisory)">
+            <small class="form-help">This label appears on the top header of the prospect's meeting calendar invite.</small>
           </div>
 
           <div class="form-group">
-            <label for="portal-input-company">Company / Credit Union *</label>
-            <input type="text" class="input-control" id="portal-input-company" placeholder="e.g. First National Credit Union" required>
+            <label>Generated Personalized Calendar Link</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="input-control" id="portal-gen-calendar-url" value="https://calendly.com/aditya-dixit/30min?influencer=Bob+Miller" readonly style="font-family: monospace; font-size: 12px; flex-grow: 1;">
+              <button class="btn btn-primary btn-sm" onclick="copyPortalCalendarLink()">Copy Link</button>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="portal-input-email">Email Address *</label>
-            <input type="email" class="input-control" id="portal-input-email" placeholder="e.g. dvance@firstnationalcu.org" required>
+          <div style="padding: 14px; border: 1px solid var(--color-border-subtle, #e2e8f0); border-radius: 8px; background: var(--color-bg-subtle, #f8fafc); font-size: 12.5px; color: var(--color-text-secondary, #475569); line-height: 1.5;">
+            <strong>🎁 How Rewards Work:</strong><br>
+            When a contact clicks your link and schedules a meeting on Calendly, your tag is recorded on the booking. You automatically earn <strong>+100 Credits</strong> per confirmed meeting!
           </div>
 
-          <div class="form-group">
-            <label for="portal-input-phone">Phone Number (Optional)</label>
-            <input type="text" class="input-control" id="portal-input-phone" placeholder="e.g. +1 (555) 234-5678">
-          </div>
-
-          <div class="form-group">
-            <label for="portal-input-linkedin">LinkedIn Profile URL (Optional)</label>
-            <input type="url" class="input-control" id="portal-input-linkedin" placeholder="e.g. https://linkedin.com/in/david-vance">
-          </div>
-
-          <div class="form-group full-width">
-            <label for="portal-input-notes">Relationship Context / Introduction Notes</label>
-            <textarea class="input-control" id="portal-input-notes" rows="3" placeholder="How do you know this contact? (e.g. Worked together on core system migration)."></textarea>
-          </div>
-
-          <div class="form-group full-width" style="margin-top: 6px; padding: 12px; border: 1.5px solid var(--hairline-soft, #e7e5e4); border-radius: 8px; background: var(--surface-soft, #faf5e8);">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--ink); cursor: pointer;">
-              <input type="checkbox" id="portal-input-autoenrich" style="width: 16px; height: 16px; cursor: pointer;">
-              ⚡ Automatically Enrich Contact upon submission (Uses 15 Credits)
-            </label>
-            <span style="font-size: 12px; color: var(--muted); margin-left: 24px; display: block; margin-top: 2px;">Instantly performs B2B background check, verifies email/phone, and pulls company asset intelligence.</span>
-          </div>
-
+          <button class="btn btn-secondary btn-sm" onclick="simulateProspectBooking()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px;">
+            ⚡ Simulate Contact Meeting Booking (+100 Credits Test)
+          </button>
         </div>
 
-        <div class="portal-form-footer">
-          <button type="button" class="btn btn-secondary" onclick="switchPortalSubtab('dashboard')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit Contact (+25 Credits)</button>
+        <!-- Right: Live Meeting Invite Card Preview -->
+        <div style="padding: 20px; border: 1px solid var(--color-border-default, #cbd5e1); border-radius: 12px; background: var(--color-bg-surface, #ffffff); box-shadow: var(--elevation-sm, 0 1px 3px rgba(0,0,0,0.05));">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed var(--color-border-subtle, #e2e8f0);">
+            <span class="astryx-badge info" style="font-size: 11px;">Prospect Invite View</span>
+            <span class="astryx-status-dot success"></span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-brand-primary, #0f172a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">
+              ⚡
+            </div>
+            <div>
+              <h4 style="font-size: 14px; font-weight: 700; color: var(--color-text-primary, #0f172a); margin: 0;">Executive BDR Briefing (30 Min)</h4>
+              <p style="font-size: 11.5px; color: var(--color-text-muted, #64748b); margin: 0;">Hosted by Aditya Dixit (VP of Sales)</p>
+            </div>
+          </div>
+
+          <div style="padding: 10px 12px; border-radius: 6px; background: #eff6ff; border: 1px solid #bfdbfe; margin-bottom: 12px; font-size: 12px; color: #1e40af;">
+            🤝 <strong>Introduced by:</strong> <span id="preview-inf-label" style="font-weight: 700;">Bob Miller (Gold Partner)</span>
+          </div>
+
+          <p style="font-size: 12px; color: var(--color-text-secondary, #475569); line-height: 1.5; margin-bottom: 12px;">
+            "You have been personally introduced by <strong id="preview-inf-name">Bob Miller</strong> to connect with our GTM team. Select a convenient 30-minute slot on the calendar below."
+          </p>
+
+          <div style="padding: 10px; border-radius: 6px; background: var(--color-bg-subtle, #f8fafc); text-align: center; font-size: 11.5px; color: var(--color-text-muted, #64748b); border: 1px solid var(--color-border-subtle, #e2e8f0);">
+            📅 Interactive Calendly Time Slot Picker Ready
+          </div>
         </div>
-      </form>
+
+      </div>
     </div>
   </div>
 

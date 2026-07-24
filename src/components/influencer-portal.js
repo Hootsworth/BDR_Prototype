@@ -71,7 +71,11 @@ function renderInfluencerPortal() {
   const companyEl = document.getElementById("portal-inf-company");
   const initialsEl = document.getElementById("portal-inf-initials");
   const tierEl = document.getElementById("portal-inf-tier");
-  const linkInput = document.getElementById("portal-referral-link");
+  const linkInput = document.getElementById("portal-meeting-calendar-link");
+  const genLinkInput = document.getElementById("portal-gen-calendar-url");
+  const labelTagInput = document.getElementById("portal-input-label-tag");
+  const previewLabelEl = document.getElementById("preview-inf-label");
+  const previewNameEl = document.getElementById("preview-inf-name");
 
   if (nameEl) nameEl.textContent = inf.fullName;
   if (companyEl) companyEl.textContent = `${inf.jobTitle || 'Advisor'} • ${inf.company || ''} (${inf.email})`;
@@ -79,10 +83,15 @@ function renderInfluencerPortal() {
     const parts = inf.fullName.split(" ");
     initialsEl.textContent = (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
   }
-  if (linkInput) {
-    const cleanCode = inf.firstName.toUpperCase() + "2026";
-    linkInput.value = `https://gtm-console.app/ref/${cleanCode}`;
-  }
+
+  const calendlyBase = database.calendlyUrl || 'https://calendly.com/aditya-dixit/30min';
+  const personalizedUrl = `${calendlyBase}?influencer=${encodeURIComponent(inf.fullName)}`;
+
+  if (linkInput) linkInput.value = personalizedUrl;
+  if (genLinkInput) genLinkInput.value = personalizedUrl;
+  if (labelTagInput) labelTagInput.value = `${inf.fullName} (Gold Partner)`;
+  if (previewLabelEl) previewLabelEl.textContent = `${inf.fullName} (Gold Partner)`;
+  if (previewNameEl) previewNameEl.textContent = inf.fullName;
 
   // Tier calculation
   const totalCredits = inf.referralCredits || 0;
@@ -468,13 +477,64 @@ function submitLinkedInSuggestion(sugId) {
   renderInfluencerPortal();
 }
 
-function copyPortalReferralLink() {
-  const input = document.getElementById("portal-referral-link");
+function copyPortalCalendarLink() {
+  const input = document.getElementById("portal-meeting-calendar-link") || document.getElementById("portal-gen-calendar-url");
   if (input) {
     input.select();
     navigator.clipboard.writeText(input.value);
-    showPortalToast("Copied referral link to clipboard!");
+    showPortalToast("Copied personalized calendar link to clipboard!");
   }
+}
+
+function updatePersonalizedCalendarLink() {
+  const labelInput = document.getElementById("portal-input-label-tag");
+  const genInput = document.getElementById("portal-gen-calendar-url");
+  const previewLabel = document.getElementById("preview-inf-label");
+  const previewName = document.getElementById("preview-inf-name");
+  const inf = getActiveInfluencer();
+  if (!inf) return;
+
+  const customLabel = labelInput ? labelInput.value.trim() : `${inf.fullName} (Gold Partner)`;
+  const calendlyBase = database.calendlyUrl || 'https://calendly.com/aditya-dixit/30min';
+  const personalizedUrl = `${calendlyBase}?influencer=${encodeURIComponent(customLabel)}`;
+
+  if (genInput) genInput.value = personalizedUrl;
+  if (previewLabel) previewLabel.textContent = customLabel;
+  if (previewName) previewName.textContent = inf.fullName;
+}
+
+function simulateProspectBooking() {
+  const inf = getActiveInfluencer();
+  if (!inf) return;
+
+  const mockNames = ["Samantha Cole", "Jason Hayes", "Robert Vance", "Elena Rostova", "Marcus Thorne"];
+  const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
+  const cleanFirst = randomName.split(" ")[0].toLowerCase();
+  const mockEmail = `${cleanFirst}@firstnationalcu.org`;
+
+  const newRef = {
+    fullName: randomName,
+    jobTitle: "VP of Digital Transformation",
+    company: "First National Credit Union",
+    email: mockEmail,
+    credits: 100,
+    status: "Meeting Booked",
+    date: new Date().toLocaleDateString()
+  };
+
+  if (!inf.referrals) inf.referrals = [];
+  inf.referrals.push(newRef);
+  inf.referralCredits = (inf.referralCredits || 0) + 100;
+
+  saveDatabaseCache();
+  addLogConsole("enrich", `[CALENDLY BOOKING] Prospect ${randomName} booked a meeting using ${inf.fullName}'s calendar link! +100 Credits awarded to ${inf.fullName}.`, "success");
+  showPortalToast(`🎉 Meeting Booked! ${randomName} booked via your link (+100 Credits)`);
+
+  renderInfluencerPortal();
+}
+
+function copyPortalReferralLink() {
+  copyPortalCalendarLink();
 }
 
 function showPortalToast(message) {
@@ -503,4 +563,7 @@ window.handleRedeemReward = handleRedeemReward;
 window.toggleLinkedInConnection = toggleLinkedInConnection;
 window.submitLinkedInSuggestion = submitLinkedInSuggestion;
 window.copyPortalReferralLink = copyPortalReferralLink;
+window.copyPortalCalendarLink = copyPortalCalendarLink;
+window.updatePersonalizedCalendarLink = updatePersonalizedCalendarLink;
+window.simulateProspectBooking = simulateProspectBooking;
 window.enrichReferralWithCredits = enrichReferralWithCredits;
