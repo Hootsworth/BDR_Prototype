@@ -10,7 +10,6 @@ const componentsList = {
   'campaign-outbound': 'components/campaign-outbound.html',
   'campaign-schedule': 'components/campaign-schedule.html',
   'events-list': 'components/events-list.html',
-  'events-register': 'components/events-register.html',
   'settings-keys': 'components/settings-keys.html',
   'agent-mode': 'components/agent-mode.html'
 };
@@ -39,8 +38,9 @@ async function loadComponentTemplates() {
     if (response.ok) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = await response.text();
-      // Append dialogs to body
-      document.body.appendChild(tempDiv);
+      while (tempDiv.firstChild) {
+        document.body.appendChild(tempDiv.firstChild);
+      }
     }
   } catch (err) {
     console.error('Error loading dialog templates:', err);
@@ -294,8 +294,24 @@ async function bootstrapApp() {
   if (typeof loadClerkSDK === "function") loadClerkSDK();
 }
 
+let lastActiveTabId = 'dashboard';
+
 function switchTab(tabId) {
+  if (window.currentTabId && window.currentTabId !== 'settings-keys') {
+    lastActiveTabId = window.currentTabId;
+  }
   window.currentTabId = tabId;
+
+  const sidebar = document.getElementById("sidebar-panel");
+  const mainHeader = document.querySelector(".main-content-wrapper > header");
+
+  if (tabId === 'settings-keys') {
+    if (sidebar) sidebar.style.display = "none";
+    if (mainHeader) mainHeader.style.display = "none";
+  } else {
+    if (sidebar) sidebar.style.display = "flex";
+    if (mainHeader) mainHeader.style.display = "flex";
+  }
 
   // Toggle active tab buttons in navigation
   document.querySelectorAll(".subtab-btn, .astryx-sidenav-item").forEach(btn => {
@@ -304,7 +320,6 @@ function switchTab(tabId) {
   const activeBtn = document.getElementById(`tab-btn-${tabId}`);
   if (activeBtn) {
     activeBtn.classList.add("active");
-    // Ensure parent category group is expanded
     const categoryGroup = activeBtn.closest(".nav-category-group");
     if (categoryGroup && !categoryGroup.classList.contains("expanded")) {
       categoryGroup.classList.add("expanded");
@@ -493,17 +508,126 @@ function toggleNotificationDropdown() {
 
 function clearNotifications() {
   const list = document.getElementById("notification-list");
-  const badge = document.getElementById("notification-badge-dot");
-  if (list) {
-    list.innerHTML = `<div class="feed-empty-state" style="border:none; background:transparent;">No new notifications.</div>`;
+  const countBadge = document.getElementById("notification-count");
+  if (list) list.innerHTML = `<div style="padding: 12px; font-size: 12px; color: var(--color-text-secondary); text-align: center;">No new notifications</div>`;
+  if (countBadge) countBadge.textContent = "0";
+}
+
+function returnFromSettings() {
+  const targetTab = lastActiveTabId || 'dashboard';
+  switchTab(targetTab);
+}
+
+// --- CATEGORY 2: GLOBAL COMMAND PALETTE (CMD+K) ---
+function initCommandPaletteKeyListeners() {
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      openCommandPalette();
+    } else if (e.key === "Escape") {
+      closeCommandPalette();
+    }
+  });
+}
+
+function openCommandPalette() {
+  const modal = document.getElementById("command-palette-modal");
+  const input = document.getElementById("cmd-palette-input");
+  if (!modal || !input) return;
+
+  modal.style.display = "flex";
+  input.value = "";
+  input.focus();
+  handleCommandPaletteSearch("");
+}
+
+function closeCommandPalette() {
+  const modal = document.getElementById("command-palette-modal");
+  if (modal) modal.style.display = "none";
+}
+
+function handleCommandPaletteSearch(query) {
+  const resultsContainer = document.getElementById("cmd-palette-results");
+  if (!resultsContainer) return;
+
+  const q = query.trim().toLowerCase();
+
+  const tabCommands = [
+    { title: "Dashboard", subtitle: "Jump to main GTM metrics & campaign status", tab: "dashboard", icon: "📊" },
+    { title: "Agent Control Mode", subtitle: "Autonomous 12-node GTM orchestrator & DAG visualizer", tab: "agent-mode", icon: "🤖" },
+    { title: "Data Enrichment", subtitle: "Bulk enrich contacts via Explorium API", tab: "enrich", icon: "⚡" },
+    { title: "Outbound Sequences", subtitle: "Build and dispatch multi-channel outreach campaigns", tab: "campaign-outbound", icon: "📧" },
+    { title: "Analytics & Funnel", subtitle: "Full-funnel conversion attribution & velocity reports", tab: "analytics", icon: "📈" },
+    { title: "Influencer Portal", subtitle: "Affiliate rewards, referrals, and LinkedIn matching", tab: "influencers", icon: "🌟" },
+    { title: "Global Settings & Keys", subtitle: "Manage API keys, models, and CRM integrations", tab: "settings-keys", icon: "⚙️" }
+  ];
+
+  let html = "";
+
+  // 1. Filter Tab Navigations
+  const matchingTabs = tabCommands.filter(t => t.title.toLowerCase().includes(q) || t.subtitle.toLowerCase().includes(q));
+  if (matchingTabs.length > 0) {
+    html += `<div style="padding: 6px 16px; font-size: 11px; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Navigation & Tools</div>`;
+    matchingTabs.forEach(t => {
+      html += `
+        <div onclick="runCommandPaletteAction('nav', '${t.tab}')" style="padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--color-border);" onmouseover="this.style.background='var(--surface-soft, #f0efed)'" onmouseout="this.style.background='transparent'">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 16px;">${t.icon}</span>
+            <div>
+              <strong style="font-size: 13.5px; color: var(--color-text-primary); display: block;">${t.title}</strong>
+              <span style="font-size: 11.5px; color: var(--color-text-secondary);">${t.subtitle}</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; color: var(--color-text-secondary); background: var(--surface-card); border: 1px solid var(--color-border); padding: 2px 6px; border-radius: 4px;">Jump</span>
+        </div>
+      `;
+    });
   }
-  if (badge) {
-    badge.style.display = "none";
+
+  // 2. Filter Database Leads
+  if (database.contacts && database.contacts.length > 0 && q.length > 0) {
+    const matchingLeads = database.contacts.filter(c => c.fullName.toLowerCase().includes(q) || (c.company && c.company.toLowerCase().includes(q))).slice(0, 5);
+    if (matchingLeads.length > 0) {
+      html += `<div style="padding: 8px 16px 4px 16px; font-size: 11px; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Matched Lead Records (${matchingLeads.length})</div>`;
+      matchingLeads.forEach(c => {
+        html += `
+          <div onclick="runCommandPaletteAction('lead', '${c.fullName}')" style="padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--color-border);" onmouseover="this.style.background='var(--surface-soft, #f0efed)'" onmouseout="this.style.background='transparent'">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span style="font-size: 16px;">👤</span>
+              <div>
+                <strong style="font-size: 13.5px; color: var(--color-text-primary); display: block;">${c.fullName}</strong>
+                <span style="font-size: 11.5px; color: var(--color-text-secondary);">${c.jobTitle || 'Lead'} at ${c.company || 'Credit Union'}</span>
+              </div>
+            </div>
+            <span class="badge badge-success" style="font-size: 10px;">${c.enriched ? 'Enriched' : 'Unenriched'}</span>
+          </div>
+        `;
+      });
+    }
+  }
+
+  if (!html) {
+    html = `<div style="padding: 2rem; text-align: center; font-size: 13px; color: var(--color-text-secondary);">No matching commands or leads found for "${query}".</div>`;
+  }
+
+  resultsContainer.innerHTML = html;
+}
+
+function runCommandPaletteAction(actionType, targetVal) {
+  closeCommandPalette();
+  if (actionType === "nav") {
+    switchTab(targetVal);
+  } else if (actionType === "lead") {
+    switchTab("influencers");
   }
 }
 
-document.addEventListener("DOMContentLoaded", bootstrapApp);
+document.addEventListener("DOMContentLoaded", () => {
+  bootstrapApp();
+  initCommandPaletteKeyListeners();
+});
 
+window.returnFromSettings = returnFromSettings;
 window.loadComponentTemplates = loadComponentTemplates;
 window.bootstrapApp = bootstrapApp;
 window.switchTab = switchTab;
@@ -515,3 +639,7 @@ window.updateStatsSummaryText = updateStatsSummaryText;
 window.toggleSidebarCollapse = toggleSidebarCollapse;
 window.toggleNotificationDropdown = toggleNotificationDropdown;
 window.clearNotifications = clearNotifications;
+window.openCommandPalette = openCommandPalette;
+window.closeCommandPalette = closeCommandPalette;
+window.handleCommandPaletteSearch = handleCommandPaletteSearch;
+window.runCommandPaletteAction = runCommandPaletteAction;

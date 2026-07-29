@@ -83,54 +83,69 @@ function renderCalendar() {
   // Add actual days
   for (let day = 1; day <= totalDays; day++) {
     const cell = document.createElement("div");
-    cell.style.height = "55px";
-    cell.style.border = "1.5px solid var(--primary)";
-    cell.style.borderRadius = "6px";
-    cell.style.padding = "4px";
+    cell.style.height = "52px";
+    cell.style.border = "1px solid var(--color-border)";
+    cell.style.borderRadius = "var(--radius-inner)";
+    cell.style.padding = "6px 8px";
     cell.style.display = "flex";
     cell.style.flexDirection = "column";
     cell.style.justifyContent = "space-between";
     cell.style.cursor = "pointer";
-    cell.style.background = "var(--canvas)";
+    cell.style.backgroundColor = "var(--color-background-surface)";
     cell.style.position = "relative";
-    cell.style.transition = "background-color 0.15s ease";
+    cell.style.transition = "background-color 0.15s ease, border-color 0.15s ease";
 
     const dayLabel = document.createElement("span");
     dayLabel.textContent = day;
-    dayLabel.style.fontSize = "12px";
+    dayLabel.style.fontSize = "var(--font-size-xs)";
     dayLabel.style.fontWeight = "600";
-    dayLabel.style.color = "var(--ink)";
+    dayLabel.style.color = "var(--color-text-primary)";
     cell.appendChild(dayLabel);
 
     const cellDateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const cellMonthPad = String(month+1).padStart(2,'0');
+    const cellDayPad = String(day).padStart(2,'0');
+    const altDateStr = `${cellMonthPad}/${cellDayPad}/${year}`;
+
     const dayMeetings = (database.meetings || []).filter(m => {
       if (m.datetimeRaw) {
         const mDate = new Date(m.datetimeRaw);
-        return mDate.getFullYear() === year && mDate.getMonth() === month && mDate.getDate() === day;
+        if (!isNaN(mDate.getTime()) && mDate.getFullYear() === year && mDate.getMonth() === month && mDate.getDate() === day) {
+          return true;
+        }
+      }
+      if (m.timeString && (m.timeString.includes(altDateStr) || m.timeString.includes(cellDateStr))) {
+        return true;
       }
       return false;
     });
 
     if (dayMeetings.length > 0) {
+      const badgeWrap = document.createElement("div");
+      badgeWrap.style.position = "absolute";
+      badgeWrap.style.bottom = "6px";
+      badgeWrap.style.right = "6px";
+      badgeWrap.style.display = "flex";
+      badgeWrap.style.alignItems = "center";
+      badgeWrap.style.gap = "4px";
+
       const dot = document.createElement("div");
-      dot.style.width = "8px";
-      dot.style.height = "8px";
+      dot.style.width = "7px";
+      dot.style.height = "7px";
       dot.style.borderRadius = "50%";
-      dot.style.background = "var(--brand-pink)";
-      dot.style.position = "absolute";
-      dot.style.bottom = "8px";
-      dot.style.right = "8px";
-      cell.appendChild(dot);
+      dot.style.backgroundColor = "var(--color-text-primary)";
+      badgeWrap.appendChild(dot);
+      cell.appendChild(badgeWrap);
       
-      cell.style.borderColor = "var(--brand-pink)";
-      cell.style.background = "var(--surface-soft)";
+      cell.style.borderColor = "var(--color-border-emphasized)";
+      cell.style.backgroundColor = "var(--color-background-muted)";
     }
 
     cell.onclick = () => {
       document.querySelectorAll("#calendar-days-grid > div").forEach(c => {
-        c.style.background = "var(--canvas)";
+        c.style.backgroundColor = "var(--color-background-surface)";
       });
-      cell.style.background = "var(--surface-card)";
+      cell.style.backgroundColor = "var(--color-background-muted)";
       selectCalendarDate(year, month, day, dayMeetings);
     };
 
@@ -467,25 +482,25 @@ function openBriefingConsole(meetId) {
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
       <!-- Column 1: Bios & Referral partner context -->
-      <div class="briefing-block" style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline);">
-        <h4 style="margin:0 0 10px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--brand-pink);">Partner Referral Dossier</h4>
-        <div style="font-size:12px; line-height:1.6; color:var(--body);">
-          <div style="margin-bottom:8px;"><strong>Referral Partner:</strong> ${meet.influencerName}</div>
-          <div style="margin-bottom:8px;"><strong>Credits Redeemed:</strong> <span style="color:var(--brand-teal); font-weight:700;">${meet.influencerCredits} credits</span></div>
-          <div style="margin-bottom:8px;"><strong>Partner Relationship:</strong> Elite Technology Advisor</div>
-          <p style="margin:8px 0 0 0; padding-top:8px; border-top:1px solid var(--hairline); font-style:italic;">"${meet.notes}"</p>
+      <div class="card" style="margin: 0; padding: 1rem; background-color: var(--color-background-muted);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-primary);">Partner Referral Dossier</h4>
+        <div style="font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text-primary);">
+          <div style="margin-bottom: 0.5rem;"><strong>Referral Partner:</strong> ${meet.influencerName}</div>
+          <div style="margin-bottom: 0.5rem;"><strong>Credits Redeemed:</strong> <span style="color: var(--color-success); font-weight: 700;">${meet.influencerCredits} credits</span></div>
+          <div style="margin-bottom: 0.5rem;"><strong>Partner Relationship:</strong> Elite Technology Advisor</div>
+          <p style="margin: 0.5rem 0 0 0; padding-top: 0.5rem; border-top: 1px solid var(--color-border); font-style: italic; color: var(--color-text-secondary);">"${meet.notes}"</p>
         </div>
       </div>
 
       <!-- Column 2: Pain points / Intelligence -->
-      <div class="briefing-block" style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline);">
-        <h4 style="margin:0 0 10px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--brand-ochre);">AI Intelligence Summary</h4>
-        <div style="font-size:12px; line-height:1.6; color:var(--body);">
-          <div style="margin-bottom:6px;"><strong>Target Domain:</strong> ${meet.contactCompany.toLowerCase().replace(/\s+/g, "")}.com</div>
-          <div style="margin-bottom:6px;"><strong>Database Risk:</strong> High (Evaluation underway)</div>
-          <div style="margin-bottom:10px;"><strong>Key Priority:</strong> Prompt Injection Shielding</div>
-          <div style="padding:10px; background:#fff; border:1px solid var(--hairline); border-radius:4px;">
-            <strong style="display:block; margin-bottom:4px; font-size:11px; color:var(--ink);">Suggested Pitch Angle:</strong>
+      <div class="card" style="margin: 0; padding: 1rem; background-color: var(--color-background-muted);">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-primary);">AI Intelligence Summary</h4>
+        <div style="font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text-primary);">
+          <div style="margin-bottom: 0.5rem;"><strong>Target Domain:</strong> ${meet.contactCompany.toLowerCase().replace(/\s+/g, "")}.com</div>
+          <div style="margin-bottom: 0.5rem;"><strong>Database Risk:</strong> High (Evaluation underway)</div>
+          <div style="margin-bottom: 0.5rem;"><strong>Key Priority:</strong> Prompt Injection Shielding</div>
+          <div style="padding: 0.75rem; background-color: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); color: var(--color-text-primary);">
+            <strong style="display: block; margin-bottom: 0.25rem; font-size: var(--font-size-xs); color: var(--color-text-primary);">Suggested Pitch Angle:</strong>
             Highlight compliance guardrails, LLM gateway access logging, and real-time prompt cleaning.
           </div>
         </div>
@@ -493,13 +508,13 @@ function openBriefingConsole(meetId) {
     </div>
 
     <!-- Action Items Checklist -->
-    <div style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline); margin-bottom:10px;">
-      <h4 style="margin:0 0 12px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink);">Briefing Action Checklist</h4>
-      <div style="display:flex; flex-direction:column; gap:10px; font-size:12.5px;">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" checked style="width:14px; height:14px; cursor:pointer;"> Verify referral introduction message parameters</label>
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" checked style="width:14px; height:14px; cursor:pointer;"> Review prompt validation compliance reports</label>
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" style="width:14px; height:14px; cursor:pointer;"> Send pre-meeting briefing documentation slides</label>
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" style="width:14px; height:14px; cursor:pointer;"> Confirm Calendly sync on corporate GSuite calendar</label>
+    <div class="card" style="margin: 0; padding: 1rem; background-color: var(--color-background-muted);">
+      <h4 style="margin: 0 0 0.75rem 0; font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-primary);">Briefing Action Checklist</h4>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: var(--font-size-xs); color: var(--color-text-primary);">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"><input type="checkbox" checked style="cursor: pointer;"> Verify referral introduction message parameters</label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"><input type="checkbox" checked style="cursor: pointer;"> Review prompt validation compliance reports</label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"><input type="checkbox" style="cursor: pointer;"> Send pre-meeting briefing documentation slides</label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;"><input type="checkbox" style="cursor: pointer;"> Confirm Calendly sync on corporate GSuite calendar</label>
       </div>
     </div>
   `;

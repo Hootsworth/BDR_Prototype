@@ -1,29 +1,120 @@
-          <div class="chat-container">
-            <div class="chat-header">
-              <span class="chat-header-title">CSV Analytics Assistant</span>
-            </div>
-            <div class="chat-messages" id="analyse-chat-messages">
-              <div class="chat-message-row bot" style="display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;">
-                <div class="chat-avatar" style="width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: rgba(255,255,255,0.08); color: var(--on-dark); box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.15);">🤖</div>
-                <div class="chat-bubble bot">
-                  Hello! I am your GTM list assistant. Ask me questions about the uploaded CSV records, such as:
-                  <ul>
-                    <li>"How many contacts are loaded?"</li>
-                    <li>"How many CIOs or CTOs are in the list?"</li>
-                    <li>"List the top 5 states by contact count"</li>
-                    <li>"What is the average asset size?"</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="suggested-queries-bar" id="analyse-suggestions">
-              <button class="query-pill" onclick="sendSuggestedQuery('How many total contacts are in the CSV?')">Total count</button>
-              <button class="query-pill" onclick="sendSuggestedQuery('How many CIOs, CTOs or IT Directors?')">CIO/CTO count</button>
-              <button class="query-pill" onclick="sendSuggestedQuery('What is the breakdown of industries?')">Industry breakdown</button>
-              <button class="query-pill" onclick="sendSuggestedQuery('List the top 5 states by credit unions')">Top states</button>
-            </div>
-            <div class="chat-input-area">
-              <input type="text" id="analyse-chat-input" placeholder="Ask about the loaded list data..." onkeydown="if(event.key === 'Enter') sendAnalyseChatMessage()">
-              <button class="btn btn-primary btn-sm" onclick="sendAnalyseChatMessage()">Send ➔</button>
-            </div>
-          </div>
+<!-- ═══ FULL-FUNNEL GTM CONVERSION ATTRIBUTION ═══ -->
+<div class="card" style="max-width: 900px; margin: 0 auto 1.5rem auto; padding: 1.25rem; background: var(--surface-card); border-radius: var(--radius-inner); border: 1px solid var(--color-border);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--color-text-primary);">Full-Funnel GTM Conversion Attribution</h3>
+      <span style="font-size: 12px; color: var(--color-text-secondary);">Track conversion velocity &amp; revenue pipeline from Discovery → Closed Meeting</span>
+    </div>
+
+    <!-- Segment Filter Dropdown -->
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <select id="funnel-industry-filter" onchange="filterFunnelSegment(this.value)" class="form-select" style="font-size: 12px; padding: 0.25rem 0.5rem;">
+        <option value="all">All Industries (Credit Unions &amp; Banking)</option>
+        <option value="credit-union">Credit Unions ($50M-$500M Assets)</option>
+        <option value="banking">Community Banks ($100M+ Assets)</option>
+        <option value="insurance">Insurance Firms</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Funnel Stage Progression Bars -->
+  <div style="display: flex; flex-direction: column; gap: 0.75rem;" id="funnel-stage-container">
+    <!-- Stage 1: Discovered -->
+    <div style="display: flex; align-items: center; gap: 1rem; font-size: 12.5px;">
+      <div style="width: 140px; font-weight: 700; color: var(--color-text-primary);">01. Discovered</div>
+      <div style="flex: 1; background: var(--surface-soft, #f0efed); border-radius: 6px; overflow: hidden; height: 26px; display: flex; align-items: center; padding: 0 0.75rem;">
+        <div id="funnel-bar-1" style="width: 100%; height: 100%; background: var(--color-primary, #0c0a09); border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; transition: all 0.3s ease;">
+          1,240 Accounts (100%)
+        </div>
+      </div>
+      <span style="width: 80px; text-align: right; font-weight: 600; color: var(--color-text-secondary);">Velocity: 0d</span>
+    </div>
+
+    <!-- Stage 2: Enriched -->
+    <div style="display: flex; align-items: center; gap: 1rem; font-size: 12.5px;">
+      <div style="width: 140px; font-weight: 700; color: var(--color-text-primary);">02. Enriched</div>
+      <div style="flex: 1; background: var(--surface-soft, #f0efed); border-radius: 6px; overflow: hidden; height: 26px; display: flex; align-items: center; padding: 0 0.75rem;">
+        <div id="funnel-bar-2" style="width: 87%; height: 100%; background: #2563eb; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; transition: all 0.3s ease;">
+          1,080 Leads (87.1%)
+        </div>
+      </div>
+      <span style="width: 80px; text-align: right; font-weight: 600; color: var(--color-text-secondary);">Velocity: 1.2d</span>
+    </div>
+
+    <!-- Stage 3: Intent Scored -->
+    <div style="display: flex; align-items: center; gap: 1rem; font-size: 12.5px;">
+      <div style="width: 140px; font-weight: 700; color: var(--color-text-primary);">03. Intent Scored >80</div>
+      <div style="flex: 1; background: var(--surface-soft, #f0efed); border-radius: 6px; overflow: hidden; height: 26px; display: flex; align-items: center; padding: 0 0.75rem;">
+        <div id="funnel-bar-3" style="width: 68%; height: 100%; background: #7c3aed; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; transition: all 0.3s ease;">
+          840 Leads (67.7%)
+        </div>
+      </div>
+      <span style="width: 80px; text-align: right; font-weight: 600; color: var(--color-text-secondary);">Velocity: 2.1d</span>
+    </div>
+
+    <!-- Stage 4: Contacted -->
+    <div style="display: flex; align-items: center; gap: 1rem; font-size: 12.5px;">
+      <div style="width: 140px; font-weight: 700; color: var(--color-text-primary);">04. Outbound Sent</div>
+      <div style="flex: 1; background: var(--surface-soft, #f0efed); border-radius: 6px; overflow: hidden; height: 26px; display: flex; align-items: center; padding: 0 0.75rem;">
+        <div id="funnel-bar-4" style="width: 50%; height: 100%; background: #059669; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; transition: all 0.3s ease;">
+          620 Dispatched (50.0%)
+        </div>
+      </div>
+      <span style="width: 80px; text-align: right; font-weight: 600; color: var(--color-text-secondary);">Velocity: 3.5d</span>
+    </div>
+
+    <!-- Stage 5: Replied -->
+    <div style="display: flex; align-items: center; gap: 1rem; font-size: 12.5px;">
+      <div style="width: 140px; font-weight: 700; color: var(--color-text-primary);">05. Engaged / Replied</div>
+      <div style="flex: 1; background: var(--surface-soft, #f0efed); border-radius: 6px; overflow: hidden; height: 26px; display: flex; align-items: center; padding: 0 0.75rem;">
+        <div id="funnel-bar-5" style="width: 25%; height: 100%; background: #d97706; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; transition: all 0.3s ease;">
+          186 Replies (30.0% reply rate)
+        </div>
+      </div>
+      <span style="width: 80px; text-align: right; font-weight: 600; color: var(--color-text-secondary);">Velocity: 5.8d</span>
+    </div>
+
+    <!-- Stage 6: Demo Booked -->
+    <div style="display: flex; align-items: center; gap: 1rem; font-size: 12.5px;">
+      <div style="width: 140px; font-weight: 700; color: var(--color-text-primary);">06. Demo Booked &amp; CRM</div>
+      <div style="flex: 1; background: var(--surface-soft, #f0efed); border-radius: 6px; overflow: hidden; height: 26px; display: flex; align-items: center; padding: 0 0.75rem;">
+        <div id="funnel-bar-6" style="width: 12%; height: 100%; background: var(--color-success, #16a34a); border-radius: 4px; display: flex; align-items: center; padding-left: 8px; color: #fff; font-weight: 700; font-size: 11px; transition: all 0.3s ease;">
+          48 Demos ($1.4M Pipeline)
+        </div>
+      </div>
+      <span style="width: 80px; text-align: right; font-weight: 600; color: var(--color-text-secondary);">Velocity: 8.4d</span>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="max-width: 900px; margin: 0 auto;">
+  <div class="section-title">CSV Analytics Assistant</div>
+  <div id="analyse-chat-messages" style="display: flex; flex-direction: column; gap: 1rem; max-height: 380px; overflow-y: auto; margin-bottom: 1rem; padding: 1rem; background-color: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+    <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+      <div style="width: 32px; height: 32px; border-radius: var(--radius-inner); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; background-color: var(--color-background-surface); flex-shrink: 0;">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+      </div>
+      <div style="background-color: var(--color-background-surface); color: var(--color-text-primary); padding: 0.875rem 1rem; border-radius: var(--radius-inner); border: 1px solid var(--color-border); font-size: var(--font-size-xs); line-height: 1.5;">
+        Hello! I am your GTM list assistant. Ask me questions about the uploaded CSV records, such as:
+        <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem;">
+          <li>"How many contacts are loaded?"</li>
+          <li>"How many CIOs or CTOs are in the list?"</li>
+          <li>"List the top 5 states by contact count"</li>
+          <li>"What is the average asset size?"</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  
+  <div id="analyse-suggestions" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+    <button class="btn btn-secondary btn-sm" onclick="sendSuggestedQuery('How many total contacts are in the CSV?')">Total count</button>
+    <button class="btn btn-secondary btn-sm" onclick="sendSuggestedQuery('How many CIOs, CTOs or IT Directors?')">CIO/CTO count</button>
+    <button class="btn btn-secondary btn-sm" onclick="sendSuggestedQuery('What is the breakdown of industries?')">Industry breakdown</button>
+    <button class="btn btn-secondary btn-sm" onclick="sendSuggestedQuery('List the top 5 states by credit unions')">Top states</button>
+  </div>
+  
+  <div style="display: flex; gap: 0.5rem;">
+    <input type="text" class="form-input" id="analyse-chat-input" placeholder="Ask about the loaded list data..." onkeydown="if(event.key === 'Enter') sendAnalyseChatMessage()">
+    <button class="btn btn-primary btn-sm" onclick="sendAnalyseChatMessage()">Send</button>
+  </div>
+</div>

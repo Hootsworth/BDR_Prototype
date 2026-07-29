@@ -1,4 +1,18 @@
-// --- EVENTS CAMPAIGN ATTENDEES & PORTAL REGISTRATION CONTROLLER ---
+function openEventRegisterModal() {
+  const dlg = document.getElementById("event-register-dialog");
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "block";
+  }
+}
+
+function closeEventRegisterModal() {
+  const dlg = document.getElementById("event-register-dialog");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
 
 function renderEventsList() {
   const eventSelect = document.getElementById("select-event-view");
@@ -119,6 +133,7 @@ function handleEventRegistration(e) {
   searchEl.value = "";
   document.getElementById("event-reg-contact-id").value = "";
   notesText.value = "";
+  closeEventRegisterModal();
 
   addLogConsole("enrich", `[EVENT REGISTRATION] Registered ${contact.fullName} for ${eventKey}`, "success");
 

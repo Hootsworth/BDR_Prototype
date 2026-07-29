@@ -148,14 +148,24 @@ function changeActivePortalInfluencer(email) {
 }
 
 function switchPortalSubtab(subtabId) {
-  document.querySelectorAll(".portal-tab-btn").forEach(btn => btn.classList.remove("active"));
-  document.querySelectorAll(".portal-subtab-view").forEach(view => view.classList.remove("active"));
+  document.querySelectorAll(".portal-subtab-view").forEach(view => {
+    view.classList.remove("active");
+    view.style.display = "none";
+  });
 
-  const targetBtn = document.getElementById(`btn-portal-tab-${subtabId}`);
+  const btnDashboard = document.getElementById("btn-portal-tab-dashboard");
+  const btnSubmit = document.getElementById("btn-portal-tab-submit");
+  const btnLinkedin = document.getElementById("btn-portal-tab-linkedin");
+
+  if (btnDashboard) btnDashboard.classList.toggle("active", subtabId === 'dashboard');
+  if (btnSubmit) btnSubmit.classList.toggle("active", subtabId === 'submit');
+  if (btnLinkedin) btnLinkedin.classList.toggle("active", subtabId === 'linkedin');
+
   const targetView = document.getElementById(`portal-subtab-view-${subtabId}`);
-
-  if (targetBtn) targetBtn.classList.add("active");
-  if (targetView) targetView.classList.add("active");
+  if (targetView) {
+    targetView.classList.add("active");
+    targetView.style.display = "block";
+  }
 }
 
 function handlePortalContactSubmission(event) {

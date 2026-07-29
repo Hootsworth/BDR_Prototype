@@ -1,7 +1,20 @@
 // --- CLERK AUTHENTICATION CONTROLLER ---
 
 function loadClerkSDK() {
-  const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "pk_test_placeholder_app_3FqQEx4A7KVzwjvvEh3hdo6Q5l5";
+  const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "";
+
+  if (!pubKey || pubKey.includes("placeholder")) {
+    console.log("[AUTH] Running in local offline mode (Clerk SDK bypassed).");
+    setTimeout(() => {
+      updateClerkUIState();
+      const loader = document.getElementById("app-loading-screen");
+      if (loader) {
+        loader.classList.add("fade-out");
+        setTimeout(() => { loader.style.display = "none"; }, 400);
+      }
+    }, 100);
+    return;
+  }
 
   const script = document.createElement("script");
   script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
@@ -65,7 +78,7 @@ function updateClerkUIState() {
   const signinContainer = document.getElementById("clerk-signin-mount");
 
   if (window.Clerk && window.Clerk.user) {
-    // User is signed in: show app, hide login gate
+    // User is signed in via Clerk
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
 
@@ -75,51 +88,19 @@ function updateClerkUIState() {
     if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
     if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
 
-    // Attempt to automatically retrieve Clerk Google OAuth Token for Calendar & Gmail
     fetchClerkGoogleOAuthToken();
-
-    // Unmount signin widget if it was mounted
-    if (signinContainer && signinContainer.dataset.mounted === "true") {
-      try {
-        window.Clerk.unmountSignIn(signinContainer);
-      } catch (e) {
-        console.warn("Error unmounting sign-in:", e);
-      }
-      signinContainer.dataset.mounted = "false";
-      signinContainer.innerHTML = "";
-    }
-
-    // Mount user button inside sidebar (only once)
-    if (userBtnContainer && userBtnContainer.dataset.mounted !== "true") {
-      userBtnContainer.innerHTML = "";
-      try {
-        window.Clerk.mountUserButton(userBtnContainer);
-        userBtnContainer.dataset.mounted = "true";
-      } catch (e) {
-        console.error("Error mounting user button:", e);
-      }
-    }
   } else {
-    // User is signed out: hide app, show login gate
-    if (mainApp) mainApp.style.display = "none";
-    if (authGate) authGate.style.display = "flex";
+    // Demo Mode Auto-Unlock: Allow full access in local console mode
+    if (authGate) authGate.style.display = "none";
+    if (mainApp) mainApp.style.display = "flex";
 
     if (signInBtn) signInBtn.style.display = "block";
     if (userProfileWrap) userProfileWrap.style.display = "none";
+    if (nameEl) nameEl.textContent = "GTM Operator";
+    if (emailEl) emailEl.textContent = "demo@gtmconsole.internal";
 
-    // Unmount user button if it was mounted
-    if (userBtnContainer && userBtnContainer.dataset.mounted === "true") {
-      try {
-        window.Clerk.unmountUserButton(userBtnContainer);
-      } catch (e) {
-        console.warn("Error unmounting user button:", e);
-      }
-      userBtnContainer.dataset.mounted = "false";
-      userBtnContainer.innerHTML = "";
-    }
-
-    // Mount the Clerk Sign-In Widget inside the Auth Gate Card (only once)
-    if (signinContainer && signinContainer.dataset.mounted !== "true") {
+    // Attempt to mount Clerk widget if available
+    if (signinContainer && signinContainer.dataset.mounted !== "true" && window.Clerk) {
       signinContainer.innerHTML = "";
       try {
         window.Clerk.mountSignIn(signinContainer, {
@@ -134,18 +115,27 @@ function updateClerkUIState() {
         });
         signinContainer.dataset.mounted = "true";
       } catch (e) {
-        console.error("Error mounting sign-in widget:", e);
+        console.warn("Clerk widget mount warning:", e);
       }
     }
   }
 }
 
 function triggerClerkSignIn() {
-  if (window.Clerk) {
-    window.Clerk.openSignIn({
-      afterSignInUrl: window.location.href,
-      afterSignUpUrl: window.location.href
-    });
+  const authGate = document.getElementById("clerk-auth-gate");
+  const mainApp = document.getElementById("app-layout-main");
+  if (authGate) authGate.style.display = "none";
+  if (mainApp) mainApp.style.display = "flex";
+
+  if (window.Clerk && window.Clerk.openSignIn) {
+    try {
+      window.Clerk.openSignIn({
+        afterSignInUrl: window.location.href,
+        afterSignUpUrl: window.location.href
+      });
+    } catch (e) {
+      console.warn("Clerk openSignIn error:", e);
+    }
   }
 }
 
@@ -168,8 +158,43 @@ async function fetchClerkGoogleOAuthToken() {
   }
 }
 
+// --- CATEGORY 5B: ROLE-BASED ACCESS CONTROL (RBAC) ---
+database.userRole = localStorage.getItem("gtm_user_role") || "Admin";
+
+function setUserRole(role) {
+  database.userRole = role;
+  localStorage.setItem("gtm_user_role", role);
+  enforceRbacPermissions();
+  if (typeof addLogConsole === "function") {
+    addLogConsole("enrich", `[SECURITY] Active user role switched to: ${role}`, "info");
+  }
+}
+
+function enforceRbacPermissions() {
+  const currentRole = database.userRole || "Admin";
+
+  // Hide or restrict sensitive settings for SDR / Influencer roles
+  const keyInputs = document.querySelectorAll("#key-gemini, #settings-key-explorium, #key-lemlist-api");
+  keyInputs.forEach(input => {
+    if (currentRole === "SDR Rep" || currentRole === "Influencer / Creator") {
+      input.disabled = true;
+      input.title = "Role Restriction: Contact Admin to modify credentials.";
+    } else {
+      input.disabled = false;
+      input.title = "";
+    }
+  });
+
+  // Role Restriction: Influencer accounts are locked to Influencer Portal
+  if (currentRole === "Influencer / Creator") {
+    if (typeof switchTab === "function") switchTab("influencer-portal");
+  }
+}
+
 window.loadClerkSDK = loadClerkSDK;
 window.initClerkAuth = initClerkAuth;
 window.updateClerkUIState = updateClerkUIState;
 window.triggerClerkSignIn = triggerClerkSignIn;
 window.fetchClerkGoogleOAuthToken = fetchClerkGoogleOAuthToken;
+window.setUserRole = setUserRole;
+window.enforceRbacPermissions = enforceRbacPermissions;

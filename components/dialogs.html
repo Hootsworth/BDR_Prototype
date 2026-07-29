@@ -1,117 +1,131 @@
-  <!-- ═══ MODAL: Platform Sandbox Simulator ═══ -->
-  <div class="settings-overlay" id="sandbox-modal" aria-hidden="true" style="display: none; align-items: center; justify-content: center; z-index: 1000;">
-    <div class="settings-panel" style="width: min(960px, calc(100vw - 4rem)); height: 80vh; max-height: 720px; border-radius: var(--radius-lg); display: flex; flex-direction: column; overflow: hidden;">
-      <div class="settings-head" style="padding: 16px 20px; border-bottom: 1.5px solid var(--hairline);">
-        <div>
-          <h2 style="display:flex; align-items:center; gap:8px; font-size:18px; margin:0 0 4px 0;">🛠️ B2B Stack Integration Sandbox</h2>
-          <p style="font-size:12px; color:var(--muted); margin:0;">Inspect mock portal tables, campaign lists, verification states, and sent logs for test contacts.</p>
-        </div>
-        <button class="btn-icon" onclick="closeSandbox()" title="Close" style="border:none; background:transparent; font-size:24px; cursor:pointer; color:var(--ink);">&times;</button>
+<!-- MODAL: Platform Sandbox Simulator -->
+<div class="modal-overlay" id="sandbox-modal" aria-hidden="true" style="display: none;">
+  <div class="modal-container" style="max-width: 900px; height: 80vh;">
+    <div class="modal-header">
+      <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+        B2B Stack Integration Sandbox
+      </h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeSandbox()">&times;</button>
+    </div>
+    
+    <div style="display: flex; flex: 1; min-height: 0;">
+      <div style="width: 200px; border-right: 1px solid var(--color-border); background-color: var(--color-background-muted); padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+        <button class="subtab-btn active" id="sb-menu-apollo" onclick="switchSandboxTab('apollo')">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71.12-1.67-.32-2.11a1.5 1.5 0 0 0-2.68.11zm0 0L8.5 12.5m10 0l-5-5m5 5l2.5-2.5a2.121 2.121 0 0 0-3-3L15.5 4.5m3 8L12.5 18.5m6-6L14 8"></path></svg> Apollo Board
+        </button>
+        <button class="subtab-btn" id="sb-menu-outlook" onclick="switchSandboxTab('outlook')">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> Outlook Mail
+        </button>
+        <button class="subtab-btn" id="sb-menu-linkedin" onclick="switchSandboxTab('linkedin')">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg> LinkedIn Profiles
+        </button>
+        <button class="subtab-btn" id="sb-menu-lemlist" onclick="switchSandboxTab('lemlist')">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Lemlist Sequences
+        </button>
+        <button class="subtab-btn" id="sb-menu-zerobounce" onclick="switchSandboxTab('zerobounce')">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> ZeroBounce
+        </button>
       </div>
       
-      <div style="display: flex; flex: 1; min-height: 0; background: var(--canvas);">
-        <!-- Sandbox Sidebar -->
-        <div style="width: 220px; border-right: 1.5px solid var(--hairline); background: var(--surface-soft); padding: 16px; display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
-          <button class="sandbox-menu-btn active" id="sb-menu-apollo" onclick="switchSandboxTab('apollo')">🚀 Apollo Contact Board</button>
-          <button class="sandbox-menu-btn" id="sb-menu-outlook" onclick="switchSandboxTab('outlook')">📧 Outlook Sent Mail</button>
-          <button class="sandbox-menu-btn" id="sb-menu-linkedin" onclick="switchSandboxTab('linkedin')">🌐 LinkedIn Profiles</button>
-          <button class="sandbox-menu-btn" id="sb-menu-lemlist" onclick="switchSandboxTab('lemlist')">⚡ Lemlist Sequences</button>
-          <button class="sandbox-menu-btn" id="sb-menu-zerobounce" onclick="switchSandboxTab('zerobounce')">🔍 ZeroBounce Status</button>
-        </div>
-        
-        <!-- Sandbox Main Body -->
-        <div id="sandbox-viewport" style="flex: 1; padding: 20px; overflow-y: auto; background: var(--canvas); min-height: 0;">
-          <!-- Content injected here via JS -->
-        </div>
+      <div id="sandbox-viewport" style="flex: 1; padding: 1.5rem; overflow-y: auto; background-color: var(--color-background-surface);">
+        <!-- Content injected via JS -->
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══ DIALOG: Briefing Room Console ═══ -->
-  <dialog id="briefing-dialog" class="glass-panel custom-dialog" style="width: 720px; max-width: 90vw; padding: 24px; border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); background: var(--surface-card); box-shadow: 6px 6px 0 var(--hairline);">
-    <div class="dialog-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h3 style="margin:0; font-size:16px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink);">GTM Briefing Room</h3>
-      <button class="close-dialog-btn" onclick="closeBriefingConsole()" style="background:transparent; border:none; font-size:20px; cursor:pointer;">×</button>
+<!-- DIALOG: Briefing Room Console -->
+<dialog id="briefing-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 640px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">GTM Briefing Room</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeBriefingConsole()">×</button>
     </div>
-    <div class="dialog-body" id="briefing-dialog-body">
+    <div class="modal-body" id="briefing-dialog-body">
       <!-- Populated Dynamically -->
     </div>
-    <div class="dialog-footer" style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px; border-top:1px solid var(--hairline); padding-top:16px;">
-      <button type="button" class="btn btn-primary" onclick="closeBriefingConsole()" style="height:36px; padding:0 20px; font-size:13px;">Acknowledge &amp; Close Briefing</button>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" onclick="closeBriefingConsole()">Acknowledge &amp; Close Briefing</button>
     </div>
-  </dialog>
+  </div>
+</dialog>
 
-  <!-- ═══ DIALOG: CSV Column Field Mapper ═══ -->
-  <dialog id="column-mapper-dialog" class="glass-panel custom-dialog" style="width: 480px; padding: 24px; border-radius: var(--radius-lg); border: 1.5px solid var(--hairline); background: var(--surface-card); box-shadow: 6px 6px 0 var(--hairline);">
-    <div class="dialog-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h3 style="margin:0; font-size:16px; font-weight:700;">Configure CSV Field Mapping</h3>
-      <button class="close-dialog-btn" onclick="closeColumnMapper()" style="background:transparent; border:none; font-size:20px; cursor:pointer;">×</button>
+<!-- DIALOG: CSV Column Field Mapper -->
+<dialog id="column-mapper-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Configure CSV Field Mapping</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeColumnMapper()">×</button>
     </div>
-    <div class="dialog-body" style="margin-bottom: 20px;">
-      <p class="dialog-intro-text" style="font-size:12.5px; color:var(--muted); margin-bottom:16px; line-height:1.5;">Map your CSV columns to standard BDR Campaign database attributes to verify list ingestion details.</p>
-      
-      <div class="field-mapping-list" id="field-mapping-container" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
+    <div class="modal-body">
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Map your CSV columns to standard BDR attributes.</p>
+      <div id="field-mapping-container" style="max-height: 240px; overflow-y: auto;">
         <!-- Populated Dynamically -->
       </div>
     </div>
-    <div class="dialog-footer" style="display:flex; justify-content:flex-end; gap:10px;">
-      <button type="button" class="btn btn-secondary" onclick="closeColumnMapper()" style="height:36px; padding:0 16px; font-size:13px;">Cancel</button>
-      <button type="button" class="btn btn-primary" onclick="confirmColumnMapping()" style="height:36px; padding:0 16px; font-size:13px;">Save &amp; Ingest List</button>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeColumnMapper()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="confirmColumnMapping()">Save &amp; Ingest List</button>
     </div>
-  </dialog>
+  </div>
+</dialog>
 
-  <!-- ═══ DIALOG: Add Referral Contact ═══ -->
-  <dialog id="referral-dialog" class="glass-panel custom-dialog">
-    <div class="dialog-header">
-      <h3>Add Referred Contact</h3>
-      <button class="close-dialog-btn" onclick="closeReferralDialog()">×</button>
+<!-- DIALOG: Add Referral Contact -->
+<dialog id="referral-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Add Referred Contact</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeReferralDialog()">×</button>
     </div>
     <form id="referral-form" onsubmit="handleReferralSubmit(event)">
       <input type="hidden" id="referral-influencer-email" value="">
-      <div class="dialog-body">
-        <p class="dialog-intro-text">Reward <span id="reward-target-name">Influencer</span> with <strong>10 credits</strong> for providing this contact.</p>
+      <div class="modal-body">
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Reward <span id="reward-target-name">Influencer</span> with <strong>10 credits</strong>.</p>
         <div class="form-group">
-          <label for="ref-name">Full Name</label>
-          <input type="text" class="input-control" id="ref-name" placeholder="Sarah Jenkins" required>
+          <label class="form-label" for="ref-name">Full Name</label>
+          <input type="text" class="form-input" id="ref-name" placeholder="Sarah Jenkins" required>
         </div>
         <div class="form-group">
-          <label for="ref-title">Job Title</label>
-          <input type="text" class="input-control" id="ref-title" placeholder="Chief Information Officer" required>
+          <label class="form-label" for="ref-title">Job Title</label>
+          <input type="text" class="form-input" id="ref-title" placeholder="Chief Information Officer" required>
         </div>
         <div class="form-group">
-          <label for="ref-company">Company</label>
-          <input type="text" class="input-control" id="ref-company" placeholder="Apex Federal Credit Union" required>
+          <label class="form-label" for="ref-company">Company</label>
+          <input type="text" class="form-input" id="ref-company" placeholder="Apex Federal Credit Union" required>
         </div>
         <div class="form-group">
-          <label for="ref-email">Email Address</label>
-          <input type="email" class="input-control" id="ref-email" placeholder="sjenkins@apexfcu.org" required>
+          <label class="form-label" for="ref-email">Email Address</label>
+          <input type="email" class="form-input" id="ref-email" placeholder="sjenkins@apexfcu.org" required>
         </div>
         <div class="form-group">
-          <label for="ref-phone">Phone Number (Optional)</label>
-          <input type="text" class="input-control" id="ref-phone" placeholder="+1 (555) 345-6789">
+          <label class="form-label" for="ref-phone">Phone Number (Optional)</label>
+          <input type="text" class="form-input" id="ref-phone" placeholder="+1 (555) 345-6789">
         </div>
         <div class="form-group">
-          <label for="ref-credits">Credits to Award</label>
-          <input type="number" class="input-control" id="ref-credits" value="10" min="0">
+          <label class="form-label" for="ref-credits">Credits to Award</label>
+          <input type="number" class="form-input" id="ref-credits" value="10" min="0">
         </div>
       </div>
-      <div class="dialog-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeReferralDialog()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Submit &amp; Reward</button>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeReferralDialog()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Submit &amp; Reward</button>
       </div>
     </form>
-  </dialog>
+  </div>
+</dialog>
 
-  <!-- ═══ DIALOG: View Referrals Details ═══ -->
-  <dialog id="referrals-view-dialog" class="glass-panel custom-dialog">
-    <div class="dialog-header">
-      <h3>Referrals &amp; Rewards</h3>
-      <button class="close-dialog-btn" onclick="closeReferralsViewDialog()">×</button>
+<!-- DIALOG: View Referrals Details -->
+<dialog id="referrals-view-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Referrals &amp; Rewards</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeReferralsViewDialog()">×</button>
     </div>
-    <div class="dialog-body">
-      <p class="dialog-intro-text">Contacts referred by <strong id="referrals-view-influencer-name">Influencer</strong>:</p>
-      <div class="table-wrapper text-sm">
-        <table>
+    <div class="modal-body">
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Contacts referred by <strong id="referrals-view-influencer-name">Influencer</strong>:</p>
+      <div class="table-container">
+        <table class="data-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -126,11 +140,380 @@
           </tbody>
         </table>
       </div>
-      <div class="referrals-summary-total">
+      <div style="font-size: var(--font-size-xs); text-align: right; margin-top: 1rem;">
         Total Credits Earned: <strong id="referrals-view-total-credits">0</strong>
       </div>
     </div>
-    <div class="dialog-footer">
-      <button type="button" class="btn btn-secondary" onclick="closeReferralsViewDialog()">Close</button>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeReferralsViewDialog()">Close</button>
     </div>
-  </dialog>
+  </div>
+</dialog>
+
+<!-- DIALOG: Add Influencer Manually -->
+<dialog id="add-influencer-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Add Influencer Manually</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeAddInfluencerModal()">×</button>
+    </div>
+    <form id="manual-influencer-form" onsubmit="handleManualInfluencerSubmit(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="manual-inf-name">Full Name</label>
+          <input type="text" class="form-input" id="manual-inf-name" placeholder="John Doe" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="manual-inf-title">Job Title</label>
+          <input type="text" class="form-input" id="manual-inf-title" placeholder="VP of IT / Operations" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="manual-inf-company">Company</label>
+          <input type="text" class="form-input" id="manual-inf-company" placeholder="Summit Credit Union" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="manual-inf-email">Email Address</label>
+          <input type="email" class="form-input" id="manual-inf-email" placeholder="john.doe@summitcu.org" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="manual-inf-phone">Phone (Optional)</label>
+          <input type="text" class="form-input" id="manual-inf-phone" placeholder="+1 (555) 019-2834">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label" for="manual-inf-temp">Lead Status</label>
+            <select class="form-select" id="manual-inf-temp">
+              <option value="Hot Lead">Hot Lead</option>
+              <option value="Cold Lead">Cold Lead</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="manual-inf-match">Match Score (%)</label>
+            <input type="number" class="form-input" id="manual-inf-match" value="95" min="0" max="100">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddInfluencerModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Add Influencer</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- DIALOG: Event Registration -->
+<dialog id="event-register-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Register Contact for Event</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeEventRegisterModal()">×</button>
+    </div>
+    <form id="event-registration-form" onsubmit="handleEventRegistration(event)">
+      <div class="modal-body">
+        <div class="form-group" style="position: relative;">
+          <label class="form-label" for="event-reg-contact-search">Search Contact</label>
+          <input type="text" class="form-input" id="event-reg-contact-search" placeholder="Type contact name..." oninput="handleRegContactSearch(this.value)">
+          <input type="hidden" id="event-reg-contact-id" value="">
+          <div id="reg-contact-autocomplete" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; background-color: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="select-reg-event">Campaign Event</label>
+          <select class="form-select" id="select-reg-event" required>
+            <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
+            <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
+            <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="input-reg-status">Registration Status</label>
+          <select class="form-select" id="input-reg-status">
+            <option value="Attended">Attended</option>
+            <option value="Registered">Registered</option>
+            <option value="Invited">Invited</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="input-reg-notes">Event Notes</label>
+          <textarea class="form-input" id="input-reg-notes" rows="3" placeholder="Add specific notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeEventRegisterModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Confirm Registration</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- DIALOG: Outbound Campaign Action Modal -->
+<dialog id="outbound-action-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 960px; width: 92vw; max-height: 90vh;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <h3 id="outbound-modal-contact-name" style="margin: 0;">Outbound Campaign</h3>
+        <span class="badge" id="outbound-modal-contact-badge">Hot Lead</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeOutboundModal()">×</button>
+    </div>
+
+    <div class="modal-body" style="padding: 1.5rem; overflow-y: auto;">
+      <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem;">
+        
+        <!-- LEFT SIDE: Message Drafting & Live Preview -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary);" id="outbound-modal-section-title">Email Outreach Message</span>
+            <button class="btn btn-secondary btn-sm" id="btn-generate-ai-hook" onclick="generateAIOutboundHook()">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              AI Hook
+            </button>
+          </div>
+
+          <!-- DRAFT INPUTS (For Email & LinkedIn) -->
+          <div id="outbound-draft-inputs-group" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div id="outbound-subject-group" class="form-group" style="margin: 0;">
+              <label class="form-label" for="outbound-email-subject-input">Subject Line</label>
+              <input type="text" class="form-input" id="outbound-email-subject-input" placeholder="Subject line..." oninput="updateOutboundLivePreview()">
+            </div>
+
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="outbound-email-body-input">Message Body / Note</label>
+              <textarea class="form-input" id="outbound-email-body-input" rows="7" placeholder="Compose message draft..." oninput="updateOutboundLivePreview()" style="font-family: var(--font-family-body); line-height: 1.5;"></textarea>
+            </div>
+
+            <!-- High-Contrast Live Rendering Preview Box -->
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <label class="form-label" style="margin: 0;">Rendered Output Preview</label>
+              <div id="outbound-email-preview-box" style="background-color: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1rem; max-height: 180px; overflow-y: auto;">
+                <div id="preview-subject-render" style="font-weight: 700; font-size: var(--font-size-xs); color: var(--color-text-primary); margin-bottom: 0.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.25rem;"></div>
+                <div id="preview-body-render" style="font-size: var(--font-size-xs); color: var(--color-text-primary); white-space: pre-wrap; line-height: 1.5;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CALL DIALER & TRANSCRIPTION PANEL (For Call Channel) -->
+          <div id="outbound-call-panel" style="display: none; flex-direction: column; gap: 1rem;">
+            <div class="card" style="margin: 0; padding: 1rem; background-color: var(--color-background-muted); border: 1px solid var(--color-border);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <div>
+                  <div id="call-status-label" style="font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-primary);">Ready to Initiate AI Voice Call</div>
+                  <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Direct BDR dialer with live speech transcription</div>
+                </div>
+                <div id="call-timer-display" style="font-family: var(--font-family-code); font-size: var(--font-size-base); font-weight: 700; color: var(--color-text-primary);">00:00</div>
+              </div>
+
+              <div style="display: flex; gap: 0.5rem;">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-start-call" onclick="startSimulatedAICall()">
+                  <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                  Start AI Call
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-hangup-call" onclick="stopSimulatedAICall()">Hang Up</button>
+              </div>
+            </div>
+
+            <!-- Live Call Transcript Box -->
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <label class="form-label" style="margin: 0;">Live Call Transcript</label>
+              <div id="call-transcript-box" style="background-color: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 0.875rem; font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text-primary); height: 160px; overflow-y: auto;">
+                <div style="color: var(--color-text-secondary);">Click "Start AI Call" above to begin call dialer and live speech transcription.</div>
+              </div>
+            </div>
+
+            <!-- AI Call Summary Box -->
+            <div id="call-summary-box" class="card" style="display: none; margin: 0; padding: 0.875rem; background-color: var(--color-background-surface); border: 1px solid var(--color-border);">
+              <!-- Populated when call finishes -->
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeOutboundModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="btn-outbound-send-action" onclick="executeOutboundSendAction()">Dispatch Outreach</button>
+          </div>
+        </div>
+
+        <!-- RIGHT SIDE: Controls & Contact History -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem; border-left: 1px solid var(--color-border); padding-left: 1.5rem;">
+          
+          <!-- Channel Controls -->
+          <div>
+            <label class="form-label" style="margin-bottom: 0.5rem;">Select Channel</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-secondary btn-sm active" id="btn-outbound-channel-email" onclick="switchOutboundModalChannel('email')" style="flex: 1;">Email</button>
+              <button class="btn btn-secondary btn-sm" id="btn-outbound-channel-linkedin" onclick="switchOutboundModalChannel('linkedin')" style="flex: 1;">LinkedIn</button>
+              <button class="btn btn-secondary btn-sm" id="btn-outbound-channel-call" onclick="switchOutboundModalChannel('call')" style="flex: 1;">Call</button>
+            </div>
+          </div>
+
+          <!-- Quick Contact Metadata -->
+          <div class="card" style="margin: 0; padding: 0.875rem; background-color: var(--color-background-muted);">
+            <div style="font-size: var(--font-size-xs); font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text-primary);">Target Lead Info</div>
+            <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 0.25rem;">
+              <div>Company: <strong id="modal-info-company" style="color: var(--color-text-primary);">-</strong></div>
+              <div>Title: <strong id="modal-info-title" style="color: var(--color-text-primary);">-</strong></div>
+              <div>Email: <strong id="modal-info-email" style="color: var(--color-text-primary);">-</strong></div>
+              <div>Phone: <strong id="modal-info-phone" style="color: var(--color-text-primary);">-</strong></div>
+            </div>
+          </div>
+
+          <!-- Contact Outbound Activity History -->
+          <div style="flex: 1; display: flex; flex-direction: column; min-height: 180px;">
+            <div style="font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Outreach History &amp; Logs</div>
+            <div id="outbound-contact-history-list" style="flex: 1; background-color: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 0.75rem; font-size: var(--font-size-xs); overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; max-height: 220px;">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- ═══ LEMLIST MCP ONBOARDING & LIVE EMAIL DEMO WIZARD MODAL ═══ -->
+<div id="lemlist-onboarding-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;">
+  <div class="modal-container" style="width: 100%; max-width: 640px; padding: 0; overflow: hidden; background-color: #ffffff; color: #0f172a; border-radius: 12px; box-shadow: 0 24px 48px rgba(0,0,0,0.35); border: 1px solid #e2e8f0;">
+    
+    <!-- Wizard Header -->
+    <div style="padding: 1.25rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;">⚡</div>
+        <div>
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;" id="lem-modal-title">Lemlist MCP Connection Setup</h3>
+          <span style="font-size: 11.5px; color: #64748b;" id="lem-modal-step-indicator">Step 1 of 4</span>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="closeLemlistOnboardingModal()" style="padding: 4px 10px; background: #ffffff; color: #334155; border: 1px solid #cbd5e1; font-weight: 600;">✕ Close</button>
+    </div>
+
+    <!-- Step 1: Welcome Screen -->
+    <div id="lem-step-1" style="padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
+      <div style="font-size: 48px; margin-bottom: 0.75rem;">🎉</div>
+      <h2 style="font-family: var(--font-family-heading); font-size: 22px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">YAY! Well Done!</h2>
+      <p style="font-size: 13.5px; color: #334155; max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
+        You're initializing the <strong>Lemlist Model Context Protocol (MCP)</strong> integration. In the next steps, we'll collect your credentials, explain why each item is needed, and send a <strong>live test email to your personal inbox</strong> to prove the connection works!
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; max-width: 440px; margin: 0 auto 1.75rem auto; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12.5px; color: #0f172a;">
+        <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+          <span>⚡</span>
+          <span><strong style="color: #0f172a;">Automated Sequence Control:</strong> AI agents can enroll leads into your Lemlist campaigns automatically.</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+          <span>📧</span>
+          <span><strong style="color: #0f172a;">Multi-Channel Dispatch:</strong> Send email sequences, track opens, and log prospect replies.</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+          <span>🛡️</span>
+          <span><strong style="color: #0f172a;">Secure MCP Protocol:</strong> Communication uses standard JSON-RPC transport.</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" type="button" onclick="setLemlistModalStep(2)" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer;">
+        Let's Begin: Configure Connection →
+      </button>
+    </div>
+
+    <!-- Step 2: Credential Entry with Notes -->
+    <div id="lem-step-2" style="display: none; padding: 1.5rem; max-height: 480px; overflow-y: auto; background: #ffffff;">
+      <h3 style="margin: 0 0 0.25rem 0; font-size: 16px; font-weight: 700; color: #0f172a;">Step 2: Enter Lemlist Account &amp; API Credentials</h3>
+      <p style="font-size: 12px; color: #475569; margin: 0 0 1.25rem 0;">Provide your Lemlist details below. Notes explain why each value is required.</p>
+
+      <!-- Email Field -->
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">1. Lemlist Account Email *</label>
+        <input type="email" id="modal-lem-email" class="form-input" placeholder="user@company.com" style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
+        <div style="margin-top: 5px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #0284c7; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #0369a1;">
+          💡 <strong style="color: #0369a1;">Why we need this:</strong> Your Lemlist login email identifies your sender account and ties outbound email sequences to your sending domain reputation.
+        </div>
+      </div>
+
+      <!-- API Key Field -->
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">2. Lemlist API Key *</label>
+        <input type="password" id="modal-lem-api-key" class="form-input" placeholder="apiKey_..." style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
+        <div style="margin-top: 5px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #0284c7; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #0369a1;">
+          💡 <strong style="color: #0369a1;">Why we need this:</strong> The API key authorizes the Lemlist Model Context Protocol (MCP) server to query campaign templates and trigger automated sequence dispatches on your behalf.
+        </div>
+      </div>
+
+      <!-- MCP Command Field -->
+      <div style="margin-bottom: 1.25rem;">
+        <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">3. MCP Server Command (Pre-configured)</label>
+        <input type="text" id="modal-lem-mcp-cmd" class="form-input" value="npx mcp-remote https://app.lemlist.com/mcp" style="width: 100%; font-size: 12px; font-family: var(--font-family-mono); background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
+        <div style="margin-top: 5px; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #64748b; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #334155;">
+          💡 <strong style="color: #1e293b;">Why we need this:</strong> The Model Context Protocol (MCP) endpoint is the standard JSON-RPC interface through which our autonomous AI agents execute Lemlist tools.
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="setLemlistModalStep(1)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;">← Back</button>
+        <button class="btn btn-primary btn-sm" type="button" onclick="saveModalLemlistCredentialsAndNext()" style="background: #0f172a; color: #ffffff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 700; cursor: pointer;">Verify &amp; Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Live Personal Email Demo Setup -->
+    <div id="lem-step-3" style="display: none; padding: 1.5rem; background: #ffffff;">
+      <h3 style="margin: 0 0 0.25rem 0; font-size: 16px; font-weight: 700; color: #0f172a;">Step 3: Test Live Email Demo</h3>
+      <p style="font-size: 12px; color: #475569; margin: 0 0 1.25rem 0;">Send a real test email to your personal inbox right now to confirm the connection works!</p>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Your Personal Email Address *</label>
+        <input type="email" id="modal-lem-test-recipient" class="form-input" placeholder="e.g. aditya.dixit@gmail.com" style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
+        <span style="font-size: 11px; color: #64748b;">We will send a real test email to this inbox.</span>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Select Demo Pitch Copy Template</label>
+        <select id="modal-lem-template-select" class="form-select" style="width: 100%; font-size: 12.5px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px;" onchange="updateModalEmailPreview(this.value)">
+          <option value="credit_union">Credit Union Innovation Hook (Data Platform Security)</option>
+          <option value="ai_guardrails">AI Financial Compliance &amp; Query Guardrails</option>
+          <option value="gtm_automation">GTM Pipeline Automation (15+ Eng Hours Saved)</option>
+        </select>
+      </div>
+
+      <!-- Live Preview Box -->
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.875rem; background: #f8fafc; font-size: 12px; margin-bottom: 1.25rem; color: #0f172a;">
+        <div style="margin-bottom: 4px; font-weight: 700; color: #0f172a;" id="modal-preview-subject">Subject: Securing data platforms &amp; automating member onboarding</div>
+        <div style="color: #334155; line-height: 1.5; white-space: pre-line;" id="modal-preview-body">Hi Aditya,
+
+Saw your recent initiatives in scaling financial data platforms. I was curious if your team is evaluating how to automate analytics pipelines without risking compliance.
+
+We help financial firms scale data operations securely with zero-code guardrails.
+
+Best,
+Autonomous GTM Copilot</div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="setLemlistModalStep(2)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;">← Back</button>
+        <button class="btn btn-primary" type="button" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; background: #0f172a; color: #ffffff; border: none; padding: 0.625rem 1.25rem; border-radius: 6px; cursor: pointer;">🚀 Send Test Demo Email Now!</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Dispatch Confirmation & Success -->
+    <div id="lem-step-4" style="display: none; padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
+      <div style="font-size: 48px; margin-bottom: 0.75rem;">✅</div>
+      <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">Test Email Dispatched Successfully!</h2>
+      <p style="font-size: 13px; color: #334155; max-width: 480px; margin: 0 auto 1.25rem auto; line-height: 1.5;">
+        A live test email has been dispatched via Lemlist MCP to <strong id="modal-success-recipient-email" style="color: #0f172a;">your personal inbox</strong>!
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; text-align: left; max-width: 460px; margin: 0 auto 1.5rem auto; font-size: 11.5px; font-family: var(--font-family-mono); color: #0f172a;">
+        <div style="color: #16a34a; font-weight: 700; margin-bottom: 4px;">Status: 200 OK (Lemlist MCP Handshake Verified)</div>
+        <div style="color: #334155;">Campaign ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px;">cmp_lemlist_demo_9821</code></div>
+        <div style="color: #334155;">Message ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px;">msg_live_dispatch_4812</code></div>
+        <div style="color: #334155;">Sender Account: <code id="modal-success-sender-email" style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px;">user@domain.com</code></div>
+      </div>
+
+      <button class="btn btn-primary" type="button" onclick="closeLemlistOnboardingModal()" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer;">
+        Finish &amp; Explore Console ↗
+      </button>
+    </div>
+
+  </div>
+</div>

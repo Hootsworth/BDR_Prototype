@@ -1,41 +1,129 @@
-          <div class="split-pane-layout">
-            <div class="left-list-pane">
-              <!-- Inline Switcher for Outbound sub-segments -->
-              <div class="drawer-tab-strip" style="margin-bottom: 12px; border-bottom: 1px solid var(--hairline);">
-                <button class="drawer-tab-btn active" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospects</button>
-                <button class="drawer-tab-btn" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
-              </div>
+<!-- ═══ VISUAL MULTI-STEP OUTBOUND SEQUENCE BUILDER TIMELINE ═══ -->
+<div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Omnichannel Outbound Sequence #1</h3>
+      <span style="font-size: 12px; color: var(--color-text-secondary);">4-Step Automated Cadence (Email, LinkedIn, Phone)</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <button class="btn btn-secondary btn-sm" onclick="addSequenceStep()">+ Add Cadence Step</button>
+      <button class="btn btn-primary btn-sm" onclick="runOutboundCadenceBatch()">🚀 Launch Batch Cadence</button>
+    </div>
+  </div>
 
-              <div class="table-filter-bar">
-                <input type="text" id="outbound-search-input" placeholder="Search..." oninput="filterOutboundTable()">
-              </div>
-              <div class="table-wrapper text-sm">
-                <table id="table-campaign-outbound">
-                  <thead>
-                    <tr id="table-campaign-outbound-headers">
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Lead Temp</th>
-                      <th>Email Status</th>
-                      <th>LinkedIn Status</th>
-                      <th>Call Log</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-campaign-outbound-body">
-                    <tr><td colspan="7" class="table-placeholder">No records found. Please load CSV data first.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="table-pagination" id="outbound-pagination"></div>
-            </div>
-            <div class="right-drawer-pane" id="outbound-drawer">
-              <div class="drawer-header">
-                <h3>Omnichannel Outbound Console</h3>
-                <button class="close-drawer-btn" onclick="closeDrawer('outbound')">×</button>
-              </div>
-              <div class="drawer-body" id="outbound-drawer-body">
-                <div class="drawer-empty-state">Select a contact from the list to load the outbound console.</div>
-              </div>
-            </div>
-          </div>
+  <!-- Timeline Cards Layout -->
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; overflow-x: auto;" id="sequence-timeline-grid">
+    <!-- Step 1 -->
+    <div style="background: var(--surface-soft, #fafafa); border: 1.5px solid var(--color-primary); border-radius: 8px; padding: 0.875rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span class="badge badge-primary" style="font-size: 10px;">Day 1 · Step 1</span>
+        <span style="font-size: 14px;">📧</span>
+      </div>
+      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Initial Cold Email</strong>
+      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Personalized Q3 expansion intro hook.</p>
+      <span style="font-size: 10.5px; color: var(--color-success, #16a34a); font-weight: 600;">84% Open Rate Target</span>
+    </div>
+
+    <!-- Step 2 -->
+    <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day 3 · Step 2</span>
+        <span style="font-size: 14px;">💼</span>
+      </div>
+      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">LinkedIn Profile View &amp; Note</strong>
+      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Soft connection request mentioning email.</p>
+      <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Auto-triggered if unopened</span>
+    </div>
+
+    <!-- Step 3 -->
+    <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day 5 · Step 3</span>
+        <span style="font-size: 14px;">📧</span>
+      </div>
+      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Follow-up Case Study</strong>
+      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Share Credit Union ROI benchmark PDF.</p>
+      <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Threaded reply</span>
+    </div>
+
+    <!-- Step 4 -->
+    <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day 8 · Step 4</span>
+        <span style="font-size: 14px;">📞</span>
+      </div>
+      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Voice Call Task</strong>
+      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">SDR phone prompt if intent score > 75.</p>
+      <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Manual task queue</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ REAL-TIME EMAIL DELIVERABILITY & SPAM SCORE AUDITOR WIDGET ═══ -->
+<div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 16px;">🛡️</span>
+      <h3 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--color-text-primary);">Email Deliverability &amp; Spam Score Auditor</h3>
+    </div>
+    <div style="display: flex; gap: 0.75rem; font-size: 11.5px; font-weight: 600;">
+      <span style="color: var(--color-success, #16a34a);">SPF: PASS ✓</span>
+      <span style="color: var(--color-success, #16a34a);">DKIM: PASS ✓</span>
+      <span style="color: var(--color-success, #16a34a);">DMARC: REJECT Policy ✓</span>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 280px;">
+      <textarea id="spam-audit-input" oninput="runSpamAuditorCheck(this.value)" rows="3" class="form-input" style="width: 100%; font-size: 12.5px; line-height: 1.5; resize: vertical;" placeholder="Type or paste draft copy here to run real-time deliverability audit..."></textarea>
+    </div>
+    <div style="width: 280px; background: var(--surface-soft, #fafafa); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="color: var(--color-text-secondary);">Spam Score:</span>
+        <strong id="spam-score-val" style="color: var(--color-success, #16a34a);">0.2 / 10 (Clean)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="color: var(--color-text-secondary);">Readability Grade:</span>
+        <strong id="spam-readability-val" style="color: var(--color-text-primary);">Grade 7 (Optimal)</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--color-text-secondary);">Detected Risks:</span>
+        <span id="spam-risks-val" style="color: var(--color-text-secondary);">None detected</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="table-container">
+  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button class="btn btn-secondary btn-sm active" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospects</button>
+      <button class="btn btn-secondary btn-sm" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
+    </div>
+    
+    <div style="flex: 1; max-width: 380px;">
+      <input type="text" class="form-input" id="outbound-search-input" placeholder="Search contacts by name or title..." oninput="filterOutboundTable()">
+    </div>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table class="data-table" id="table-campaign-outbound">
+      <thead>
+        <tr>
+          <th>Contact Name</th>
+          <th>Job Title</th>
+          <th>Lead Status</th>
+          <th>Email Outbound</th>
+          <th>LinkedIn Outbound</th>
+          <th>Voice Call</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-campaign-outbound-body">
+        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No contacts loaded. Upload CSV or add contacts first.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination-bar" id="outbound-pagination" style="padding: 1rem 0 0 0; margin-top: 0.5rem; border-top: 1px solid var(--color-border);"></div>
+</div>

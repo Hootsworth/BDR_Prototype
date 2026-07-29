@@ -1,33 +1,31 @@
-          <div class="schedule-split-layout" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; min-height: 500px;">
-            
-            <div class="table-container-card" style="margin-top: 0; padding: 20px;">
-              <div class="calendar-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3 id="calendar-month-year" style="font-size: 16px; margin: 0; font-weight: 700;">July 2026</h3>
-                <div style="display: flex; gap: 8px;">
-                  <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(-1)" style="height: 32px; padding: 0 10px;">Previous</button>
-                  <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(1)" style="height: 32px; padding: 0 10px;">Next</button>
-                </div>
-              </div>
-              
-              <div class="calendar-grid-days-header" style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 8px; border-bottom: 1.5px solid var(--primary); padding-bottom: 4px;">
-                <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
-              </div>
-              
-              <div id="calendar-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; flex-grow: 1;">
-                <!-- Days populated dynamically by renderCalendar() -->
-              </div>
-            </div>
-            
-            <div class="table-container-card" style="margin-top: 0; padding: 20px; display: flex; flex-direction: column;">
-              <div class="table-title" style="margin-bottom: 8px;">
-                <h3 id="selected-date-title" style="font-size: 15px; margin: 0; font-weight: 700;">No Date Selected</h3>
-              </div>
-              <p id="selected-date-subtitle" style="font-size: 12px; color: var(--muted); margin-bottom: 16px; margin-top: 0;">
-                Select a highlighted date to view briefings.
-              </p>
-              <div id="selected-date-meetings-list" class="meetings-grid" style="flex-grow: 1; overflow-y: auto;">
-                <div class="table-placeholder" style="border: none; padding: 40px 10px;">Select a date on the calendar grid to inspect briefing details.</div>
-              </div>
-            </div>
-            
-          </div>
+<div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; min-height: 500px;">
+  <div class="card" style="margin: 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+      <h3 id="calendar-month-year" style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">July 2026</h3>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(-1)">Previous</button>
+        <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(1)">Next</button>
+      </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-secondary); margin-bottom: 0.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.25rem;">
+      <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
+    </div>
+    
+    <div id="calendar-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem;">
+      <!-- Days populated dynamically by renderCalendar() -->
+    </div>
+  </div>
+
+  <div class="card" style="margin: 0; display: flex; flex-direction: column;">
+    <div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+      <h3 id="selected-date-title" style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">No Date Selected</h3>
+      <p id="selected-date-subtitle" style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0.25rem 0 0 0;">
+        Select a highlighted date to view briefings.
+      </p>
+    </div>
+    <div id="selected-date-meetings-list" style="flex: 1; overflow-y: auto;">
+      <div style="font-size: var(--font-size-xs); color: var(--color-text-disabled); text-align: center; padding: 3rem 0;">Select a date on the calendar grid to inspect briefing details.</div>
+    </div>
+  </div>
+</div>

@@ -1,24 +1,33 @@
-          <div class="glass-panel">
-            <div class="section-title">Select Outbound Campaign Event</div>
-            <div class="form-group">
-              <select class="select-control" id="select-event-view" onchange="renderEventsList()">
-                <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
-                <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
-                <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
-              </select>
-            </div>
-          </div>
-          <div class="table-container-card">
-            <div class="table-title">
-              <h3 id="events-list-title">GAC 2023 Dinner Attendees</h3>
-              <span class="badge-count" id="events-list-count">0 attendees</span>
-            </div>
-            <div class="table-wrapper">
-              <table id="table-events-attendees">
-                <thead><tr><th>Name</th><th>Job Title</th><th>Company</th><th>Email</th><th>Status</th><th>Notes</th></tr></thead>
-                <tbody id="table-events-attendees-body">
-                  <tr><td colspan="6" class="table-placeholder">No attendees found. Load data first.</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 1rem; flex: 1; max-width: 480px;">
+      <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap;">Campaign Event:</label>
+      <select class="form-select" id="select-event-view" onchange="renderEventsList()">
+        <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
+        <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
+        <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openEventRegisterModal()">
+      <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      Register Contact
+    </button>
+  </div>
+</div>
+
+<div class="table-container">
+  <div class="table-toolbar">
+    <h3 id="events-list-title" style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">GAC 2023 Dinner Attendees</h3>
+    <span class="badge" id="events-list-count">0 attendees</span>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="data-table" id="table-events-attendees">
+      <thead>
+        <tr><th>Name</th><th>Job Title</th><th>Company</th><th>Email</th><th>Status</th><th>Notes</th></tr>
+      </thead>
+      <tbody id="table-events-attendees-body">
+        <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No attendees found. Load data first.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>

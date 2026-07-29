@@ -1,4 +1,18 @@
-// --- INFLUENCERS & PARTNER REFERRALS CONTROLLER ---
+function openAddInfluencerModal() {
+  const dlg = document.getElementById("add-influencer-dialog");
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "block";
+  }
+}
+
+function closeAddInfluencerModal() {
+  const dlg = document.getElementById("add-influencer-dialog");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
 
 function openCampaignTarget(email, channel) {
   switchTab('campaign-outbound');
@@ -59,6 +73,7 @@ function handleManualInfluencerSubmit(event) {
   saveDatabaseCache();
   
   document.getElementById("manual-influencer-form").reset();
+  closeAddInfluencerModal();
   addLogConsole("enrich", `[SYSTEM] Manual Enrollment: Influencer ${name} (${company}) added successfully.`, "success");
   
   filterInfluencersTable();
@@ -194,6 +209,8 @@ function closeDrawer(drawerId) {
 
 window.openCampaignTarget = openCampaignTarget;
 window.handleManualInfluencerSubmit = handleManualInfluencerSubmit;
+window.openAddInfluencerModal = openAddInfluencerModal;
+window.closeAddInfluencerModal = closeAddInfluencerModal;
 window.openAddReferralModal = openAddReferralModal;
 window.closeReferralDialog = closeReferralDialog;
 window.handleReferralSubmit = handleReferralSubmit;

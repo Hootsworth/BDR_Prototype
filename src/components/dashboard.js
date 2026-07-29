@@ -91,26 +91,26 @@ function renderDashboardActivityFeed() {
     const item = document.createElement("div");
     item.className = "feed-item";
 
-    let icon = "⚙️";
-    let badgeBg = "rgba(10, 10, 10, 0.1)";
-    let badgeColor = "var(--ink)";
+    let icon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>`;
+    let badgeBg = "var(--color-background-muted)";
+    let badgeColor = "var(--color-text-primary)";
 
     if (act.type === "success") {
-      icon = "✅";
-      badgeBg = "rgba(34, 197, 94, 0.1)";
-      badgeColor = "var(--success)";
+      icon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      badgeBg = "var(--color-success-muted)";
+      badgeColor = "var(--color-success)";
     } else if (act.type === "error") {
-      icon = "❌";
-      badgeBg = "rgba(239, 68, 68, 0.1)";
-      badgeColor = "var(--error)";
+      icon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+      badgeBg = "var(--color-error-muted)";
+      badgeColor = "var(--color-error)";
     } else if (act.type === "warning") {
-      icon = "⚠️";
-      badgeBg = "rgba(245, 158, 11, 0.1)";
-      badgeColor = "var(--warning)";
+      icon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+      badgeBg = "var(--color-warning-muted)";
+      badgeColor = "var(--color-warning)";
     } else if (act.type === "info") {
-      icon = "ℹ️";
-      badgeBg = "rgba(59, 130, 246, 0.1)";
-      badgeColor = "#3b82f6";
+      icon = `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+      badgeBg = "var(--color-background-muted)";
+      badgeColor = "var(--color-text-secondary)";
     }
 
     item.innerHTML = `

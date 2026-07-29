@@ -113,7 +113,7 @@ function appendAgentLog(htmlContent) {
   botDiv.style.alignItems = "flex-start";
 
   botDiv.innerHTML = `
-    <div style="font-size:18px; width:34px; height:34px; background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">🤖</div>
+    <div style="font-size:18px; width:34px; height:34px; background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg></div>
     <div class="msg-bubble" style="background:var(--surface-soft); color:var(--ink); padding:12px 16px; border-radius:var(--radius-md); border:1.5px solid var(--hairline); font-size:13px; line-height:1.6; max-width:85%;">
       ${htmlContent}
     </div>
@@ -124,18 +124,20 @@ function appendAgentLog(htmlContent) {
 }
 
 function updateBrowserStep(stepId, status, text = "") {
-  const el = document.getElementById(stepId);
-  if (!el) return;
-  const statusLabel = el.querySelector("span") || el;
+  const loader = document.getElementById("agent-floating-loader");
+  const titleEl = document.getElementById("agent-loader-title");
+  const subtitleEl = document.getElementById("agent-loader-subtitle");
 
   if (status === "running") {
-    el.style.borderColor = "var(--primary, #2563eb)";
-    el.style.background = "var(--surface-card)";
-    if (text) statusLabel.innerHTML = `<strong style="color:var(--primary);">Executing:</strong> ${text}`;
+    if (loader) loader.style.display = "flex";
+    if (titleEl && text) titleEl.textContent = text;
+    if (subtitleEl) subtitleEl.textContent = "Agentic Google Search & API Execution...";
   } else if (status === "completed") {
-    el.style.borderColor = "var(--success, #16a34a)";
-    el.style.background = "var(--surface-soft)";
-    if (text) statusLabel.innerHTML = `<strong style="color:var(--success);">Completed ✓:</strong> ${text}`;
+    if (titleEl && text) titleEl.textContent = text;
+    if (subtitleEl) subtitleEl.textContent = "Workflow step completed successfully ✓";
+    setTimeout(() => {
+      if (loader) loader.style.display = "none";
+    }, 2000);
   }
 }
 
@@ -179,6 +181,9 @@ function sendAgentChatMessage() {
 
   const text = input.value.trim();
   if (text === "") return;
+
+  const hero = document.getElementById("agent-landing-hero");
+  if (hero) hero.style.display = "none";
 
   const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "GTM Operator";
   const userInitials = userFullName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -445,6 +450,114 @@ Provide structured HTML output (no markdown like ** or #):
   }
 }
 
+// --- CATEGORY 1: MULTI-MODEL SELECTOR & TOKEN GUARDRAILS ---
+let currentAgentTokens = 42850;
+let currentAgentCost = 0.042;
+
+function changeAgentModel(modelName) {
+  database.selectedModel = modelName;
+  appendAgentLog(`⚙️ <strong>Agent Model Switched to: ${modelName}</strong>. Guardrails re-configured.`);
+}
+
+function updateTokenGuardrails(addedTokens) {
+  currentAgentTokens += addedTokens;
+  // Estimated cost $0.001 per 1k tokens
+  currentAgentCost = (currentAgentTokens / 1000) * 0.001;
+  const tokenEl = document.getElementById("token-count-val");
+  const costEl = document.getElementById("token-cost-val");
+  if (tokenEl) tokenEl.textContent = currentAgentTokens.toLocaleString();
+  if (costEl) costEl.textContent = `$${currentAgentCost.toFixed(3)}`;
+}
+
+// --- CATEGORY 1: LANGGRAPH 12-NODE DAG VISUALIZER ---
+function toggleDagVisibility() {
+  const dag = document.getElementById("langgraph-dag-container");
+  if (!dag) return;
+  dag.style.display = dag.style.display === "none" ? "block" : "none";
+}
+
+function showNodeDetails(nodeId) {
+  const nodeNames = {
+    icp_discovery: "01. ICP Discovery Agent (Identifies target industries & size parameters)",
+    contact_intelligence: "02. Contact Intelligence Agent (Scrapes LinkedIn & decision-maker profiles)",
+    data_quality: "03. Data Quality Agent (Validates email syntax, bounce risk, & duplicate check)",
+    personalization: "04. Personalization Agent (Generates customized intro hooks & value props)",
+    campaign_launch: "05. Campaign Launch Agent (Dispatches outbound email sequence) [Breakpoint ⏸]",
+    deliverability: "06. Deliverability Agent (Monitors SPF/DKIM health & inbox placement)",
+    engagement_monitoring: "07. Engagement Monitoring Agent (Tracks email opens, clicks, & replies)",
+    intent_detection: "08. Intent Detection Agent (Scores buyer engagement signal > 80)",
+    linkedin_engagement: "09. LinkedIn Touch Agent (Sends automated connection requests) [Breakpoint ⏸]",
+    qualification: "10. Qualification Agent (Evaluates BANT budget/authority parameters)",
+    meeting_scheduler: "11. Meeting Scheduler Agent (Generates calendar invite links)",
+    crm_intelligence: "12. CRM Intelligence Agent (Syncs deal record & pipeline value to HubSpot/SFDC) [Breakpoint ⏸]"
+  };
+
+  const name = nodeNames[nodeId] || nodeId;
+  appendAgentLog(`🔍 <strong>LangGraph Node Inspector:</strong> ${name}`);
+}
+
+// --- CATEGORY 1: HUMAN-IN-THE-LOOP (HIL) COPILOT REVIEW MODAL ---
+function openHilCopilotModal() {
+  const modal = document.getElementById("hil-copilot-modal");
+  if (modal) {
+    modal.style.display = "flex";
+  }
+}
+
+function closeHilCopilotModal() {
+  const modal = document.getElementById("hil-copilot-modal");
+  if (modal) {
+    modal.style.display = "none";
+  }
+}
+
+function applyAiPromptChip(chipType) {
+  const subjectEl = document.getElementById("hil-email-subject");
+  const bodyEl = document.getElementById("hil-email-body");
+  const statusEl = document.getElementById("hil-copy-status");
+  if (!bodyEl) return;
+
+  const leadName = document.getElementById("hil-lead-name")?.textContent || "Sarah";
+
+  let rewrites = {
+    casual: {
+      subject: "Hey Sarah - quick question re: First Credit Union",
+      body: `Hey ${leadName.split(' ')[0]},\n\nSaw your Q3 branch expansion news! Congrats on the growth.\n\nWe built an autonomous GTM setup that helps credit unions automate member onboarding. Curious if you'd be open to a quick 5-min chat next week?\n\nBest,\nGTM Team`
+    },
+    roi: {
+      subject: "Slashing member onboarding costs at First Credit Union by 35%",
+      body: `Hi ${leadName.split(' ')[0]},\n\nWith First Credit Union expanding digital branches in Q3, operational throughput is key. Our GTM automation engine typically reduces manual lead processing costs by 35% within 30 days.\n\nWould you have 10 minutes next Tuesday to review the benchmark report?\n\nRegards,\nGTM Team`
+    },
+    shorter: {
+      subject: "First Credit Union + GTM Automation",
+      body: `Hi ${leadName.split(' ')[0]},\n\nNoticed your Q3 branch expansion. We help credit unions automate loan intake and member onboarding—open to a quick Tuesday call?\n\nBest,\nGTM Team`
+    },
+    compliance: {
+      subject: "NCUA-compliant automation for First Credit Union's Q3 growth",
+      body: `Hi ${leadName.split(' ')[0]},\n\nCongratulations on First Credit Union's Q3 digital expansion. Our GTM workflow engine is built specifically for credit unions with built-in NCUA compliance auditing and Jack Henry/Symitar integrations.\n\nLet's schedule a 10-minute compliance overview next week.\n\nBest regards,\nGTM Automation Team`
+    }
+  };
+
+  const choice = rewrites[chipType];
+  if (choice) {
+    if (subjectEl) subjectEl.value = choice.subject;
+    bodyEl.value = choice.body;
+    if (statusEl) {
+      statusEl.textContent = `Rewritten (${chipType.toUpperCase()}) ✓`;
+      statusEl.className = "badge badge-success";
+    }
+    updateTokenGuardrails(145);
+  }
+}
+
+function approveHilCopyDraft() {
+  const subject = document.getElementById("hil-email-subject")?.value || "";
+  const leadName = document.getElementById("hil-lead-name")?.textContent || "Lead";
+  
+  closeHilCopilotModal();
+  appendAgentLog(`✅ <strong>Approved & Dispatched Outbound:</strong> Sent email to <strong>${leadName}</strong> with subject: <em>"${subject}"</em>.`);
+}
+
 // Global exports
 window.toggleAgentMode = toggleAgentMode;
 window.initAgentAutocomplete = initAgentAutocomplete;
@@ -454,3 +567,12 @@ window.handleAgentChatKeyDown = handleAgentChatKeyDown;
 window.sendAgentChatMessage = sendAgentChatMessage;
 window.runAgentQuickAction = runAgentQuickAction;
 window.startAgentResearchSequence = startAgentResearchSequence;
+window.changeAgentModel = changeAgentModel;
+window.updateTokenGuardrails = updateTokenGuardrails;
+window.toggleDagVisibility = toggleDagVisibility;
+window.showNodeDetails = showNodeDetails;
+window.openHilCopilotModal = openHilCopilotModal;
+window.closeHilCopilotModal = closeHilCopilotModal;
+window.applyAiPromptChip = applyAiPromptChip;
+window.approveHilCopyDraft = approveHilCopyDraft;
+

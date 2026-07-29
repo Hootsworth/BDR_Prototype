@@ -282,6 +282,48 @@ function bulkDeleteSelected() {
   saveDatabaseCache();
 }
 
+function bulkAssignSequenceSelected() {
+  if (!database.selectedUploadRows || database.selectedUploadRows.length === 0) {
+    alert("Please select at least one contact to assign to outbound sequence.");
+    return;
+  }
+  const count = database.selectedUploadRows.length;
+  alert(`Assigned ${count} selected prospects to Outbound Email Sequence #1.`);
+  switchTab("campaign-outbound");
+}
+
+function bulkPushHilReviewSelected() {
+  if (!database.selectedUploadRows || database.selectedUploadRows.length === 0) {
+    alert("Please select at least one contact.");
+    return;
+  }
+  const count = database.selectedUploadRows.length;
+  alert(`Pushed ${count} selected prospects to Human-in-the-Loop AI Copilot Queue.`);
+  switchTab("agent-mode");
+  openHilCopilotModal();
+}
+
+function bulkExportCsvSelected() {
+  if (!database.selectedUploadRows || database.selectedUploadRows.length === 0) {
+    alert("Please select at least one contact to export.");
+    return;
+  }
+  const selectedContacts = database.contacts.filter(c => database.selectedUploadRows.includes(c.id));
+  
+  let csvContent = "data:text/csv;charset=utf-8,Full Name,Job Title,Company,Email,Industry,Match Score\n";
+  selectedContacts.forEach(c => {
+    csvContent += `"${c.fullName}","${c.jobTitle}","${c.company}","${c.email}","${c.industry}","${c.matchPercentage || 85}%"\n`;
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `selected_gtm_leads_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 let currentSortField = "";
 let currentSortOrder = "asc";
 
@@ -325,4 +367,7 @@ window.toggleSelectUploadRow = toggleSelectUploadRow;
 window.updateBulkActionBar = updateBulkActionBar;
 window.bulkEnrichSelected = bulkEnrichSelected;
 window.bulkDeleteSelected = bulkDeleteSelected;
+window.bulkAssignSequenceSelected = bulkAssignSequenceSelected;
+window.bulkPushHilReviewSelected = bulkPushHilReviewSelected;
+window.bulkExportCsvSelected = bulkExportCsvSelected;
 window.sortTable = sortTable;

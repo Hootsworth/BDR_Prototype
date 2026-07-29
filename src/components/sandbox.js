@@ -63,11 +63,13 @@ function renderApolloSandbox(viewport) {
 
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">🚀 Apollo.io Prospect Board</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">View leads parsed from the Apollo.io scraper. Enriched leads include verified cell numbers and seniority scores.</p>
+      <h3 style="margin-bottom:8px; font-weight:700; font-size:var(--font-size-base); margin-top:0;">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.71.12-1.67-.32-2.11a1.5 1.5 0 0 0-2.68.11zm0 0L8.5 12.5m10 0l-5-5m5 5l2.5-2.5a2.121 2.121 0 0 0-3-3L15.5 4.5m3 8L12.5 18.5m6-6L14 8"></path></svg> Apollo.io Prospect Board
+      </h3>
+      <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin-bottom:16px;">View leads parsed from the Apollo.io scraper. Enriched leads include verified cell numbers and seniority scores.</p>
       <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
         <thead>
-          <tr style="background:var(--surface-soft); text-align:left; border-bottom:1.5px solid var(--hairline);">
+          <tr style="background:var(--color-background-muted); text-align:left; border-bottom:1px solid var(--color-border);">
             <th style="padding:10px;">Name</th>
             <th style="padding:10px;">Company</th>
             <th style="padding:10px;">Email</th>
@@ -77,7 +79,7 @@ function renderApolloSandbox(viewport) {
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--muted);">No contacts loaded. Go to "Import Contacts" tab first.</td></tr>'}
+          ${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--color-text-secondary);">No contacts loaded. Go to "Import Contacts" tab first.</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -96,7 +98,6 @@ window.triggerApolloEnrich = function (idx) {
   saveDatabaseCache();
   addLogConsole("enrich", `[APOLLO] Enriched lead manually: ${c.fullName}`, "success");
   switchSandboxTab('apollo');
-  // Refresh main tables if visible
   if (typeof filterEnrichTable === "function") filterEnrichTable();
   if (typeof filterEmailTable === "function") filterEmailTable();
 };
@@ -106,22 +107,24 @@ function renderOutlookSandbox(viewport) {
   let listHtml = "";
   sentLeads.forEach(c => {
     listHtml += `
-      <div style="border:1.5px solid var(--hairline); border-radius: var(--radius-md); background:var(--surface-soft); padding:14px; margin-bottom:12px; text-align:left;">
+      <div style="border:1px solid var(--color-border); border-radius: var(--radius-inner); background:var(--color-background-muted); padding:14px; margin-bottom:12px; text-align:left;">
         <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px;">
           <div>To: <strong>${c.fullName}</strong> (${c.email})</div>
-          <div style="color:var(--success); font-weight:600;">Status: Outbound Delivered</div>
+          <div style="color:var(--color-success); font-weight:600;">Status: Outbound Delivered</div>
         </div>
         <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">Subject: ${c.emailDraft ? c.emailDraft.subject : 'Safe compliance for ' + c.company}</div>
-        <div style="font-size:12px; color:#4a4a4a; white-space:pre-wrap; background:#ffffff; padding:10px; border-radius:4px; border:1px solid var(--hairline); max-height:120px; overflow-y:auto;">${c.emailDraft ? c.emailDraft.body : 'N/A'}</div>
+        <div style="font-size:12px; color:var(--color-text-primary); white-space:pre-wrap; background:var(--color-background-surface); padding:10px; border-radius:4px; border:1px solid var(--color-border); max-height:120px; overflow-y:auto;">${c.emailDraft ? c.emailDraft.body : 'N/A'}</div>
       </div>
     `;
   });
 
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">📧 Outlook Campaign Outbox</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Tracks direct SDR email outbound campaigns dispatched through your integrated Outlook account. Total Sent: <strong>${sentLeads.length}</strong></p>
-      ${listHtml || '<div style="padding:40px; text-align:center; color:var(--muted); border:1.5px dashed var(--hairline); border-radius:8px;">No emails sent yet. Select a lead in "Campaign Email" tab and click Send.</div>'}
+      <h3 style="margin-bottom:8px; font-weight:700; font-size:var(--font-size-base); margin-top:0;">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> Outlook Campaign Outbox
+      </h3>
+      <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin-bottom:16px;">Tracks direct SDR email outbound campaigns dispatched through your integrated Outlook account. Total Sent: <strong>${sentLeads.length}</strong></p>
+      ${listHtml || '<div style="padding:40px; text-align:center; color:var(--color-text-secondary); border:1px dashed var(--color-border); border-radius:8px;">No emails sent yet. Select a lead in "Campaign Email" tab and click Send.</div>'}
     </div>
   `;
 }

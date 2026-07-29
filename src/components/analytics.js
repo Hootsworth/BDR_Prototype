@@ -217,8 +217,35 @@ Write a natural, helpful, and concise response in markdown table/bullet form dir
   return `I recognize the query, but I need an LLM API key for non-standard queries. Based on local processing, we have loaded <strong>${database.contacts.length.toLocaleString()}</strong> contacts. Try querying role keywords like "CIO" or stats like "asset size".`;
 }
 
+// --- CATEGORY 5A: FULL-FUNNEL ATTRIBUTION SEGMENT FILTER ---
+function filterFunnelSegment(segment) {
+  const bar1 = document.getElementById("funnel-bar-1");
+  const bar2 = document.getElementById("funnel-bar-2");
+  const bar3 = document.getElementById("funnel-bar-3");
+  const bar4 = document.getElementById("funnel-bar-4");
+  const bar5 = document.getElementById("funnel-bar-5");
+  const bar6 = document.getElementById("funnel-bar-6");
+  if (!bar1) return;
+
+  const data = {
+    all: { b1: "100%", t1: "1,240 Accounts (100%)", b2: "87%", t2: "1,080 Leads (87.1%)", b3: "68%", t3: "840 Leads (67.7%)", b4: "50%", t4: "620 Dispatched (50.0%)", b5: "25%", t5: "186 Replies (30.0%)", b6: "12%", t6: "48 Demos ($1.4M Pipeline)" },
+    "credit-union": { b1: "100%", t1: "720 Credit Unions (100%)", b2: "92%", t2: "662 Leads (91.9%)", b3: "76%", t3: "547 High Intent (75.9%)", b4: "58%", t4: "417 Dispatched (57.9%)", b5: "32%", t5: "133 Replies (31.8%)", b6: "16%", t6: "34 Demos ($980k Pipeline)" },
+    banking: { b1: "100%", t1: "380 Community Banks (100%)", b2: "81%", t2: "308 Leads (81.0%)", b3: "58%", t3: "220 High Intent (57.8%)", b4: "42%", t4: "160 Dispatched (42.1%)", b5: "18%", t5: "45 Replies (28.1%)", b6: "8%", t6: "11 Demos ($350k Pipeline)" },
+    insurance: { b1: "100%", t1: "140 Insurance Firms (100%)", b2: "78%", t2: "110 Leads (78.5%)", b3: "52%", t3: "73 High Intent (52.1%)", b4: "31%", t4: "43 Dispatched (30.7%)", b5: "12%", t5: "8 Replies (18.6%)", b6: "5%", t6: "3 Demos ($70k Pipeline)" }
+  };
+
+  const choice = data[segment] || data.all;
+  bar1.style.width = choice.b1; bar1.textContent = choice.t1;
+  bar2.style.width = choice.b2; bar2.textContent = choice.t2;
+  bar3.style.width = choice.b3; bar3.textContent = choice.t3;
+  bar4.style.width = choice.b4; bar4.textContent = choice.t4;
+  bar5.style.width = choice.b5; bar5.textContent = choice.t5;
+  bar6.style.width = choice.b6; bar6.textContent = choice.t6;
+}
+
 window.sendAnalyseChatMessage = sendAnalyseChatMessage;
 window.sendSuggestedQuery = sendSuggestedQuery;
 window.appendAnalyseMessage = appendAnalyseMessage;
 window.removeAnalyseLoading = removeAnalyseLoading;
 window.processAnalyseQuery = processAnalyseQuery;
+window.filterFunnelSegment = filterFunnelSegment;

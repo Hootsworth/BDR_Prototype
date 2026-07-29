@@ -35,43 +35,37 @@ function changeOutboundPage(page) {
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No contacts available.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--color-text-secondary);">No contacts available.</td></tr>`;
     return;
   }
 
   pageData.forEach(c => {
     const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.onclick = (e) => {
-      if (e.target.tagName !== 'BUTTON') loadOutboundDrawer(c);
-    };
 
-    const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
+    const badgeClass = c.leadTemp === "Hot Lead" ? "badge-success" : "badge";
     const emailStatus = c.emailsSent 
-      ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
-      : (c.emailDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
+      ? `<span style="color:var(--color-success); font-weight:600;">Sent ✓</span>` 
+      : (c.emailDraft ? `<span style="color:var(--color-text-primary); font-weight:500;">Drafted</span>` : `<span style="color:var(--color-text-secondary)">Pending</span>`);
     const linkedinStatus = c.linkedinSent 
-      ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
-      : (c.linkedinDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
+      ? `<span style="color:var(--color-success); font-weight:600;">Sent ✓</span>` 
+      : (c.linkedinDraft ? `<span style="color:var(--color-text-primary); font-weight:500;">Drafted</span>` : `<span style="color:var(--color-text-secondary)">Pending</span>`);
     
     let callStatus = "None";
     if (c.callsMade && c.callsMade.length > 0) {
-      callStatus = `<span style="color:var(--success);font-weight:500;">${c.callsMade.length} calls</span>`;
+      callStatus = `<span style="color:var(--color-success); font-weight:600;">${c.callsMade.length} calls</span>`;
     }
-
-    const actionText = c.isInfluencer ? "Influencer" : "Prospect";
 
     tr.innerHTML = `
       <td><strong>${c.fullName}</strong></td>
-      <td>${c.company || "N/A"}</td>
-      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp || "Warm"}</span></td>
+      <td>${c.jobTitle || "Decision Maker"}</td>
+      <td><span class="badge ${badgeClass}">${c.leadTemp || "Warm Lead"}</span></td>
       <td>${emailStatus}</td>
       <td>${linkedinStatus}</td>
       <td>${callStatus}</td>
-      <td>
-        <div class="table-cell-actions">
-          <button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">${actionText}</button>
-          <button class="row-action-link" style="color:var(--error);" onclick="deleteContactRecord(${c.id})">Delete</button>
+      <td style="text-align: right;">
+        <div style="display: flex; gap: 0.375rem; justify-content: flex-end;">
+          <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
+          <button class="btn btn-secondary btn-sm" style="color: var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
         </div>
       </td>
     `;
@@ -886,12 +880,453 @@ function insertPortalLinkToDraft(textareaId) {
   }
 }
 
+let currentModalChannel = 'email';
+
+function openOutboundModal(contactId, channel = 'email') {
+  const contact = database.contacts.find(c => c.id === contactId);
+  if (!contact) return;
+
+  database.selectedContact = contact;
+  currentModalChannel = channel;
+
+  if (!contact.emailDraft) {
+    contact.emailDraft = {
+      subject: `Safe compliance & automation for ${contact.company}`,
+      body: `Hi ${contact.firstName},\n\nNotice ${contact.company} is scaling operations. Our platform automates BDR queries & outbound pipelines.\n\nWould 15 minutes next Tuesday work to discuss?\n\nBest,\nSDR Campaign Agent`
+    };
+  }
+  if (!contact.linkedinDraft) {
+    contact.linkedinDraft = {
+      body: `Hi ${contact.firstName}, impressed by your leadership at ${contact.company}. Would love to connect and share BDR automation benchmarks.`
+    };
+  }
+
+  const nameEl = document.getElementById("outbound-modal-contact-name");
+  const badgeEl = document.getElementById("outbound-modal-contact-badge");
+  if (nameEl) nameEl.textContent = `${contact.fullName} (${contact.jobTitle || 'Executive'})`;
+  if (badgeEl) {
+    badgeEl.textContent = contact.leadTemp || "Warm Lead";
+    badgeEl.className = (contact.leadTemp === "Hot Lead") ? "badge badge-success" : "badge";
+  }
+
+  const infoCompany = document.getElementById("modal-info-company");
+  const infoTitle = document.getElementById("modal-info-title");
+  const infoEmail = document.getElementById("modal-info-email");
+  const infoPhone = document.getElementById("modal-info-phone");
+  if (infoCompany) infoCompany.textContent = contact.company || "N/A";
+  if (infoTitle) infoTitle.textContent = contact.jobTitle || "Decision Maker";
+  if (infoEmail) infoEmail.textContent = contact.email || "N/A";
+  if (infoPhone) infoPhone.textContent = contact.phone || "+1 (555) 019-2834";
+
+  renderOutboundModalHistory(contact);
+  switchOutboundModalChannel(channel);
+
+  const dlg = document.getElementById("outbound-action-dialog");
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "block";
+  }
+}
+
+function closeOutboundModal() {
+  const dlg = document.getElementById("outbound-action-dialog");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
+
+function switchOutboundModalChannel(channel) {
+  currentModalChannel = channel;
+  const contact = database.selectedContact;
+  if (!contact) return;
+
+  const btnEmail = document.getElementById("btn-outbound-channel-email");
+  const btnLinkedin = document.getElementById("btn-outbound-channel-linkedin");
+  const btnCall = document.getElementById("btn-outbound-channel-call");
+
+  const draftInputsGroup = document.getElementById("outbound-draft-inputs-group");
+  const callPanel = document.getElementById("outbound-call-panel");
+  const subjGroup = document.getElementById("outbound-subject-group");
+  const secTitle = document.getElementById("outbound-modal-section-title");
+  const actionBtn = document.getElementById("btn-outbound-send-action");
+  const aiHookBtn = document.getElementById("btn-generate-ai-hook");
+
+  if (btnEmail && btnLinkedin && btnCall) {
+    btnEmail.classList.toggle("active", channel === 'email');
+    btnLinkedin.classList.toggle("active", channel === 'linkedin');
+    btnCall.classList.toggle("active", channel === 'call');
+  }
+
+  const subjInput = document.getElementById("outbound-email-subject-input");
+  const bodyInput = document.getElementById("outbound-email-body-input");
+
+  if (channel === 'email') {
+    if (draftInputsGroup) draftInputsGroup.style.display = "flex";
+    if (callPanel) callPanel.style.display = "none";
+    if (subjGroup) subjGroup.style.display = "block";
+    if (secTitle) secTitle.textContent = "Email Outreach Message";
+    if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Dispatch Email Outreach"; }
+    if (aiHookBtn) aiHookBtn.style.display = "inline-flex";
+    if (subjInput) subjInput.value = contact.emailDraft ? contact.emailDraft.subject : "";
+    if (bodyInput) bodyInput.value = contact.emailDraft ? contact.emailDraft.body : "";
+  } else if (channel === 'linkedin') {
+    if (draftInputsGroup) draftInputsGroup.style.display = "flex";
+    if (callPanel) callPanel.style.display = "none";
+    if (subjGroup) subjGroup.style.display = "none";
+    if (secTitle) secTitle.textContent = "LinkedIn Connection Note";
+    if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Send LinkedIn Invite"; }
+    if (aiHookBtn) aiHookBtn.style.display = "inline-flex";
+    if (bodyInput) bodyInput.value = contact.linkedinDraft ? contact.linkedinDraft.body : "";
+  } else if (channel === 'call') {
+    if (draftInputsGroup) draftInputsGroup.style.display = "none";
+    if (callPanel) callPanel.style.display = "flex";
+    if (secTitle) secTitle.textContent = "AI Voice Calling & Transcription";
+    if (actionBtn) actionBtn.style.display = "none";
+    if (aiHookBtn) aiHookBtn.style.display = "none";
+  }
+
+  updateOutboundLivePreview();
+}
+
+function updateOutboundLivePreview() {
+  const contact = database.selectedContact;
+  const subjInput = document.getElementById("outbound-email-subject-input");
+  const bodyInput = document.getElementById("outbound-email-body-input");
+  const prevSubj = document.getElementById("preview-subject-render");
+  const prevBody = document.getElementById("preview-body-render");
+
+  if (!prevBody) return;
+
+  if (currentModalChannel === 'email') {
+    if (prevSubj) {
+      prevSubj.style.display = "block";
+      prevSubj.textContent = `Subject: ${subjInput ? subjInput.value : ""}`;
+    }
+    prevBody.textContent = bodyInput ? bodyInput.value : "";
+    if (contact && contact.emailDraft) {
+      contact.emailDraft.subject = subjInput ? subjInput.value : "";
+      contact.emailDraft.body = bodyInput ? bodyInput.value : "";
+    }
+  } else if (currentModalChannel === 'linkedin') {
+    if (prevSubj) prevSubj.style.display = "none";
+    prevBody.textContent = bodyInput ? bodyInput.value : "";
+    if (contact && contact.linkedinDraft) {
+      contact.linkedinDraft.body = bodyInput ? bodyInput.value : "";
+    }
+  } else {
+    if (prevSubj) prevSubj.style.display = "none";
+    prevBody.textContent = bodyInput ? bodyInput.value : "";
+  }
+}
+
+function executeOutboundSendAction() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+
+  if (currentModalChannel === 'email') {
+    contact.emailsSent = true;
+    database.stats.emailsSent = (database.stats.emailsSent || 0) + 1;
+    addLogConsole("enrich", `[OUTBOUND EMAIL] Sent email campaign to ${contact.fullName} (${contact.email})`, "success");
+    alert(`Email successfully sent to ${contact.fullName}!`);
+  } else if (currentModalChannel === 'linkedin') {
+    contact.linkedinSent = true;
+    database.stats.linkedinSent = (database.stats.linkedinSent || 0) + 1;
+    addLogConsole("enrich", `[LINKEDIN] Dispatched connection invite to ${contact.fullName}`, "success");
+    alert(`LinkedIn connection note sent to ${contact.fullName}!`);
+  } else if (currentModalChannel === 'call') {
+    if (!contact.callsMade) contact.callsMade = [];
+    contact.callsMade.push({ date: new Date().toISOString(), outcome: "Completed Briefing Call" });
+    database.stats.callsMade = (database.stats.callsMade || 0) + 1;
+    addLogConsole("enrich", `[VOICE CALL] Logged briefing call with ${contact.fullName}`, "success");
+    alert(`Call logged for ${contact.fullName}!`);
+  }
+
+  saveDatabaseCache();
+  renderOutboundModalHistory(contact);
+  filterOutboundTable();
+  closeOutboundModal();
+}
+
+function renderOutboundModalHistory(contact) {
+  const container = document.getElementById("outbound-contact-history-list");
+  if (!container) return;
+
+  let html = "";
+  if (contact.emailsSent) {
+    html += `<div style="padding:0.375rem; border-bottom:1px solid var(--color-border);"><strong>Email Sent:</strong> ${contact.emailDraft ? contact.emailDraft.subject : 'Campaign Outreach'}</div>`;
+  }
+  if (contact.linkedinSent) {
+    html += `<div style="padding:0.375rem; border-bottom:1px solid var(--color-border);"><strong>LinkedIn Invite:</strong> Connection note sent</div>`;
+  }
+  if (contact.callsMade && contact.callsMade.length > 0) {
+    contact.callsMade.forEach(c => {
+      html += `<div style="padding:0.375rem; border-bottom:1px solid var(--color-border);"><strong>Call Logged:</strong> ${c.outcome || 'Voice Briefing'}</div>`;
+    });
+  }
+
+  if (!html) {
+    html = `<div style="color:var(--color-text-secondary); text-align:center; padding:1rem;">No prior outbound history recorded.</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function deleteContactRecord(contactId) {
+  const contact = database.contacts.find(c => c.id === contactId);
+  if (!contact) return;
+
+  if (confirm(`Are you sure you want to delete contact record for ${contact.fullName}?`)) {
+    database.contacts = database.contacts.filter(c => c.id !== contactId);
+    saveDatabaseCache();
+    filterOutboundTable();
+    if (typeof filterImportTable === "function") filterImportTable();
+    if (typeof filterInfluencersTable === "function") filterInfluencersTable();
+    addLogConsole("enrich", `[SYSTEM] Deleted contact record: ${contact.fullName}`, "info");
+  }
+}
+
+function generateAIOutboundHook() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+
+  const area = document.getElementById("outbound-email-body-input");
+  const prevBox = document.getElementById("outbound-email-preview-box");
+  if (!area) return;
+
+  // 1. Blur out existing text & activate rainbow border glow
+  area.classList.add("text-blur-out", "rainbow-active");
+  if (prevBox) prevBox.classList.add("rainbow-active");
+
+  const newHook = `Hi ${contact.firstName},\n\nGiven ${contact.company}'s recent expansion in credit union operations, our automated BDR pipeline helps executive teams streamline partner referrals and compliance checking.\n\nWould 15 minutes next Tuesday work to discuss a live demo briefing?\n\nBest regards,\nSDR Campaign Agent`;
+
+  setTimeout(() => {
+    area.value = "";
+    area.classList.remove("text-blur-out");
+    area.classList.add("text-swoosh-in");
+
+    // 2. Apple-style rapid word-by-word swooshing typewriter animation
+    const words = newHook.split(" ");
+    let idx = 0;
+    const interval = setInterval(() => {
+      if (idx < words.length) {
+        area.value += (idx === 0 ? "" : " ") + words[idx];
+        updateOutboundLivePreview();
+        idx++;
+      } else {
+        clearInterval(interval);
+        area.classList.remove("rainbow-active", "text-swoosh-in");
+        if (prevBox) prevBox.classList.remove("rainbow-active");
+      }
+    }, 22);
+  }, 350);
+}
+
+// --- AI VOICE CALL SIMULATOR & REAL-TIME TRANSCRIPTION ---
+let callTimerInterval = null;
+let callSeconds = 0;
+
+function startSimulatedAICall() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+
+  playBeepSound();
+
+  const statusEl = document.getElementById("call-status-label");
+  const timerEl = document.getElementById("call-timer-display");
+  const transcriptBox = document.getElementById("call-transcript-box");
+  const summaryBox = document.getElementById("call-summary-box");
+
+  if (statusEl) statusEl.textContent = "In Call • Transcribing Live Speech...";
+  if (summaryBox) summaryBox.style.display = "none";
+  if (transcriptBox) {
+    transcriptBox.style.display = "block";
+    transcriptBox.innerHTML = `<div><strong style="color:var(--color-text-primary);">[AI Agent]:</strong> Dialing ${contact.phone || '+1 (555) 019-2834'}...</div>`;
+  }
+
+  callSeconds = 0;
+  clearInterval(callTimerInterval);
+  callTimerInterval = setInterval(() => {
+    callSeconds++;
+    const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+    const secs = String(callSeconds % 60).padStart(2, '0');
+    if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+  }, 1000);
+
+  // Live Speech Dialog Simulation
+  const speechLines = [
+    { speaker: "AI Agent", text: `Hello ${contact.fullName}, this is the GTM Copilot calling regarding ${contact.company}.` },
+    { speaker: contact.fullName, text: `Hi! Yes, I was looking into automated BDR query compliance.` },
+    { speaker: "AI Agent", text: `Great! We provide real-time prompt guardrails & referral credit tracking for credit union IT.` },
+    { speaker: contact.fullName, text: `That sounds very relevant for our stack. Let's schedule a 15-minute briefing next Tuesday at 2 PM.` },
+    { speaker: "AI Agent", text: `Confirmed! Locking in Tuesday at 2:00 PM EST. Sending the calendar invite to ${contact.email} now.` }
+  ];
+
+  speechLines.forEach((line, index) => {
+    setTimeout(() => {
+      if (transcriptBox) {
+        const lineDiv = document.createElement("div");
+        lineDiv.style.marginBottom = "0.375rem";
+        lineDiv.innerHTML = `<strong style="color:var(--color-text-primary);">[${line.speaker}]:</strong> ${line.text}`;
+        transcriptBox.appendChild(lineDiv);
+        transcriptBox.scrollTop = transcriptBox.scrollHeight;
+      }
+    }, (index + 1) * 1600);
+  });
+
+  // Auto-finish call and generate AI summary
+  setTimeout(() => {
+    stopSimulatedAICall();
+  }, 9500);
+}
+
+function stopSimulatedAICall() {
+  stopBeepSound();
+  clearInterval(callTimerInterval);
+
+  const contact = database.selectedContact;
+  const statusEl = document.getElementById("call-status-label");
+  const summaryBox = document.getElementById("call-summary-box");
+
+  if (statusEl) statusEl.textContent = "Call Ended • AI Summarizer Active";
+
+  if (summaryBox && contact) {
+    summaryBox.style.display = "block";
+    summaryBox.innerHTML = `
+      <div style="font-weight:700; font-size:var(--font-size-xs); color:var(--color-success); margin-bottom:0.5rem;">AI Call Insights &amp; Meeting Booked</div>
+      <div style="font-size:var(--font-size-xs); color:var(--color-text-primary); display:flex; flex-direction:column; gap:0.25rem;">
+        <div><strong>Key Need:</strong> BDR query guardrails &amp; partner referral credit tracking.</div>
+        <div><strong>Confirmed Meeting:</strong> Next Tuesday at 02:00 PM EST (Google Meet)</div>
+        <div><strong>Action Item:</strong> Calendar invite dispatched to ${contact.email}</div>
+      </div>
+    `;
+
+    // Save call outcome & meeting
+    if (!contact.callsMade) contact.callsMade = [];
+    contact.callsMade.push({ date: new Date().toLocaleTimeString(), outcome: "Meeting Confirmed (Tuesday 2:00 PM)" });
+
+    if (!database.meetings) database.meetings = [];
+    const nextTuesday = new Date();
+    nextTuesday.setDate(nextTuesday.getDate() + ((2 + 7 - nextTuesday.getDay()) % 7 || 7));
+    nextTuesday.setHours(14, 0, 0, 0);
+
+    const exists = database.meetings.find(m => m.contactEmail === contact.email);
+    if (!exists) {
+      database.meetings.push({
+        id: `meet-${Date.now()}`,
+        contactName: contact.fullName,
+        contactTitle: contact.jobTitle,
+        contactCompany: contact.company,
+        contactEmail: contact.email,
+        contactPhone: contact.phone || "+1 (555) 019-2834",
+        platform: "Google Meet",
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        timeString: `${nextTuesday.toLocaleDateString()} at 02:00 PM (EST)`,
+        influencerName: "Bob Miller",
+        influencerCredits: 100,
+        notes: `AI Call Summary: Interested in query injection guardrails & referral portal benefits. Executive briefing confirmed for Tuesday at 2:00 PM.`,
+        datetimeRaw: nextTuesday.toISOString()
+      });
+    }
+
+    saveDatabaseCache();
+    renderOutboundModalHistory(contact);
+    if (typeof renderCalendar === "function") renderCalendar();
+  }
+}
+
+// --- CATEGORY 4B: REAL-TIME SPAM AUDITOR & DELIVERABILITY CHECKER ---
+function runSpamAuditorCheck(text) {
+  const scoreEl = document.getElementById("spam-score-val");
+  const readEl = document.getElementById("spam-readability-val");
+  const risksEl = document.getElementById("spam-risks-val");
+  if (!scoreEl) return;
+
+  if (!text || text.trim().length === 0) {
+    scoreEl.textContent = "0.2 / 10 (Clean)";
+    scoreEl.style.color = "var(--color-success, #16a34a)";
+    if (readEl) readEl.textContent = "Grade 7 (Optimal)";
+    if (risksEl) risksEl.textContent = "None detected";
+    return;
+  }
+
+  const spamTriggers = ["free", "guaranteed", "100%", "no risk", "act now", "limited time", "click here", "cash", "make money", "urgent", "secret"];
+  const lower = text.toLowerCase();
+  let foundTriggers = [];
+
+  spamTriggers.forEach(word => {
+    if (lower.includes(word)) foundTriggers.push(word);
+  });
+
+  const wordCount = text.trim().split(/\s+/).length;
+  const sentenceCount = (text.match(/[.!?]+/g) || []).length || 1;
+  const avgWordsPerSentence = wordCount / sentenceCount;
+  const gradeLevel = Math.max(4, Math.min(16, Math.round(0.39 * avgWordsPerSentence + 11.8)));
+
+  let baseScore = (foundTriggers.length * 2.1) + (text.includes("!") ? 1.2 : 0) + (text.toUpperCase() === text && text.length > 20 ? 3.0 : 0);
+  baseScore = Math.min(10, Math.max(0.2, baseScore));
+
+  if (baseScore < 3.0) {
+    scoreEl.textContent = `${baseScore.toFixed(1)} / 10 (Low Risk)`;
+    scoreEl.style.color = "var(--color-success, #16a34a)";
+  } else if (baseScore < 6.0) {
+    scoreEl.textContent = `${baseScore.toFixed(1)} / 10 (Moderate Risk)`;
+    scoreEl.style.color = "#d97706";
+  } else {
+    scoreEl.textContent = `${baseScore.toFixed(1)} / 10 (High Risk)`;
+    scoreEl.style.color = "#dc2626";
+  }
+
+  if (readEl) readEl.textContent = `Grade ${gradeLevel} (${gradeLevel <= 8 ? 'Optimal B2B' : 'Too Complex'})`;
+  if (risksEl) {
+    risksEl.textContent = foundTriggers.length > 0 ? `Triggers: "${foundTriggers.join(', ')}"` : "Clean syntax";
+  }
+}
+
+// --- CATEGORY 2C: VISUAL SEQUENCE TIMELINE STEP HANDLERS ---
+function addSequenceStep() {
+  const grid = document.getElementById("sequence-timeline-grid");
+  if (!grid) return;
+
+  const currentCount = grid.children.length + 1;
+  const days = currentCount * 2 + 1;
+
+  const newStep = document.createElement("div");
+  newStep.style.cssText = "background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;";
+  newStep.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day ${days} · Step ${currentCount}</span>
+      <span style="font-size: 14px;">📧</span>
+    </div>
+    <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Follow-up Touch #${currentCount}</strong>
+    <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Automated value-add case study follow up.</p>
+    <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Threaded email</span>
+  `;
+  grid.appendChild(newStep);
+}
+
+function runOutboundCadenceBatch() {
+  alert("🚀 Batch Cadence Sequence Launched across target prospect list!");
+  if (typeof addLogConsole === "function") {
+    addLogConsole("campaign-outbound", "[SUCCESS] Launched 4-step cadence sequence across 15 target prospects.", "success");
+  }
+}
+
+window.startSimulatedAICall = startSimulatedAICall;
+window.stopSimulatedAICall = stopSimulatedAICall;
 window.insertPortalLinkToDraft = insertPortalLinkToDraft;
 window.switchOutboundSubtab = switchOutboundSubtab;
 window.filterOutboundTable = filterOutboundTable;
 window.changeOutboundPage = changeOutboundPage;
 window.loadOutboundDrawer = loadOutboundDrawer;
 window.switchDrawerChannel = switchDrawerChannel;
+window.openOutboundModal = openOutboundModal;
+window.closeOutboundModal = closeOutboundModal;
+window.switchOutboundModalChannel = switchOutboundModalChannel;
+window.updateOutboundLivePreview = updateOutboundLivePreview;
+window.executeOutboundSendAction = executeOutboundSendAction;
+window.deleteContactRecord = deleteContactRecord;
+window.generateAIOutboundHook = generateAIOutboundHook;
 window.triggerMockInfluencerResponse = triggerMockInfluencerResponse;
 window.sendOutboundEmail = sendOutboundEmail;
 window.sendOutboundLinkedin = sendOutboundLinkedin;
@@ -911,3 +1346,6 @@ window.logCallOutcome = logCallOutcome;
 window.playBeepSound = playBeepSound;
 window.stopBeepSound = stopBeepSound;
 window.renderContactTimeline = renderContactTimeline;
+window.runSpamAuditorCheck = runSpamAuditorCheck;
+window.addSequenceStep = addSequenceStep;
+window.runOutboundCadenceBatch = runOutboundCadenceBatch;
