@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --check app.js && node --check src/main.js",
+    "test:python": "PYTHONPYCACHEPREFIX=/tmp/langchain-pyc python3 -m unittest discover -s tests -v"
   },
   "repository": {
     "type": "git",

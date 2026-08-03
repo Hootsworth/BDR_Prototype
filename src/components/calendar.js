@@ -401,36 +401,39 @@ function simulateCalendlyWebhook() {
 }
 
 function dispatchLiveBackendSync(meet, dt, notes) {
-  if (database.googleAccessToken) {
+  if (database.googleCalendarConnected) {
     const eventPayload = {
       summary: `Outbound Briefing: ${meet.contactCompany}`,
       description: `${notes}\n\nJoin Link: ${meet.meetingUrl}`,
       location: meet.platform,
       start: { dateTime: dt.toISOString() },
       end: { dateTime: new Date(dt.getTime() + 30 * 60 * 1000).toISOString() },
-      attendees: [{ email: meet.contactEmail }]
+      attendees: [{ email: meet.contactEmail }],
+      conferenceData: {
+        createRequest: {
+          requestId: `gtm-${meet.id}`,
+          conferenceSolutionKey: { type: "hangoutsMeet" }
+        }
+      }
     };
 
-    const keyQuery = database.googleApiKey ? `?key=${encodeURIComponent(database.googleApiKey)}` : "";
-    fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events${keyQuery}`, {
+    fetch("/api/google/calendar/events", {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${database.googleAccessToken}`,
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(eventPayload)
     })
     .then(res => res.json())
     .then(data => {
       if (data.id) {
+        const meetLink = data.hangoutLink || data.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
+        if (meetLink) {
+          meet.meetingUrl = meetLink;
+          saveDatabaseCache();
+        }
         addLogConsole("enrich", `[GOOGLE CALENDAR API] Live event created! Event ID: ${data.id}`, "success");
       } else if (data.error) {
         addLogConsole("enrich", `[GOOGLE CALENDAR API] Creation failed: ${data.error.message}`, "error");
-        if (data.error.code === 401) {
-          database.googleAccessToken = "";
-          localStorage.removeItem("gtm_google_access_token");
-          if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
-        }
+        if (data.error.code === 401 && typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
       }
     })
     .catch(err => {
@@ -457,6 +460,21 @@ function dispatchLiveBackendSync(meet, dt, notes) {
       addLogConsole("enrich", `[SLACK INTEGRATION] Webhook dispatch error: ${err.message}`, "error");
     });
   }
+}
+
+async function checkGoogleAvailability(startDate, endDate) {
+  const response = await fetch("/api/google/calendar/freebusy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      timeMin: new Date(startDate).toISOString(),
+      timeMax: new Date(endDate).toISOString(),
+      items: [{ id: "primary" }]
+    })
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Google Calendar availability lookup failed.");
+  return data.calendars?.primary?.busy || [];
 }
 
 function openBriefingConsole(meetId) {
@@ -607,4 +625,5 @@ window.closeBriefingConsole = closeBriefingConsole;
 window.exportICSFile = exportICSFile;
 window.saveCalendlySettings = saveCalendlySettings;
 window.saveCalendarSyncSettings = saveCalendarSyncSettings;
+window.checkGoogleAvailability = checkGoogleAvailability;
 window.insertCalendlyLink = insertCalendlyLink;

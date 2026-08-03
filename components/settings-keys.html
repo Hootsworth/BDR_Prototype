@@ -165,14 +165,19 @@
         </div>
 
         <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 1rem 0;">
-          Zero-Configuration Account Binding: Gmail &amp; Google Calendar sync automatically with active session tokens.
+          Connect Google Workspace once to enable Gmail drafts/sending, Calendar availability, and Google Meet events.
         </p>
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem;">
           <button class="btn btn-primary btn-sm" id="btn-connect-google-calendar" onclick="connectGoogleCalendarAccount()">
             <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Verify &amp; Re-sync Session
           </button>
-          <span id="google-calendar-status-text" style="font-size: var(--font-size-xs); color: var(--color-success); font-weight: 600;">Status: Connected (Active Session)</span>
+          <span id="google-calendar-status-text" style="font-size: var(--font-size-xs); color: var(--color-text-secondary); font-weight: 600;">Status: Checking…</span>
+        </div>
+        <div style="margin-top: 1rem; display:flex; gap:0.5rem; align-items:center;">
+          <button class="btn btn-secondary btn-sm" onclick="syncGmailReplies()">Sync Gmail replies</button>
+          <button class="btn btn-secondary btn-sm" onclick="verifyGoogleWorkspace()">Test Gmail &amp; Calendar</button>
+          <span style="font-size:var(--font-size-xs); color:var(--color-text-secondary);">Updates matching contact timelines.</span>
         </div>
 
         <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">

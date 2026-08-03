@@ -1,5 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
+import os
+import sqlite3
 
 from agents.state import BDRState
 from agents.discovery_agents import icp_discovery_agent, contact_intelligence_agent, data_quality_agent
@@ -54,7 +56,19 @@ def create_bdr_graph():
     # - campaign_launch (to review personalized emails for high-value accounts)
     # - linkedin_engagement (to review personalized connection request messages)
     # - crm_intelligence (to review deal sizes and meeting details before CRM lock-in)
-    memory = MemorySaver()
+    # Use a durable SQLite checkpoint when the optional provider is installed.
+    # MemorySaver remains a development fallback so the mock workflow can still
+    # run before dependencies are installed.
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+        checkpoint_path = os.environ.get("PROTOTYPE_CHECKPOINT_PATH", ".prototype-data/langgraph.sqlite")
+        os.makedirs(os.path.dirname(checkpoint_path) or ".", exist_ok=True)
+        checkpoint_connection = sqlite3.connect(checkpoint_path, check_same_thread=False)
+        memory = SqliteSaver(checkpoint_connection)
+        if hasattr(memory, "setup"):
+            memory.setup()
+    except ImportError:
+        memory = MemorySaver()
     
     compiled_graph = builder.compile(
         checkpointer=memory,

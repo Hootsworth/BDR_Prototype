@@ -1,5 +1,26 @@
 // --- B2B ENRICHMENT PIPELINE CONTROLLER ---
 
+const enrichmentFields = [
+  ["professional_summary", "Professional summary"], ["seniority", "Seniority & department"],
+  ["likely_pain_points", "Likely pain points"], ["buying_signals", "Buying signals"],
+  ["personalization_angles", "Personalization angles"], ["relevant_topics", "Relevant topics"],
+  ["data_gaps", "Data gaps"], ["confidence", "Confidence"],
+];
+
+function renderEnrichmentFieldOptions() {
+  const container = document.getElementById("enrichment-field-options");
+  if (!container) return;
+  const selected = JSON.parse(localStorage.getItem("gtm_enrichment_fields") || "null") || enrichmentFields.map(f => f[0]);
+  container.innerHTML = enrichmentFields.map(([key, label]) => `<label style="font-size:var(--font-size-xs); display:flex; gap:0.4rem; align-items:center;"><input type="checkbox" data-enrichment-field="${key}" ${selected.includes(key) ? "checked" : ""}>${label}</label>`).join("");
+}
+
+function selectedEnrichmentFields() {
+  const fields = [...document.querySelectorAll("[data-enrichment-field]:checked")].map(el => el.dataset.enrichmentField);
+  const chosen = fields.length ? fields : enrichmentFields.map(f => f[0]);
+  localStorage.setItem("gtm_enrichment_fields", JSON.stringify(chosen));
+  return chosen;
+}
+
 function getApiBaseUrl() {
   if (window.location.hostname.includes("github.io")) {
     return "https://api.explorium.ai";
@@ -53,6 +74,7 @@ async function runDataEnrichment() {
   }));
 
   let matchData = null;
+  let aiProfiles = [];
   try {
     const response = await fetch(`${apiBase}/v1/prospects/match`, {
       method: "POST",
@@ -144,12 +166,32 @@ async function runDataEnrichment() {
   // Phase 3: Update local database
   const enrichedRecords = enrichData ? (Array.isArray(enrichData) ? enrichData : (enrichData.results || enrichData.records || [])) : [];
 
-  contactsToEnrich.forEach((c) => {
-    c.enriched = true;
-    database.stats.enrichedCount++;
+  // Add a broader AI research profile. These are explicitly stored as AI-derived
+  // insights, separate from verified provider fields.
+  try {
+    addLogConsole("enrich", "[AI] Building research profiles from the supplied contact and company context...", "info");
+    const aiResponse = await fetch("/api/ai/enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contacts: contactsToEnrich, fields: selectedEnrichmentFields() })
+    });
+    const aiData = await aiResponse.json();
+    if (!aiResponse.ok) throw new Error(aiData.error || `AI enrichment returned ${aiResponse.status}`);
+    const profiles = aiData.profiles || [];
+    aiProfiles = profiles;
+    contactsToEnrich.forEach((contact, index) => {
+      const profile = profiles[index] || profiles.find(p => p.email === contact.email);
+      if (profile) contact.aiEnrichment = { ...profile, generatedAt: new Date().toISOString(), provider: aiData.provider };
+    });
+    addLogConsole("enrich", `[AI] Added structured research profiles for ${profiles.length} contacts.`, "success");
+  } catch (error) {
+    addLogConsole("enrich", `[AI] Profile generation skipped: ${error.message}`, "warning");
+  }
 
+  contactsToEnrich.forEach((c) => {
     // Try to find the matched record in the API response
     const apiRecord = enrichedRecords.find(r => r.prospect_id === c.prospectId);
+    const aiProfile = c.aiEnrichment || aiProfiles.find(p => p.email === c.email);
 
     if (apiRecord) {
       if (apiRecord.emails && apiRecord.emails.length > 0) {
@@ -162,28 +204,29 @@ async function runDataEnrichment() {
       }
     }
 
-    // High fidelity B2B fallbacks if API data is missing/failed, to guarantee clean data
-    if (!c.phone) {
-      c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-    const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-    c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
+    c.enrichmentStatus = apiRecord ? "verified_provider_data" : (aiProfile ? "ai_profile_only" : "incomplete");
+    c.enrichmentSources = apiRecord ? ["Explorium"] : [];
+    if (aiProfile) c.enrichmentSources.push("AI analysis of supplied context");
+    c.enrichmentFieldsRequested = selectedEnrichmentFields();
+    c.enriched = Boolean(apiRecord);
+    if (c.enriched) database.stats.enrichedCount++;
 
-    // Match score based on job title
+    // Never fabricate contact details. Scores are only a local prioritization hint.
     const title = c.jobTitle.toLowerCase();
     let score = 70;
     if (title.includes("cio") || title.includes("cto") || title.includes("chief information") || title.includes("chief technology")) {
-      score = Math.floor(Math.random() * 5) + 95;
+      score = 97;
     } else if (title.includes("president") || title.includes("ceo") || title.includes("chief executive")) {
-      score = Math.floor(Math.random() * 5) + 94;
+      score = 96;
     } else if (title.includes("vp") || title.includes("vice president") || title.includes("director")) {
-      score = Math.floor(Math.random() * 10) + 85;
+      score = 89;
     } else if (title.includes("manager") || title.includes("cfo") || title.includes("analyst")) {
-      score = Math.floor(Math.random() * 10) + 75;
+      score = 79;
     } else {
-      score = Math.floor(Math.random() * 10) + 65;
+      score = 69;
     }
     c.matchPercentage = score;
+    c.matchScoreSource = "title-based heuristic; not verified enrichment";
 
     if (score >= 88) {
       c.leadTemp = "Hot Lead";
@@ -214,16 +257,7 @@ function enrichDataRecords() {
   database.contacts.forEach((c) => {
     c.enriched = true;
 
-    // 1. Generate phone if blank
-    if (!c.phone) {
-      c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-
-    // 2. Generate simulated LinkedIn URL
-    const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-    c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
-
-    // 3. Compute match score based on Job Title seniority
+    // Compute a local prioritization hint from job-title seniority.
     const title = c.jobTitle.toLowerCase();
     let score = 70;
     if (title.includes("cio") || title.includes("cto") || title.includes("chief information") || title.includes("chief technology")) {
@@ -239,7 +273,7 @@ function enrichDataRecords() {
     }
     c.matchPercentage = score;
 
-    // 4. Set lead temperature status
+    // Set lead temperature status.
     if (score >= 88) {
       c.leadTemp = "Hot Lead";
     } else {
@@ -253,3 +287,4 @@ function enrichDataRecords() {
 window.getApiBaseUrl = getApiBaseUrl;
 window.runDataEnrichment = runDataEnrichment;
 window.enrichDataRecords = enrichDataRecords;
+window.renderEnrichmentFieldOptions = renderEnrichmentFieldOptions;

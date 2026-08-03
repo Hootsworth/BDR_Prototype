@@ -450,49 +450,70 @@ function saveLLMSettings() {
 }
 
 function saveGoogleCalendarCredentials() {
-  const clientId = (document.getElementById("settings-google-client-id")?.value || "").trim();
-  const apiKey = (document.getElementById("settings-google-api-key")?.value || "").trim();
-  
-  database.googleClientId = clientId;
-  database.googleApiKey = apiKey;
-  
-  localStorage.setItem("gtm_google_client_id", clientId);
-  localStorage.setItem("gtm_google_api_key", apiKey);
-  
-  addLogConsole("enrich", `[SYSTEM] Saved Google Calendar OAuth credentials to settings.`, "info");
+  addLogConsole("enrich", `[SYSTEM] Google credentials are managed securely by the local backend.`, "info");
 }
 
 function connectGoogleCalendarAccount() {
-  const userEmail = (window.Clerk && window.Clerk.user && window.Clerk.user.primaryEmailAddress) 
-    ? window.Clerk.user.primaryEmailAddress.emailAddress 
-    : "aditya.dixit@gtmconsole.app";
-
-  database.googleAccessToken = "auto_session_token_" + Date.now();
-  database.googleCalendarConnected = true;
-  database.googleEmailConnected = true;
-  localStorage.setItem("gtm_google_access_token", database.googleAccessToken);
-  localStorage.setItem("gtm_google_calendar_connected", "true");
-
-  checkGoogleCalendarStatus();
-  if (typeof addLogConsole === "function") {
-    addLogConsole("enrich", `[GOOGLE SERVICES] Automatically connected Gmail & Calendar for account: ${userEmail}. Zero-OAuth active session!`, "success");
-  }
-  alert(`Google Services Active & Synced!\n\nUser Account: ${userEmail}\nGmail Dispatch: Active ✓\nGoogle Calendar Sync: Active ✓\n\nNo manual OAuth configuration required.`);
+  window.location.href = "/api/google/oauth/start";
 }
 
-function checkGoogleCalendarStatus() {
+async function checkGoogleCalendarStatus() {
   const statusEl = document.getElementById("google-calendar-status-text");
   const btn = document.getElementById("btn-connect-google-calendar");
-  const userEmail = (window.Clerk && window.Clerk.user && window.Clerk.user.primaryEmailAddress) 
-    ? window.Clerk.user.primaryEmailAddress.emailAddress 
-    : "";
-
-  if (statusEl) {
-    statusEl.textContent = `Status: Connected ✓ ${userEmail ? '(' + userEmail + ')' : '(Active Session)'}`;
-    statusEl.style.color = "var(--color-status-success, #10b981)";
+  try {
+    const response = await fetch("/api/google/status");
+    const data = await response.json();
+    if (statusEl) {
+      statusEl.textContent = data.connected ? `Status: Connected ✓ (${data.email})` : "Status: Not connected";
+      statusEl.style.color = data.connected ? "var(--color-status-success, #10b981)" : "var(--color-text-secondary)";
+    }
+    if (btn) btn.textContent = data.connected ? "Reconnect Google Workspace" : "Connect Google Workspace";
+    database.googleCalendarConnected = Boolean(data.connected);
+    database.googleEmailConnected = Boolean(data.connected);
+  } catch (error) {
+    if (statusEl) statusEl.textContent = "Status: Backend unavailable";
+    if (btn) btn.textContent = "Connect Google Workspace";
   }
-  if (btn) {
-    btn.textContent = "⚡ Verify & Re-sync Active Session";
+}
+
+async function syncGmailReplies() {
+  if (!database.googleEmailConnected) {
+    alert("Connect Google Workspace first.");
+    return;
+  }
+  try {
+    const response = await fetch("/api/google/gmail/replies", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contacts: database.contacts.filter(c => c.email && c.emailsSent).map(c => ({ email: c.email })) })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Gmail sync failed.");
+    (result.replies || []).forEach(reply => {
+      const contact = database.contacts.find(c => c.email.toLowerCase() === reply.contactEmail.toLowerCase());
+      if (!contact) return;
+      if (!contact.replyHistory) contact.replyHistory = [];
+      if (!contact.replyHistory.some(existing => existing.messageId === reply.messageId)) contact.replyHistory.push(reply);
+      contact.lastReplyAt = reply.date;
+    });
+    saveDatabaseCache();
+    addLogConsole("campaign-outbound", `[GMAIL] Synced ${result.replies?.length || 0} replies into contact timelines.`, "success");
+    alert(`Gmail sync complete. ${result.replies?.length || 0} replies found.`);
+  } catch (error) {
+    addLogConsole("campaign-outbound", `[GMAIL SYNC ERROR] ${error.message}`, "error");
+    alert(error.message);
+  }
+}
+
+async function verifyGoogleWorkspace() {
+  try {
+    const response = await fetch("/api/google/verify");
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Google verification failed.");
+    addLogConsole("enrich", `[GOOGLE] Verified Gmail (${result.gmail.email}) and Calendar (${result.calendar.summary || result.calendar.id}).`, "success");
+    alert(`Google Workspace verified.\n\nGmail: ${result.gmail.email}\nCalendar: ${result.calendar.summary || result.calendar.id}`);
+  } catch (error) {
+    addLogConsole("enrich", `[GOOGLE VERIFY ERROR] ${error.message}`, "error");
+    alert(error.message);
   }
 }
 
@@ -595,6 +616,8 @@ window.saveLLMSettings = saveLLMSettings;
 window.saveGoogleCalendarCredentials = saveGoogleCalendarCredentials;
 window.connectGoogleCalendarAccount = connectGoogleCalendarAccount;
 window.checkGoogleCalendarStatus = checkGoogleCalendarStatus;
+window.syncGmailReplies = syncGmailReplies;
+window.verifyGoogleWorkspace = verifyGoogleWorkspace;
 window.saveSlackWebhookUrl = saveSlackWebhookUrl;
 window.testSlackWebhookNotification = testSlackWebhookNotification;
 window.switchSettingsNav = switchSettingsNav;

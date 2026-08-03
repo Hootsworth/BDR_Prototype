@@ -352,55 +352,30 @@ function triggerMockInfluencerResponse(influencer, channel) {
   }, 3000);
 }
 
-function sendOutboundEmail() {
+async function sendOutboundEmail() {
   const contact = database.selectedContact;
   if (!contact) return;
 
   const subject = document.getElementById("email-draft-subject").value;
   const body = document.getElementById("email-draft-body").value;
-
-  contact.emailDraft = { subject, body };
-  contact.emailsSent = true;
-  database.stats.emailsSent++;
-
-  saveDatabaseCache();
-  addLogConsole("enrich", `[OUTBOUND] Released email campaign to ${contact.email}`, "success");
-
-  // Dispatch via Gmail API if Google OAuth token is active
-  if (database.googleAccessToken) {
-    const emailLines = [
-      `To: ${contact.email}`,
-      `Subject: ${subject}`,
-      'Content-Type: text/plain; charset=utf-8',
-      '',
-      body
-    ].join('\r\n');
-
-    const base64EncodedEmail = btoa(unescape(encodeURIComponent(emailLines)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${database.googleAccessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ raw: base64EncodedEmail })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.id) {
-        addLogConsole("enrich", `[GMAIL API] Live campaign email sent to ${contact.email} via connected Google account! Message ID: ${data.id}`, "success");
-      } else if (data.error) {
-        addLogConsole("enrich", `[GMAIL API] Sending error: ${data.error.message}`, "error");
-      }
-    })
-    .catch(err => {
-      console.error("Gmail API error:", err);
-      addLogConsole("enrich", `[GMAIL API] Network error: ${err.message}`, "error");
-    });
+  if (!contact.email || !subject.trim() || !body.trim()) return alert("Recipient, subject, and body are required.");
+  if (contact.suppressed || contact.unsubscribed) return alert("This contact is suppressed or unsubscribed.");
+  if (contact.emailsSent && !confirm("This contact has already been emailed. Send this new message anyway?")) return;
+  try {
+    const response = await fetch('/api/google/gmail/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({to: contact.email, subject, body, contact_id: contact.id, approved: true, suppressed: Boolean(contact.suppressed), unsubscribed: Boolean(contact.unsubscribed)}) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Gmail returned ${response.status}`);
+    contact.emailDraft = { subject, body };
+    contact.emailsSent = true;
+    contact.emailSentAt = new Date().toISOString();
+    contact.emailProviderId = data.id || null;
+    database.stats.emailsSent++;
+    saveDatabaseCache();
+    addLogConsole("enrich", `[GMAIL API] Confirmed email sent to ${contact.email}. Message ID: ${data.id || 'recorded'}`, "success");
+  } catch (error) {
+    addLogConsole("enrich", `[GMAIL API] Email not sent: ${error.message}`, "error");
+    alert(`Email not sent: ${error.message}`);
+    return;
   }
 
   filterOutboundTable();
@@ -805,6 +780,17 @@ function renderContactTimeline(contact) {
     });
   }
 
+  // 3b. Gmail replies
+  if (contact.replyHistory && contact.replyHistory.length) {
+    contact.replyHistory.forEach(reply => events.push({
+      title: "Gmail Reply Received",
+      desc: `Subject: <em>${reply.subject || "(no subject)"}</em><br>${reply.snippet || "Reply synced from Gmail."}`,
+      time: reply.date || "Synced",
+      icon: "↩️",
+      color: "var(--brand-teal)"
+    }));
+  }
+
   // 4. LinkedIn Outbound
   if (contact.linkedinSent) {
     events.push({
@@ -1020,15 +1006,43 @@ function updateOutboundLivePreview() {
   }
 }
 
-function executeOutboundSendAction() {
+async function executeOutboundSendAction() {
   const contact = database.selectedContact;
   if (!contact) return;
 
   if (currentModalChannel === 'email') {
-    contact.emailsSent = true;
-    database.stats.emailsSent = (database.stats.emailsSent || 0) + 1;
-    addLogConsole("enrich", `[OUTBOUND EMAIL] Sent email campaign to ${contact.fullName} (${contact.email})`, "success");
-    alert(`Email successfully sent to ${contact.fullName}!`);
+    const subject = document.getElementById("outbound-email-subject-input")?.value.trim();
+    const body = document.getElementById("outbound-email-body-input")?.value.trim();
+    if (!contact.email || !subject || !body) {
+      alert("A recipient, subject, and message are required.");
+      return;
+    }
+    if (!confirm(`Send this email to ${contact.email}?`)) return;
+    const actionButton = document.getElementById("btn-outbound-send-action");
+    if (actionButton) { actionButton.disabled = true; actionButton.textContent = "Sending securely…"; }
+    try {
+      const response = await fetch("/api/google/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: contact.email, subject, body, contact_id: contact.id, approved: true, suppressed: Boolean(contact.suppressed), unsubscribed: Boolean(contact.unsubscribed) })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Email provider returned ${response.status}`);
+      contact.emailsSent = true;
+      contact.emailSentAt = new Date().toISOString();
+      contact.emailProviderId = result.id || null;
+      contact.emailDraft = { subject, body };
+      database.stats.emailsSent = (database.stats.emailsSent || 0) + 1;
+      saveDatabaseCache();
+      addLogConsole("campaign-outbound", `[GMAIL] Confirmed by Google for ${contact.fullName} (${contact.email})`, "success");
+      alert(`Email sent to ${contact.fullName}.`);
+      renderOutboundModalHistory(contact);
+    } catch (error) {
+      addLogConsole("campaign-outbound", `[OUTBOUND EMAIL ERROR] ${error.message}`, "error");
+      alert(`Email was not sent. ${error.message}`);
+    } finally {
+      if (actionButton) { actionButton.disabled = false; actionButton.textContent = "Dispatch Email Outreach"; }
+    }
   } else if (currentModalChannel === 'linkedin') {
     contact.linkedinSent = true;
     database.stats.linkedinSent = (database.stats.linkedinSent || 0) + 1;

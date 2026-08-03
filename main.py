@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import os
+import uuid
 
 # Add workspace directory to python path to avoid import errors
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -11,7 +13,8 @@ from tools import lemlist, hubspot, linkedin
 
 # Initialize compiled graph
 graph = create_bdr_graph()
-config = {"configurable": {"thread_id": "bdr_pipeline_run"}}
+run_id = os.environ.get("BDR_RUN_ID", f"bdr-{uuid.uuid4().hex[:12]}")
+config = {"configurable": {"thread_id": run_id}}
 
 # Initial state setup
 initial_state = {

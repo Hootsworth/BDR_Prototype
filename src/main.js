@@ -104,7 +104,8 @@ async function bootstrapApp() {
   // Load Google Calendar & Slack settings
   database.googleClientId = localStorage.getItem("gtm_google_client_id") || "";
   database.googleApiKey = localStorage.getItem("gtm_google_api_key") || "";
-  database.googleAccessToken = localStorage.getItem("gtm_google_access_token") || "";
+  // Google access and refresh tokens are server-managed; never restore them from browser storage.
+  database.googleAccessToken = "";
   database.slackWebhookUrl = localStorage.getItem("gtm_slack_webhook_url") || "";
 
   const googleClientIdInput = document.getElementById("settings-google-client-id");
@@ -120,6 +121,7 @@ async function bootstrapApp() {
 
   // Render initial keys state
   if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
+  if (typeof renderEnrichmentFieldOptions === "function") renderEnrichmentFieldOptions();
 
   database.autoEnrich = localStorage.getItem("gtm_auto_enrich") === "true";
   const autoEnrichCheckbox = document.getElementById("toggle-auto-enrich");
@@ -285,6 +287,23 @@ async function bootstrapApp() {
     initLoadedData();
     saveDatabaseCache();
     addLogConsole("enrich", "[SYSTEM] No cached database. Initialized with sandbox mock data.", "info");
+  }
+
+  // Prefer the durable local backend snapshot when it contains data.
+  try {
+    const durableResponse = await fetch("/api/state");
+    const durable = await durableResponse.json();
+    const durableState = durable.state || {};
+    if (durableState.contacts && durableState.contacts.length > 0) {
+      database.contacts = durableState.contacts;
+      database.events = durableState.events || database.events;
+      database.stats = durableState.stats || database.stats;
+      database.meetings = durableState.meetings || database.meetings || [];
+      initLoadedData();
+      addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} contacts from durable local storage.`, "info");
+    }
+  } catch (error) {
+    addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
   }
 
   // Initialize autocomplete typing

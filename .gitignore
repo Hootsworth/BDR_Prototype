@@ -1,22 +1,12 @@
-/Users/adityadixit/Documents/Code/gemini-code-1780943490685.html /Users/adityadixit/Documents/Code/cursors# Byte-compiled / optimized / DLL files
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# OS files
-.DS_Store
-
-# Environments
 .env
-
-# Local Git configuration overrides
-.git/
-
-# Classified data sources
-master_merged_data.csv
-*.csv
-
-# Node modules & Vercel
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.prototype-data/
+.DS_Store
 node_modules/
 .vercel/
+master_merged_data.csv
+*.csv

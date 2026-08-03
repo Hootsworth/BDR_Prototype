@@ -46,6 +46,13 @@ let database = {
 window.database = database;
 
 function saveDatabaseCache() {
+  const stateSnapshot = {
+    contacts: database.contacts,
+    events: database.events,
+    stats: database.stats,
+    meetings: database.meetings || [],
+    updatedAt: new Date().toISOString()
+  };
   try {
     localStorage.setItem("gtm_cached_database", JSON.stringify({
       contacts: database.contacts,
@@ -64,6 +71,8 @@ function saveDatabaseCache() {
       console.error("Failed to save even basic configurations to LocalStorage", err);
     }
   }
+  // Durable local prototype storage. Browser cache remains a fast fallback only.
+  fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: stateSnapshot }) }).catch(() => {});
 }
 window.saveDatabaseCache = saveDatabaseCache;
 

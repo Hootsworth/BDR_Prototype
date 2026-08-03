@@ -18,6 +18,12 @@
       </div>
     </div>
 
+    <div style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1rem; background: var(--color-background-muted);">
+      <div style="font-weight: 700; margin-bottom: 0.5rem;">Enrichment profile</div>
+      <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 0.75rem;">Choose the AI fields to generate. Verified provider fields remain separate from inferred research.</div>
+      <div id="enrichment-field-options" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem;"></div>
+    </div>
+
     <div class="dashboard-progress-section" id="enrich-progress-container" style="display: none;">
       <div class="progress-info-row">
         <span class="progress-info-label">Enrichment Progress</span>
