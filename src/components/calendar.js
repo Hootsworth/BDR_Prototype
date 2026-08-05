@@ -1,55 +1,7 @@
 // --- CAMPAIGN SCHEDULE & BRIEFINGS RENDERING CONTROLLER ---
 
-function initMockMeetings() {
-  if (!database.meetings) {
-    database.meetings = [];
-  }
-  if (database.meetings.length === 0 && database.contacts && database.contacts.length > 0) {
-    const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-    if (prospects.length >= 2) {
-      const influencer1 = database.contacts.find(c => c.isInfluencer === true) || { fullName: "John Doe", referralCredits: 10 };
-      const influencer2 = database.contacts.find(c => c.isInfluencer === true && c.fullName !== influencer1.fullName) || { fullName: "Jane Smith", referralCredits: 20 };
-      
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(10, 0, 0, 0);
-
-      const july10 = new Date(2026, 6, 10, 14, 0, 0);
-
-      database.meetings = [
-        {
-          id: "meet-1",
-          contactName: prospects[0].fullName,
-          contactTitle: prospects[0].jobTitle,
-          contactCompany: prospects[0].company,
-          contactEmail: prospects[0].email,
-          contactPhone: prospects[0].phone || "+1 (555) 345-6789",
-          platform: "Google Meet",
-          meetingUrl: "https://meet.google.com/abc-defg-hij",
-          timeString: tomorrow.toLocaleDateString() + " at 10:00 AM (EST)",
-          influencerName: influencer1.fullName,
-          influencerCredits: 10,
-          notes: `Interested in secure BDR query validation guardrails for ${prospects[0].company}. Main concern is preventing database prompt injection in user queries. Referred by ${influencer1.fullName}.`,
-          datetimeRaw: tomorrow.toISOString()
-        },
-        {
-          id: "meet-2",
-          contactName: prospects[1].fullName,
-          contactTitle: prospects[1].jobTitle,
-          contactCompany: prospects[1].company,
-          contactEmail: prospects[1].email,
-          contactPhone: prospects[1].phone || "+1 (555) 789-0123",
-          platform: "Microsoft Teams",
-          meetingUrl: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_xyz",
-          timeString: "07/10/2026 at 02:00 PM (EST)",
-          influencerName: influencer2.fullName,
-          influencerCredits: 20,
-          notes: `Seeking to integrate Apollo and Lemlist pipelines with secure checkpointers. Main pain point: duplicate contacts management. Referred by ${influencer2.fullName}.`,
-          datetimeRaw: july10.toISOString()
-        }
-      ];
-    }
-  }
+function ensureMeetingsState() {
+  if (!database.meetings) database.meetings = [];
 }
 
 let currentCalDate = new Date(2026, 6, 1);
@@ -215,7 +167,7 @@ function selectCalendarDate(year, month, day, meetings) {
 }
 
 function renderScheduleMeetings() {
-  initMockMeetings();
+  ensureMeetingsState();
   renderCalendar();
   
   const title = document.getElementById("selected-date-title");
@@ -318,86 +270,6 @@ function saveManualMeeting() {
 
   filterOutboundTable();
   loadOutboundDrawer(contact, 'calendar');
-}
-
-function simulateCalendlyWebhook() {
-  if (!database.contacts || database.contacts.length === 0) {
-    alert("Please upload database contacts first.");
-    return;
-  }
-
-  const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-  if (prospects.length === 0) {
-    alert("No prospects found to schedule with.");
-    return;
-  }
-
-  const unscheduled = prospects.find(p => !database.meetings || !database.meetings.some(m => m.contactEmail === p.email));
-  const contact = unscheduled || prospects[0];
-
-  const now = new Date();
-  const meetingDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-  meetingDate.setHours(10, 0, 0, 0);
-
-  const timeString = meetingDate.toLocaleDateString() + " at 10:00 AM (EST)";
-  const platform = "Google Meet";
-  const meetingId = Math.random().toString(36).substring(2, 11);
-  const meetingUrl = `https://meet.google.com/${meetingId.slice(0,3)}-${meetingId.slice(3,7)}-${meetingId.slice(7,10)}`;
-
-  let influencerName = "Direct Outreach";
-  let influencerCredits = 0;
-  
-  if (contact.referredBy) {
-    const influencer = database.contacts.find(c => c.isInfluencer === true && c.fullName === contact.referredBy);
-    if (influencer) {
-      influencerName = influencer.fullName;
-      influencerCredits = 20;
-      if (!influencer.referrals) influencer.referrals = [];
-      const isDuplicate = influencer.referrals.some(r => r.email === contact.email);
-      if (!isDuplicate) {
-        influencer.referrals.push({
-          fullName: contact.fullName,
-          jobTitle: contact.jobTitle,
-          company: contact.company,
-          email: contact.email,
-          credits: 20,
-          date: new Date().toLocaleDateString()
-        });
-        influencer.referralCredits = (influencer.referralCredits || 0) + 20;
-      }
-    }
-  }
-
-  const newMeet = {
-    id: "meet-" + Date.now(),
-    contactName: contact.fullName,
-    contactTitle: contact.jobTitle,
-    contactCompany: contact.company,
-    contactEmail: contact.email,
-    contactPhone: contact.phone || "+1 (555) 000-0000",
-    platform: platform,
-    meetingUrl: meetingUrl,
-    timeString: timeString,
-    influencerName: influencerName,
-    influencerCredits: influencerCredits,
-    notes: `Simulated Calendly Webhook slot booking for ${contact.company}.`,
-    datetimeRaw: meetingDate.toISOString()
-  };
-
-  if (!database.meetings) database.meetings = [];
-  database.meetings.push(newMeet);
-  contact.leadTemp = "Hot Lead";
-
-  saveDatabaseCache();
-  
-  addLogConsole("enrich", `[CALENDLY WEBHOOK] Incoming Calendly Slot Booking webhook payload received.`, "success");
-  addLogConsole("enrich", `[CALENDLY WEBHOOK] Automatically booked slot for ${contact.fullName} on ${platform} (${timeString}).`, "success");
-  
-  // Dispatch live API syncs to Google Calendar & Slack
-  dispatchLiveBackendSync(newMeet, meetingDate, newMeet.notes);
-
-  exportICSFile(contact.email);
-  addLogConsole("enrich", `[CALENDAR SYNC] Triggered local calendar sync and ICS export download.`, "success");
 }
 
 function dispatchLiveBackendSync(meet, dt, notes) {
@@ -589,14 +461,13 @@ function insertCalendlyLink(textareaId) {
   textarea.focus();
 }
 
-window.initMockMeetings = initMockMeetings;
+window.ensureMeetingsState = ensureMeetingsState;
 window.renderCalendar = renderCalendar;
 window.changeCalendarMonth = changeCalendarMonth;
 window.selectCalendarDate = selectCalendarDate;
 window.renderScheduleMeetings = renderScheduleMeetings;
 window.toggleMeetingNotes = toggleMeetingNotes;
 window.saveManualMeeting = saveManualMeeting;
-window.simulateCalendlyWebhook = simulateCalendlyWebhook;
 window.openBriefingConsole = openBriefingConsole;
 window.closeBriefingConsole = closeBriefingConsole;
 window.exportICSFile = exportICSFile;

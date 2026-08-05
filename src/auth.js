@@ -181,9 +181,9 @@ function enforceRbacPermissions() {
     }
   });
 
-  // Role Restriction: Influencer accounts are locked to Influencer Portal
+  // Role Restriction: Influencer accounts are limited to contact review
   if (currentRole === "Influencer / Creator") {
-    if (typeof switchTab === "function") switchTab("influencer-portal");
+    if (typeof switchTab === "function") switchTab("influencers");
   }
 }
 

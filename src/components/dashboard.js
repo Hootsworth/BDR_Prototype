@@ -71,19 +71,12 @@ function renderDashboardActivityFeed() {
   if (!feedEl) return;
 
   if (!database.recentActivities || database.recentActivities.length === 0) {
-    // Generate default initial history logs if empty
-    database.recentActivities = [
-      { type: "success", text: "GTM Console loaded successfully.", time: new Date().toLocaleTimeString() },
-      { type: "info", text: "Simulated sandbox databases initialized.", time: new Date().toLocaleTimeString() },
-      { type: "info", text: "Connected to Clerk auth gate servers.", time: new Date().toLocaleTimeString() }
-    ];
+    database.recentActivities = [];
+  }
 
-    if (database.contacts.length > 0) {
-      database.recentActivities.unshift(
-        { type: "success", text: `Cached list containing ${database.contacts.length} leads loaded successfully.`, time: new Date().toLocaleTimeString() },
-        { type: "info", text: "GTM Research Copilot scanning target personas.", time: new Date().toLocaleTimeString() }
-      );
-    }
+  if (database.recentActivities.length === 0) {
+    feedEl.innerHTML = `<div class="feed-empty-state">No execution logs yet. Import real contacts or open a workbook to begin.</div>`;
+    return;
   }
 
   feedEl.innerHTML = "";

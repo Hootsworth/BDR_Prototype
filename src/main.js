@@ -5,7 +5,6 @@ const componentsList = {
   'upload': 'components/upload.html',
   'analyse': 'components/analytics.html',
   'influencers': 'components/influencers.html',
-  'influencer-portal': 'components/influencer-portal.html',
   'enrich': 'components/enrich.html',
   'campaign-outbound': 'components/campaign-outbound.html',
   'campaign-schedule': 'components/campaign-schedule.html',
@@ -13,6 +12,11 @@ const componentsList = {
   'settings-keys': 'components/settings-keys.html',
   'agent-mode': 'components/agent-mode.html'
 };
+
+function isDemoSeededContactList(records) {
+  return (records || []).some(contact => String(contact.sourceFile || "").toLowerCase().startsWith("mock_")
+    || ["sjenkins@apexfcu.org", "apatel@summitmutual.com", "bob.miller@milleradvisory.com", "svance@vanceconsulting.net"].includes(String(contact.email || "").toLowerCase()));
+}
 
 async function loadComponentTemplates() {
   // Load each main tab-panel template asynchronously
@@ -153,10 +157,15 @@ async function bootstrapApp() {
       database.events = parsed.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
       database.stats = parsed.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
 
-      if (database.contacts.length > 0) {
+      if (database.contacts.length > 0 && !isDemoSeededContactList(database.contacts)) {
         initLoadedData();
         addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} cached contacts from LocalStorage.`, "info");
         loadedFromCache = true;
+      } else if (database.contacts.length > 0) {
+        database.contacts = [];
+        database.meetings = [];
+        localStorage.removeItem("gtm_cached_database");
+        addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records. Import real contacts or open a workbook to begin.", "warning");
       }
     } catch (e) {
       console.error("Error reading cached db", e);
@@ -164,136 +173,10 @@ async function bootstrapApp() {
   }
 
   if (!loadedFromCache) {
-    // Populate default database with rich mock data so it looks premium and working on first load!
-    database.contacts = [
-      {
-        id: 101,
-        firstName: "Sarah",
-        lastName: "Jenkins",
-        fullName: "Sarah Jenkins",
-        email: "sjenkins@apexfcu.org",
-        jobTitle: "Chief Information Officer",
-        company: "Apex Federal Credit Union",
-        phone: "+1 (555) 345-6789",
-        industry: "Credit Union",
-        sourceFile: "mock_gtm_pipeline_leads.csv",
-        assetSize: "$450M",
-        state: "MI",
-        attendedDinner: "Attended",
-        visitedBooth: "Yes",
-        enriched: true,
-        matchPercentage: 96,
-        leadTemp: "Hot Lead",
-        emailsSent: true,
-        linkedinSent: false,
-        callsMade: [{ date: "07/06/2026 10:30 AM", outcome: "Spoke to prospect - Interested" }],
-        emailDraft: {
-          subject: "Safe database compliance for Apex Federal Credit Union",
-          body: "Hi Sarah,\n\nI saw your profile as Chief Information Officer at Apex Federal Credit Union. Tech leaders are adopting database LLMs but worry about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent"
-        },
-        linkedinDraft: null,
-        isInfluencer: false,
-        referredBy: "Bob Miller"
-      },
-      {
-        id: 102,
-        firstName: "Alex",
-        lastName: "Patel",
-        fullName: "Alex Patel",
-        email: "apatel@summitmutual.com",
-        jobTitle: "Director of IT Security",
-        company: "Summit Mutual Credit Union",
-        phone: "+1 (555) 789-0123",
-        industry: "Credit Union",
-        sourceFile: "mock_gtm_pipeline_leads.csv",
-        assetSize: "$250M",
-        state: "CO",
-        attendedDinner: "",
-        visitedBooth: "",
-        enriched: false,
-        matchPercentage: 90,
-        leadTemp: "Cold Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        emailDraft: null,
-        linkedinDraft: null,
-        isInfluencer: false,
-        referredBy: "Sarah Vance"
-      },
-      {
-        id: 201,
-        firstName: "Bob",
-        lastName: "Miller",
-        fullName: "Bob Miller",
-        email: "bob.miller@milleradvisory.com",
-        jobTitle: "B2B Consultant",
-        company: "Miller Advisory Group",
-        phone: "+1 (555) 987-6543",
-        industry: "Consulting",
-        sourceFile: "mock_influencers.csv",
-        assetSize: "",
-        state: "NY",
-        attendedDinner: "",
-        visitedBooth: "",
-        enriched: false,
-        matchPercentage: 95,
-        leadTemp: "Hot Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        emailDraft: null,
-        linkedinDraft: null,
-        isInfluencer: true,
-        referrals: [
-          {
-            fullName: "Sarah Jenkins",
-            jobTitle: "Chief Information Officer",
-            company: "Apex Federal Credit Union",
-            email: "sjenkins@apexfcu.org",
-            credits: 10,
-            date: "07/07/2026"
-          }
-        ],
-        referralCredits: 10
-      },
-      {
-        id: 202,
-        firstName: "Sarah",
-        lastName: "Vance",
-        fullName: "Sarah Vance",
-        email: "svance@vanceconsulting.net",
-        jobTitle: "Senior Advisor",
-        company: "Vance Consulting Group",
-        phone: "+1 (555) 123-4567",
-        industry: "Consulting",
-        sourceFile: "mock_influencers.csv",
-        assetSize: "",
-        state: "IL",
-        enriched: false,
-        matchPercentage: 92,
-        leadTemp: "Cold Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        isInfluencer: true,
-        referrals: [
-          {
-            fullName: "Alex Patel",
-            jobTitle: "Director of IT Security",
-            company: "Summit Mutual Credit Union",
-            email: "apatel@summitmutual.com",
-            credits: 20,
-            date: "07/07/2026"
-          }
-        ],
-        referralCredits: 20
-      }
-    ];
-
+    database.contacts = [];
+    database.meetings = [];
     initLoadedData();
-    saveDatabaseCache();
-    addLogConsole("enrich", "[SYSTEM] No cached database. Initialized with sandbox mock data.", "info");
+    addLogConsole("enrich", "[SYSTEM] Ready for a real workflow. Import contacts or open a local workbook to begin.", "info");
   }
 
   // Prefer the durable local backend snapshot when it contains data.
@@ -301,13 +184,15 @@ async function bootstrapApp() {
     const durableResponse = await fetch("/api/state");
     const durable = await durableResponse.json();
     const durableState = durable.state || {};
-    if (durableState.contacts && durableState.contacts.length > 0) {
+    if (durableState.contacts && durableState.contacts.length > 0 && !isDemoSeededContactList(durableState.contacts)) {
       database.contacts = durableState.contacts;
       database.events = durableState.events || database.events;
       database.stats = durableState.stats || database.stats;
       database.meetings = durableState.meetings || database.meetings || [];
       initLoadedData();
       addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} contacts from durable local storage.`, "info");
+    } else if (durableState.contacts && durableState.contacts.length > 0) {
+      addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records from durable storage.", "warning");
     }
   } catch (error) {
     addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
@@ -387,8 +272,6 @@ function switchTab(tabId) {
     filterUploadTable();
   } else if (tabId === 'influencers' && typeof filterInfluencersTable === "function") {
     filterInfluencersTable();
-  } else if (tabId === 'influencer-portal' && typeof renderInfluencerPortal === "function") {
-    renderInfluencerPortal();
   } else if (tabId === 'campaign-outbound' && typeof filterOutboundTable === "function") {
     filterOutboundTable();
   } else if (tabId === 'campaign-schedule' && typeof renderScheduleMeetings === "function") {
@@ -397,6 +280,8 @@ function switchTab(tabId) {
     renderEventsList();
   } else if (tabId === 'enrich' && typeof checkEnrichButtonState === "function") {
     checkEnrichButtonState();
+  } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {
+    filterFunnelSegment(document.getElementById("funnel-industry-filter")?.value || "all");
   } else if (tabId === 'agent-mode' && typeof initAgentAutocomplete === "function") {
     initAgentAutocomplete();
   }
@@ -431,10 +316,6 @@ function updateHeader(tabId) {
       titleEl.textContent = "Influencers Match Matching";
       subtitleEl.textContent = "Assess target personas, ICP compatibility scores, and lead temperature classification.";
       break;
-    case 'influencer-portal':
-      titleEl.textContent = "Influencer Rewards & Referral Portal";
-      subtitleEl.textContent = "Submit network contacts, track earned reward credits, redeem perks, and connect LinkedIn.";
-      break;
     case 'enrich':
       titleEl.textContent = "AgentSource B2B Data Enrichment";
       subtitleEl.textContent = "Verify key and enrich leads with verified corporate intelligence.";
@@ -457,7 +338,7 @@ function updateHeader(tabId) {
       break;
     case 'agent-mode':
       titleEl.textContent = "Agent Mode Orchestrator";
-      subtitleEl.textContent = "Simulate autonomous planning loops and agent coordination.";
+      subtitleEl.textContent = "Run approved workflow steps against the active contacts and connected providers.";
       break;
     case 'settings-keys':
       titleEl.textContent = "Global Credentials & Settings";
@@ -495,7 +376,7 @@ function updateSystemStatusDot() {
 function initLoadedData() {
   database.contacts.forEach(c => {
     if (!c.leadTemp) c.leadTemp = "Cold Lead";
-    if (c.isInfluencer === undefined) c.isInfluencer = true;
+    if (c.isInfluencer === undefined) c.isInfluencer = false;
     if (!c.referrals) c.referrals = [];
     if (c.referralCredits === undefined) c.referralCredits = 0;
   });

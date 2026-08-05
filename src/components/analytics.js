@@ -45,7 +45,7 @@ function appendAnalyseMessage(sender, text, isLoading = false) {
   avatar.style = "width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: rgba(255,255,255,0.08); color: var(--on-dark); box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.15);";
   
   if (sender === "user") {
-    const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "Demo User";
+    const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "GTM Operator";
     avatar.innerText = getInitials(userFullName);
     avatar.style.background = "var(--primary)";
     avatar.style.color = "#ffffff";
@@ -227,14 +227,28 @@ function filterFunnelSegment(segment) {
   const bar6 = document.getElementById("funnel-bar-6");
   if (!bar1) return;
 
-  const data = {
-    all: { b1: "100%", t1: "1,240 Accounts (100%)", b2: "87%", t2: "1,080 Leads (87.1%)", b3: "68%", t3: "840 Leads (67.7%)", b4: "50%", t4: "620 Dispatched (50.0%)", b5: "25%", t5: "186 Replies (30.0%)", b6: "12%", t6: "48 Demos ($1.4M Pipeline)" },
-    "credit-union": { b1: "100%", t1: "720 Credit Unions (100%)", b2: "92%", t2: "662 Leads (91.9%)", b3: "76%", t3: "547 High Intent (75.9%)", b4: "58%", t4: "417 Dispatched (57.9%)", b5: "32%", t5: "133 Replies (31.8%)", b6: "16%", t6: "34 Demos ($980k Pipeline)" },
-    banking: { b1: "100%", t1: "380 Community Banks (100%)", b2: "81%", t2: "308 Leads (81.0%)", b3: "58%", t3: "220 High Intent (57.8%)", b4: "42%", t4: "160 Dispatched (42.1%)", b5: "18%", t5: "45 Replies (28.1%)", b6: "8%", t6: "11 Demos ($350k Pipeline)" },
-    insurance: { b1: "100%", t1: "140 Insurance Firms (100%)", b2: "78%", t2: "110 Leads (78.5%)", b3: "52%", t3: "73 High Intent (52.1%)", b4: "31%", t4: "43 Dispatched (30.7%)", b5: "12%", t5: "8 Replies (18.6%)", b6: "5%", t6: "3 Demos ($70k Pipeline)" }
+  const filters = {
+    "credit-union": contact => /credit union/i.test(contact.industry || contact.company || ""),
+    banking: contact => /bank/i.test(contact.industry || contact.company || ""),
+    insurance: contact => /insurance/i.test(contact.industry || contact.company || ""),
+    all: () => true
   };
-
-  const choice = data[segment] || data.all;
+  const contacts = (database.contacts || []).filter(filters[segment] || filters.all);
+  const total = contacts.length;
+  const pct = value => total ? Math.round((value / total) * 100) : 0;
+  const enriched = contacts.filter(c => c.enriched).length;
+  const intent = contacts.filter(c => Number(c.matchPercentage || 0) >= 80 || c.leadTemp === "Hot Lead").length;
+  const outbound = contacts.filter(c => c.emailsSent || c.linkedinSent).length;
+  const replied = contacts.filter(c => Array.isArray(c.replyHistory) && c.replyHistory.length > 0).length;
+  const booked = (database.meetings || []).filter(meeting => contacts.some(c => c.email === meeting.contactEmail)).length;
+  const choice = {
+    b1: `${pct(total)}%`, t1: `${total.toLocaleString()} Accounts (${pct(total)}%)`,
+    b2: `${pct(enriched)}%`, t2: `${enriched.toLocaleString()} Enriched (${pct(enriched)}%)`,
+    b3: `${pct(intent)}%`, t3: `${intent.toLocaleString()} Intent Scored (${pct(intent)}%)`,
+    b4: `${pct(outbound)}%`, t4: `${outbound.toLocaleString()} Dispatched (${pct(outbound)}%)`,
+    b5: `${pct(replied)}%`, t5: `${replied.toLocaleString()} Replies (${pct(replied)}%)`,
+    b6: `${pct(booked)}%`, t6: `${booked.toLocaleString()} Meetings (${pct(booked)}%)`
+  };
   bar1.style.width = choice.b1; bar1.textContent = choice.t1;
   bar2.style.width = choice.b2; bar2.textContent = choice.t2;
   bar3.style.width = choice.b3; bar3.textContent = choice.t3;

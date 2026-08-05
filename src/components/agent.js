@@ -256,16 +256,16 @@ function sendAgentChatMessage() {
   // ACTION 3: LINKEDIN INVITES
   if (lowerText.includes("linkedin") || lowerText.includes("connect")) {
     updateBrowserStep("target-step-3", "running", "LinkedIn Network Invites");
-    appendAgentLog(`⚠️ LinkedIn is simulation-only until a real approved LinkedIn integration is connected.`);
-    updateBrowserStep("target-step-3", "blocked", "Simulation Only");
+    appendAgentLog(`⚠️ No LinkedIn action was taken. Connect an approved LinkedIn application before using this step.`);
+    updateBrowserStep("target-step-3", "blocked", "Not Connected");
     return;
   }
 
   // ACTION 4: PHONE CALLING
   if (lowerText.includes("call") || lowerText.includes("phone")) {
     updateBrowserStep("target-step-4", "running", "AI Voice Cold Calling");
-    appendAgentLog(`⚠️ Voice calling is simulation-only. No call was placed and no meeting was created.`);
-    updateBrowserStep("target-step-4", "blocked", "Simulation Only");
+    appendAgentLog(`⚠️ No call was placed. Connect a telephony provider before using this step.`);
+    updateBrowserStep("target-step-4", "blocked", "Not Connected");
     return;
   }
 

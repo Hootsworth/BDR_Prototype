@@ -178,7 +178,6 @@ function switchDrawerChannel(channel) {
         <button class="btn btn-secondary" onclick="suppressSelectedContact()" style="width:100%; color:var(--color-error);">Suppress contact</button>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
           <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Calendly</button>
-          <button class="btn btn-secondary" onclick="insertPortalLinkToDraft('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Portal Link</button>
           <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="font-size:12px; height:40px; padding:0 6px;">AI Re-draft</button>
         </div>
       </div>
@@ -265,104 +264,6 @@ function suppressSelectedContact() {
   addLogConsole("campaign-outbound", `[COMPLIANCE] Suppressed ${contact.email}; outbound actions are blocked.`, "warning");
   alert(`${contact.fullName} is now suppressed.`);
   loadOutboundDrawer(contact, 'email');
-}
-
-function triggerMockInfluencerResponse(influencer, channel) {
-  const choices = [
-    {
-      type: "add_prospect",
-      message: `Hi! I'd highly recommend contacting Marcus Vance, VP of IT Operations at Alliance Bank Group (mvance@alliancebank.com). I've let him know you will reach out.`,
-      prospect: {
-        id: Date.now(),
-        firstName: "Marcus",
-        lastName: "Vance",
-        fullName: "Marcus Vance",
-        email: "mvance@alliancebank.com",
-        jobTitle: "VP of IT Operations",
-        company: "Alliance Bank Group",
-        phone: "+1 (555) 543-2109",
-        industry: "Banking",
-        sourceFile: "mock_influencers_referral.csv",
-        assetSize: "$1.2B",
-        state: "IL",
-        enriched: true,
-        matchPercentage: 92,
-        leadTemp: "Hot Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        referredBy: influencer.fullName,
-        isInfluencer: false
-      },
-      credits: 10,
-      consoleMsg: `[INCOMING] Influencer ${influencer.fullName} referred Marcus Vance (Alliance Bank Group) via ${channel}.`
-    },
-    {
-      type: "add_meeting",
-      message: `Hey, great chatting. I've set up a Google Meet call with Arthur Dent, IT Director at Galaxy Insurance Services (adent@galaxyinsurance.com). Here is the meet link: https://meet.google.com/abc-defg-hij. Let's schedule it for next Wednesday at 11:00 AM.`,
-      meeting: {
-        id: "meet-" + Date.now(),
-        contactName: "Arthur Dent",
-        contactTitle: "IT Director",
-        contactCompany: "Galaxy Insurance Services",
-        contactEmail: "adent@galaxyinsurance.com",
-        contactPhone: "+1 (555) 150-7890",
-        platform: "Google Meet",
-        meetingUrl: "https://meet.google.com/abc-defg-hij",
-        timeString: "Next Wednesday at 11:00 AM (EST)",
-        influencerName: influencer.fullName,
-        influencerCredits: 20,
-        notes: `Briefed by partner ${influencer.fullName}. Main focus is general tech auditing and secure pipelines.`
-      },
-      credits: 20,
-      consoleMsg: `[INCOMING] Influencer ${influencer.fullName} scheduled Google Meet with Arthur Dent via ${channel}.`
-    }
-  ];
-
-  const pick = choices[Math.floor(Math.random() * choices.length)];
-
-  setTimeout(() => {
-    if (!influencer.referrals) {
-      influencer.referrals = [];
-    }
-    
-    const refName = pick.type === "add_prospect" ? pick.prospect.fullName : pick.meeting.contactName;
-    const isDuplicate = influencer.referrals.some(r => r.fullName === refName);
-    if (!isDuplicate) {
-      influencer.referrals.push({
-        fullName: refName,
-        jobTitle: pick.type === "add_prospect" ? pick.prospect.jobTitle : pick.meeting.contactTitle,
-        company: pick.type === "add_prospect" ? pick.prospect.company : pick.meeting.contactCompany,
-        email: pick.type === "add_prospect" ? pick.prospect.email : pick.meeting.contactEmail,
-        credits: pick.credits,
-        date: new Date().toLocaleDateString()
-      });
-      influencer.referralCredits = (influencer.referralCredits || 0) + pick.credits;
-    }
-
-    if (pick.type === "add_prospect") {
-      const exists = database.contacts.some(c => c.email === pick.prospect.email);
-      if (!exists) {
-        database.contacts.push(pick.prospect);
-      }
-    } else if (pick.type === "add_meeting") {
-      if (!database.meetings) {
-        database.meetings = [];
-      }
-      const exists = database.meetings.some(m => m.contactEmail === pick.meeting.contactEmail);
-      if (!exists) {
-        database.meetings.push(pick.meeting);
-      }
-    }
-
-    saveDatabaseCache();
-
-    addLogConsole("enrich", pick.consoleMsg, "success");
-    addLogConsole("enrich", `[REPLY] "${pick.message}"`, "info");
-
-    filterOutboundTable();
-    loadOutboundDrawer(influencer, channel);
-  }, 3000);
 }
 
 async function sendOutboundEmail() {
@@ -700,9 +601,6 @@ function logCallOutcome(outcome) {
   const timeline = document.getElementById("outbound-timeline-container");
   if (timeline) timeline.innerHTML = renderContactTimeline(contact);
 
-  if (contact.isInfluencer) {
-    triggerMockInfluencerResponse(contact, 'call');
-  }
 }
 
 // Web Audio API Ringtone Generator
@@ -847,17 +745,6 @@ function renderContactTimeline(contact) {
 
   html += `</div>`;
   return html;
-}
-
-function insertPortalLinkToDraft(textareaId) {
-  const area = document.getElementById(textareaId);
-  if (area) {
-    const portalSnippet = `\n\nSubmit your contact referrals & view your credit rewards here: https://gtm-console.app/influencer-portal`;
-    area.value += portalSnippet;
-    if (database.selectedContact && database.selectedContact.emailDraft) {
-      database.selectedContact.emailDraft.body = area.value;
-    }
-  }
 }
 
 let currentModalChannel = 'email';
@@ -1129,6 +1016,10 @@ let callTimerInterval = null;
 let callSeconds = 0;
 
 function startSimulatedAICall() {
+  addLogConsole("enrich", "[CALLING] No call was placed. Add Twilio credentials and connect the telephony route before starting a call.", "warning");
+  alert("No call was placed. Telephony is not connected.");
+  return;
+
   const contact = database.selectedContact;
   if (!contact) return;
 
@@ -1316,7 +1207,6 @@ function runOutboundCadenceBatch() {
 
 window.startSimulatedAICall = startSimulatedAICall;
 window.stopSimulatedAICall = stopSimulatedAICall;
-window.insertPortalLinkToDraft = insertPortalLinkToDraft;
 window.switchOutboundSubtab = switchOutboundSubtab;
 window.filterOutboundTable = filterOutboundTable;
 window.changeOutboundPage = changeOutboundPage;
@@ -1329,7 +1219,6 @@ window.updateOutboundLivePreview = updateOutboundLivePreview;
 window.executeOutboundSendAction = executeOutboundSendAction;
 window.deleteContactRecord = deleteContactRecord;
 window.generateAIOutboundHook = generateAIOutboundHook;
-window.triggerMockInfluencerResponse = triggerMockInfluencerResponse;
 window.sendOutboundEmail = sendOutboundEmail;
 window.suppressSelectedContact = suppressSelectedContact;
 window.sendOutboundLinkedin = sendOutboundLinkedin;

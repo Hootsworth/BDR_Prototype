@@ -448,46 +448,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 502, {'error': f'Email send failed: {ex}'})
             return
 
-        # Intercept Lemlist test email dispatch request
+        # Lemlist live sending is intentionally unavailable until a real provider
+        # connection and server-side credential handling are implemented.
         if self.path == '/api/lemlist/send-test':
-            try:
-                recipient = payload.get("recipient_email", "demo@user.com")
-                sender = payload.get("sender_email", "sdr@company.com")
-                subject = payload.get("subject", "GTM Demo Outreach")
-                body = payload.get("body", "Test outbound content")
-
-                # Track sequence in Lemlist Mock Driver
-                try:
-                    from tools import lemlist
-                    lemlist.add_to_sequence(
-                        contact={"email": recipient, "firstName": recipient.split("@")[0].capitalize(), "lastName": "Lead", "company": "Demo Org"},
-                        sequence_id="cmp_lemlist_mcp_9821",
-                        subject=subject,
-                        body=body
-                    )
-                except Exception as ex:
-                    print(f"[LEMLIST BACKEND] Logged sequence: {ex}")
-
-                response_body = json.dumps({
-                    "status": "success",
-                    "code": 200,
-                    "campaign_id": "cmp_lemlist_mcp_9821",
-                    "message_id": "msg_live_dispatch_4812",
-                    "recipient": recipient,
-                    "sender": sender,
-                    "subject": subject,
-                    "timestamp": time.time() if 'time' in globals() else 1785245000
-                }).encode('utf-8')
-
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(response_body)
-            except Exception as e:
-                self.send_response(500)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            json_response(self, 501, {'error': 'Lemlist live sending is not configured in this build.'})
 
         # Intercept and proxy requests destined for Explorium API
         elif self.path.startswith('/api/proxy/'):

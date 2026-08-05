@@ -33,6 +33,13 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("settings-linkedin-client-id", settings)
         self.assertIn("settings-linkedin-client-secret", settings)
 
+    def test_fresh_app_has_no_seeded_workflow_data(self):
+        main = self.read("src/main.js")
+        dashboard = self.read("src/components/dashboard.js")
+        self.assertIn('database.contacts = [];', main)
+        self.assertNotIn("Populate default database", main)
+        self.assertNotIn("Simulated sandbox databases initialized", dashboard)
+
 
 if __name__ == "__main__":
     unittest.main()

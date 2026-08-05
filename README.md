@@ -22,7 +22,7 @@ npm install
 python3 server.py
 ```
 
-Open `http://localhost:8001`. The browser app uses mock data by default. The terminal workflow can be run separately with:
+Open `http://localhost:8001`. The browser app starts empty and requires a real CSV import or local workbook. The terminal workflow can be run separately with:
 
 ```bash
 python3 main.py
