@@ -1,6 +1,6 @@
 # GTM Console prototype
 
-This repository is an internal prototype for a BDR/GTM workflow. It can run a complete workflow with deterministic mock providers and human approval checkpoints. It is not production-ready and must be operated in prototype mode until live integrations, persistence, and server-side secret handling are complete.
+This repository is an internal prototype for a BDR/GTM workflow. It can run a complete workflow with human approval checkpoints, live Google Workspace actions, and a local XLSX database. It remains single-user/local-first until team authentication, provider coverage, and managed persistence are deployed.
 
 ## Run locally
 
@@ -12,6 +12,8 @@ The easiest path after downloading or cloning the repository is:
 The launcher creates a local Python environment, installs the required packages, starts the app at `http://localhost:8001`, and opens the browser. Keep the launcher window open while using the app. It creates `.env` from `.env.example` on first run; edit `.env` only when using server-side provider integrations.
 
 Manual startup is also supported. Requirements are Python 3.9+, Node.js (only needed for the optional checks), and the dependencies in `requirements.txt`.
+
+For a team deployment, set `window.ClerkConfig.publishableKey` in `config.js` to the public Clerk key for that deployment. With a non-empty key, the app keeps users at the sign-in gate until Clerk authenticates them. A blank key intentionally enables local single-user mode.
 
 ```bash
 cp .env.example .env
@@ -26,7 +28,7 @@ Open `http://localhost:8001`. The browser app uses mock data by default. The ter
 python3 main.py
 ```
 
-For AI profiles and real HTTPS email delivery, configure `OPENAI_API_KEY`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` in `.env` before starting the server. The sender address must belong to a domain verified with Resend. The Send Email action now reports failure instead of marking a contact sent when the provider rejects the request.
+For server-side AI profiles and HTTPS email delivery, configure `OPENAI_API_KEY`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` in `.env` before starting the server. The sender address must belong to a domain verified with Resend. Browser Google email sends require the Google Workspace connection in Settings and report failure without marking a contact sent.
 
 Generate `TOKEN_ENCRYPTION_KEY` with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. This key must remain stable; changing it requires reconnecting Google Workspace.
 
@@ -75,12 +77,15 @@ npm run test:python
 
 For the live pilot, use a dedicated Google Workspace test account, a verified sending identity, synthetic or opted-in contacts, and `PROTOTYPE_DAILY_SEND_LIMIT=5`. Verify one Gmail send, one Calendar/Meet event, one reply sync, a rejected duplicate send, a suppressed contact, and recovery after restarting the server before increasing the limit.
 
-## Prototype boundaries
+## Current product boundaries
 
-- Apollo, Clay, ZeroBounce, Lemlist, HubSpot, InboxKit, and LinkedIn are mock drivers in the terminal workflow.
-- Engagement events and calendar bookings in the browser are simulated unless explicitly connected.
+- Apollo, Clay, ZeroBounce, Lemlist, HubSpot, InboxKit, and LinkedIn are not live providers in this build. The UI now blocks those actions instead of claiming a live send.
+- Calendar events can be created through connected Google Calendar or exported as iCal. The agent does not fabricate meetings.
+- Calling is intentionally blocked until an approved telephony provider is connected. Logging a manually completed call remains available.
+- When Clerk is configured, unauthenticated users remain at the sign-in gate. If no Clerk key is configured, the app explicitly runs in local offline mode.
+- Provider secrets entered for browser-only local enrichment are memory-only and must be re-entered after refresh; they are not written to localStorage or the workbook.
 - The LangGraph checkpoint is currently in-memory and is lost when the process exits.
-- Do not use real prospect data or enable live sending until credentials are moved behind a backend and unsubscribe/suppression checks are verified.
+- Do not treat the app as a multi-user production service until server-side authorization, provider webhooks, managed persistence, backups, and audit logging are added.
 
 ## Verification
 
@@ -91,6 +96,6 @@ npm run test:python
 
 The Python checks validate the graph shape and the deterministic discovery/approval path. They do not validate external providers.
 
-## Next prototype milestone
+## Next product milestone
 
-Package the launcher and browser workbook flow as a signed desktop application for users who need automatic file permission restoration without browser prompts. For multi-user deployment, move token storage and workbook persistence to managed services.
+Add an approved telephony/LinkedIn provider, server-side Clerk token verification for every API route, managed multi-user persistence, backups, and browser end-to-end coverage for the XLSX workflow.

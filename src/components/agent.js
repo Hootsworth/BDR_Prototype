@@ -272,21 +272,9 @@ function sendAgentChatMessage() {
   // ACTION 5: CALENDAR MEETINGS
   if (lowerText.includes("meeting") || lowerText.includes("schedule") || lowerText.includes("calendar")) {
     updateBrowserStep("target-step-5", "running", "Calendar Sync Engine");
-    setTimeout(() => {
-      const newMeeting = {
-        id: Date.now(),
-        contactName: targetContact ? targetContact.fullName : "Executive Leader",
-        company: targetContact ? targetContact.company : "First National Credit Union",
-        time: "Tomorrow at 2:00 PM EST",
-        status: "Confirmed",
-        link: database.calendlyUrl || "https://calendly.com/30min"
-      };
-      if (!database.meetings) database.meetings = [];
-      database.meetings.push(newMeeting);
-      saveDatabaseCache();
-      updateBrowserStep("target-step-5", "completed", "Briefing Synced ✓");
-      appendAgentLog(`🤖 <strong>Meeting Scheduled!</strong> Synced Executive Briefing with <strong>${newMeeting.contactName} (${newMeeting.company})</strong> for ${newMeeting.time}.`);
-    }, 900);
+    if (typeof switchTab === "function") switchTab("campaign-schedule");
+    appendAgentLog(`⚠️ No meeting was created. Review the calendar workflow and confirm a connected Google Calendar or export an iCal invite.`);
+    updateBrowserStep("target-step-5", "blocked", "Approval Required");
     return;
   }
 

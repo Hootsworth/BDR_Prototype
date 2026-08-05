@@ -7,6 +7,7 @@ const WORKBOOK_SHEETS = [
 const WORKBOOK_IDB_NAME = "gtm-console-local-workbook";
 const WORKBOOK_IDB_STORE = "handles";
 const WORKBOOK_IDB_KEY = "active-workbook";
+let workbookWriteQueue = Promise.resolve();
 
 function workbookRows(records) {
   return (records || []).map(record => {
@@ -228,13 +229,17 @@ async function loadWorkbookHandle(handle, announce = true) {
 
 async function saveLocalWorkbook() {
   if (!database.localWorkbookHandle || !window.XLSX) return false;
-  const bytes = window.XLSX.write(buildWorkbook(), { bookType: "xlsx", type: "array" });
-  const writable = await database.localWorkbookHandle.createWritable();
-  await writable.write(bytes);
-  await writable.close();
-  database.localWorkbookLastSaved = new Date().toISOString();
-  updateLocalWorkbookStatus();
-  return true;
+  const write = workbookWriteQueue.then(async () => {
+    const bytes = window.XLSX.write(buildWorkbook(), { bookType: "xlsx", type: "array" });
+    const writable = await database.localWorkbookHandle.createWritable();
+    await writable.write(bytes);
+    await writable.close();
+    database.localWorkbookLastSaved = new Date().toISOString();
+    updateLocalWorkbookStatus();
+    return true;
+  });
+  workbookWriteQueue = write.catch(() => false);
+  return write;
 }
 
 async function openLocalWorkbook() {

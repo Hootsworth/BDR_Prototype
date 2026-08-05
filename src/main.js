@@ -61,9 +61,10 @@ async function bootstrapApp() {
   if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
 
   // Load saved API Keys
-  database.exploriumApiKey = localStorage.getItem("gtm_key_explorium") || "";
-  database.llmHelperKey = localStorage.getItem("gtm_key_llm_helper") || "";
-  database.geminiApiKey = localStorage.getItem("gtm_key_gemini") || "";
+  // Provider secrets are session-only and are never restored from browser storage.
+  database.exploriumApiKey = "";
+  database.llmHelperKey = "";
+  database.geminiApiKey = "";
   database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-2.5-flash";
   database.geminiSearchGrounding = localStorage.getItem("gtm_gemini_search_grounding") !== "false";
 
@@ -112,7 +113,7 @@ async function bootstrapApp() {
   database.googleApiKey = localStorage.getItem("gtm_google_api_key") || "";
   // Google access and refresh tokens are server-managed; never restore them from browser storage.
   database.googleAccessToken = "";
-  database.slackWebhookUrl = localStorage.getItem("gtm_slack_webhook_url") || "";
+  database.slackWebhookUrl = "";
 
   const googleClientIdInput = document.getElementById("settings-google-client-id");
   if (googleClientIdInput) googleClientIdInput.value = database.googleClientId;

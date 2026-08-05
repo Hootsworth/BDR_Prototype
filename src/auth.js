@@ -89,8 +89,8 @@ function updateClerkUIState() {
     if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
 
     fetchClerkGoogleOAuthToken();
-  } else {
-    // Demo Mode Auto-Unlock: Allow full access in local console mode
+  } else if (!window.Clerk) {
+    // Offline mode is available only when Clerk is not configured.
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
 
@@ -99,8 +99,16 @@ function updateClerkUIState() {
     if (nameEl) nameEl.textContent = "GTM Operator";
     if (emailEl) emailEl.textContent = "demo@gtmconsole.internal";
 
-    // Attempt to mount Clerk widget if available
-    if (signinContainer && signinContainer.dataset.mounted !== "true" && window.Clerk) {
+  } else {
+    // A configured Clerk instance must authenticate before the app is usable.
+    if (authGate) authGate.style.display = "flex";
+    if (mainApp) mainApp.style.display = "none";
+    if (signInBtn) signInBtn.style.display = "block";
+    if (userProfileWrap) userProfileWrap.style.display = "none";
+    if (nameEl) nameEl.textContent = "Sign in required";
+    if (emailEl) emailEl.textContent = "Authenticate to continue";
+
+    if (signinContainer && signinContainer.dataset.mounted !== "true") {
       signinContainer.innerHTML = "";
       try {
         window.Clerk.mountSignIn(signinContainer, {
@@ -124,8 +132,6 @@ function updateClerkUIState() {
 function triggerClerkSignIn() {
   const authGate = document.getElementById("clerk-auth-gate");
   const mainApp = document.getElementById("app-layout-main");
-  if (authGate) authGate.style.display = "none";
-  if (mainApp) mainApp.style.display = "flex";
 
   if (window.Clerk && window.Clerk.openSignIn) {
     try {
@@ -136,6 +142,9 @@ function triggerClerkSignIn() {
     } catch (e) {
       console.warn("Clerk openSignIn error:", e);
     }
+  } else if (!window.Clerk) {
+    if (authGate) authGate.style.display = "none";
+    if (mainApp) mainApp.style.display = "flex";
   }
 }
 

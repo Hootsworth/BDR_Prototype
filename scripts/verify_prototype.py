@@ -8,6 +8,7 @@ required_files = [
     "server.py", "README.md", "requirements.txt", "tests/test_workflow.py",
     "src/components/enrich.js", "src/components/outbound.js",
     "src/local-workbook.js", "run_local.sh", "run_local.bat",
+    "tests/test_frontend_contract.py",
 ]
 missing = [path for path in required_files if not (ROOT / path).exists()]
 if missing:

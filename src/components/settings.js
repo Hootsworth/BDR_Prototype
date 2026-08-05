@@ -3,7 +3,6 @@
 function saveExploriumKey() {
   const val = document.getElementById("key-explorium").value.trim();
   database.exploriumApiKey = val;
-  localStorage.setItem("gtm_key_explorium", val);
 
   const settingsInput = document.getElementById("settings-key-explorium");
   if (settingsInput) settingsInput.value = val;
@@ -33,7 +32,6 @@ async function exportWorkbookFromSettings() {
 function saveLLMHelperKey() {
   const val = document.getElementById("key-llm-helper").value.trim();
   database.llmHelperKey = val;
-  localStorage.setItem("gtm_key_llm_helper", val);
 
   const settingsInput = document.getElementById("settings-key-openai");
   if (settingsInput) settingsInput.value = val;
@@ -44,7 +42,6 @@ function saveLLMHelperKey() {
 function saveGeminiKey() {
   const val = document.getElementById("key-gemini").value.trim();
   database.geminiApiKey = val;
-  localStorage.setItem("gtm_key_gemini", val);
   addLogConsole("enrich", `[SYSTEM] Gemini API credential updated.`, "system");
 }
 
@@ -65,7 +62,6 @@ function saveGeminiSearchGrounding() {
 function syncExploriumKeyFromSettings() {
   const val = document.getElementById("settings-key-explorium").value.trim();
   database.exploriumApiKey = val;
-  localStorage.setItem("gtm_key_explorium", val);
 
   const originalInput = document.getElementById("key-explorium");
   if (originalInput) originalInput.value = val;
@@ -77,7 +73,6 @@ function syncExploriumKeyFromSettings() {
 function syncOpenAIKeyFromSettings() {
   const val = document.getElementById("settings-key-openai").value.trim();
   database.llmHelperKey = val;
-  localStorage.setItem("gtm_key_llm_helper", val);
 
   const originalInput = document.getElementById("key-llm-helper");
   if (originalInput) originalInput.value = val;
@@ -103,9 +98,6 @@ function saveLemlistSettings() {
 
   database.lemlistEmail = email;
   database.lemlistApiKey = apiKey;
-
-  localStorage.setItem("gtm_lemlist_email", email);
-  localStorage.setItem("gtm_lemlist_api_key", apiKey);
 
   if (typeof addLogConsole === "function") {
     addLogConsole("enrich", `[LEMLIST MCP] Saved credentials for ${email || 'Lemlist user'}.`, "info");
@@ -321,9 +313,6 @@ function saveModalLemlistCredentialsAndNext() {
   database.lemlistEmail = email;
   database.lemlistApiKey = apiKey;
   database.lemlistConnected = true;
-  localStorage.setItem("gtm_lemlist_email", email);
-  localStorage.setItem("gtm_lemlist_api_key", apiKey);
-  localStorage.setItem("gtm_lemlist_connected", "true");
 
   const setEmail = document.getElementById("settings-lemlist-email");
   const setKey = document.getElementById("key-lemlist-api");
@@ -533,7 +522,6 @@ function saveBrowserGoogleClientId() {
 function saveSlackWebhookUrl() {
   const url = (document.getElementById("settings-slack-webhook-url")?.value || "").trim();
   database.slackWebhookUrl = url;
-  localStorage.setItem("gtm_slack_webhook_url", url);
   addLogConsole("enrich", `[SYSTEM] Saved Slack Incoming Webhook URL to settings.`, "info");
 }
 

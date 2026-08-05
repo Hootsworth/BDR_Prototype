@@ -375,18 +375,16 @@ async function sendOutboundEmail() {
   if (contact.suppressed || contact.unsubscribed) return alert("This contact is suppressed or unsubscribed.");
   if (contact.emailsSent && !confirm("This contact has already been emailed. Send this new message anyway?")) return;
   try {
-    const response = await fetch('/api/google/gmail/send', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({to: contact.email, subject, body, contact_id: contact.id, approved: true, suppressed: Boolean(contact.suppressed), unsubscribed: Boolean(contact.unsubscribed)}) });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || `Gmail returned ${response.status}`);
+    const data = await sendGoogleGmail({ to: contact.email, subject, body });
     contact.emailDraft = { subject, body };
     contact.emailsSent = true;
     contact.emailSentAt = new Date().toISOString();
     contact.emailProviderId = data.id || null;
     database.stats.emailsSent++;
     saveDatabaseCache();
-    addLogConsole("enrich", `[GMAIL API] Confirmed email sent to ${contact.email}. Message ID: ${data.id || 'recorded'}`, "success");
+    addLogConsole("enrich", `[GMAIL] Confirmed by Google for ${contact.email}. Message ID: ${data.id || 'recorded'}`, "success");
   } catch (error) {
-    addLogConsole("enrich", `[GMAIL API] Email not sent: ${error.message}`, "error");
+    addLogConsole("enrich", `[GMAIL] Email not sent: ${error.message}`, "error");
     alert(`Email not sent: ${error.message}`);
     return;
   }
@@ -656,27 +654,8 @@ function renderDialerInterface(state, durationText = "00:00") {
 }
 
 function startOutboundCall() {
-  renderDialerInterface("ringing");
-  playBeepSound(400, 1.5); // Ring tone beep sound
-
-  // Simulating Ringing -> Connected
-  setTimeout(() => {
-    const status = document.getElementById("call-screen-status");
-    if (status && status.textContent.includes("RINGING")) {
-      renderDialerInterface("connected", "00:00");
-      playBeepSound(600, 0.2); // Connected chirp
-
-      let durationSec = 0;
-      callTimer = setInterval(() => {
-        durationSec++;
-        const minutes = Math.floor(durationSec / 60).toString().padStart(2, "0");
-        const seconds = (durationSec % 60).toString().padStart(2, "0");
-        const timerText = `${minutes}:${seconds}`;
-        const statusEl = document.getElementById("call-screen-status");
-        if (statusEl) statusEl.textContent = `CONNECTED ${timerText}`;
-      }, 1000);
-    }
-  }, 2000);
+  addLogConsole("enrich", "[CALLING] No call placed. Connect an approved telephony provider before enabling live calls.", "warning");
+  alert("Calling is not connected yet. No call was placed.");
 }
 
 function hangupOutboundCall() {
