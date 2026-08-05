@@ -208,6 +208,58 @@
 
         <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
 
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:0.5rem;">
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--color-text-primary);">Twilio Voice</h4>
+          <span class="badge" id="twilio-credentials-status">Not configured</span>
+        </div>
+        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0 0 0.75rem;">
+          Add your own Twilio trial or paid credentials. They remain in memory for this session and are not written to the workbook.
+        </p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-twilio-account-sid">Account SID</label>
+            <input class="form-input" id="settings-twilio-account-sid" placeholder="AC..." autocomplete="off">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-twilio-auth-token">Auth Token</label>
+            <input type="password" class="form-input" id="settings-twilio-auth-token" placeholder="Twilio auth token" autocomplete="off">
+          </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:end; margin-top:0.75rem;">
+          <div class="form-group" style="margin:0; flex:1;">
+            <label class="form-label" for="settings-twilio-from-number">Twilio From Number</label>
+            <input class="form-input" id="settings-twilio-from-number" placeholder="+15551234567" autocomplete="off">
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="saveTwilioCredentials()">Save for session</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; margin:1.5rem 0 0.5rem;">
+          <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--color-text-primary);">LinkedIn API</h4>
+          <span class="badge" id="linkedin-credentials-status">Not configured</span>
+        </div>
+        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0 0 0.75rem;">
+          Enter credentials only for an approved LinkedIn application and scopes. LinkedIn does not provide a general API for automated personal connection requests.
+        </p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-linkedin-client-id">Client ID</label>
+            <input class="form-input" id="settings-linkedin-client-id" placeholder="LinkedIn client ID" autocomplete="off">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-linkedin-client-secret">Client Secret</label>
+            <input type="password" class="form-input" id="settings-linkedin-client-secret" placeholder="LinkedIn client secret" autocomplete="off">
+          </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:end; margin-top:0.75rem;">
+          <div class="form-group" style="margin:0; flex:1;">
+            <label class="form-label" for="settings-linkedin-access-token">Access Token (optional)</label>
+            <input type="password" class="form-input" id="settings-linkedin-access-token" placeholder="OAuth access token" autocomplete="off">
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="saveLinkedInCredentials()">Save for session</button>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
+
         <!-- Bi-Directional CRM Synchronization Section -->
         <h4 style="margin: 0 0 0.5rem 0; font-size: 14px; font-weight: 700; color: var(--color-text-primary);">HubSpot &amp; Salesforce Bi-Directional Sync</h4>
         <p style="font-size: 12px; color: var(--color-text-secondary); margin-0 0 1rem 0;">Automatically push deals, intent scores, and log contact replies back to CRM.</p>

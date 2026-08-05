@@ -519,6 +519,32 @@ function saveBrowserGoogleClientId() {
   addLogConsole("enrich", "[GOOGLE] Browser OAuth client ID saved. It is public and contains no secret.", "info");
 }
 
+function saveTwilioCredentials() {
+  database.twilioAccountSid = (document.getElementById("settings-twilio-account-sid")?.value || "").trim();
+  database.twilioAuthToken = (document.getElementById("settings-twilio-auth-token")?.value || "").trim();
+  database.twilioFromNumber = (document.getElementById("settings-twilio-from-number")?.value || "").trim();
+  const configured = Boolean(database.twilioAccountSid && database.twilioAuthToken && database.twilioFromNumber);
+  const status = document.getElementById("twilio-credentials-status");
+  if (status) {
+    status.textContent = configured ? "Session ready" : "Incomplete";
+    status.className = configured ? "badge badge-success" : "badge";
+  }
+  addLogConsole("enrich", configured ? "[TWILIO] Credentials loaded for this browser session." : "[TWILIO] Account SID, Auth Token, and From Number are required.", configured ? "success" : "warning");
+}
+
+function saveLinkedInCredentials() {
+  database.linkedinClientId = (document.getElementById("settings-linkedin-client-id")?.value || "").trim();
+  database.linkedinClientSecret = (document.getElementById("settings-linkedin-client-secret")?.value || "").trim();
+  database.linkedinAccessToken = (document.getElementById("settings-linkedin-access-token")?.value || "").trim();
+  const configured = Boolean(database.linkedinClientId && (database.linkedinClientSecret || database.linkedinAccessToken));
+  const status = document.getElementById("linkedin-credentials-status");
+  if (status) {
+    status.textContent = configured ? "Session ready" : "Incomplete";
+    status.className = configured ? "badge badge-success" : "badge";
+  }
+  addLogConsole("enrich", configured ? "[LINKEDIN] Credentials loaded for this browser session; API approval is still required." : "[LINKEDIN] Client ID plus Client Secret or Access Token are required.", configured ? "success" : "warning");
+}
+
 function saveSlackWebhookUrl() {
   const url = (document.getElementById("settings-slack-webhook-url")?.value || "").trim();
   database.slackWebhookUrl = url;
@@ -625,6 +651,8 @@ window.saveWorkbookAsFromSettings = saveWorkbookAsFromSettings;
 window.exportWorkbookFromSettings = exportWorkbookFromSettings;
 window.saveSlackWebhookUrl = saveSlackWebhookUrl;
 window.testSlackWebhookNotification = testSlackWebhookNotification;
+window.saveTwilioCredentials = saveTwilioCredentials;
+window.saveLinkedInCredentials = saveLinkedInCredentials;
 window.switchSettingsNav = switchSettingsNav;
 window.saveCrmSyncSettings = saveCrmSyncSettings;
 window.openLemlistOnboardingModal = openLemlistOnboardingModal;

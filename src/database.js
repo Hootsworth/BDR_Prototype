@@ -12,6 +12,12 @@ let database = {
   googleApiKey: "",     // Google Public API Key
   googleAccessToken: "",// Active Google OAuth Token
   slackWebhookUrl: "",  // Slack Incoming Webhook URL
+  twilioAccountSid: "",
+  twilioAuthToken: "",
+  twilioFromNumber: "",
+  linkedinClientId: "",
+  linkedinClientSecret: "",
+  linkedinAccessToken: "",
   selectedContact: null, // Selected contact for right drawer details
   currentImportPage: 1,
   currentInfluencersPage: 1,

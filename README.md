@@ -62,6 +62,7 @@ In local workbook mode:
 - `Save as .xlsx` creates all supported sheets even when starting from an empty app.
 - `Export copy` downloads a portable snapshot without changing the connected workbook.
 - Direct browser enrichment requires the user to enter provider keys in Settings. Those keys remain in that browser’s local settings and are not written to the workbook.
+- Twilio and LinkedIn credentials can be entered under Settings → Integrations & Accounts. They are session-only and are not written to the workbook. Twilio credentials are ready for the future local voice route; LinkedIn credentials only work with an approved LinkedIn application and permitted scopes.
 
 If no workbook is connected, the local server and browser cache remain compatibility fallbacks. Once a workbook is connected, it takes precedence and the app stops sending workflow state to the local SQLite snapshot. Email sends require explicit approval, reject suppressed/unsubscribed contacts, reject exact duplicate messages, and are capped by `PROTOTYPE_DAILY_SEND_LIMIT`.
 

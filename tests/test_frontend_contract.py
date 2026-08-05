@@ -26,6 +26,13 @@ class FrontendContractTests(unittest.TestCase):
             self.assertNotIn(f'localStorage.getItem("{secret_key}")', main)
             self.assertNotIn(f'localStorage.setItem("{secret_key}"', settings)
 
+    def test_user_provider_credential_controls_exist(self):
+        settings = self.read("components/settings-keys.html")
+        self.assertIn("settings-twilio-account-sid", settings)
+        self.assertIn("settings-twilio-auth-token", settings)
+        self.assertIn("settings-linkedin-client-id", settings)
+        self.assertIn("settings-linkedin-client-secret", settings)
+
 
 if __name__ == "__main__":
     unittest.main()
