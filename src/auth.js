@@ -140,22 +140,9 @@ function triggerClerkSignIn() {
 }
 
 async function fetchClerkGoogleOAuthToken() {
-  const userEmail = (window.Clerk && window.Clerk.user && window.Clerk.user.primaryEmailAddress) 
-    ? window.Clerk.user.primaryEmailAddress.emailAddress 
-    : "authenticated_user";
-
-  database.googleAccessToken = "auto_session_token_" + Date.now();
-  database.googleCalendarConnected = true;
-  database.googleEmailConnected = true;
-  localStorage.setItem("gtm_google_access_token", database.googleAccessToken);
-  localStorage.setItem("gtm_google_calendar_connected", "true");
-
-  if (typeof checkGoogleCalendarStatus === "function") {
-    checkGoogleCalendarStatus();
-  }
-  if (typeof addLogConsole === "function") {
-    addLogConsole("enrich", `[ACCOUNT SESSION] Linked Google Email (Gmail) & Google Calendar for account: ${userEmail}. Zero-OAuth active!`, "success");
-  }
+  // Clerk identity and Google Workspace access are separate permissions.
+  // Never manufacture or persist a Google token in the browser.
+  if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
 }
 
 // --- CATEGORY 5B: ROLE-BASED ACCESS CONTROL (RBAC) ---

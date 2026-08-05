@@ -12,6 +12,24 @@ function saveExploriumKey() {
   addLogConsole("enrich", `[SYSTEM] Explorium / AgentSource credential updated.`, "system");
 }
 
+async function openWorkbookFromSettings() {
+  try {
+    await openLocalWorkbook();
+    if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
+  } catch (error) { alert(error.message); }
+}
+
+async function saveWorkbookAsFromSettings() {
+  try {
+    await saveLocalWorkbookAs();
+    if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
+  } catch (error) { alert(error.message); }
+}
+
+async function exportWorkbookFromSettings() {
+  try { await exportLocalWorkbook(); } catch (error) { alert(error.message); }
+}
+
 function saveLLMHelperKey() {
   const val = document.getElementById("key-llm-helper").value.trim();
   database.llmHelperKey = val;
@@ -386,6 +404,7 @@ async function sendLemlistTestDemoEmail() {
 
     const data = await res.json();
     console.log("[LEMLIST API RESPONSE]", data);
+    if (!res.ok || data.status !== "success") throw new Error(data.error || `Provider returned ${res.status}`);
 
     const recEl = document.getElementById("modal-success-recipient-email");
     const sendEl = document.getElementById("modal-success-sender-email");
@@ -399,13 +418,8 @@ async function sendLemlistTestDemoEmail() {
     setLemlistModalStep(4);
   } catch (err) {
     console.error("[LEMLIST DISPATCH ERROR]", err);
-
-    const recEl = document.getElementById("modal-success-recipient-email");
-    const sendEl = document.getElementById("modal-success-sender-email");
-    if (recEl) recEl.textContent = recipient;
-    if (sendEl) sendEl.textContent = senderEmail;
-
-    setLemlistModalStep(4);
+    if (typeof addLogConsole === "function") addLogConsole("enrich", `[LEMLIST TEST ERROR] Test email was not confirmed: ${err.message}`, "error");
+    alert(`Test email was not confirmed: ${err.message}`);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -421,7 +435,8 @@ function testAndAuthenticateLemlistMCP() {
 function checkEnrichButtonState() {
   const btn = document.getElementById("btn-run-enrich");
   if (!btn) return;
-  if (database.contacts.length > 0 && database.exploriumApiKey !== "") {
+  // The server owns the Explorium credential; do not require a browser-stored key.
+  if (database.contacts.length > 0) {
     btn.disabled = false;
   } else {
     btn.disabled = true;
@@ -453,27 +468,23 @@ function saveGoogleCalendarCredentials() {
   addLogConsole("enrich", `[SYSTEM] Google credentials are managed securely by the local backend.`, "info");
 }
 
-function connectGoogleCalendarAccount() {
-  window.location.href = "/api/google/oauth/start";
+async function connectGoogleCalendarAccount() {
+  try {
+    await connectGoogleWorkspace();
+    await checkGoogleCalendarStatus();
+    addLogConsole("enrich", "[GOOGLE] Gmail and Calendar connected directly in the browser.", "success");
+  } catch (error) { alert(`Google connection failed: ${error.message}`); }
 }
 
 async function checkGoogleCalendarStatus() {
   const statusEl = document.getElementById("google-calendar-status-text");
   const btn = document.getElementById("btn-connect-google-calendar");
-  try {
-    const response = await fetch("/api/google/status");
-    const data = await response.json();
-    if (statusEl) {
-      statusEl.textContent = data.connected ? `Status: Connected ✓ (${data.email})` : "Status: Not connected";
-      statusEl.style.color = data.connected ? "var(--color-status-success, #10b981)" : "var(--color-text-secondary)";
-    }
-    if (btn) btn.textContent = data.connected ? "Reconnect Google Workspace" : "Connect Google Workspace";
-    database.googleCalendarConnected = Boolean(data.connected);
-    database.googleEmailConnected = Boolean(data.connected);
-  } catch (error) {
-    if (statusEl) statusEl.textContent = "Status: Backend unavailable";
-    if (btn) btn.textContent = "Connect Google Workspace";
-  }
+  const connected = Boolean(database.googleAccessToken && (!database.googleAccessTokenExpiresAt || Date.now() < database.googleAccessTokenExpiresAt));
+  if (statusEl) statusEl.textContent = connected ? "Status: Connected ✓ (browser session)" : "Status: Not connected";
+  if (statusEl) statusEl.style.color = connected ? "var(--color-status-success, #10b981)" : "var(--color-text-secondary)";
+  if (btn) btn.textContent = connected ? "Reconnect Google Workspace" : "Connect Google Workspace";
+  database.googleCalendarConnected = connected;
+  database.googleEmailConnected = connected;
 }
 
 async function syncGmailReplies() {
@@ -482,12 +493,7 @@ async function syncGmailReplies() {
     return;
   }
   try {
-    const response = await fetch("/api/google/gmail/replies", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contacts: database.contacts.filter(c => c.email && c.emailsSent).map(c => ({ email: c.email })) })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Gmail sync failed.");
+    const result = await syncGoogleReplies(database.contacts);
     (result.replies || []).forEach(reply => {
       const contact = database.contacts.find(c => c.email.toLowerCase() === reply.contactEmail.toLowerCase());
       if (!contact) return;
@@ -506,15 +512,22 @@ async function syncGmailReplies() {
 
 async function verifyGoogleWorkspace() {
   try {
-    const response = await fetch("/api/google/verify");
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Google verification failed.");
+    const result = await verifyGoogleWorkspaceApi();
     addLogConsole("enrich", `[GOOGLE] Verified Gmail (${result.gmail.email}) and Calendar (${result.calendar.summary || result.calendar.id}).`, "success");
     alert(`Google Workspace verified.\n\nGmail: ${result.gmail.email}\nCalendar: ${result.calendar.summary || result.calendar.id}`);
   } catch (error) {
     addLogConsole("enrich", `[GOOGLE VERIFY ERROR] ${error.message}`, "error");
     alert(error.message);
   }
+}
+
+function saveBrowserGoogleClientId() {
+  const input = document.getElementById("settings-google-browser-client-id");
+  const value = input?.value.trim() || "";
+  if (!value) return alert("Enter a Google OAuth client ID.");
+  window.GoogleConfig.clientId = value;
+  localStorage.setItem("gtm_google_browser_client_id", value);
+  addLogConsole("enrich", "[GOOGLE] Browser OAuth client ID saved. It is public and contains no secret.", "info");
 }
 
 function saveSlackWebhookUrl() {
@@ -618,6 +631,10 @@ window.connectGoogleCalendarAccount = connectGoogleCalendarAccount;
 window.checkGoogleCalendarStatus = checkGoogleCalendarStatus;
 window.syncGmailReplies = syncGmailReplies;
 window.verifyGoogleWorkspace = verifyGoogleWorkspace;
+window.saveBrowserGoogleClientId = saveBrowserGoogleClientId;
+window.openWorkbookFromSettings = openWorkbookFromSettings;
+window.saveWorkbookAsFromSettings = saveWorkbookAsFromSettings;
+window.exportWorkbookFromSettings = exportWorkbookFromSettings;
 window.saveSlackWebhookUrl = saveSlackWebhookUrl;
 window.testSlackWebhookNotification = testSlackWebhookNotification;
 window.switchSettingsNav = switchSettingsNav;

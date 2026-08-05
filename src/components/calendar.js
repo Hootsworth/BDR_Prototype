@@ -310,7 +310,7 @@ function saveManualMeeting() {
     const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Outbound Briefing: " + contact.company)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(notes + "\n\nJoin Link: " + meetingUrl)}&location=${encodeURIComponent(platform)}`;
     
     window.open(gCalUrl, "_blank");
-    addLogConsole("enrich", `[GOOGLE CALENDAR] Sync request complete. Opened new calendar event creation page.`, "success");
+    addLogConsole("enrich", `[GOOGLE CALENDAR] Opened a calendar template. No API event was created because Google Workspace is not connected.`, "warning");
   } else if (database.calendarSyncService !== 'google') {
     exportICSFile(contact.email);
     addLogConsole("enrich", `[${database.calendarSyncService.toUpperCase()} CALENDAR] Sync complete. Exported local iCal meeting invitation.`, "success");
@@ -417,12 +417,7 @@ function dispatchLiveBackendSync(meet, dt, notes) {
       }
     };
 
-    fetch("/api/google/calendar/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(eventPayload)
-    })
-    .then(res => res.json())
+    createGoogleCalendarEvent(eventPayload)
     .then(data => {
       if (data.id) {
         const meetLink = data.hangoutLink || data.conferenceData?.entryPoints?.find(e => e.entryPointType === "video")?.uri;
@@ -431,9 +426,6 @@ function dispatchLiveBackendSync(meet, dt, notes) {
           saveDatabaseCache();
         }
         addLogConsole("enrich", `[GOOGLE CALENDAR API] Live event created! Event ID: ${data.id}`, "success");
-      } else if (data.error) {
-        addLogConsole("enrich", `[GOOGLE CALENDAR API] Creation failed: ${data.error.message}`, "error");
-        if (data.error.code === 401 && typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
       }
     })
     .catch(err => {
@@ -460,21 +452,6 @@ function dispatchLiveBackendSync(meet, dt, notes) {
       addLogConsole("enrich", `[SLACK INTEGRATION] Webhook dispatch error: ${err.message}`, "error");
     });
   }
-}
-
-async function checkGoogleAvailability(startDate, endDate) {
-  const response = await fetch("/api/google/calendar/freebusy", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      timeMin: new Date(startDate).toISOString(),
-      timeMax: new Date(endDate).toISOString(),
-      items: [{ id: "primary" }]
-    })
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Google Calendar availability lookup failed.");
-  return data.calendars?.primary?.busy || [];
 }
 
 function openBriefingConsole(meetId) {
@@ -625,5 +602,4 @@ window.closeBriefingConsole = closeBriefingConsole;
 window.exportICSFile = exportICSFile;
 window.saveCalendlySettings = saveCalendlySettings;
 window.saveCalendarSyncSettings = saveCalendarSyncSettings;
-window.checkGoogleAvailability = checkGoogleAvailability;
 window.insertCalendlyLink = insertCalendlyLink;

@@ -233,78 +233,39 @@ function sendAgentChatMessage() {
       `;
     }
 
-    setTimeout(() => {
-      if (targetContact) {
-        targetContact.enriched = true;
-        targetContact.matchPercentage = 98;
-        targetContact.leadTemp = "Hot Lead";
-        if (!targetContact.assetSize || targetContact.assetSize === "$0") targetContact.assetSize = "$450M";
-        appendAgentLog(`🤖 <strong>Data Enrichment Complete for ${targetContact.fullName}</strong>! Verified corporate email, set asset size to ${targetContact.assetSize}, and boosted match rating to 98%.`);
-      } else {
-        if (typeof enrichDataRecords === "function") enrichDataRecords();
-        database.contacts.forEach(c => {
-          c.enriched = true;
-          c.matchPercentage = Math.floor(Math.random() * 8 + 92);
-          c.leadTemp = "Hot Lead";
-        });
-        appendAgentLog(`🤖 <strong>Bulk Data Enrichment Complete!</strong> Enriched verified dossiers and computed ICP match scores for <strong>${database.contacts.length}</strong> leads in system.`);
-      }
-      saveDatabaseCache();
-      updateBrowserStep("target-step-1", "completed", "Enrichment Complete ✓");
-      if (typeof filterEnrichTable === "function") filterEnrichTable();
-    }, 900);
+    if (typeof runDataEnrichment === "function" && database.contacts.length > 0 && database.exploriumApiKey) {
+      runDataEnrichment().then(() => {
+        appendAgentLog(`🤖 Enrichment requested through the configured provider and AI profile.`);
+        updateBrowserStep("target-step-1", "completed", "Enrichment Complete ✓");
+      });
+    } else {
+      appendAgentLog(`⚠️ Enrichment is unavailable until the enrichment controller is loaded.`);
+      updateBrowserStep("target-step-1", "blocked", "Enrichment Unavailable");
+    }
     return;
   }
 
   // ACTION 2: OUTBOUND EMAIL
   if (lowerText.includes("email") || lowerText.includes("outbound") || lowerText.includes("sequence")) {
     updateBrowserStep("target-step-2", "running", "Outbound Email Composer");
-    setTimeout(() => {
-      let count = 0;
-      database.contacts.forEach(c => {
-        if (!c.emailsSent) {
-          c.emailsSent = true;
-          count++;
-        }
-      });
-      database.stats.emailsSent += (count || 1);
-      saveDatabaseCache();
-      updateBrowserStep("target-step-2", "completed", "Email Sequence Sent ✓");
-      appendAgentLog(`🤖 <strong>Outbound Email Dispatch Complete!</strong> Sent personalized sequence to <strong>${count || 1}</strong> prospects with inline Calendly booking & Referral Portal buttons.`);
-      if (typeof filterEmailTable === "function") filterEmailTable();
-    }, 900);
+    appendAgentLog(`⚠️ Review and send emails from the outbound workspace. Agent mode will not mark messages sent without Gmail confirmation.`);
+    updateBrowserStep("target-step-2", "blocked", "Approval Required");
     return;
   }
 
   // ACTION 3: LINKEDIN INVITES
   if (lowerText.includes("linkedin") || lowerText.includes("connect")) {
     updateBrowserStep("target-step-3", "running", "LinkedIn Network Invites");
-    setTimeout(() => {
-      let count = 0;
-      database.contacts.forEach(c => {
-        if (!c.linkedinSent) {
-          c.linkedinSent = true;
-          count++;
-        }
-      });
-      database.stats.linkedinSent += (count || 1);
-      saveDatabaseCache();
-      updateBrowserStep("target-step-3", "completed", "LinkedIn Invites Sent ✓");
-      appendAgentLog(`🤖 <strong>LinkedIn Network Invites Sent!</strong> Dispatched 1st-degree connection notes to <strong>${count || 1}</strong> decision makers.`);
-    }, 900);
+    appendAgentLog(`⚠️ LinkedIn is simulation-only until a real approved LinkedIn integration is connected.`);
+    updateBrowserStep("target-step-3", "blocked", "Simulation Only");
     return;
   }
 
   // ACTION 4: PHONE CALLING
   if (lowerText.includes("call") || lowerText.includes("phone")) {
     updateBrowserStep("target-step-4", "running", "AI Voice Cold Calling");
-    setTimeout(() => {
-      const targetName = targetContact ? targetContact.fullName : "Primary Decision Maker";
-      database.stats.callsMade = (database.stats.callsMade || 0) + 1;
-      saveDatabaseCache();
-      updateBrowserStep("target-step-4", "completed", "Call Completed ✓");
-      appendAgentLog(`🤖 <strong>AI Voice Calling Completed!</strong> Executed automated briefing call with <strong>${targetName}</strong>. Meeting request confirmed for follow-up.`);
-    }, 900);
+    appendAgentLog(`⚠️ Voice calling is simulation-only. No call was placed and no meeting was created.`);
+    updateBrowserStep("target-step-4", "blocked", "Simulation Only");
     return;
   }
 
@@ -575,4 +536,3 @@ window.openHilCopilotModal = openHilCopilotModal;
 window.closeHilCopilotModal = closeHilCopilotModal;
 window.applyAiPromptChip = applyAiPromptChip;
 window.approveHilCopyDraft = approveHilCopyDraft;
-

@@ -1,8 +1,11 @@
-# Ignore Python backend files for static Vercel deployment
-*.py
-requirements.txt
+# Keep api/index.py, server.py, and requirements.txt available to the Vercel Python function.
+# These are local-only project folders that are not needed by the deployed function.
 agents/
 cli/
 tools/
+tests/
+scripts/
+main.py
+verify_bdr.py
 .env
 .env.example

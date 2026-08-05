@@ -4,8 +4,9 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "node --check app.js && node --check src/main.js",
-    "test:python": "PYTHONPYCACHEPREFIX=/tmp/langchain-pyc python3 -m unittest discover -s tests -v"
+    "test": "node --check app.js && node --check src/main.js && node --check src/database.js && node --check src/local-workbook.js && node --check src/google-integration.js",
+    "test:python": "PYTHONPYCACHEPREFIX=/tmp/langchain-pyc python3 -m unittest discover -s tests -v",
+    "verify:prototype": "PYTHONPYCACHEPREFIX=/tmp/langchain-pyc python3 scripts/verify_prototype.py"
   },
   "repository": {
     "type": "git",

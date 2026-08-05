@@ -1,15 +1,19 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
-  "builds": [
-    {
-      "src": "**",
-      "use": "@vercel/static"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/proxy/:path*",
       "destination": "https://api.explorium.ai/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index?route=:path*"
     }
-  ]
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60
+    }
+  }
 }

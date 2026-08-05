@@ -7,6 +7,8 @@ import base64
 import secrets
 import urllib.parse
 import sqlite3
+import random
+from cryptography.fernet import Fernet, InvalidToken
 
 PORT = 8001
 
@@ -35,8 +37,25 @@ GOOGLE_SCOPES = [
 ]
 google_sessions = {}
 google_oauth_states = {}
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.prototype-data')
+DATA_DIR = os.environ.get('PROTOTYPE_DATA_DIR', '/tmp/gtm-data' if os.environ.get('VERCEL') else os.path.join(os.path.dirname(os.path.abspath(__file__)), '.prototype-data'))
 DB_PATH = os.path.join(DATA_DIR, 'gtm.sqlite3')
+
+def token_cipher():
+    key = os.environ.get('TOKEN_ENCRYPTION_KEY')
+    if not key:
+        raise RuntimeError('TOKEN_ENCRYPTION_KEY is required to store Google tokens.')
+    return Fernet(key.encode('utf-8'))
+
+def encrypt_token(value):
+    return token_cipher().encrypt(value.encode('utf-8')).decode('ascii') if value else None
+
+def decrypt_token(value):
+    if not value:
+        return None
+    try:
+        return token_cipher().decrypt(value.encode('ascii')).decode('utf-8')
+    except InvalidToken as ex:
+        raise RuntimeError('Stored Google token cannot be decrypted; reconnect Google Workspace.') from ex
 
 def db():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -65,13 +84,18 @@ def persist_google_connection(session):
         connection.execute(
             'INSERT INTO google_connections(id, session_id, email, name, access_token, refresh_token, expires_at, updated_at) VALUES(1, ?, ?, ?, ?, ?, ?, ?) '
             'ON CONFLICT(id) DO UPDATE SET session_id=excluded.session_id, email=excluded.email, name=excluded.name, access_token=excluded.access_token, refresh_token=COALESCE(excluded.refresh_token, google_connections.refresh_token), expires_at=excluded.expires_at, updated_at=excluded.updated_at',
-            (session.get('session_id'), session.get('email'), session.get('name'), session.get('access_token'), session.get('refresh_token'), session.get('expires_at'), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+            (session.get('session_id'), session.get('email'), session.get('name'), encrypt_token(session.get('access_token')), encrypt_token(session.get('refresh_token')), session.get('expires_at'), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
         )
 
 def restore_google_session(session_id):
     with db() as connection:
         row = connection.execute('SELECT * FROM google_connections WHERE session_id = ?', (session_id,)).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        restored = dict(row)
+        restored['access_token'] = decrypt_token(restored.get('access_token'))
+        restored['refresh_token'] = decrypt_token(restored.get('refresh_token'))
+        return restored
 
 def refresh_google_session(session):
     if not session.get('refresh_token') or session.get('expires_at', 0) > time.time() + 60:
@@ -133,29 +157,35 @@ def json_response(handler, status, payload):
     body = json.dumps(payload).encode('utf-8')
     handler.send_response(status)
     handler.send_header('Content-Type', 'application/json')
+    handler.send_header('Cache-Control', 'no-store')
     handler.send_header('Content-Length', str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
 
 def post_json(url, payload, headers):
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode('utf-8'),
-        headers={**headers, 'Content-Type': 'application/json'},
-        method='POST'
-    )
-    with urllib.request.urlopen(request, timeout=45) as response:
-        return response.status, json.loads(response.read().decode('utf-8'))
+    return request_with_retry(url, json.dumps(payload).encode('utf-8'), {**headers, 'Content-Type': 'application/json'}, 'POST')
 
 def post_form(url, payload):
-    request = urllib.request.Request(
-        url,
-        data=urllib.parse.urlencode(payload).encode('utf-8'),
-        headers={'Content-Type': 'application/x-www-form-urlencoded'},
-        method='POST',
-    )
-    with urllib.request.urlopen(request, timeout=45) as response:
-        return response.status, json.loads(response.read().decode('utf-8'))
+    return request_with_retry(url, urllib.parse.urlencode(payload).encode('utf-8'), {'Content-Type': 'application/x-www-form-urlencoded'}, 'POST')
+
+def request_with_retry(url, data, headers, method, attempts=3):
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            request = urllib.request.Request(url, data=data, headers=headers, method=method)
+            with urllib.request.urlopen(request, timeout=30) as response:
+                raw = response.read().decode('utf-8')
+                return response.status, json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as ex:
+            last_error = ex
+            if ex.code not in (408, 429, 500, 502, 503, 504) or attempt == attempts - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError) as ex:
+            last_error = ex
+            if attempt == attempts - 1:
+                raise
+        time.sleep((2 ** attempt) + random.random())
+    raise last_error
 
 def google_api(method, url, access_token, payload=None):
     headers = {'Authorization': f'Bearer {access_token}'}
@@ -165,15 +195,11 @@ def google_api(method, url, access_token, payload=None):
         headers={**headers, 'Content-Type': 'application/json'},
         method=method,
     )
-    with urllib.request.urlopen(request, timeout=45) as response:
-        raw = response.read().decode('utf-8')
-        return response.status, json.loads(raw) if raw else {}
+    return request_with_retry(url, request.data, request.headers, method)
 
 def google_api_get(url, access_token):
     request = urllib.request.Request(url, headers={'Authorization': f'Bearer {access_token}'}, method='GET')
-    with urllib.request.urlopen(request, timeout=45) as response:
-        raw = response.read().decode('utf-8')
-        return response.status, json.loads(raw) if raw else {}
+    return request_with_retry(url, None, request.headers, 'GET')
 
 def gmail_raw_message(to, subject, body):
     mime = f'To: {to}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n{body}'
@@ -191,10 +217,13 @@ def gmail_request(session, resource, payload, send=False):
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
-        # Allow CORS headers on static server responses
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # Same-origin is the normal path; restrict cross-origin calls to local development.
+        origin = self.headers.get('Origin')
+        if origin in ('http://localhost:8001', 'http://127.0.0.1:8001'):
+            self.send_header('Access-Control-Allow-Origin', origin)
+            self.send_header('Access-Control-Allow-Credentials', 'true')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, api_key, Authorization')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -470,9 +499,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             
             headers = {}
             for k, v in self.headers.items():
-                if k.lower() != 'host':
+                if k.lower() not in ('host', 'api_key'):
                     headers[k] = v
             headers['Host'] = 'api.explorium.ai'
+            if os.environ.get('EXPLORIUM_API_KEY'):
+                headers['api_key'] = os.environ['EXPLORIUM_API_KEY']
             
             req = urllib.request.Request(target_url, data=post_data, headers=headers, method='POST')
             try:

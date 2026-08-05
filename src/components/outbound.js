@@ -175,6 +175,7 @@ function switchDrawerChannel(channel) {
 
       <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
         <button class="btn btn-primary" onclick="sendOutboundEmail()" style="width:100%;">Send Campaign Email</button>
+        <button class="btn btn-secondary" onclick="suppressSelectedContact()" style="width:100%; color:var(--color-error);">Suppress contact</button>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
           <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Calendly</button>
           <button class="btn btn-secondary" onclick="insertPortalLinkToDraft('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Portal Link</button>
@@ -252,6 +253,18 @@ function switchDrawerChannel(channel) {
       `;
     }
   }
+}
+
+function suppressSelectedContact() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+  contact.suppressed = true;
+  contact.suppressionReason = "Manually suppressed by operator";
+  contact.suppressedAt = new Date().toISOString();
+  saveDatabaseCache();
+  addLogConsole("campaign-outbound", `[COMPLIANCE] Suppressed ${contact.email}; outbound actions are blocked.`, "warning");
+  alert(`${contact.fullName} is now suppressed.`);
+  loadOutboundDrawer(contact, 'email');
 }
 
 function triggerMockInfluencerResponse(influencer, channel) {
@@ -381,14 +394,18 @@ async function sendOutboundEmail() {
   filterOutboundTable();
   loadOutboundDrawer(contact, 'email');
 
-  if (contact.isInfluencer) {
-    triggerMockInfluencerResponse(contact, 'email');
-  }
+  // A real send does not imply a reply; engagement arrives only from Gmail sync.
 }
 
 function sendOutboundLinkedin() {
   const contact = database.selectedContact;
   if (!contact) return;
+
+  if (database.simulationMode) {
+    addLogConsole("campaign-outbound", `[SIMULATION] LinkedIn was not contacted for ${contact.fullName}. Connect an approved LinkedIn provider before enabling live actions.`, "warning");
+    alert("LinkedIn is currently simulation-only. No invitation was sent.");
+    return;
+  }
 
   const note = document.getElementById("linkedin-draft-text").value;
   contact.linkedinDraft = note;
@@ -401,9 +418,7 @@ function sendOutboundLinkedin() {
   filterOutboundTable();
   loadOutboundDrawer(contact, 'linkedin');
 
-  if (contact.isInfluencer) {
-    triggerMockInfluencerResponse(contact, 'linkedin');
-  }
+  // Do not fabricate a LinkedIn response after an outbound action.
 }
 
 function animateTextWordByWord(element, text, duration = 30) {
@@ -1021,13 +1036,7 @@ async function executeOutboundSendAction() {
     const actionButton = document.getElementById("btn-outbound-send-action");
     if (actionButton) { actionButton.disabled = true; actionButton.textContent = "Sending securely…"; }
     try {
-      const response = await fetch("/api/google/gmail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: contact.email, subject, body, contact_id: contact.id, approved: true, suppressed: Boolean(contact.suppressed), unsubscribed: Boolean(contact.unsubscribed) })
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || `Email provider returned ${response.status}`);
+      const result = await sendGoogleGmail({ to: contact.email, subject, body });
       contact.emailsSent = true;
       contact.emailSentAt = new Date().toISOString();
       contact.emailProviderId = result.id || null;
@@ -1343,6 +1352,7 @@ window.deleteContactRecord = deleteContactRecord;
 window.generateAIOutboundHook = generateAIOutboundHook;
 window.triggerMockInfluencerResponse = triggerMockInfluencerResponse;
 window.sendOutboundEmail = sendOutboundEmail;
+window.suppressSelectedContact = suppressSelectedContact;
 window.sendOutboundLinkedin = sendOutboundLinkedin;
 window.animateTextWordByWord = animateTextWordByWord;
 window.generateLLMEmailDraft = generateLLMEmailDraft;

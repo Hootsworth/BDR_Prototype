@@ -25,11 +25,18 @@ function getApiBaseUrl() {
   if (window.location.hostname.includes("github.io")) {
     return "https://api.explorium.ai";
   }
+  if (database.workbookMode && database.exploriumApiKey) return "https://api.explorium.ai";
   return "/api/proxy";
 }
 
+function enrichmentApiHeaders(apiBase) {
+  const headers = { "Content-Type": "application/json" };
+  if (apiBase === "https://api.explorium.ai" && database.exploriumApiKey) headers.api_key = database.exploriumApiKey;
+  return headers;
+}
+
 async function runDataEnrichment() {
-  if (database.contacts.length === 0 || database.exploriumApiKey === "") return;
+  if (database.contacts.length === 0) return;
 
   const btn = document.getElementById("btn-run-enrich");
   const progressContainer = document.getElementById("enrich-progress-container");
@@ -78,10 +85,7 @@ async function runDataEnrichment() {
   try {
     const response = await fetch(`${apiBase}/v1/prospects/match`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api_key": database.exploriumApiKey
-      },
+      headers: enrichmentApiHeaders(apiBase),
       body: JSON.stringify({
         prospects_to_match: prospectsToMatch
       })
@@ -128,10 +132,7 @@ async function runDataEnrichment() {
       try {
         const response = await fetch(`${apiBase}/v1/prospects/contacts_information/bulk_enrich`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "api_key": database.exploriumApiKey
-          },
+          headers: enrichmentApiHeaders(apiBase),
           body: JSON.stringify({
             prospect_ids: prospectIds
           })
@@ -170,12 +171,28 @@ async function runDataEnrichment() {
   // insights, separate from verified provider fields.
   try {
     addLogConsole("enrich", "[AI] Building research profiles from the supplied contact and company context...", "info");
-    const aiResponse = await fetch("/api/ai/enrich", {
+    let aiResponse = await fetch("/api/ai/enrich", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contacts: contactsToEnrich, fields: selectedEnrichmentFields() })
     });
-    const aiData = await aiResponse.json();
+    let aiData = await aiResponse.json();
+    if (!aiResponse.ok && database.workbookMode && database.llmHelperKey) {
+      const directResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${database.llmHelperKey}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0.2, response_format: { type: "json_object" }, messages: [
+          { role: "system", content: "You are a careful B2B research assistant. Return JSON only and label inferences." },
+          { role: "user", content: JSON.stringify({ contacts: contactsToEnrich, requested_fields: selectedEnrichmentFields(), instructions: "Use only supplied facts. Never invent contact details or specific claims." }) }
+        ] })
+      });
+      aiData = await directResponse.json();
+      if (directResponse.ok) {
+        const parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}");
+        aiData = { profiles: parsed.profiles || parsed.results || [], provider: "openai-browser-local-mode" };
+      }
+      aiResponse = directResponse;
+    }
     if (!aiResponse.ok) throw new Error(aiData.error || `AI enrichment returned ${aiResponse.status}`);
     const profiles = aiData.profiles || [];
     aiProfiles = profiles;

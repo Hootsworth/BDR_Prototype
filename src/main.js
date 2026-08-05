@@ -54,6 +54,12 @@ async function bootstrapApp() {
   // 1. Fetch & inject templates first
   await loadComponentTemplates();
 
+  const savedGoogleBrowserClientId = localStorage.getItem("gtm_google_browser_client_id");
+  if (savedGoogleBrowserClientId && window.GoogleConfig) window.GoogleConfig.clientId = savedGoogleBrowserClientId;
+  const googleBrowserClientInput = document.getElementById("settings-google-browser-client-id");
+  if (googleBrowserClientInput) googleBrowserClientInput.value = window.GoogleConfig?.clientId || "";
+  if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
+
   // Load saved API Keys
   database.exploriumApiKey = localStorage.getItem("gtm_key_explorium") || "";
   database.llmHelperKey = localStorage.getItem("gtm_key_llm_helper") || "";
@@ -304,6 +310,14 @@ async function bootstrapApp() {
     }
   } catch (error) {
     addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
+  }
+
+  // Restore the selected workbook when the browser grants the saved file handle.
+  // Workbook data wins over browser cache and the optional local API snapshot.
+  if (typeof restoreLocalWorkbook === "function") {
+    try { await restoreLocalWorkbook(); } catch (error) {
+      addLogConsole("enrich", `[LOCAL WORKBOOK] Could not restore the workbook: ${error.message}`, "warning");
+    }
   }
 
   // Initialize autocomplete typing

@@ -15,6 +15,21 @@
     <span class="badge badge-success">System Active</span>
   </div>
 
+  <div class="card" style="margin-bottom: 1rem; border-color: var(--color-border-emphasized);">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <h3 class="section-title" style="border:0; margin:0; padding:0;">Local workbook mode</h3>
+        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0.35rem 0 0;">Keep contacts, enrichment, campaigns, approvals, activity, and runs in an on-device Excel workbook.</p>
+      </div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="openWorkbookFromSettings()">Open .xlsx</button>
+        <button class="btn btn-secondary btn-sm" onclick="saveWorkbookAsFromSettings()">Save as .xlsx</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportWorkbookFromSettings()">Export copy</button>
+      </div>
+    </div>
+    <div id="local-workbook-status" style="margin-top:0.75rem; font-size:var(--font-size-xs); color:var(--color-text-secondary);">No workbook open. Browser cache remains the fallback.</div>
+  </div>
+
   <!-- SETTINGS FULL-SCREEN GRID (SETTINGS SIDEBAR + MAIN CONTENT AREA) -->
   <div style="display: grid; grid-template-columns: 240px 1fr; gap: 1.5rem; flex: 1;">
 
@@ -178,6 +193,13 @@
           <button class="btn btn-secondary btn-sm" onclick="syncGmailReplies()">Sync Gmail replies</button>
           <button class="btn btn-secondary btn-sm" onclick="verifyGoogleWorkspace()">Test Gmail &amp; Calendar</button>
           <span style="font-size:var(--font-size-xs); color:var(--color-text-secondary);">Updates matching contact timelines.</span>
+        </div>
+        <div style="margin-top: 1rem; display:flex; gap:0.5rem; align-items:end;">
+          <div class="form-group" style="margin:0; flex:1;">
+            <label class="form-label" for="settings-google-browser-client-id">Google OAuth client ID</label>
+            <input class="form-input" id="settings-google-browser-client-id" placeholder="...apps.googleusercontent.com" />
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="saveBrowserGoogleClientId()">Save client ID</button>
         </div>
 
         <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
