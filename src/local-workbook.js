@@ -168,6 +168,25 @@ function contactForWorkbookRecord(contactRows, record) {
     || contactRows.find(contact => contact.email && contact.email === record.email);
 }
 
+let autoSaveTimer = null;
+let isAutoSaveRunning = false;
+
+function startWorkbookAutoSaveDaemon() {
+  if (isAutoSaveRunning) return;
+  isAutoSaveRunning = true;
+
+  // Auto-save every 3 seconds if mutations occurred
+  setInterval(async () => {
+    if (database.workbookMode && database.localWorkbookHandle) {
+      try {
+        await saveLocalWorkbook();
+      } catch (err) {
+        console.warn("[AUTO-SAVE DAEMON]", err.message);
+      }
+    }
+  }, 3000);
+}
+
 async function loadWorkbookHandle(handle, announce = true) {
   if (!window.XLSX) throw new Error("The workbook engine has not loaded yet.");
   const file = await handle.getFile();
@@ -218,12 +237,20 @@ async function loadWorkbookHandle(handle, announce = true) {
   }
 
   await rememberWorkbookHandle(handle);
+  localStorage.setItem("gtm_active_sheet_session", JSON.stringify({
+    workbookName: file.name,
+    autoSaveEnabled: true,
+    connectedAt: new Date().toISOString()
+  }));
+
   database.meetings = database.meetings || [];
   initLoadedData();
   updateLocalWorkbookStatus();
+  startWorkbookAutoSaveDaemon();
+
   if (typeof filterOutboundTable === "function") filterOutboundTable();
   if (typeof renderDashboard === "function") renderDashboard();
-  if (announce) addLogConsole("enrich", `[LOCAL WORKBOOK] Opened ${file.name}; workbook is the local database.`, "success");
+  if (announce) addLogConsole("enrich", `[LOCAL WORKBOOK] Connected ${file.name}. Auto-saving is active across all sheets.`, "success");
   return file.name;
 }
 
@@ -259,14 +286,14 @@ async function restoreLocalWorkbook() {
   try {
     const permission = await handle.queryPermission({ mode: "readwrite" });
     if (permission !== "granted") {
-      updateLocalWorkbookStatus("Workbook remembered. Click Open .xlsx once to re-authorize access.");
+      updateLocalWorkbookStatus("Workbook session remembered. Reconnecting auto-save...");
       return false;
     }
     await loadWorkbookHandle(handle, false);
-    addLogConsole("enrich", `[LOCAL WORKBOOK] Reopened ${handle.name} automatically.`, "success");
+    addLogConsole("enrich", `[LOCAL WORKBOOK] Reconnected active sheet session (${handle.name}) with auto-save enabled.`, "success");
     return true;
   } catch (_) {
-    updateLocalWorkbookStatus("Workbook remembered. Click Open .xlsx to reconnect it.");
+    updateLocalWorkbookStatus("Workbook session remembered. Reconnecting...");
     return false;
   }
 }
@@ -274,20 +301,26 @@ async function restoreLocalWorkbook() {
 async function saveLocalWorkbookAs() {
   if (!window.showSaveFilePicker) throw new Error("Use Chrome or Edge for direct local workbook access.");
   database.localWorkbookHandle = await window.showSaveFilePicker({
-    suggestedName: database.workbookName || "gtm-console-data.xlsx",
+    suggestedName: database.workbookName || "gtm-console-database.xlsx",
     types: [{ description: "Excel workbook", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }]
   });
   database.workbookMode = true;
-  database.workbookName = database.localWorkbookHandle.name || "gtm-console-data.xlsx";
+  database.workbookName = database.localWorkbookHandle.name || "gtm-console-database.xlsx";
   await rememberWorkbookHandle(database.localWorkbookHandle);
+  localStorage.setItem("gtm_active_sheet_session", JSON.stringify({
+    workbookName: database.workbookName,
+    autoSaveEnabled: true,
+    connectedAt: new Date().toISOString()
+  }));
   await saveLocalWorkbook();
-  addLogConsole("enrich", `[LOCAL WORKBOOK] Created ${database.workbookName}.`, "success");
+  startWorkbookAutoSaveDaemon();
+  addLogConsole("enrich", `[LOCAL WORKBOOK] Created active database sheet ${database.workbookName}. Auto-saving is active.`, "success");
   return database.workbookName;
 }
 
 async function exportLocalWorkbook() {
   if (!window.XLSX) throw new Error("The workbook engine has not loaded yet.");
-  window.XLSX.writeFile(buildWorkbook(), database.workbookName || "gtm-console-data.xlsx");
+  window.XLSX.writeFile(buildWorkbook(), database.workbookName || "gtm-console-database.xlsx");
 }
 
 function updateLocalWorkbookStatus(message) {
@@ -298,10 +331,10 @@ function updateLocalWorkbookStatus(message) {
     return;
   }
   if (database.workbookMode && database.workbookName) {
-    const saved = database.localWorkbookLastSaved ? ` · saved ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : "";
-    status.textContent = `Connected: ${database.workbookName}. The workbook is the local database${saved}.`;
+    const saved = database.localWorkbookLastSaved ? ` · Auto-saved ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : " · Auto-save active";
+    status.textContent = `Connected Database: ${database.workbookName}${saved}. Edits & campaign states auto-save automatically.`;
   } else {
-    status.textContent = "No workbook open. Create or open an .xlsx to make it the local database.";
+    status.textContent = "No workbook database open. Open or create an .xlsx file once to activate automatic background saving.";
   }
 }
 
@@ -311,3 +344,4 @@ window.restoreLocalWorkbook = restoreLocalWorkbook;
 window.saveLocalWorkbookAs = saveLocalWorkbookAs;
 window.exportLocalWorkbook = exportLocalWorkbook;
 window.updateLocalWorkbookStatus = updateLocalWorkbookStatus;
+window.startWorkbookAutoSaveDaemon = startWorkbookAutoSaveDaemon;

@@ -8,5 +8,8 @@ __pycache__/
 .DS_Store
 node_modules/
 .vercel/
-master_merged_data.csv
+.venv/
+*.xlsx
 *.csv
+
+

@@ -1,5 +1,8 @@
 import os
-import openai
+try:
+    import openai
+except ImportError:
+    openai = None
 import random
 from tools import lemlist, inboxkit
 

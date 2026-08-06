@@ -7,14 +7,37 @@
     <div class="badge badge-success">API Connected</div>
   </div>
 
-  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-    <div style="display: flex; items-center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-      <button class="btn btn-primary" id="btn-run-enrich" onclick="runDataEnrichment()">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        Run Data Enrichment
-      </button>
-      <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
-        API credentials managed in <a href="#" onclick="switchTab('settings-keys'); return false;" style="color: var(--color-text-primary); text-decoration: underline;">Settings</a>
+    <div style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1.1rem; background: var(--color-background-surface);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #34d399;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <strong style="font-size: 14px; color: var(--color-text-primary);">Deep Agentic Web Scraping &amp; Multi-Tab Dorking</strong>
+        </div>
+        <span class="badge badge-success">Firecrawl Enabled</span>
+      </div>
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 0.85rem 0;">
+        Allow AI agents to perform multi-step web searches, Google Dorking queries, Firecrawl page scraping, news/podcast extraction, and tech stack detection.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 12.5px; margin-bottom: 0.75rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="toggle-agentic-dorking" checked onchange="saveAgenticEnrichmentToggle()" style="cursor: pointer;">
+          <span><strong>Multi-Tab Google Dorking:</strong> Search LinkedIn, Twitter, press releases &amp; interview quotes.</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="checkbox" id="toggle-firecrawl-scrape" checked onchange="saveAgenticEnrichmentToggle()" style="cursor: pointer;">
+          <span><strong>Firecrawl Web Scraper:</strong> Parse company website HTML/text for tech stack &amp; executive bios.</span>
+        </label>
+      </div>
+
+      <div style="display: flex; items-center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+        <button class="btn btn-primary btn-sm" id="btn-run-enrich" onclick="runDataEnrichment()">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Execute Deep AI Web Enrichment
+        </button>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+          Manage Firecrawl API Key in <a href="#" onclick="switchTab('settings-keys'); return false;" style="color: var(--color-text-primary); text-decoration: underline;">Settings</a>
+        </div>
       </div>
     </div>
 

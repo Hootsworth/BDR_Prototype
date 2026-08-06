@@ -1,32 +1,62 @@
-<div class="card" style="margin-bottom: 1.5rem;">
-  <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
-    <div style="display: flex; align-items: center; gap: 1rem; flex: 1; max-width: 480px;">
-      <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap;">Campaign Event:</label>
-      <select class="form-select" id="select-event-view" onchange="renderEventsList()">
-        <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
-        <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
-        <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
-      </select>
+<!-- ═══ FIELD EVENTS & BRIEFING ROOM HERO BANNER (DARK MODE) ═══ -->
+<div class="card" style="padding: 1.75rem 2rem; margin-bottom: 1.75rem; background: linear-gradient(135deg, #141414 0%, #1a1a1e 100%); border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(16, 185, 129, 0.15); color: #34d399; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.3);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      </div>
+      <div>
+        <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc;">Field Events &amp; Briefing Room Scheduler</h2>
+        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: #a1a1aa;">Manage event attendees, executive briefing sessions, and VIP calendar bookings</p>
+      </div>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="openEventRegisterModal()">
-      <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      Register Contact
-    </button>
+
+    <div style="display: flex; gap: 0.625rem; flex-wrap: wrap;">
+      <button class="btn btn-primary btn-sm" onclick="openEventRegisterModal()" style="font-weight: 700;">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Register Contact
+      </button>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: #1f1f23; padding: 0.85rem 1.1rem; border: 1px solid #27272a; border-radius: 14px;">
+    <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap; font-weight: 700; color: #f8fafc;">Select Event View:</label>
+    <select class="form-select" id="select-event-view" onchange="renderEventsList()" style="flex: 1; min-width: 260px; font-weight: 600; background: #141414; color: #f8fafc; border-color: #27272a;">
+      <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
+      <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
+      <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+    </select>
+    <div style="display: flex; gap: 0.5rem; font-size: 12px; font-weight: 700;">
+      <span class="badge badge-success">Google Calendar Synced ✓</span>
+      <span class="badge badge-warning">HubSpot Deal Pipeline Active</span>
+    </div>
   </div>
 </div>
 
-<div class="table-container">
-  <div class="table-toolbar">
-    <h3 id="events-list-title" style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">GAC 2023 Dinner Attendees</h3>
-    <span class="badge" id="events-list-count">0 attendees</span>
+<!-- ═══ ATTENDEES DATA TABLE CARD ═══ -->
+<div class="card" style="padding: 1.5rem 1.75rem; background: #141414; border: 1px solid #27272a; border-radius: 20px;">
+  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
+    <div>
+      <h3 id="events-list-title" style="font-family: inherit; font-size: 15px; font-weight: 700; margin: 0; color: #f8fafc;">GAC 2023 Dinner Attendees</h3>
+      <span style="font-size: 12px; color: #a1a1aa;">Confirmed registrations &amp; briefing schedules</span>
+    </div>
+    <span class="badge badge-success" id="events-list-count" style="font-size: 12px; padding: 6px 14px;">0 attendees</span>
   </div>
+
   <div style="overflow-x: auto;">
     <table class="data-table" id="table-events-attendees">
       <thead>
-        <tr><th>Name</th><th>Job Title</th><th>Company</th><th>Email</th><th>Status</th><th>Notes</th></tr>
+        <tr>
+          <th>Name</th>
+          <th>Job Title</th>
+          <th>Company</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Notes &amp; Briefing</th>
+        </tr>
       </thead>
       <tbody id="table-events-attendees-body">
-        <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No attendees found. Load data first.</td></tr>
+        <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #52525b;">No attendees found for this event view.</td></tr>
       </tbody>
     </table>
   </div>

@@ -227,6 +227,71 @@
 
         <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
 
+        <!-- LEMLIST OUTBOUND & MCP INTEGRATION -->
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #a1a1aa;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--color-text-primary);">Lemlist Outbound &amp; MCP Integration</h4>
+          </div>
+          <span class="badge badge-success" id="lemlist-credentials-status">Connected ✓</span>
+        </div>
+        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0 0 0.75rem;">
+          Connect your Lemlist API Key or Lemlist MCP Endpoint (`https://app.lemlist.com/mcp`) to sync cold email sequences, prospect lists, and automated outreach campaigns.
+        </p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-key-lemlist">Lemlist API Key</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="password" class="form-input" id="settings-key-lemlist" placeholder="lem_..." autocomplete="off" onchange="syncLemlistKeyFromSettings()">
+              <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-lemlist', this)">Show</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-lemlist-mcp-args">Lemlist MCP Endpoint / Command</label>
+            <input class="form-input" id="settings-lemlist-mcp-args" placeholder="mcp-remote https://app.lemlist.com/mcp" value="mcp-remote https://app.lemlist.com/mcp" autocomplete="off">
+          </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="saveLemlistConfig()">Save Lemlist Integration</button>
+          <button class="btn btn-secondary btn-sm" onclick="testLemlistConnection()">Test Lemlist MCP Connection</button>
+          <button class="btn btn-secondary btn-sm" onclick="syncOutboundToLemlist()">Sync Campaigns to Lemlist</button>
+        <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
+
+        <!-- FIRECRAWL & DEEP AGENTIC WEB SCRAPING SETTINGS -->
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #a1a1aa;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--color-text-primary);">Firecrawl &amp; Deep Agentic Web Scraping</h4>
+          </div>
+          <span class="badge badge-success" id="firecrawl-credentials-status">Ready (Agentic Dorking Active)</span>
+        </div>
+        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0 0 0.75rem;">
+          Enable multi-step AI web scraping, Google Dorking, multi-tab page parsing, press release scanning, and executive bios via Firecrawl.
+        </p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-key-firecrawl">Firecrawl API Key (Optional)</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="password" class="form-input" id="settings-key-firecrawl" placeholder="fc-..." autocomplete="off" onchange="syncFirecrawlKeyFromSettings()">
+              <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-firecrawl', this)">Show</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" for="settings-firecrawl-depth">Scraping Depth &amp; Dorking Strategy</label>
+            <select class="form-select" id="settings-firecrawl-depth" onchange="saveFirecrawlConfig()">
+              <option value="deep_dorking">Deep Agentic Web Scraping (Multi-Tab Dorking &amp; Bios)</option>
+              <option value="ultra_research">Ultra-Comprehensive Research (Firecrawl + News + Tech Stack)</option>
+              <option value="standard">Standard API Match</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="saveFirecrawlConfig()">Save Scraping Settings</button>
+          <button class="btn btn-secondary btn-sm" onclick="testFirecrawlScraper()">Test Firecrawl Web Scraper</button>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
+
         <!-- Bi-Directional CRM Synchronization Section -->
         <h4 style="margin: 0 0 0.5rem 0; font-size: 14px; font-weight: 700; color: var(--color-text-primary);">HubSpot &amp; Salesforce Bi-Directional Sync</h4>
         <p style="font-size: 12px; color: var(--color-text-secondary); margin-0 0 1rem 0;">Automatically push deals, intent scores, and log contact replies back to CRM.</p>

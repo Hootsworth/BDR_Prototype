@@ -1,5 +1,8 @@
 import os
-import openai
+try:
+    import openai
+except ImportError:
+    openai = None
 from tools import linkedin, lemlist
 
 def intent_detection_agent(state):

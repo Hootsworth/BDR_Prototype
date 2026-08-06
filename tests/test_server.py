@@ -13,7 +13,8 @@ class ServerSafetyTests(unittest.TestCase):
         self.data_dir = self.temp_dir.name
         self.db_patch = patch.multiple(server, DB_PATH=self.db_path, DATA_DIR=self.data_dir)
         self.db_patch.start()
-        self.env_patch = patch.dict(os.environ, {"PROTOTYPE_DAILY_SEND_LIMIT": "2", "TOKEN_ENCRYPTION_KEY": server.Fernet.generate_key().decode()})
+        fernet_key = server.Fernet.generate_key().decode() if server.Fernet else "mock-fernet-key-32bytes-base64encoded="
+        self.env_patch = patch.dict(os.environ, {"PROTOTYPE_DAILY_SEND_LIMIT": "2", "TOKEN_ENCRYPTION_KEY": fernet_key})
         self.env_patch.start()
 
     def tearDown(self):

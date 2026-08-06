@@ -9,14 +9,18 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -x ".venv/bin/python" ]; then
-  echo "Creating the local Python environment..."
-  python3 -m venv .venv
+if [ -x ".venv/bin/python" ] && ".venv/bin/python" -c 'import cryptography' >/dev/null 2>&1; then
+  PYTHON_BIN="$APP_DIR/.venv/bin/python"
+else
+  # The local server only requires cryptography. Prefer the system runtime so
+  # the launcher remains usable offline and does not block on unrelated dev deps.
+  PYTHON_BIN="$(command -v python3)"
 fi
 
-PYTHON_BIN="$APP_DIR/.venv/bin/python"
-echo "Checking local dependencies..."
-"$PYTHON_BIN" -m pip install --disable-pip-version-check -q -r requirements.txt
+if ! "$PYTHON_BIN" -c 'import cryptography' >/dev/null 2>&1; then
+  echo "Installing the local server dependency..."
+  "$PYTHON_BIN" -m pip install --disable-pip-version-check -q cryptography
+fi
 
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp .env.example .env

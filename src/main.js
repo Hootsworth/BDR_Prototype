@@ -62,7 +62,15 @@ async function bootstrapApp() {
   if (savedGoogleBrowserClientId && window.GoogleConfig) window.GoogleConfig.clientId = savedGoogleBrowserClientId;
   const googleBrowserClientInput = document.getElementById("settings-google-browser-client-id");
   if (googleBrowserClientInput) googleBrowserClientInput.value = window.GoogleConfig?.clientId || "";
-  if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
+  if (typeof restoreLocalWorkbook === "function") {
+    restoreLocalWorkbook().then(connected => {
+      if (!connected && typeof startWorkbookAutoSaveDaemon === "function") {
+        startWorkbookAutoSaveDaemon();
+      }
+    });
+  } else if (typeof updateLocalWorkbookStatus === "function") {
+    updateLocalWorkbookStatus();
+  }
 
   // Load saved API Keys
   // Provider secrets are session-only and are never restored from browser storage.

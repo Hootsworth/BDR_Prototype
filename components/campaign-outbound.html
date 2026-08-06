@@ -1,108 +1,148 @@
-<!-- ═══ VISUAL MULTI-STEP OUTBOUND SEQUENCE BUILDER TIMELINE ═══ -->
-<div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-    <div>
-      <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Omnichannel Outbound Sequence #1</h3>
-      <span style="font-size: 12px; color: var(--color-text-secondary);">4-Step Automated Cadence (Email, LinkedIn, Phone)</span>
+<!-- ═══ OMNICHANNEL OUTBOUND HERO HEADER BANNER ═══ -->
+<div class="card" style="padding: 1.75rem 2rem; margin-bottom: 1.75rem; background: linear-gradient(135deg, #141414 0%, #1a1a1e 100%); border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div style="width: 48px; height: 48px; border-radius: 14px; background: #1f1f23; color: #e4e4e7; display: flex; align-items: center; justify-content: center; border: 1px solid #3f3f46;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </div>
+      <div>
+        <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc;">Omnichannel Outbound Cadence Builder</h2>
+        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: #a1a1aa;">4-Step Automated Outreach Sequence (Email, LinkedIn, Phone) synced to Lemlist &amp; Gmail</p>
+      </div>
     </div>
-    <div style="display: flex; gap: 0.5rem;">
-      <button class="btn btn-secondary btn-sm" onclick="addSequenceStep()">+ Add Cadence Step</button>
-      <button class="btn btn-primary btn-sm" onclick="runOutboundCadenceBatch()">🚀 Launch Batch Cadence</button>
+    <div style="display: flex; gap: 0.625rem; flex-wrap: wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px; background: #27272a; border-color: #3f3f46; color: #f8fafc;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+        Autonomous Agent Mode
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="addSequenceStep()" style="font-weight: 600;">+ Add Cadence Step</button>
+      <button class="btn btn-secondary btn-sm" onclick="syncOutboundToLemlist()" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        Lemlist Sync
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="runOutboundCadenceBatch()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        Launch Batch Cadence
+      </button>
     </div>
   </div>
 
-  <!-- Timeline Cards Layout -->
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; overflow-x: auto;" id="sequence-timeline-grid">
-    <!-- Step 1 -->
-    <div style="background: var(--surface-soft, #fafafa); border: 1.5px solid var(--color-primary); border-radius: 8px; padding: 0.875rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <span class="badge badge-primary" style="font-size: 10px;">Day 1 · Step 1</span>
-        <span style="font-size: 14px;">📧</span>
+  <!-- Visual Connected Sequence Step Timeline Canvas -->
+  <div style="position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-top: 1rem;" id="sequence-timeline-grid">
+    
+    <!-- Step 1 Card -->
+    <div style="background: #1f1f23; border: 2px solid #3f3f46; border-radius: 16px; padding: 1.1rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
+        <span class="badge" style="background: #27272a; color: #e4e4e7; border-color: #3f3f46; font-weight: 700;">Day 1 · Step 1</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
       </div>
-      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Initial Cold Email</strong>
-      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Personalized Q3 expansion intro hook.</p>
-      <span style="font-size: 10.5px; color: var(--color-success, #16a34a); font-weight: 600;">84% Open Rate Target</span>
+      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">Initial Cold Email</strong>
+      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Personalized Q3 expansion intro hook.</p>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
+        <span style="color: #34d399; font-weight: 700;">84% Target Open</span>
+        <span style="color: #a1a1aa; font-weight: 600;">Gmail / Lemlist</span>
+      </div>
     </div>
 
-    <!-- Step 2 -->
-    <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day 3 · Step 2</span>
-        <span style="font-size: 14px;">💼</span>
+    <!-- Step 2 Card -->
+    <div style="background: #1f1f23; border: 1.5px solid #27272a; border-radius: 16px; padding: 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
+        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); font-weight: 700;">Day 3 · Step 2</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
       </div>
-      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">LinkedIn Profile View &amp; Note</strong>
-      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Soft connection request mentioning email.</p>
-      <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Auto-triggered if unopened</span>
+      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">LinkedIn Profile &amp; Note</strong>
+      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Soft connection request referencing email.</p>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
+        <span style="color: #a1a1aa; font-weight: 600;">Auto-Trigger</span>
+        <span style="color: #38bdf8; font-weight: 600;">LinkedIn InMail</span>
+      </div>
     </div>
 
-    <!-- Step 3 -->
-    <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day 5 · Step 3</span>
-        <span style="font-size: 14px;">📧</span>
+    <!-- Step 3 Card -->
+    <div style="background: #1f1f23; border: 1.5px solid #27272a; border-radius: 16px; padding: 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
+        <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); font-weight: 700;">Day 5 · Step 3</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
       </div>
-      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Follow-up Case Study</strong>
-      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Share Credit Union ROI benchmark PDF.</p>
-      <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Threaded reply</span>
+      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">Follow-Up Case Study</strong>
+      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Credit Union ROI Benchmark PDF.</p>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
+        <span style="color: #a1a1aa; font-weight: 600;">Threaded Reply</span>
+        <span style="color: #e4e4e7; font-weight: 600;">Lemlist Outbox</span>
+      </div>
     </div>
 
-    <!-- Step 4 -->
-    <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day 8 · Step 4</span>
-        <span style="font-size: 14px;">📞</span>
+    <!-- Step 4 Card -->
+    <div style="background: #1f1f23; border: 1.5px solid #27272a; border-radius: 16px; padding: 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
+        <span class="badge" style="background: #27272a; color: #d4d4d8; border-color: #3f3f46; font-weight: 700;">Day 8 · Step 4</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
       </div>
-      <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Voice Call Task</strong>
-      <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">SDR phone prompt if intent score > 75.</p>
-      <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Manual task queue</span>
+      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">SDR Voice Call Task</strong>
+      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Phone prompt if intent score &gt; 75.</p>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
+        <span style="color: #a1a1aa; font-weight: 600;">Task Queue</span>
+        <span style="color: #e4e4e7; font-weight: 600;">Twilio / Web Dialer</span>
+      </div>
     </div>
+
   </div>
 </div>
 
-<!-- ═══ REAL-TIME EMAIL DELIVERABILITY & SPAM SCORE AUDITOR WIDGET ═══ -->
-<div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.875rem; flex-wrap: wrap; gap: 0.5rem;">
-    <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <span style="font-size: 16px;">🛡️</span>
-      <h3 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--color-text-primary);">Email Deliverability &amp; Spam Score Auditor</h3>
+<!-- ═══ REAL-TIME EMAIL DELIVERABILITY & SPAM SCORE AUDITOR ═══ -->
+<div class="card" style="padding: 1.5rem 1.75rem; margin-bottom: 1.75rem; background: #141414; border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); color: #34d399; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.3);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      </div>
+      <div>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Deliverability &amp; Spam Score Auditor</h3>
+        <p style="margin: 0; font-size: 12px; color: #a1a1aa;">Real-time email copy risk scanner &amp; DNS health check</p>
+      </div>
     </div>
-    <div style="display: flex; gap: 0.75rem; font-size: 11.5px; font-weight: 600;">
-      <span style="color: var(--color-success, #16a34a);">SPF: PASS ✓</span>
-      <span style="color: var(--color-success, #16a34a);">DKIM: PASS ✓</span>
-      <span style="color: var(--color-success, #16a34a);">DMARC: REJECT Policy ✓</span>
+    <div style="display: flex; gap: 0.75rem; font-size: 12px; font-weight: 700;">
+      <span class="badge badge-success">SPF: PASS ✓</span>
+      <span class="badge badge-success">DKIM: PASS ✓</span>
+      <span class="badge badge-success">DMARC: REJECT Policy ✓</span>
     </div>
   </div>
 
-  <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-    <div style="flex: 1; min-width: 280px;">
-      <textarea id="spam-audit-input" oninput="runSpamAuditorCheck(this.value)" rows="3" class="form-input" style="width: 100%; font-size: 12.5px; line-height: 1.5; resize: vertical;" placeholder="Type or paste draft copy here to run real-time deliverability audit..."></textarea>
+  <div style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 300px;">
+      <textarea id="spam-audit-input" oninput="runSpamAuditorCheck(this.value)" rows="3" class="form-input" style="width: 100%; font-size: 13px; line-height: 1.5; resize: vertical;" placeholder="Type or paste draft copy here to run real-time deliverability audit..."></textarea>
     </div>
-    <div style="width: 280px; background: var(--surface-soft, #fafafa); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-        <span style="color: var(--color-text-secondary);">Spam Score:</span>
-        <strong id="spam-score-val" style="color: var(--color-success, #16a34a);">0.2 / 10 (Clean)</strong>
+    <div style="width: 320px; background: #1f1f23; border: 1px solid #27272a; border-radius: 14px; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; font-size: 12.5px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+        <span style="color: #a1a1aa;">Spam Risk Rating:</span>
+        <strong id="spam-score-val" style="color: #34d399;">0.2 / 10 (Clean)</strong>
       </div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-        <span style="color: var(--color-text-secondary);">Readability Grade:</span>
-        <strong id="spam-readability-val" style="color: var(--color-text-primary);">Grade 7 (Optimal)</strong>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+        <span style="color: #a1a1aa;">Readability Score:</span>
+        <strong id="spam-readability-val" style="color: #f8fafc;">Grade 7 (Optimal)</strong>
       </div>
       <div style="display: flex; justify-content: space-between;">
-        <span style="color: var(--color-text-secondary);">Detected Risks:</span>
-        <span id="spam-risks-val" style="color: var(--color-text-secondary);">None detected</span>
+        <span style="color: #a1a1aa;">Detected Trigger Risks:</span>
+        <span id="spam-risks-val" style="color: #a1a1aa; font-weight: 600;">None detected</span>
       </div>
     </div>
   </div>
 </div>
 
-<div class="table-container">
-  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <button class="btn btn-secondary btn-sm active" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospects</button>
+<!-- ═══ PROSPECTS & OUTBOUND TABLE ═══ -->
+<div class="card" style="padding: 1.5rem 1.75rem; background: #141414; border: 1px solid #27272a; border-radius: 20px;">
+  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button class="btn btn-primary btn-sm" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospect List</button>
       <button class="btn btn-secondary btn-sm" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px; background: #1f1f23; border-color: #3f3f46; color: #f8fafc; font-weight: 600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        Autonomous Agent Control Center
+      </button>
     </div>
     
-    <div style="flex: 1; max-width: 380px;">
-      <input type="text" class="form-input" id="outbound-search-input" placeholder="Search contacts by name or title..." oninput="filterOutboundTable()">
+    <div style="flex: 1; max-width: 400px;">
+      <input type="text" class="form-input" id="outbound-search-input" placeholder="Search contacts by name, title, or company..." oninput="filterOutboundTable()">
     </div>
   </div>
 
@@ -120,10 +160,10 @@
         </tr>
       </thead>
       <tbody id="table-campaign-outbound-body">
-        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No contacts loaded. Upload CSV or add contacts first.</td></tr>
+        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: #52525b;">No contacts loaded. Discover contacts or upload workbook first.</td></tr>
       </tbody>
     </table>
   </div>
 
-  <div class="pagination-bar" id="outbound-pagination" style="padding: 1rem 0 0 0; margin-top: 0.5rem; border-top: 1px solid var(--color-border);"></div>
+  <div class="pagination-bar" id="outbound-pagination" style="padding: 1rem 0 0 0; margin-top: 0.5rem; border-top: 1px solid #27272a;"></div>
 </div>

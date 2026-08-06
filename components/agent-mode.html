@@ -1,287 +1,140 @@
-<div style="display: flex; flex-direction: column; height: calc(100vh - 140px); max-width: 960px; margin: 0 auto; position: relative;">
+<div style="display: flex; flex-direction: column; height: calc(100vh - 120px); max-width: 860px; margin: 0 auto; position: relative;">
 
-  <!-- Chat & DAG Header -->
-  <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 1rem; border-bottom: 1px solid var(--color-border); margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+  <!-- Minimalist Chat Header -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0 1rem 0; border-bottom: 1px solid #27272a; margin-bottom: 1rem;">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <div style="width: 36px; height: 36px; border-radius: var(--radius-inner); background-color: var(--color-background-muted); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center;">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+      <div style="width: 38px; height: 38px; border-radius: 12px; background: #1f1f23; border: 1px solid #27272a; display: flex; align-items: center; justify-content: center; color: #e4e4e7;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
       </div>
       <div>
-        <h2 style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">Autonomous GTM Copilot</h2>
-        <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">LangGraph 12-Agent Orchestration &amp; Multi-Model Engine</span>
+        <h2 style="font-size: 15px; font-weight: 700; margin: 0; color: #f8fafc;">GTM AI Assistant</h2>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
+          <span>Online &amp; Ready</span>
+        </div>
       </div>
     </div>
 
-    <!-- Multi-Model Selector & Guardrails -->
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <div style="display: flex; align-items: center; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.25rem 0.5rem; gap: 0.5rem;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
-        <select id="agent-model-select" onchange="changeAgentModel(this.value)" style="background: transparent; border: none; font-size: 12px; font-weight: 600; color: var(--color-text-primary); cursor: pointer; outline: none;">
-          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Fast · Low Cost)</option>
-          <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning)</option>
-          <option value="gpt-4o">GPT-4o (High-Stakes Copy)</option>
-        </select>
-      </div>
-
-      <!-- Token & Cost Guardrails Meter -->
-      <div style="display: flex; align-items: center; gap: 0.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.25rem 0.65rem; font-size: 11.5px; font-weight: 600;">
-        <span style="color: var(--color-text-secondary);">Tokens: <strong id="token-count-val" style="color: var(--color-text-primary);">42,850</strong></span>
-        <span style="color: var(--color-border);">|</span>
-        <span style="color: var(--color-text-secondary);">Cost: <strong id="token-cost-val" style="color: var(--color-success, #16a34a);">$0.042</strong></span>
-      </div>
-
-      <button class="btn btn-secondary btn-sm" onclick="toggleDagVisibility()" title="Toggle Visual Workflow Graph">
+    <!-- Minimal Controls -->
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <select id="agent-model-select" onchange="changeAgentModel(this.value)" class="form-select" style="padding: 0.35rem 0.65rem; font-size: 12px; font-weight: 600; width: auto; background: #1f1f23; border-color: #27272a; color: #f8fafc;">
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        <option value="gpt-4o">GPT-4o</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="toggleDagVisibility()" style="font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-        <span>DAG Graph</span>
+        <span>Graph View</span>
       </button>
-
-      <div class="badge badge-success">Online &amp; Ready</div>
     </div>
   </div>
 
-  <!-- ═══ VISUAL 12-NODE LANGGRAPH EXECUTION DAG CANVAS ═══ -->
-  <div id="langgraph-dag-container" style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 0.875rem 1rem; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+  <!-- Collapsible Technical DAG Graph (Hidden by default for clean chatbot feel) -->
+  <div id="langgraph-dag-container" style="display: none; background: #141414; border: 1px solid #27272a; border-radius: 16px; padding: 1rem; margin-bottom: 1rem;">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">
-        <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-success, #16a34a);"></span>
-        LangGraph 12-Node Execution Pipeline
-      </div>
-      <div style="font-size: 11px; color: var(--color-text-secondary);">
-        Active Phase: <strong id="dag-active-phase" style="color: var(--color-text-primary);">Phase 2 · Engagement</strong>
-      </div>
+      <span style="font-size: 12px; font-weight: 700; color: #a1a1aa; text-transform: uppercase;">Technical Execution Pipeline</span>
+      <span style="font-size: 11.5px; color: #34d399;" id="dag-active-phase">Phase 2 · Active</span>
     </div>
-
-    <!-- 12 Node Map Container -->
-    <div id="dag-node-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem;">
-      <!-- Node 1: ICP Discovery -->
-      <div class="dag-node completed" id="node-icp_discovery" onclick="showNodeDetails('icp_discovery')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-soft, #fafafa); cursor: pointer; transition: all 0.2s ease;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">01 DISCOVERY</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-success, #16a34a);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">ICP Discovery</div>
-      </div>
-
-      <!-- Node 2: Contact Intelligence -->
-      <div class="dag-node completed" id="node-contact_intelligence" onclick="showNodeDetails('contact_intelligence')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-soft, #fafafa); cursor: pointer; transition: all 0.2s ease;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">02 CONTACTS</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-success, #16a34a);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Contact Intel</div>
-      </div>
-
-      <!-- Node 3: Data Quality -->
-      <div class="dag-node completed" id="node-data_quality" onclick="showNodeDetails('data_quality')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-soft, #fafafa); cursor: pointer; transition: all 0.2s ease;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">03 CLEAN</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-success, #16a34a);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Data Quality</div>
-      </div>
-
-      <!-- Node 4: Personalization -->
-      <div class="dag-node active" id="node-personalization" onclick="showNodeDetails('personalization')" style="border: 1.5px solid var(--color-primary, #0c0a09); border-radius: 6px; padding: 6px 8px; background: #fff; cursor: pointer; box-shadow: 0 0 0 2px rgba(0,0,0,0.05); transition: all 0.2s ease;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-primary,#0c0a09);">04 COPY</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:#2563eb; animation: pulse 1.5s infinite;"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Personalize</div>
-      </div>
-
-      <!-- Node 5: Campaign Launch (Breakpoint) -->
-      <div class="dag-node breakpoint" id="node-campaign_launch" onclick="showNodeDetails('campaign_launch')" style="border: 1px dashed #d97706; border-radius: 6px; padding: 6px 8px; background: #fffbeb; cursor: pointer; transition: all 0.2s ease;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:#d97706;">05 LAUNCH ⏸</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:#d97706;"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:#92400e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Outbound Send</div>
-      </div>
-
-      <!-- Node 6: Deliverability -->
-      <div class="dag-node idle" id="node-deliverability" onclick="showNodeDetails('deliverability')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">06 HEALTH</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Deliverability</div>
-      </div>
-
-      <!-- Node 7: Engagement Monitoring -->
-      <div class="dag-node idle" id="node-engagement_monitoring" onclick="showNodeDetails('engagement_monitoring')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">07 TRACK</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Engagement</div>
-      </div>
-
-      <!-- Node 8: Intent Detection -->
-      <div class="dag-node idle" id="node-intent_detection" onclick="showNodeDetails('intent_detection')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">08 INTENT</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Intent Detect</div>
-      </div>
-
-      <!-- Node 9: LinkedIn Engagement (Breakpoint) -->
-      <div class="dag-node idle" id="node-linkedin_engagement" onclick="showNodeDetails('linkedin_engagement')" style="border: 1px dashed var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">09 LINKEDIN ⏸</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">LinkedIn Touch</div>
-      </div>
-
-      <!-- Node 10: Qualification -->
-      <div class="dag-node idle" id="node-qualification" onclick="showNodeDetails('qualification')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">10 QUALIFY</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Qualification</div>
-      </div>
-
-      <!-- Node 11: Meeting Scheduler -->
-      <div class="dag-node idle" id="node-meeting_scheduler" onclick="showNodeDetails('meeting_scheduler')" style="border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">11 CALENDAR</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Scheduler</div>
-      </div>
-
-      <!-- Node 12: CRM Intelligence (Breakpoint) -->
-      <div class="dag-node idle" id="node-crm_intelligence" onclick="showNodeDetails('crm_intelligence')" style="border: 1px dashed var(--color-border); border-radius: 6px; padding: 6px 8px; background: var(--surface-card); opacity: 0.6; cursor: pointer;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
-          <span style="font-size:9.5px; font-weight:700; color:var(--color-text-secondary);">12 CRM ⏸</span>
-          <span class="dag-status-dot" style="width:6px; height:6px; border-radius:50%; background:var(--color-border);"></span>
-        </div>
-        <div style="font-size:11.5px; font-weight:700; color:var(--color-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">CRM Sync</div>
-      </div>
+    <div id="dag-node-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; overflow-x: auto;">
+      <div class="dag-node completed" id="node-icp_discovery" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #1f1f23; font-size: 11px; font-weight: 600; color: #f8fafc;">ICP Discovery</div>
+      <div class="dag-node completed" id="node-contact_intelligence" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #1f1f23; font-size: 11px; font-weight: 600; color: #f8fafc;">Contact Intel</div>
+      <div class="dag-node completed" id="node-data_quality" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #1f1f23; font-size: 11px; font-weight: 600; color: #f8fafc;">Data Quality</div>
+      <div class="dag-node active" id="node-personalization" style="border: 1px solid #e4e4e7; border-radius: 8px; padding: 6px 8px; background: #27272a; font-size: 11px; font-weight: 600; color: #f8fafc;">Personalize</div>
+      <div class="dag-node breakpoint" id="node-campaign_launch" style="border: 1px dashed #fbbf24; border-radius: 8px; padding: 6px 8px; background: #141414; font-size: 11px; font-weight: 600; color: #fbbf24;">Outbound Send</div>
+      <div class="dag-node idle" id="node-crm_intelligence" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #141414; font-size: 11px; font-weight: 600; color: #a1a1aa;">CRM Sync</div>
     </div>
   </div>
 
-  <!-- Main Chat History Stream -->
-  <div id="agent-chat-history-container" style="flex: 1; overflow-y: auto; padding: 0.5rem 0; display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Minimalist Chat Stream Area -->
+  <div id="agent-chat-history-container" style="flex: 1; overflow-y: auto; padding: 0.5rem 0; display: flex; flex-direction: column;">
     
-    <!-- Landing Greeting State -->
-    <div id="agent-landing-hero" style="text-align: center; margin: 1.5rem auto; max-width: 650px;">
-      <h1 style="font-family: var(--font-family-heading); font-size: var(--font-size-2xl); font-weight: 700; margin: 0 0 0.5rem 0;">Autonomous GTM Agent Command</h1>
-      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 1.5rem 0;">Orchestrate multi-step discovery, personalized outbound, and human-in-the-loop approvals.</p>
+    <!-- Clean Welcome Hero -->
+    <div id="agent-landing-hero" style="text-align: center; margin: auto; max-width: 540px; padding: 2rem 0;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin: 0 0 0.5rem 0;">How can I help your outreach today?</h2>
+      <p style="font-size: 13.5px; color: #a1a1aa; margin: 0 0 1.75rem 0; line-height: 1.5;">Ask anything, enrich accounts, generate campaign copy, or manage outreach approvals.</p>
       
+      <!-- Minimal Quick Prompt Chips -->
       <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
-        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('enrich_all')">
-          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Bulk Enrich Contacts
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="openHilCopilotModal()">
-          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg> AI Copilot Review Queue
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('send_outbound')">
-          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> Dispatch Outbound
-        </button>
-        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('sync_meetings')">
-          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Sync Meetings
-        </button>
+        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('enrich_all')" style="border-radius: 20px; font-size: 12.5px;">Enrich target accounts</button>
+        <button class="btn btn-secondary btn-sm" onclick="openHilCopilotModal()" style="border-radius: 20px; font-size: 12.5px;">Review email drafts</button>
+        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('send_outbound')" style="border-radius: 20px; font-size: 12.5px;">Dispatch campaign</button>
       </div>
     </div>
 
     <!-- Active Chat Messages Stream -->
-    <div id="agent-chat-history" style="display: flex; flex-direction: column; gap: 1rem;">
-      <!-- Dynamically Injected -->
+    <div id="agent-chat-history" style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <!-- Dynamically Injected Chat Messages -->
     </div>
   </div>
 
-  <!-- Aesthetic Floating Agentic Action Popover (Appears ONLY when active) -->
-  <div id="agent-floating-loader" class="card" style="display: none; position: absolute; bottom: 85px; right: 1rem; z-index: 500; margin: 0; padding: 0.875rem 1.25rem; max-width: 380px; background-color: var(--color-background-surface); border: 1px solid var(--color-border); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); border-radius: var(--radius-inner);">
-    <div style="display: flex; align-items: center; gap: 0.875rem;">
-      <div style="position: relative; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 2s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>
-      </div>
-      <div>
-        <div id="agent-loader-title" style="font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-primary);">Agent Grounding Web Search...</div>
-        <div id="agent-loader-subtitle" style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Querying Google Search &amp; Explorium APIs</div>
-      </div>
+  <!-- Floating Loading Indicator -->
+  <div id="agent-floating-loader" style="display: none; position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); z-index: 500; padding: 0.6rem 1.25rem; background: #1f1f23; border: 1px solid #27272a; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-size: 12.5px; color: #f8fafc;">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1.5s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>
+      <span id="agent-loader-title">Thinking...</span>
     </div>
   </div>
 
-  <!-- Composer Input Bar -->
-  <div style="padding-top: 0.75rem; border-top: 1px solid var(--color-border); position: relative;">
+  <!-- Chat Input Composer -->
+  <div style="padding-top: 0.75rem; border-top: 1px solid #27272a; position: relative;">
     <div id="agent-autocomplete-list"></div>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <textarea id="agent-chat-input" class="form-input" placeholder="Ask GTM Copilot or type @contact name..." onkeydown="handleAgentChatKeyDown(event)" style="height: 56px; resize: none; border-radius: var(--radius-inner); font-size: var(--font-size-base); font-weight: 500; padding: 0.75rem 1rem; line-height: 1.4;"></textarea>
-      <button class="btn btn-primary" id="btn-agent-chat-send" onclick="sendAgentChatMessage()" style="height: 56px; padding: 0 1.5rem; font-size: var(--font-size-base);">Execute ↗</button>
+    <div style="display: flex; gap: 0.625rem; align-items: center; background: #141414; border: 1.5px solid #27272a; border-radius: 16px; padding: 0.4rem 0.5rem 0.4rem 0.85rem;">
+      <textarea id="agent-chat-input" class="form-input" placeholder="Message GTM Assistant..." onkeydown="handleAgentChatKeyDown(event)" style="border: none; background: transparent; height: 44px; resize: none; font-size: 13.5px; padding: 0.6rem 0; color: #f8fafc; outline: none; flex: 1;"></textarea>
+      <button class="btn btn-primary btn-sm" id="btn-agent-chat-send" onclick="sendAgentChatMessage()" style="height: 38px; padding: 0 1.1rem; border-radius: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+        <span>Send</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
     </div>
   </div>
 
 </div>
 
-<!-- ═══ HUMAN-IN-THE-LOOP (HIL) AI COPILOT REVIEW MODAL ═══ -->
-<div id="hil-copilot-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;">
-  <div class="card" style="width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--surface-card); border-radius: var(--radius-inner); box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+<!-- ═══ HUMAN-IN-THE-LOOP (HIL) REVIEW MODAL ═══ -->
+<div id="hil-copilot-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;">
+  <div class="card" style="width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: #141414; border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.8);">
     
     <!-- Modal Header -->
-    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-soft, #fafafa);">
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #d97706; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">⏸</div>
-        <div>
-          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--color-text-primary);">Human-in-the-Loop Copy Review</h3>
-          <span style="font-size: 12px; color: var(--color-text-secondary);">Review &amp; AI-rewrite outgoing personalized email before dispatch</span>
-        </div>
+    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #27272a; display: flex; align-items: center; justify-content: space-between; background: #1a1a1e;">
+      <div>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Review Email Draft</h3>
+        <span style="font-size: 12px; color: #a1a1aa;">Approve or customize outbound email before dispatch</span>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="closeHilCopilotModal()" style="padding: 4px 8px;">✕ Close</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeHilCopilotModal()">Close</button>
     </div>
 
-    <!-- Side-by-Side Body Layout -->
-    <div style="display: flex; flex: 1; overflow: hidden; height: 500px;">
+    <!-- Body Layout -->
+    <div style="display: flex; flex: 1; overflow: hidden; height: 440px;">
       <!-- Left Panel: Lead Context -->
-      <div style="width: 35%; border-right: 1px solid var(--color-border); padding: 1.25rem; overflow-y: auto; background: var(--surface-soft, #fafafa);">
-        <h4 style="margin: 0 0 1rem 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Lead Context Profile</h4>
-        
-        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-          <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--color-primary, #0c0a09); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;" id="hil-lead-avatar">
-            JD
-          </div>
+      <div style="width: 35%; border-right: 1px solid #27272a; padding: 1.25rem; overflow-y: auto; background: #19191c;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; color: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;" id="hil-lead-avatar">SJ</div>
           <div>
-            <div style="font-weight: 700; font-size: 15px; color: var(--color-text-primary);" id="hil-lead-name">Sarah Jenkins</div>
-            <div style="font-size: 12px; color: var(--color-text-secondary);" id="hil-lead-title">VP of Operations · First Credit Union</div>
+            <div style="font-weight: 700; font-size: 14px; color: #f8fafc;" id="hil-lead-name">Sarah Jenkins</div>
+            <div style="font-size: 11.5px; color: #a1a1aa;" id="hil-lead-title">VP Operations</div>
           </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 12.5px;">
-          <div style="padding: 8px 10px; background: #fff; border: 1px solid var(--color-border); border-radius: 6px;">
-            <span style="color: var(--color-text-secondary); display: block; font-size: 11px;">ICP Match Score</span>
-            <strong style="color: var(--color-success, #16a34a); font-size: 15px;">94 / 100 (Tier 1 High Intent)</strong>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 12px;">
+          <div style="padding: 8px 10px; background: #141414; border: 1px solid #27272a; border-radius: 8px;">
+            <span style="color: #a1a1aa; display: block; font-size: 10.5px;">Match Score</span>
+            <strong style="color: #34d399; font-size: 14px;">94 / 100 (High Intent)</strong>
           </div>
-
-          <div style="padding: 8px 10px; background: #fff; border: 1px solid var(--color-border); border-radius: 6px;">
-            <span style="color: var(--color-text-secondary); display: block; font-size: 11px;">Recent News / Signal</span>
-            <span id="hil-lead-news" style="color: var(--color-text-primary);">Announced digital branch expansion &amp; loan automation push in Q3.</span>
-          </div>
-
-          <div style="padding: 8px 10px; background: #fff; border: 1px solid var(--color-border); border-radius: 6px;">
-            <span style="color: var(--color-text-secondary); display: block; font-size: 11px;">Tech Stack Identified</span>
-            <span style="color: var(--color-text-primary);">Jack Henry, Symitar, HubSpot, LinkedIn Sales Nav</span>
+          <div style="padding: 8px 10px; background: #141414; border: 1px solid #27272a; border-radius: 8px;">
+            <span style="color: #a1a1aa; display: block; font-size: 10.5px;">Trigger Signal</span>
+            <span id="hil-lead-news" style="color: #f8fafc;">Digital branch expansion in Q3.</span>
           </div>
         </div>
       </div>
 
-      <!-- Right Panel: Draft Review & Prompt Chips -->
+      <!-- Right Panel: Draft Review -->
       <div style="flex: 1; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h4 style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary);">Generated Personalization Copy</h4>
-          <span class="badge badge-warning" id="hil-copy-status">Pending Review</span>
-        </div>
-
-        <!-- Email Preview Box -->
-        <div style="border: 1px solid var(--color-border); border-radius: 8px; padding: 1rem; background: #fff;">
-          <div style="margin-bottom: 0.5rem; font-size: 12px; color: var(--color-text-secondary);">
-            Subject: <input type="text" id="hil-email-subject" value="Quick question re: First Credit Union digital branch expansion" style="width: 80%; border: none; border-bottom: 1px solid var(--color-border); font-weight: 600; color: var(--color-text-primary); outline: none; background: transparent;" />
+        <div style="border: 1px solid #27272a; border-radius: 12px; padding: 1rem; background: #19191c;">
+          <div style="margin-bottom: 0.5rem; font-size: 12px; color: #a1a1aa;">
+            Subject: <input type="text" id="hil-email-subject" value="Quick question re: First Credit Union digital branch expansion" style="width: 80%; border: none; border-bottom: 1px solid #27272a; font-weight: 600; color: #f8fafc; outline: none; background: transparent;" />
           </div>
-          <textarea id="hil-email-body" rows="7" style="width: 100%; border: none; font-family: var(--font-family-body); font-size: 13px; line-height: 1.6; color: var(--color-text-primary); resize: vertical; outline: none; background: transparent;">Hi Sarah,
+          <textarea id="hil-email-body" rows="6" style="width: 100%; border: none; font-family: inherit; font-size: 13px; line-height: 1.5; color: #f8fafc; resize: vertical; outline: none; background: transparent;">Hi Sarah,
 
-Noticed First Credit Union's recent announcement regarding your Q3 digital branch expansion. Given your focus on automating loan intake workflows, I thought you'd find our autonomous GTM engine relevant for streamlining member onboarding.
+Noticed First Credit Union's recent announcement regarding your Q3 digital branch expansion. Given your focus on automating loan intake workflows, I thought you'd find our autonomous GTM engine relevant.
 
 Would you be open to a 10-minute brief next Tuesday?
 
@@ -289,21 +142,20 @@ Best regards,
 GTM Automation Team</textarea>
         </div>
 
-        <!-- Interactive AI Copilot Prompt Chips -->
+        <!-- Quick One-Click Rewrites -->
         <div>
-          <span style="font-size: 11px; font-weight: 700; color: var(--color-text-secondary); display: block; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">⚡ AI Copilot One-Click Rewrite</span>
+          <span style="font-size: 11px; font-weight: 700; color: #a1a1aa; display: block; margin-bottom: 0.5rem; text-transform: uppercase;">Quick AI Rewrites</span>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('casual')">☕ Make Casual</button>
-            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('roi')">📈 Emphasize ROI</button>
-            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('shorter')">✂️ Shorten to 2 sentences</button>
-            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('compliance')">🛡️ Credit Union Compliance Focus</button>
+            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('casual')">Make Casual</button>
+            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('roi')">Emphasize ROI</button>
+            <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('shorter')">Shorten</button>
           </div>
         </div>
 
         <!-- Action Bar -->
-        <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--color-border);">
-          <button class="btn btn-secondary" onclick="closeHilCopilotModal()">Reject / Skip Lead</button>
-          <button class="btn btn-primary" onclick="approveHilCopyDraft()">✓ Approve &amp; Dispatch Outbound</button>
+        <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #27272a;">
+          <button class="btn btn-secondary btn-sm" onclick="closeHilCopilotModal()">Skip</button>
+          <button class="btn btn-primary btn-sm" onclick="approveHilCopyDraft()">Approve &amp; Send</button>
         </div>
       </div>
     </div>

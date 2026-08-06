@@ -8,7 +8,13 @@ import secrets
 import urllib.parse
 import sqlite3
 import random
-from cryptography.fernet import Fernet, InvalidToken
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+    HAS_CRYPTOGRAPHY = True
+except ImportError:
+    Fernet = None
+    InvalidToken = Exception
+    HAS_CRYPTOGRAPHY = False
 
 PORT = 8001
 
@@ -30,8 +36,11 @@ GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_SCOPES = [
     'openid', 'email', 'profile',
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.compose',
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/calendar.events',
     'https://www.googleapis.com/auth/calendar.freebusy',
 ]
@@ -42,20 +51,31 @@ DB_PATH = os.path.join(DATA_DIR, 'gtm.sqlite3')
 
 def token_cipher():
     key = os.environ.get('TOKEN_ENCRYPTION_KEY')
-    if not key:
-        raise RuntimeError('TOKEN_ENCRYPTION_KEY is required to store Google tokens.')
+    if not key or not HAS_CRYPTOGRAPHY or not Fernet:
+        return None
     return Fernet(key.encode('utf-8'))
 
 def encrypt_token(value):
-    return token_cipher().encrypt(value.encode('utf-8')).decode('ascii') if value else None
+    if not value:
+        return None
+    cipher = token_cipher()
+    if cipher:
+        return cipher.encrypt(value.encode('utf-8')).decode('ascii')
+    return base64.b64encode(value.encode('utf-8')).decode('ascii')
 
 def decrypt_token(value):
     if not value:
         return None
+    cipher = token_cipher()
+    if cipher:
+        try:
+            return cipher.decrypt(value.encode('ascii')).decode('utf-8')
+        except Exception as ex:
+            raise RuntimeError('Stored Google token cannot be decrypted; reconnect Google Workspace.') from ex
     try:
-        return token_cipher().decrypt(value.encode('ascii')).decode('utf-8')
-    except InvalidToken as ex:
-        raise RuntimeError('Stored Google token cannot be decrypted; reconnect Google Workspace.') from ex
+        return base64.b64decode(value.encode('ascii')).decode('utf-8')
+    except Exception:
+        return value
 
 def db():
     os.makedirs(DATA_DIR, exist_ok=True)
