@@ -554,7 +554,8 @@ def check_for_updates():
                 
                 return {
                     "update_available": is_update_available,
-                    "current_commit": local_sha[:7] if local_sha != "unknown" else "v1.0.0",
+                    "current_version": local_info.get("version", "1.1.0"),
+                    "current_commit": local_sha[:7] if local_sha != "unknown" else "v1.1.0",
                     "latest_commit": remote_sha[:7] if remote_sha else "",
                     "commit_message": commit_msg,
                     "author": commit_author,
@@ -565,9 +566,14 @@ def check_for_updates():
         return {
             "update_available": False,
             "error": str(ex),
+            "current_version": local_info.get("version", "1.1.0"),
             "current_commit": local_info.get("sha", "")[:7]
         }
-    return {"update_available": False, "current_commit": local_info.get("sha", "")[:7]}
+    return {
+        "update_available": False,
+        "current_version": local_info.get("version", "1.1.0"),
+        "current_commit": local_info.get("sha", "")[:7]
+    }
 
 def apply_system_update():
     app_root = os.path.dirname(os.path.abspath(__file__))
@@ -938,7 +944,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     print(f"Starting Local Campaign Console static server with API proxy on port {PORT}...")
-    server = http.server.HTTPServer(('0.0.0.0', PORT), ProxyHTTPRequestHandler)
+    http.server.HTTPServer.allow_reuse_address = True
+    try:
+        server = http.server.HTTPServer(('0.0.0.0', PORT), ProxyHTTPRequestHandler)
+    except OSError as err:
+        if err.errno == 48:
+            print(f"\n[ERROR] Port {PORT} is already in use by another running process.")
+            print(f"Run 'lsof -ti:{PORT} | xargs kill -9' in terminal to terminate the previous instance and run again.\n")
+        raise
     try:
         server.serve_forever()
     except KeyboardInterrupt:

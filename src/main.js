@@ -297,6 +297,8 @@ function switchTab(tabId) {
     filterFunnelSegment(document.getElementById("funnel-industry-filter")?.value || "all");
   } else if (tabId === 'agent-mode' && typeof initAgentAutocomplete === "function") {
     initAgentAutocomplete();
+  } else if (tabId === 'settings-keys' && typeof checkSettingsUpdates === "function") {
+    checkSettingsUpdates();
   }
 }
 
@@ -549,6 +551,9 @@ async function checkForAppUpdates() {
         if (tag) tag.textContent = data.latest_commit || "New Commit";
         if (msg) msg.textContent = `Update from ${data.author || "GitHub"}: "${data.commit_message || "Latest enhancements"}"`;
       }
+    }
+    if (typeof checkSettingsUpdates === "function") {
+      checkSettingsUpdates();
     }
   } catch (_) {
     // Non-blocking background check

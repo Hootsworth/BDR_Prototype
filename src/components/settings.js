@@ -714,6 +714,48 @@ function saveCrmSyncSettings() {
   }
 }
 
+async function checkSettingsUpdates(isManual = false) {
+  const versionTag = document.getElementById("settings-version-tag");
+  const commitBadge = document.getElementById("settings-commit-badge");
+  const updateDesc = document.getElementById("settings-update-description");
+  const updateBtn = document.getElementById("btn-settings-apply-update");
+  const checkBtnText = document.getElementById("btn-check-updates-text");
+
+  if (checkBtnText && isManual) checkBtnText.textContent = "Checking...";
+
+  try {
+    const res = await fetch("/api/system/update-check");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (versionTag && data.current_version) {
+      versionTag.textContent = "v" + data.current_version.replace(/^v/, "");
+    }
+    if (commitBadge && data.current_commit) {
+      commitBadge.textContent = "commit: " + data.current_commit;
+    }
+
+    if (data.update_available) {
+      if (updateDesc) {
+        updateDesc.innerHTML = `<span style="color: var(--color-primary); font-weight: 700;">⚡ Update Available:</span> <strong>${data.latest_commit}</strong> &mdash; "${data.commit_message || 'New enhancements'}"`;
+      }
+      if (updateBtn) updateBtn.style.display = "inline-flex";
+    } else {
+      if (updateDesc) {
+        updateDesc.innerHTML = `<span style="color: var(--color-success, #16a34a); font-weight: 700;">✓ Up to Date</span> &mdash; Running latest build (${data.current_commit || 'HEAD'})`;
+      }
+      if (updateBtn) updateBtn.style.display = "none";
+    }
+  } catch (err) {
+    if (updateDesc) {
+      updateDesc.textContent = "Status: offline or server unavailable";
+    }
+  } finally {
+    if (checkBtnText) checkBtnText.textContent = "Check for Updates";
+  }
+}
+
+window.checkSettingsUpdates = checkSettingsUpdates;
 window.saveExploriumKey = saveExploriumKey;
 window.saveLLMHelperKey = saveLLMHelperKey;
 window.saveGeminiKey = saveGeminiKey;

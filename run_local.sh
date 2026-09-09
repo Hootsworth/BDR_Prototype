@@ -32,6 +32,16 @@ if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   echo "Created .env from .env.example. Add provider credentials there only if you need server-side integrations."
 fi
 
+# If port 8001 is already held by a previous instance, terminate it cleanly
+if command -v lsof >/dev/null 2>&1; then
+  OLD_PID=$(lsof -ti:8001 2>/dev/null || true)
+  if [ -n "$OLD_PID" ]; then
+    echo "Stopping previous server instance on port 8001 (PID: $OLD_PID)..."
+    kill -9 $OLD_PID 2>/dev/null || true
+    sleep 0.5
+  fi
+fi
+
 "$PYTHON_BIN" -c 'import webbrowser; webbrowser.open("http://localhost:8001")' >/dev/null 2>&1 &
 echo "GTM Console is starting at http://localhost:8001"
 echo "Keep this window open while using the app. Press Ctrl+C to stop it."
