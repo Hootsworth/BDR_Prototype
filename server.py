@@ -132,7 +132,7 @@ def read_state(key):
 def default_workbook_state():
     return {
         'contacts': [], 'events': {}, 'stats': {'emailsSent': 0, 'linkedinSent': 0, 'callsMade': 0, 'enrichedCount': 0},
-        'meetings': [], 'approvals': [], 'workflowRuns': [], 'currentOutboundSubtab': 'prospects', 'autoEnrich': False
+        'meetings': [], 'approvals': [], 'workflowRuns': [], 'currentOutboundSubtab': 'influencers', 'autoEnrich': False
     }
 
 def _maybe_json(value):

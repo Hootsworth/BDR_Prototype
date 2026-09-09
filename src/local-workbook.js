@@ -14,7 +14,7 @@ function workbookStateSlice() {
     meetings: database.meetings || [],
     approvals: database.approvals || [],
     workflowRuns: database.workflowRuns || database.runs || [],
-    currentOutboundSubtab: database.currentOutboundSubtab || "prospects",
+    currentOutboundSubtab: database.currentOutboundSubtab || "influencers",
     autoEnrich: Boolean(database.autoEnrich)
   };
 }
@@ -31,7 +31,7 @@ async function loadWorkbookFromServer() {
   database.meetings = state.meetings || [];
   database.approvals = state.approvals || [];
   database.workflowRuns = state.workflowRuns || [];
-  database.currentOutboundSubtab = state.currentOutboundSubtab || "prospects";
+  database.currentOutboundSubtab = state.currentOutboundSubtab || "influencers";
   database.autoEnrich = Boolean(state.autoEnrich);
 
   database.workbookMode = true;

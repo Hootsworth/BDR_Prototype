@@ -60,7 +60,7 @@ class WorkbookPersistenceTests(unittest.TestCase):
     def test_missing_workbook_returns_default_state(self):
         state = server.read_workbook_state()
         self.assertEqual(state["contacts"], [])
-        self.assertEqual(state["currentOutboundSubtab"], "prospects")
+        self.assertEqual(state["currentOutboundSubtab"], "influencers")
 
     def test_round_trips_contacts_including_isInfluencer_boolean(self):
         if not server.HAS_OPENPYXL:

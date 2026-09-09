@@ -289,8 +289,12 @@ function switchTab(tabId) {
   } else if (tabId === 'upload') {
     if (typeof filterUploadTable === "function") filterUploadTable();
     if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
-  } else if (tabId === 'campaign-outbound' && typeof filterOutboundTable === "function") {
-    filterOutboundTable();
+  } else if (tabId === 'campaign-outbound') {
+    if (typeof switchOutboundSubtab === "function") {
+      switchOutboundSubtab(database.currentOutboundSubtab || 'influencers');
+    } else if (typeof filterOutboundTable === "function") {
+      filterOutboundTable();
+    }
   } else if (tabId === 'events-list' && typeof renderEventsList === "function") {
     renderEventsList();
   } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {

@@ -46,7 +46,7 @@ let database = {
     enrichedCount: 0
   },
   meetings: [],
-  currentOutboundSubtab: 'prospects',
+  currentOutboundSubtab: 'influencers',
   autoEnrich: false,
   simulationMode: true,
   workbookMode: false,
