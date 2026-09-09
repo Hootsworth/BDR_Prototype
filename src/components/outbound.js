@@ -1,5 +1,37 @@
 // --- OMNICHANNEL OUTBOUND CAMPAIGN CONTROLLER ---
 
+function updateOutboundHeaderMetrics() {
+  const kpiInfluencers = document.getElementById("outbound-kpi-influencers");
+  const kpiProspects = document.getElementById("outbound-kpi-prospects");
+  const kpiAffiliated = document.getElementById("outbound-kpi-affiliated");
+  const kpiDispatched = document.getElementById("outbound-kpi-dispatched");
+  const kpiMeetings = document.getElementById("outbound-kpi-meetings");
+
+  const tabCountInf = document.getElementById("outbound-tab-count-influencers");
+  const tabCountPros = document.getElementById("outbound-tab-count-prospects");
+  const tabCountSched = document.getElementById("outbound-tab-count-schedule");
+
+  const contacts = database.contacts || [];
+  const influencers = contacts.filter(c => c.isInfluencer === true);
+  const prospects = contacts.filter(c => !c.isInfluencer);
+  const affiliated = prospects.filter(p => p.referredBy || p.influencerId);
+  const emailsSent = contacts.filter(c => c.emailsSent).length;
+  const linkedinSent = contacts.filter(c => c.linkedinSent).length;
+  const dispatched = emailsSent + linkedinSent + (database.stats?.emailsSent || 0) + (database.stats?.linkedinSent || 0);
+  const meetings = (database.meetings || []).length;
+
+  if (kpiInfluencers) kpiInfluencers.textContent = influencers.length.toLocaleString();
+  if (kpiProspects) kpiProspects.textContent = prospects.length.toLocaleString();
+  if (kpiAffiliated) kpiAffiliated.textContent = `(${affiliated.length.toLocaleString()} affiliated)`;
+  if (kpiDispatched) kpiDispatched.textContent = dispatched.toLocaleString();
+  if (kpiMeetings) kpiMeetings.textContent = meetings.toLocaleString();
+
+  if (tabCountInf) tabCountInf.textContent = influencers.length;
+  if (tabCountPros) tabCountPros.textContent = prospects.length;
+  if (tabCountSched) tabCountSched.textContent = meetings;
+}
+window.updateOutboundHeaderMetrics = updateOutboundHeaderMetrics;
+
 function switchOutboundSubtab(subtab) {
   database.currentOutboundSubtab = subtab;
   
@@ -19,7 +51,7 @@ function switchOutboundSubtab(subtab) {
     if (btnSchedule) btnSchedule.className = "btn btn-primary btn-sm";
     if (tableContainer) tableContainer.style.display = "none";
     if (scheduleContainer) scheduleContainer.style.display = "block";
-    if (searchInput) searchInput.style.display = "none";
+    if (searchInput && searchInput.parentElement) searchInput.parentElement.style.display = "none";
     // Render the calendar when schedule tab is opened
     if (typeof renderScheduleMeetings === "function") renderScheduleMeetings();
     if (typeof renderCalendar === "function") renderCalendar();
@@ -31,9 +63,10 @@ function switchOutboundSubtab(subtab) {
     }
     if (tableContainer) tableContainer.style.display = "block";
     if (scheduleContainer) scheduleContainer.style.display = "none";
-    if (searchInput) searchInput.style.display = "";
+    if (searchInput && searchInput.parentElement) searchInput.parentElement.style.display = "";
     filterOutboundTable();
   }
+  updateOutboundHeaderMetrics();
 }
 
 function filterOutboundTable() {
@@ -41,6 +74,7 @@ function filterOutboundTable() {
   const targetList = database.contacts.filter(c => c.isInfluencer === isInfluencer);
   database.filteredOutbound = getFilteredData(targetList, "outbound-search-input", null, null, null, null);
   changeOutboundPage(1);
+  updateOutboundHeaderMetrics();
 }
 
 function changeOutboundPage(page) {
@@ -51,48 +85,83 @@ function changeOutboundPage(page) {
   if (!tbody) return;
   tbody.innerHTML = "";
 
+  const isInfluencersTab = (database.currentOutboundSubtab === 'influencers');
+
   if (pageData.length === 0) {
-    const emptyMsg = database.currentOutboundSubtab === 'influencers'
-      ? "No influencers available. Enroll influencers to build referral pipelines."
-      : "No prospects available. Add prospects or upload a workbook.";
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--color-text-secondary);">${emptyMsg}</td></tr>`;
+    const emptyIcon = isInfluencersTab
+      ? `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.75rem; opacity: 0.6;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`
+      : `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.75rem; opacity: 0.6;"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"></path></svg>`;
+    const emptyTitle = isInfluencersTab ? "No Influencer Partners Found" : "No Prospects Available";
+    const emptyDesc = isInfluencersTab
+      ? "Enroll influencer advocates to build referral networks and generate warm introductions."
+      : "Import contacts or add prospects affiliated with your influencer network.";
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 3rem 1.5rem; color: var(--color-text-secondary);">
+          ${emptyIcon}
+          <div style="font-size: var(--font-size-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 0.25rem;">${emptyTitle}</div>
+          <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 1.25rem 0;">${emptyDesc}</p>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('upload')">Import Contacts</button>
+        </td>
+      </tr>
+    `;
+    updateOutboundHeaderMetrics();
     return;
   }
-
-  const isInfluencersTab = (database.currentOutboundSubtab === 'influencers');
 
   pageData.forEach(c => {
     const tr = document.createElement("tr");
 
     const badgeClass = c.leadTemp === "Hot Lead" ? "badge-success" : "badge";
     const emailStatus = c.emailsSent 
-      ? `<span style="color:var(--color-success); font-weight:600;">Sent ✓</span>` 
-      : (c.emailDraft ? `<span style="color:var(--color-text-primary); font-weight:500;">Drafted</span>` : `<span style="color:var(--color-text-secondary)">Pending</span>`);
+      ? `<span style="color:var(--color-success); font-weight:600; display: inline-flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Sent</span>` 
+      : (c.emailDraft ? `<span class="badge" style="background: rgba(217, 119, 6, 0.15); color: #d97706; font-size: 10px;">Drafted</span>` : `<span style="color:var(--color-text-disabled); font-size: 11px;">Pending</span>`);
     const linkedinStatus = c.linkedinSent 
-      ? `<span style="color:var(--color-success); font-weight:600;">Sent ✓</span>` 
-      : (c.linkedinDraft ? `<span style="color:var(--color-text-primary); font-weight:500;">Drafted</span>` : `<span style="color:var(--color-text-secondary)">Pending</span>`);
+      ? `<span style="color:var(--color-success); font-weight:600; display: inline-flex; align-items: center; gap: 4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Sent</span>` 
+      : (c.linkedinDraft ? `<span class="badge" style="background: rgba(217, 119, 6, 0.15); color: #d97706; font-size: 10px;">Drafted</span>` : `<span style="color:var(--color-text-disabled); font-size: 11px;">Pending</span>`);
     
-    let callStatus = "None";
+    let callStatus = `<span style="color:var(--color-text-disabled); font-size: 11px;">None</span>`;
     if (c.callsMade && c.callsMade.length > 0) {
       callStatus = `<span style="color:var(--color-success); font-weight:600;">${c.callsMade.length} calls</span>`;
     }
 
+    const avatarHtml = `
+      <div style="width: 32px; height: 32px; border-radius: 50%; background: ${getAvatarColor(c.fullName)}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;">
+        ${getInitials(c.fullName)}
+      </div>
+    `;
+
     if (isInfluencersTab) {
       tr.innerHTML = `
         <td>
-          <strong>${c.fullName}</strong>
-          ${c.referralCredits ? `<div style="font-size: 11px; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">${c.referralCredits} Partner Credits</div>` : ''}
+          <div style="display: flex; align-items: center; gap: 0.625rem;">
+            ${avatarHtml}
+            <div>
+              <div style="font-weight: 600; color: var(--color-text-primary);">${c.fullName}</div>
+              <div style="display: flex; gap: 0.375rem; align-items: center; margin-top: 2px;">
+                <span class="badge" style="font-size: 10px; background: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.25);">Partner</span>
+                ${c.referralCredits ? `<span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);">${c.referralCredits} Credits</span>` : ''}
+              </div>
+            </div>
+          </div>
         </td>
-        <td>${c.jobTitle || "Industry Advisor"}</td>
+        <td>
+          <div style="font-weight: 500; color: var(--color-text-primary);">${c.jobTitle || "Industry Advisor"}</div>
+          <div style="font-size: 11px; color: var(--color-text-secondary);">${c.company || "Advisory Network"}</div>
+        </td>
         <td><span class="badge ${badgeClass}">${c.leadTemp || "Influencer Partner"}</span></td>
         <td>${emailStatus}</td>
         <td>${linkedinStatus}</td>
         <td>${callStatus}</td>
         <td style="text-align: right;">
           <div style="display: flex; gap: 0.375rem; justify-content: flex-end; align-items: center;">
-            <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
+            <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})" style="display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              + Add Prospect
+            </button>
             <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
-            <button class="btn btn-secondary btn-sm" style="color: var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
+            <button class="btn btn-secondary btn-sm" style="color: var(--color-error); padding: 0.25rem 0.5rem;" onclick="deleteContactRecord(${c.id})" title="Delete Partner">✕</button>
           </div>
         </td>
       `;
@@ -112,9 +181,10 @@ function changeOutboundPage(page) {
       if (affiliated.length === 0) {
         affiliatedContent = `
           <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-background-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 0.625rem 1rem;">
-            <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
               No prospects affiliated with <strong>${c.fullName}</strong> yet.
-            </span>
+            </div>
             <button class="btn btn-secondary btn-xs" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
           </div>
         `;
@@ -122,15 +192,23 @@ function changeOutboundPage(page) {
         const rowsHtml = affiliated.map(p => {
           const pBadge = p.leadTemp === "Hot Lead" ? "badge-success" : "badge";
           const pEmail = p.emailsSent 
-            ? `<span style="color:var(--color-success); font-weight:600;">Sent ✓</span>` 
-            : (p.emailDraft ? `<span style="color:var(--color-text-primary); font-weight:500;">Drafted</span>` : `<span style="color:var(--color-text-secondary)">Pending</span>`);
+            ? `<span style="color:var(--color-success); font-weight:600; display: inline-flex; align-items: center; gap: 3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Sent</span>` 
+            : (p.emailDraft ? `<span class="badge" style="background: rgba(217, 119, 6, 0.15); color: #d97706; font-size: 10px;">Drafted</span>` : `<span style="color:var(--color-text-disabled); font-size: 11px;">Pending</span>`);
           return `
             <tr style="border-bottom: 1px solid var(--color-border); background: var(--color-background-surface);">
               <td style="padding: 0.5rem 0.875rem;">
-                <strong>${p.fullName}</strong>
-                <span class="badge" style="margin-left: 6px; font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488;">Affiliated</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div style="width: 24px; height: 24px; border-radius: 50%; background: ${getAvatarColor(p.fullName)}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0;">
+                    ${getInitials(p.fullName)}
+                  </div>
+                  <strong>${p.fullName}</strong>
+                  <span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488;">Affiliated</span>
+                </div>
               </td>
-              <td style="padding: 0.5rem 0.875rem;">${p.jobTitle || 'Decision Maker'} (${p.company || 'N/A'})</td>
+              <td style="padding: 0.5rem 0.875rem;">
+                <span style="font-weight: 500;">${p.jobTitle || 'Decision Maker'}</span> 
+                <span style="color: var(--color-text-secondary); font-size: 11px;">(${p.company || 'N/A'})</span>
+              </td>
               <td style="padding: 0.5rem 0.875rem;"><span class="badge ${pBadge}">${p.leadTemp || 'Warm Lead'}</span></td>
               <td style="padding: 0.5rem 0.875rem;">${pEmail}</td>
               <td style="padding: 0.5rem 0.875rem; text-align: right;">
@@ -141,11 +219,12 @@ function changeOutboundPage(page) {
         }).join("");
 
         affiliatedContent = `
-          <div style="background: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;">
+          <div style="background: var(--color-background-surface); border: 1px solid var(--color-border); border-left: 3px solid #0d9488; border-radius: var(--radius-sm); overflow: hidden;">
             <div style="padding: 0.5rem 0.875rem; background: var(--color-background-muted); border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
               <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px;">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 Affiliated Prospects (${affiliated.length})
+                <span style="font-weight: 400; text-transform: none; color: var(--color-text-disabled);">— Referred by ${c.fullName}</span>
               </div>
               <button class="btn btn-secondary btn-xs" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
             </div>
@@ -176,27 +255,41 @@ function changeOutboundPage(page) {
 
     } else {
       // Prospects Tab Row
-      const referredBadge = c.referredBy ? `<div style="font-size: 11px; color: #0d9488; font-weight: 600; margin-top: 2px;">Referred by: ${c.referredBy}</div>` : '';
+      const referredBadge = c.referredBy ? `
+        <div style="font-size: 11px; color: #0d9488; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; margin-top: 2px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+          Referred by: ${c.referredBy}
+        </div>` : '';
       tr.innerHTML = `
         <td>
-          <strong>${c.fullName}</strong>
-          ${referredBadge}
+          <div style="display: flex; align-items: center; gap: 0.625rem;">
+            ${avatarHtml}
+            <div>
+              <div style="font-weight: 600; color: var(--color-text-primary);">${c.fullName}</div>
+              ${referredBadge}
+            </div>
+          </div>
         </td>
-        <td>${c.jobTitle || "Decision Maker"}</td>
+        <td>
+          <div style="font-weight: 500; color: var(--color-text-primary);">${c.jobTitle || "Decision Maker"}</div>
+          <div style="font-size: 11px; color: var(--color-text-secondary);">${c.company || "Enterprise"}</div>
+        </td>
         <td><span class="badge ${badgeClass}">${c.leadTemp || "Warm Lead"}</span></td>
         <td>${emailStatus}</td>
         <td>${linkedinStatus}</td>
         <td>${callStatus}</td>
         <td style="text-align: right;">
-          <div style="display: flex; gap: 0.375rem; justify-content: flex-end;">
+          <div style="display: flex; gap: 0.375rem; justify-content: flex-end; align-items: center;">
             <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
-            <button class="btn btn-secondary btn-sm" style="color: var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
+            <button class="btn btn-secondary btn-sm" style="color: var(--color-error); padding: 0.25rem 0.5rem;" onclick="deleteContactRecord(${c.id})" title="Delete Contact">✕</button>
           </div>
         </td>
       `;
       tbody.appendChild(tr);
     }
   });
+
+  updateOutboundHeaderMetrics();
 }
 
 function loadOutboundDrawer(contact, initialChannel = 'email') {
