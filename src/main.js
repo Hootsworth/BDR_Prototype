@@ -542,8 +542,8 @@ async function checkForAppUpdates() {
     const res = await fetch("/api/system/update-check");
     if (!res.ok) return;
     const data = await res.json();
+    const banner = document.getElementById("system-update-banner");
     if (data && data.update_available) {
-      const banner = document.getElementById("system-update-banner");
       const tag = document.getElementById("update-banner-tag");
       const msg = document.getElementById("update-banner-msg");
       if (banner) {
@@ -551,6 +551,8 @@ async function checkForAppUpdates() {
         if (tag) tag.textContent = data.latest_commit || "New Commit";
         if (msg) msg.textContent = `Update from ${data.author || "GitHub"}: "${data.commit_message || "Latest enhancements"}"`;
       }
+    } else if (banner) {
+      banner.style.display = "none";
     }
     if (typeof checkSettingsUpdates === "function") {
       checkSettingsUpdates();

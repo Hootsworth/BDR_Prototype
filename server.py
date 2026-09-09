@@ -531,6 +531,12 @@ def get_local_version_info():
             local_sha = "unknown"
     return {"sha": local_sha, "version": version_name}
 
+def is_same_commit(sha1, sha2):
+    if not sha1 or not sha2 or sha1 == "unknown" or sha2 == "unknown":
+        return False
+    s1, s2 = str(sha1).strip().lower(), str(sha2).strip().lower()
+    return s1 == s2 or s1.startswith(s2) or s2.startswith(s1)
+
 def check_for_updates():
     local_info = get_local_version_info()
     local_sha = local_info.get("sha", "")
@@ -549,7 +555,7 @@ def check_for_updates():
                 commit_date = commit_info.get("author", {}).get("date", "")
                 
                 is_update_available = bool(
-                    remote_sha and local_sha and local_sha != "unknown" and local_sha != remote_sha
+                    remote_sha and local_sha and local_sha != "unknown" and not is_same_commit(local_sha, remote_sha)
                 )
                 
                 return {
@@ -606,7 +612,7 @@ def apply_system_update():
             raise RuntimeError("Empty archive received from GitHub.")
         prefix = names[0].split('/')[0] + '/'
         
-        preserve_paths = {'.env', '.prototype-data', '.venv', 'node_modules', 'gtm.sqlite3'}
+        preserve_paths = {'.env', '.prototype-data', '.venv', 'node_modules', 'gtm.sqlite3', 'version.json'}
         
         for member in zf.infolist():
             if not member.filename.startswith(prefix):
@@ -624,17 +630,26 @@ def apply_system_update():
             with zf.open(member) as src, open(target_file, 'wb') as dst:
                 shutil.copyfileobj(src, dst)
                 
-    update_info = check_for_updates()
-    latest_sha = update_info.get("latest_commit", "latest")
+    # Fetch latest full commit sha from GitHub to write into version.json
+    latest_full_sha = ""
+    try:
+        req_commit = urllib.request.Request(GITHUB_COMMITS_API, headers={"User-Agent": "GTM-Console-App", "Accept": "application/vnd.github.v3+json"})
+        with safe_urlopen(req_commit, timeout=10) as c_resp:
+            c_data = json.loads(c_resp.read().decode('utf-8'))
+            latest_full_sha = c_data.get("sha", "")
+    except Exception:
+        pass
+
+    latest_sha = latest_full_sha or "latest"
     version_file = os.path.join(app_root, 'version.json')
     with open(version_file, 'w', encoding='utf-8') as f:
         json.dump({
-            "version": "1.0.0",
+            "version": "1.1.0",
             "commit": latest_sha,
             "updated_at": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         }, f, indent=2)
         
-    return {"status": "success", "mode": "zipball", "new_version": latest_sha}
+    return {"status": "success", "mode": "zipball", "new_version": latest_sha[:7]}
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
