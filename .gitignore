@@ -11,5 +11,12 @@ node_modules/
 .venv/
 *.xlsx
 *.csv
+*.zip
+aaranya-university/
+aaranya_university_website.zip
+AARANYA_UNIVERSITY_DESIGN_AND_INFO.md
+.claude/
+pylibs/
+test_print.html
 
 

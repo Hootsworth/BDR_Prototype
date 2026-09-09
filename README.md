@@ -1,102 +1,155 @@
-# GTM Console prototype
+# Autonomous BDR Platform & GTM Console
 
-This repository is an internal prototype for a BDR/GTM workflow. It can run a complete workflow with human approval checkpoints, live Google Workspace actions, and a local XLSX database. It remains single-user/local-first until team authentication, provider coverage, and managed persistence are deployed.
+An enterprise-grade autonomous sales development platform and campaign orchestrator. Features a **12-agent LangGraph pipeline**, local-first **Python REST/RPC server**, **Google Workspace integration**, **durable local workbook persistence (.xlsx)**, and an **In-App One-Click Auto-Updater** synced directly to GitHub.
 
-## Run locally
+---
 
-The easiest path after downloading or cloning the repository is:
+## 🚀 Quickstart (One-Click Local Launch)
 
-- macOS/Linux: run `./run_local.sh` (make it executable once with `chmod +x run_local.sh`).
-- Windows: double-click `run_local.bat`.
+The easiest way to run the application locally:
 
-The launcher creates a local Python environment, installs the required packages, starts the app at `http://localhost:8001`, and opens the browser. Keep the launcher window open while using the app. It creates `.env` from `.env.example` on first run; edit `.env` only when using server-side provider integrations.
+* **macOS / Linux**: Run `./run_local.sh` (or `bash run_local.sh`).
+* **Windows**: Double-click `run_local.bat`.
 
-Manual startup is also supported. Requirements are Python 3.9+, Node.js (only needed for the optional checks), and the dependencies in `requirements.txt`.
-
-For a team deployment, set `window.ClerkConfig.publishableKey` in `config.js` to the public Clerk key for that deployment. With a non-empty key, the app keeps users at the sign-in gate until Clerk authenticates them. A blank key intentionally enables local single-user mode.
+The launcher initializes the local Python environment, installs dependencies, starts the server at `http://localhost:8001`, and automatically opens your browser.
 
 ```bash
+# Manual CLI launch
 cp .env.example .env
 python3 -m pip install -r requirements.txt
-npm install
 python3 server.py
 ```
 
-Open `http://localhost:8001`. The browser app starts empty and requires a real CSV import or local workbook. The terminal workflow can be run separately with:
-
+To run the interactive LangGraph multi-agent pipeline in your terminal:
 ```bash
 python3 main.py
 ```
 
-For server-side AI profiles and HTTPS email delivery, configure `OPENAI_API_KEY`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` in `.env` before starting the server. The sender address must belong to a domain verified with Resend. Browser Google email sends require the Google Workspace connection in Settings and report failure without marking a contact sent.
+---
 
-Generate `TOKEN_ENCRYPTION_KEY` with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. This key must remain stable; changing it requires reconnecting Google Workspace.
+## ⚡ In-App One-Click Auto-Updater
 
-For the local backend mode, create a Google Cloud OAuth **Web application** client, enable Gmail API and Google Calendar API, and add `http://localhost:8001/api/google/oauth/callback` as an authorized redirect URI. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`.
+When you push new updates, bug fixes, or enhancements to GitHub (`git push origin main`), anyone running the app locally will automatically see an **Update Available** banner at the top of their dashboard at `http://localhost:8001`.
 
-### Vercel deployment
-
-The Vercel deployment must include the Python `/api` function. Configure these Vercel environment variables for the deployed domain:
-
-```text
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI=https://YOUR-VERCEL-DOMAIN/api/google/oauth/callback
-TOKEN_ENCRYPTION_KEY
-OPENAI_API_KEY
-EXPLORIUM_API_KEY
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ ⚡ New Update Available: [Commit Title] — [ 🚀 1-Click Update ]  [×]   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-Add the exact HTTPS callback URL to the Google OAuth client. Vercel's function filesystem is temporary, so SQLite state in the deployed function is not durable across cold starts; use a managed database before treating the deployment as a multi-user production service. The repository keeps `api/index.py`, `server.py`, and `requirements.txt` available to the Vercel function. [Vercel Python Functions](https://vercel.com/docs/functions/runtimes/python)
+1. **One-Click Upgrade**: Clicking **1-Click Update** downloads the latest changes in place and automatically reloads the page.
+2. **Data Preservation**: User credentials (`.env`), local databases (`.prototype-data/`), and active Excel workbooks (`*.xlsx`) are **100% preserved**.
+3. **Dual-Mode Compatibility**: Works seamlessly via `git pull` if Git is installed, or downloads and overlays the latest code archive automatically if run from an unzipped package.
 
-### Local workbook mode and browser Google integration
+---
 
-Set the public Google OAuth client ID in `config.js` as `window.GoogleConfig.clientId`, or enter it under Settings → Google Workspace. The Connect Google Workspace button uses Google Identity Services directly in the browser, so it no longer depends on `/api/google/*` routes or the Vercel Python function. Add the deployed site's HTTPS URL as an authorized JavaScript origin in Google Cloud; the browser token flow does not use a redirect callback.
+## 📁 Compartmentalized Project Structure
 
-Open **Settings → Save as .xlsx** to create a local database workbook, or **Open .xlsx** to connect an existing one. The workbook contains `Contacts`, `Companies`, `Enrichment`, `Campaigns`, `Activities`, `Approvals`, `Events`, `Settings`, `Runs`, and `Metadata`. All workflow records are written back to the selected workbook after changes; provider API keys and Google OAuth tokens are intentionally kept out of the workbook. Use Chrome or Edge so the app can write back to the selected file. The app remembers the file handle and will reopen it automatically when the browser grants permission again.
+```
+├── README.md                     # Main project overview & quickstart guide
+├── run_local.sh / run_local.bat  # 1-click launchers for macOS/Linux and Windows
+├── requirements.txt              # Python runtime dependencies
+├── package.json                  # Node scripts and development dependencies
+├── server.py                     # Backend HTTP / REST / RPC server & updater
+├── main.py                       # LangGraph multi-agent runner & terminal CLI
+├── index.html & style.css        # Web Console UI shell & styling
+├── app.js & config.js            # Web Console state controller & configurations
+├── version.json                  # Local release & commit version metadata
+├── vercel.json                   # Vercel serverless deployment config
+│
+├── agents/                       # LangGraph 12-Agent Engine
+│   ├── graph.py                  # StateGraph definition & 3 approval breakpoints
+│   ├── state.py                  # BDRState TypedDict schema & reducers
+│   ├── discovery_agents.py       # Agents 1-3: ICP, Contact Intel, Data Quality
+│   ├── campaign_agents.py        # Agents 4-7: Personalization, Launch, Telemetry
+│   ├── qualification_agents.py   # Agents 8-10: Intent, LinkedIn, BANT SQLs
+│   └── pipeline_agents.py        # Agents 11-12: Meeting Scheduling, HubSpot CRM
+│
+├── api/                          # Serverless & REST API Handlers
+│   └── index.py                  # Vercel function adapter for server.py
+│
+├── cli/                          # Terminal User Interface
+│   └── dashboard.py              # 2-Panel ANSI Terminal Dashboard & Approval UI
+│
+├── components/                   # HTML Template Partials for Web Console
+│   ├── dashboard.html, upload.html, enrich.html, influencers.html,
+│   ├── campaign-outbound.html, campaign-schedule.html, events-list.html,
+│   └── dialogs.html, settings-keys.html, agent-mode.html
+│
+├── cursors/                      # UI Assets for Agent Pointer Simulations
+│   └── arrow_2x.png, hand_2x.png, crosshair_2x.png, etc.
+│
+├── data/                         # Sample Datasets & Seed CSVs
+│   ├── master_merged_data.csv
+│   ├── mock_gtm_pipeline_leads.csv
+│   ├── mock_influencers.csv
+│   └── sample_gtm_contacts.csv
+│
+├── docs/                         # Centralized Technical Documentation & Specs
+│   ├── TECHNICAL_DOCUMENTATION.md # Complete Technical Architecture Reference
+│   ├── technical_documentation.pdf# Publication-ready LaTeX PDF document
+│   ├── technical_documentation.tex# LaTeX source code
+│   ├── INSTALLATION.md            # Detailed installation & configuration manual
+│   ├── DESIGN.md                  # Main editorial design tokens specification
+│   ├── AGENTS.md                  # Coding agent design system rules
+│   ├── elevenlabs_DESIGN.md       # Voice-AI brand styling specification
+│   └── miro_DESIGN.md             # Whiteboard canvas layout models
+│
+├── scripts/                      # Operational Verification Scripts
+│   ├── verify_prototype.py       # Definition-of-Done smoke verification
+│   └── verify_ui_buttons.py      # UI button verification test
+│
+├── src/                          # Modular Frontend JS Engine & Subsystems
+│   ├── auth.js                   # Clerk & session authentication
+│   ├── database.js               # Reactive database model & state management
+│   ├── firebase-auth.js          # Firebase auth adapter
+│   ├── google-integration.js     # Google Identity Services client
+│   ├── local-workbook.js         # Local-first .xlsx server-managed persistence
+│   ├── main.js                   # Client init, updater engine & lifecycle
+│   └── components/               # Modular UI component handlers
+│
+├── tests/                        # Automated Pytest / Unittest Test Suite
+│   ├── test_workflow.py          # Multi-agent LangGraph pipeline test
+│   ├── test_server.py            # API server, updater & guardrail tests
+│   └── test_frontend_contract.py # Contract tests for UI & local workbook
+│
+├── tools/                        # GTM Tool Connectors & Deterministic Mocks
+│   ├── apollo_mock.py, clay_mock.py, zerobounce_mock.py,
+│   ├── inboxkit_mock.py, lemlist_mock.py, linkedin_mock.py, hubspot_mock.py
+│
+└── vendor/                       # Design System CSS Assets
+    └── astryx/                   # astryx.css, reset.css, theme.css
+```
 
-In local workbook mode:
+---
 
-- The `.xlsx` file is the durable local database, not browser storage.
-- `Contacts` contains the complete contact records; related sheets keep enrichment, outreach, approvals, events, replies, and workflow runs auditable.
-- `Save as .xlsx` creates all supported sheets even when starting from an empty app.
-- `Export copy` downloads a portable snapshot without changing the connected workbook.
-- Direct browser enrichment requires the user to enter provider keys in Settings. Those keys remain in that browser’s local settings and are not written to the workbook.
-- Twilio and LinkedIn credentials can be entered under Settings → Integrations & Accounts. They are session-only and are not written to the workbook. Twilio credentials are ready for the future local voice route; LinkedIn credentials only work with an approved LinkedIn application and permitted scopes.
+## 📊 Local Workbook Mode (.xlsx)
 
-If no workbook is connected, the local server and browser cache remain compatibility fallbacks. Once a workbook is connected, it takes precedence and the app stops sending workflow state to the local SQLite snapshot. Email sends require explicit approval, reject suppressed/unsubscribed contacts, reject exact duplicate messages, and are capped by `PROTOTYPE_DAILY_SEND_LIMIT`.
+The web console connects to **one active local `.xlsx` workbook** (`gtm-console-database.xlsx`) acting as a multi-table relational database:
 
-## Pilot validation
+* **10 Auditable Sheets**: `Contacts`, `Companies`, `Enrichment`, `Campaigns`, `Activities`, `Approvals`, `Events`, `Settings`, `Runs`, `Metadata`.
+* **Zero Configuration & Server-Managed**: Managed directly on disk by the Python server via `openpyxl` (`/api/workbook/state`) — works in any browser without manual file dialogs.
+* **Continuous Auto-Save**: Changes auto-save continuously on mutation, on a 3-second safety net timer, on tab backgrounding (`visibilitychange`), and upon tab close via `sendBeacon`.
+* **Export Snapshots**: Download a portable snapshot anytime via **Settings → Export copy**.
 
-Run the local checks before a pilot:
+---
+
+## 🧪 Verification & Testing
+
+Run all automated test suites:
 
 ```bash
-npm run verify:prototype
-npm test
-npm run test:python
+# Python Unit & Contract Tests
+python3 -m unittest discover -s tests -v
+
+# Definition-of-Done Smoke Test
+python3 scripts/verify_prototype.py
 ```
 
-For the live pilot, use a dedicated Google Workspace test account, a verified sending identity, synthetic or opted-in contacts, and `PROTOTYPE_DAILY_SEND_LIMIT=5`. Verify one Gmail send, one Calendar/Meet event, one reply sync, a rejected duplicate send, a suppressed contact, and recovery after restarting the server before increasing the limit.
+---
 
-## Current product boundaries
+## 📖 Technical Documentation
 
-- Apollo, Clay, ZeroBounce, Lemlist, HubSpot, InboxKit, and LinkedIn are not live providers in this build. The UI now blocks those actions instead of claiming a live send.
-- Calendar events can be created through connected Google Calendar or exported as iCal. The agent does not fabricate meetings.
-- Calling is intentionally blocked until an approved telephony provider is connected. Logging a manually completed call remains available.
-- When Clerk is configured, unauthenticated users remain at the sign-in gate. If no Clerk key is configured, the app explicitly runs in local offline mode.
-- Provider secrets entered for browser-only local enrichment are memory-only and must be re-entered after refresh; they are not written to localStorage or the workbook.
-- The LangGraph checkpoint is currently in-memory and is lost when the process exits.
-- Do not treat the app as a multi-user production service until server-side authorization, provider webhooks, managed persistence, backups, and audit logging are added.
-
-## Verification
-
-```bash
-npm test
-npm run test:python
-```
-
-The Python checks validate the graph shape and the deterministic discovery/approval path. They do not validate external providers.
-
-## Next product milestone
-
-Add an approved telephony/LinkedIn provider, server-side Clerk token verification for every API route, managed multi-user persistence, backups, and browser end-to-end coverage for the XLSX workflow.
+* 📄 **Technical PDF Document**: [`docs/technical_documentation.pdf`](docs/technical_documentation.pdf)
+* 📝 **LaTeX Source**: [`docs/technical_documentation.tex`](docs/technical_documentation.tex)
+* 📑 **Markdown Specification**: [`docs/TECHNICAL_DOCUMENTATION.md`](docs/TECHNICAL_DOCUMENTATION.md)

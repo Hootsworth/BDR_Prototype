@@ -274,11 +274,11 @@ function openFirebaseConfigModal() {
     modal = document.createElement("div");
     modal.id = "firebase-config-modal";
     modal.className = "modal-overlay";
-    modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
+    modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
     modal.innerHTML = `
-      <div class="modal-container" style="width: 100%; max-width: 520px; background: #ffffff; color: #0f172a; border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid #cbd5e1;">
+      <div class="modal-container" style="width: 100%; max-width: 520px; background: #ffffff; color: #0f172a; border-radius: var(--radius-sm); padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #cbd5e1;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Configure Firebase Credentials</h3>
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Configure Firebase Credentials</h3>
           <button class="btn btn-secondary btn-sm" onclick="closeFirebaseConfigModal()" style="padding: 2px 8px; font-weight: 600;">✕</button>
         </div>
         <p style="font-size: 12.5px; color: #475569; margin: 0 0 1.25rem 0; line-height: 1.5;">
@@ -287,24 +287,24 @@ function openFirebaseConfigModal() {
 
         <div style="margin-bottom: 1rem;">
           <label style="font-size: 12px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">1. Firebase API Key *</label>
-          <input type="text" id="fb-config-api-key" class="form-input" value="${localStorage.getItem("gtm_firebase_api_key") || ""}" placeholder="AIzaSy..." style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a;" />
+          <input type="text" id="fb-config-api-key" class="form-input" value="${localStorage.getItem("gtm_firebase_api_key") || ""}" placeholder="AIzaSy..." style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); color: #0f172a;" />
         </div>
 
         <div style="margin-bottom: 1rem;">
           <label style="font-size: 12px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">2. Firebase Auth Domain</label>
-          <input type="text" id="fb-config-auth-domain" class="form-input" value="${localStorage.getItem("gtm_firebase_auth_domain") || ""}" placeholder="your-project.firebaseapp.com" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a;" />
+          <input type="text" id="fb-config-auth-domain" class="form-input" value="${localStorage.getItem("gtm_firebase_auth_domain") || ""}" placeholder="your-project.firebaseapp.com" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); color: #0f172a;" />
         </div>
 
         <div style="margin-bottom: 1.25rem;">
           <label style="font-size: 12px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">3. Firebase Project ID</label>
-          <input type="text" id="fb-config-project-id" class="form-input" value="${localStorage.getItem("gtm_firebase_project_id") || ""}" placeholder="your-project-id" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a;" />
+          <input type="text" id="fb-config-project-id" class="form-input" value="${localStorage.getItem("gtm_firebase_project_id") || ""}" placeholder="your-project-id" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); color: #0f172a;" />
         </div>
 
         <div style="display: flex; justify-content: space-between; gap: 0.5rem;">
           <button class="btn btn-secondary btn-sm" onclick="closeFirebaseConfigModal()">Cancel</button>
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary btn-sm" onclick="closeFirebaseConfigModal(); bypassAuthToLocalConsole();" style="background: #f1f5f9; color: #0f172a;">Continue to Console (Offline)</button>
-            <button class="btn btn-primary btn-sm" onclick="saveFirebaseCredentials()" style="background: #0f172a; color: #ffffff; font-weight: 700; border: none; padding: 0.5rem 1rem; border-radius: 6px;">Save &amp; Reload ✓</button>
+            <button class="btn btn-primary btn-sm" onclick="saveFirebaseCredentials()" style="background: #0f172a; color: #ffffff; font-weight: 700; border: none; padding: 0.5rem 1rem; border-radius: var(--radius-xs);">Save &amp; Reload ✓</button>
           </div>
         </div>
       </div>

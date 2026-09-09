@@ -1,326 +1,120 @@
 // Local-first workbook persistence.
-// The selected .xlsx file is the durable source of truth in workbook mode.
-const WORKBOOK_SHEETS = [
-  "Contacts", "Companies", "Enrichment", "Campaigns", "Activities",
-  "Approvals", "Events", "Settings", "Runs", "Metadata"
-];
-const WORKBOOK_IDB_NAME = "gtm-console-local-workbook";
-const WORKBOOK_IDB_STORE = "handles";
-const WORKBOOK_IDB_KEY = "active-workbook";
-let workbookWriteQueue = Promise.resolve();
-
-function workbookRows(records) {
-  return (records || []).map(record => {
-    const row = { ...record };
-    Object.keys(row).forEach(key => {
-      if (row[key] && typeof row[key] === "object") row[key] = JSON.stringify(row[key]);
-    });
-    return row;
-  });
-}
-
-function workbookRecords(sheet) {
-  if (!sheet || !window.XLSX) return [];
-  const rows = window.XLSX.utils.sheet_to_json(sheet, { defval: "" });
-  return rows.map(row => {
-    const record = { ...row };
-    Object.keys(record).forEach(key => {
-      if (typeof record[key] !== "string") return;
-      const value = record[key].trim();
-      if ((value.startsWith("{") && value.endsWith("}")) || (value.startsWith("[") && value.endsWith("]"))) {
-        try { record[key] = JSON.parse(value); } catch (_) { /* keep the original text */ }
-      }
-    });
-    return record;
-  });
-}
-
-function jsonSetting(key, value) {
-  return { key, value: JSON.stringify(value ?? null) };
-}
-
-function workbookSnapshot() {
-  const contacts = database.contacts || [];
-  const companies = [...new Map(
-    contacts.filter(c => c.company).map(c => [c.company, {
-      company: c.company,
-      industry: c.industry || "",
-      contacts: contacts.filter(x => x.company === c.company).length
-    }])
-  ).values()];
-  const enrichment = contacts
-    .filter(c => c.aiEnrichment || c.enrichmentStatus || c.enriched)
-    .map(c => ({
-      contactId: c.id,
-      email: c.email,
-      enriched: Boolean(c.enriched),
-      enrichmentStatus: c.enrichmentStatus || "",
-      enrichmentSources: c.enrichmentSources || [],
-      enrichmentFields: c.enrichmentFields || [],
-      aiEnrichment: c.aiEnrichment || {},
-      enrichedAt: c.enrichedAt || ""
-    }));
-  const campaigns = contacts
-    .filter(c => c.emailDraft || c.emailsSent || c.linkedinDraft || c.linkedinSent || c.callsMade?.length)
-    .map(c => ({
-      contactId: c.id,
-      email: c.email,
-      emailDraft: c.emailDraft || {},
-      emailsSent: Boolean(c.emailsSent),
-      emailSentAt: c.emailSentAt || "",
-      emailProviderId: c.emailProviderId || "",
-      linkedinDraft: c.linkedinDraft || null,
-      linkedinSent: Boolean(c.linkedinSent),
-      callsMade: c.callsMade || []
-    }));
-  const activities = contacts.flatMap(c => (c.replyHistory || []).map(reply => ({
-    contactId: c.id, email: c.email, type: "gmail_reply", ...reply
-  })));
-  const settings = [
-    jsonSetting("events", database.events || {}),
-    jsonSetting("stats", database.stats || {}),
-    jsonSetting("meetings", database.meetings || []),
-    jsonSetting("currentOutboundSubtab", database.currentOutboundSubtab || "prospects"),
-    jsonSetting("autoEnrich", Boolean(database.autoEnrich)),
-    jsonSetting("savedAt", new Date().toISOString())
-  ];
-  const runs = database.workflowRuns || database.runs || [];
-  return {
-    Contacts: contacts,
-    Companies: companies,
-    Enrichment: enrichment,
-    Campaigns: campaigns,
-    Activities: activities,
-    Approvals: database.approvals || [],
-    Events: Object.entries(database.events || {}).flatMap(([eventName, attendees]) =>
-      (attendees || []).map(attendee => ({ eventName, ...attendee }))
-    ),
-    Settings: settings,
-    Runs: runs,
-    Metadata: [{ schema: "gtm-console-workbook-v2", exportedAt: new Date().toISOString() }]
-  };
-}
-
-function buildWorkbook() {
-  const workbook = window.XLSX.utils.book_new();
-  const snapshot = workbookSnapshot();
-  WORKBOOK_SHEETS.forEach(name => {
-    const sheet = window.XLSX.utils.json_to_sheet(workbookRows(snapshot[name] || []));
-    window.XLSX.utils.book_append_sheet(workbook, sheet, name);
-  });
-  return workbook;
-}
-
-function openHandleStore(mode = "readonly") {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) return resolve(null);
-    const request = indexedDB.open(WORKBOOK_IDB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(WORKBOOK_IDB_STORE);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result.transaction(WORKBOOK_IDB_STORE, mode).objectStore(WORKBOOK_IDB_STORE));
-  });
-}
-
-async function rememberWorkbookHandle(handle) {
-  try {
-    const store = await openHandleStore("readwrite");
-    if (!store) return;
-    await new Promise((resolve, reject) => {
-      const request = store.put(handle, WORKBOOK_IDB_KEY);
-      request.onsuccess = resolve;
-      request.onerror = () => reject(request.error);
-    });
-  } catch (_) {
-    // File access still works if IndexedDB is disabled; the user can reopen manually.
-  }
-}
-
-async function rememberedWorkbookHandle() {
-  try {
-    const store = await openHandleStore();
-    if (!store) return null;
-    return await new Promise((resolve, reject) => {
-      const request = store.get(WORKBOOK_IDB_KEY);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (_) {
-    return null;
-  }
-}
-
-function settingsFromWorkbook(workbook) {
-  const settings = workbook.Sheets.Settings ? workbookRecords(workbook.Sheets.Settings) : [];
-  const values = {};
-  settings.forEach(row => {
-    if (!row.key) return;
-    try { values[row.key] = JSON.parse(String(row.value)); } catch (_) { values[row.key] = row.value; }
-  });
-  if (values.events) database.events = values.events;
-  if (values.stats) database.stats = values.stats;
-  if (values.meetings) database.meetings = values.meetings;
-  if (values.currentOutboundSubtab) database.currentOutboundSubtab = values.currentOutboundSubtab;
-  if (typeof values.autoEnrich === "boolean") database.autoEnrich = values.autoEnrich;
-}
-
-function contactForWorkbookRecord(contactRows, record) {
-  return contactRows.find(contact => String(contact.id) === String(record.contactId))
-    || contactRows.find(contact => contact.email && contact.email === record.email);
-}
+// gtm-console-database.xlsx (next to server.py) is the durable source of truth.
+// The Python backend reads/writes it directly on disk; the browser just talks
+// to /api/workbook/state, so this works with zero manual file picking, in any browser.
 
 let autoSaveTimer = null;
 let isAutoSaveRunning = false;
+
+function workbookStateSlice() {
+  return {
+    contacts: database.contacts || [],
+    events: database.events || {},
+    stats: database.stats || {},
+    meetings: database.meetings || [],
+    approvals: database.approvals || [],
+    workflowRuns: database.workflowRuns || database.runs || [],
+    currentOutboundSubtab: database.currentOutboundSubtab || "prospects",
+    autoEnrich: Boolean(database.autoEnrich)
+  };
+}
+
+async function loadWorkbookFromServer() {
+  const response = await fetch("/api/workbook/state");
+  if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+  const payload = await response.json();
+  const state = payload.state || {};
+
+  database.contacts = state.contacts || [];
+  database.events = state.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
+  database.stats = state.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
+  database.meetings = state.meetings || [];
+  database.approvals = state.approvals || [];
+  database.workflowRuns = state.workflowRuns || [];
+  database.currentOutboundSubtab = state.currentOutboundSubtab || "prospects";
+  database.autoEnrich = Boolean(state.autoEnrich);
+
+  database.workbookMode = true;
+  database.workbookName = "gtm-console-database.xlsx";
+  database.workbookPath = payload.path || database.workbookName;
+
+  initLoadedData();
+  updateLocalWorkbookStatus();
+  if (typeof filterOutboundTable === "function") filterOutboundTable();
+  if (typeof renderDashboard === "function") renderDashboard();
+  addLogConsole("enrich", `[LOCAL WORKBOOK] Loaded ${database.contacts.length} contacts from ${database.workbookName}. Auto-saving is active.`, "success");
+  return database.contacts.length;
+}
+
+// Chained so saves always run one at a time, in submission order: an older save
+// can never finish after a newer one and clobber it back on disk.
+let workbookSaveQueue = Promise.resolve();
+
+function saveWorkbookToServer() {
+  if (!database.workbookMode) {
+    return Promise.reject(new Error("The workbook hasn't finished loading yet. Try again in a moment."));
+  }
+  const run = workbookSaveQueue.then(async () => {
+    // Snapshot the state now, at execution time, so a save that was queued behind
+    // an earlier one still sends the freshest data instead of a stale capture.
+    const response = await fetch("/api/workbook/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ state: workbookStateSlice() })
+    });
+    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+    database.localWorkbookLastSaved = new Date().toISOString();
+    updateLocalWorkbookStatus();
+    return true;
+  });
+  // Keep the queue alive even if this save fails, so later saves still run.
+  workbookSaveQueue = run.catch(() => {});
+  return run;
+}
 
 function startWorkbookAutoSaveDaemon() {
   if (isAutoSaveRunning) return;
   isAutoSaveRunning = true;
 
-  // Auto-save every 3 seconds if mutations occurred
-  setInterval(async () => {
-    if (database.workbookMode && database.localWorkbookHandle) {
-      try {
-        await saveLocalWorkbook();
-      } catch (err) {
-        console.warn("[AUTO-SAVE DAEMON]", err.message);
-      }
+  // Auto-save every 3 seconds as a safety net alongside the per-mutation saves in saveDatabaseCache().
+  autoSaveTimer = setInterval(async () => {
+    if (!database.workbookMode) return;
+    try {
+      await saveWorkbookToServer();
+    } catch (err) {
+      console.warn("[AUTO-SAVE DAEMON]", err.message);
     }
   }, 3000);
 }
 
-async function loadWorkbookHandle(handle, announce = true) {
-  if (!window.XLSX) throw new Error("The workbook engine has not loaded yet.");
-  const file = await handle.getFile();
-  const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
-  const contacts = workbook.Sheets.Contacts ? workbookRecords(workbook.Sheets.Contacts) : [];
-  database.localWorkbookHandle = handle;
-  database.workbookMode = true;
-  database.workbookName = file.name;
-  database.contacts = contacts;
-  database.approvals = workbook.Sheets.Approvals ? workbookRecords(workbook.Sheets.Approvals) : [];
-  database.workflowRuns = workbook.Sheets.Runs ? workbookRecords(workbook.Sheets.Runs) : [];
-  settingsFromWorkbook(workbook);
-
-  (workbook.Sheets.Enrichment ? workbookRecords(workbook.Sheets.Enrichment) : []).forEach(enrichment => {
-    const contact = contactForWorkbookRecord(database.contacts, enrichment);
-    if (!contact) return;
-    Object.assign(contact, {
-      enriched: enrichment.enriched,
-      enrichmentStatus: enrichment.enrichmentStatus,
-      enrichmentSources: enrichment.enrichmentSources,
-      enrichmentFields: enrichment.enrichmentFields,
-      aiEnrichment: enrichment.aiEnrichment,
-      enrichedAt: enrichment.enrichedAt
-    });
-  });
-
-  (workbook.Sheets.Campaigns ? workbookRecords(workbook.Sheets.Campaigns) : []).forEach(campaign => {
-    const contact = contactForWorkbookRecord(database.contacts, campaign);
-    if (contact) Object.assign(contact, campaign);
-  });
-
-  (workbook.Sheets.Activities ? workbookRecords(workbook.Sheets.Activities) : []).forEach(activity => {
-    const contact = contactForWorkbookRecord(database.contacts, activity);
-    if (contact && activity.type === "gmail_reply") {
-      if (!contact.replyHistory) contact.replyHistory = [];
-      if (!contact.replyHistory.some(reply => reply.messageId === activity.messageId)) contact.replyHistory.push(activity);
-    }
-  });
-
-  if (workbook.Sheets.Events) {
-    database.events = {};
-    workbookRecords(workbook.Sheets.Events).forEach(row => {
-      const { eventName, ...attendee } = row;
-      if (!eventName) return;
-      if (!database.events[eventName]) database.events[eventName] = [];
-      database.events[eventName].push(attendee);
-    });
+function saveWorkbookBeforeUnload() {
+  // Last-resort flush for an actual tab close. The visibilitychange handler above
+  // already saved via a normal awaited fetch (no payload-size limit) just before this
+  // fires in the usual close sequence, so this is a backstop, not the primary path.
+  if (!database.workbookMode || !navigator.sendBeacon) return;
+  const blob = new Blob([JSON.stringify({ state: workbookStateSlice() })], { type: "application/json" });
+  const queued = navigator.sendBeacon("/api/workbook/state", blob);
+  if (!queued) {
+    // Most commonly hit when the payload exceeds the browser's sendBeacon size cap
+    // (workbooks with a lot of enrichment/campaign data). Nothing more we can do
+    // synchronously on unload, but at least surface it instead of failing silently.
+    console.warn("[LOCAL WORKBOOK] sendBeacon could not queue the closing save (payload may be too large).");
   }
-
-  await rememberWorkbookHandle(handle);
-  localStorage.setItem("gtm_active_sheet_session", JSON.stringify({
-    workbookName: file.name,
-    autoSaveEnabled: true,
-    connectedAt: new Date().toISOString()
-  }));
-
-  database.meetings = database.meetings || [];
-  initLoadedData();
-  updateLocalWorkbookStatus();
-  startWorkbookAutoSaveDaemon();
-
-  if (typeof filterOutboundTable === "function") filterOutboundTable();
-  if (typeof renderDashboard === "function") renderDashboard();
-  if (announce) addLogConsole("enrich", `[LOCAL WORKBOOK] Connected ${file.name}. Auto-saving is active across all sheets.`, "success");
-  return file.name;
-}
-
-async function saveLocalWorkbook() {
-  if (!database.localWorkbookHandle || !window.XLSX) return false;
-  const write = workbookWriteQueue.then(async () => {
-    const bytes = window.XLSX.write(buildWorkbook(), { bookType: "xlsx", type: "array" });
-    const writable = await database.localWorkbookHandle.createWritable();
-    await writable.write(bytes);
-    await writable.close();
-    database.localWorkbookLastSaved = new Date().toISOString();
-    updateLocalWorkbookStatus();
-    return true;
-  });
-  workbookWriteQueue = write.catch(() => false);
-  return write;
-}
-
-async function openLocalWorkbook() {
-  if (!window.XLSX) throw new Error("The workbook engine has not loaded yet.");
-  if (!window.showOpenFilePicker) throw new Error("Use Chrome or Edge for direct local workbook access.");
-  const [handle] = await window.showOpenFilePicker({
-    types: [{ description: "Excel workbook", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }],
-    multiple: false
-  });
-  return loadWorkbookHandle(handle);
-}
-
-async function restoreLocalWorkbook() {
-  if (!window.showOpenFilePicker || !window.XLSX) return false;
-  const handle = await rememberedWorkbookHandle();
-  if (!handle) return false;
-  try {
-    const permission = await handle.queryPermission({ mode: "readwrite" });
-    if (permission !== "granted") {
-      updateLocalWorkbookStatus("Workbook session remembered. Reconnecting auto-save...");
-      return false;
-    }
-    await loadWorkbookHandle(handle, false);
-    addLogConsole("enrich", `[LOCAL WORKBOOK] Reconnected active sheet session (${handle.name}) with auto-save enabled.`, "success");
-    return true;
-  } catch (_) {
-    updateLocalWorkbookStatus("Workbook session remembered. Reconnecting...");
-    return false;
-  }
-}
-
-async function saveLocalWorkbookAs() {
-  if (!window.showSaveFilePicker) throw new Error("Use Chrome or Edge for direct local workbook access.");
-  database.localWorkbookHandle = await window.showSaveFilePicker({
-    suggestedName: database.workbookName || "gtm-console-database.xlsx",
-    types: [{ description: "Excel workbook", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }]
-  });
-  database.workbookMode = true;
-  database.workbookName = database.localWorkbookHandle.name || "gtm-console-database.xlsx";
-  await rememberWorkbookHandle(database.localWorkbookHandle);
-  localStorage.setItem("gtm_active_sheet_session", JSON.stringify({
-    workbookName: database.workbookName,
-    autoSaveEnabled: true,
-    connectedAt: new Date().toISOString()
-  }));
-  await saveLocalWorkbook();
-  startWorkbookAutoSaveDaemon();
-  addLogConsole("enrich", `[LOCAL WORKBOOK] Created active database sheet ${database.workbookName}. Auto-saving is active.`, "success");
-  return database.workbookName;
 }
 
 async function exportLocalWorkbook() {
   if (!window.XLSX) throw new Error("The workbook engine has not loaded yet.");
-  window.XLSX.writeFile(buildWorkbook(), database.workbookName || "gtm-console-database.xlsx");
+  const contacts = database.contacts || [];
+  const workbook = window.XLSX.utils.book_new();
+  const sheet = window.XLSX.utils.json_to_sheet(contacts.map(record => {
+    const row = { ...record };
+    Object.keys(row).forEach(key => {
+      if (row[key] && typeof row[key] === "object") row[key] = JSON.stringify(row[key]);
+    });
+    return row;
+  }));
+  window.XLSX.utils.book_append_sheet(workbook, sheet, "Contacts");
+  window.XLSX.writeFile(workbook, database.workbookName || "gtm-console-database.xlsx");
 }
 
 function updateLocalWorkbookStatus(message) {
@@ -332,16 +126,21 @@ function updateLocalWorkbookStatus(message) {
   }
   if (database.workbookMode && database.workbookName) {
     const saved = database.localWorkbookLastSaved ? ` · Auto-saved ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : " · Auto-save active";
-    status.textContent = `Connected Database: ${database.workbookName}${saved}. Edits & campaign states auto-save automatically.`;
+    status.textContent = `Connected database: ${database.workbookPath || database.workbookName} (auto-managed by the local server)${saved}.`;
   } else {
-    status.textContent = "No workbook database open. Open or create an .xlsx file once to activate automatic background saving.";
+    status.textContent = "Workbook unavailable. Confirm the local server is running.";
   }
 }
 
-window.saveLocalWorkbook = saveLocalWorkbook;
-window.openLocalWorkbook = openLocalWorkbook;
-window.restoreLocalWorkbook = restoreLocalWorkbook;
-window.saveLocalWorkbookAs = saveLocalWorkbookAs;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && database.workbookMode) {
+    saveWorkbookToServer().catch(() => {});
+  }
+});
+window.addEventListener("pagehide", saveWorkbookBeforeUnload);
+
+window.loadWorkbookFromServer = loadWorkbookFromServer;
+window.saveWorkbookToServer = saveWorkbookToServer;
 window.exportLocalWorkbook = exportLocalWorkbook;
 window.updateLocalWorkbookStatus = updateLocalWorkbookStatus;
 window.startWorkbookAutoSaveDaemon = startWorkbookAutoSaveDaemon;

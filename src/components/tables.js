@@ -95,14 +95,14 @@ function changeUploadPage(page) {
       <td style="text-align: center;"><input type="checkbox" class="row-check-upload" data-id="${c.id}" ${isChecked} onchange="toggleSelectUploadRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
       <td>
         <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline); flex-shrink:0;">${initials}</div>
+          <div style="width:30px; height:30px; border-radius:var(--radius-xs); background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); flex-shrink:0;">${initials}</div>
           <strong>${c.fullName}</strong>
         </div>
       </td>
       <td>${c.jobTitle}</td>
       <td>${c.company}</td>
       <td><code>${c.email || "N/A"}</code></td>
-      <td><span class="badge-tag" style="background:var(--surface-soft); border:1px solid var(--hairline); font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; color:var(--ink);">${c.industry}</span></td>
+      <td><span class="badge-tag" style="background:var(--surface-soft); border:1px solid var(--hairline); font-size:11px; padding:2px 8px; border-radius:var(--radius-xs); font-weight:600; color:var(--ink);">${c.industry}</span></td>
       <td><span style="font-size:11px;color:var(--muted);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
       <td>
         <div class="table-cell-actions" style="display:flex; gap:10px;">

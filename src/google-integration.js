@@ -48,11 +48,11 @@ function promptGoogleClientIdModal() {
       modal = document.createElement("div");
       modal.id = "google-client-id-modal";
       modal.className = "modal-overlay";
-      modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
+      modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
       modal.innerHTML = `
-        <div class="modal-container" style="width: 100%; max-width: 520px; background: #ffffff; color: #0f172a; border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid #cbd5e1;">
+        <div class="modal-container" style="width: 100%; max-width: 520px; background: #ffffff; color: #0f172a; border-radius: var(--radius-sm); padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #cbd5e1;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
-            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Connect Google Workspace Account</h3>
+            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Connect Google Workspace Account</h3>
             <button class="btn btn-secondary btn-sm" id="btn-close-google-modal" style="padding: 2px 8px; font-weight: 600;">✕</button>
           </div>
           <p style="font-size: 12.5px; color: #475569; margin: 0 0 1rem 0; line-height: 1.5;">
@@ -60,14 +60,14 @@ function promptGoogleClientIdModal() {
           </p>
           <div style="margin-bottom: 1.25rem;">
             <label style="font-size: 12px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Google OAuth Client ID</label>
-            <input type="text" id="google-modal-client-id-input" class="form-input" placeholder="e.g. 1234567890-abc123xyz.apps.googleusercontent.com" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a;" />
+            <input type="text" id="google-modal-client-id-input" class="form-input" placeholder="e.g. 1234567890-abc123xyz.apps.googleusercontent.com" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); color: #0f172a;" />
             <small style="font-size: 11px; color: #64748b; margin-top: 4px; display: block;">This key is public and contains no client secret.</small>
           </div>
           <div style="display: flex; justify-content: space-between; gap: 0.5rem;">
             <button class="btn btn-secondary btn-sm" id="btn-cancel-google-modal">Cancel</button>
             <div style="display: flex; gap: 0.5rem;">
               <button class="btn btn-secondary btn-sm" id="btn-demo-google-connect" style="background: #f1f5f9; color: #0f172a;">Connect Demo Mode</button>
-              <button class="btn btn-primary btn-sm" id="btn-save-google-modal" style="background: #0f172a; color: #ffffff; font-weight: 700; border: none; padding: 0.5rem 1rem; border-radius: 6px;">Connect &amp; Authenticate ↗</button>
+              <button class="btn btn-primary btn-sm" id="btn-save-google-modal" style="background: #0f172a; color: #ffffff; font-weight: 700; border: none; padding: 0.5rem 1rem; border-radius: var(--radius-xs);">Connect &amp; Authenticate ↗</button>
             </div>
           </div>
         </div>

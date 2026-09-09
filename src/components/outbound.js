@@ -5,18 +5,35 @@ function switchOutboundSubtab(subtab) {
   
   const btnProspects = document.getElementById("outbound-subtab-prospects");
   const btnInfluencers = document.getElementById("outbound-subtab-influencers");
+  const btnSchedule = document.getElementById("outbound-subtab-schedule");
+  const tableContainer = document.getElementById("outbound-table-container");
+  const scheduleContainer = document.getElementById("outbound-schedule-container");
+  const searchInput = document.getElementById("outbound-search-input");
   
-  if (btnProspects && btnInfluencers) {
+  // Reset all buttons
+  if (btnProspects) { btnProspects.className = "btn btn-secondary btn-sm"; }
+  if (btnInfluencers) { btnInfluencers.className = "btn btn-secondary btn-sm"; }
+  if (btnSchedule) { btnSchedule.className = "btn btn-secondary btn-sm"; }
+  
+  if (subtab === 'schedule') {
+    if (btnSchedule) btnSchedule.className = "btn btn-primary btn-sm";
+    if (tableContainer) tableContainer.style.display = "none";
+    if (scheduleContainer) scheduleContainer.style.display = "block";
+    if (searchInput) searchInput.style.display = "none";
+    // Render the calendar when schedule tab is opened
+    if (typeof renderScheduleMeetings === "function") renderScheduleMeetings();
+    if (typeof renderCalendar === "function") renderCalendar();
+  } else {
     if (subtab === 'prospects') {
-      btnProspects.classList.add("active");
-      btnInfluencers.classList.remove("active");
+      if (btnProspects) btnProspects.className = "btn btn-primary btn-sm";
     } else {
-      btnProspects.classList.remove("active");
-      btnInfluencers.classList.add("active");
+      if (btnInfluencers) btnInfluencers.className = "btn btn-primary btn-sm";
     }
+    if (tableContainer) tableContainer.style.display = "block";
+    if (scheduleContainer) scheduleContainer.style.display = "none";
+    if (searchInput) searchInput.style.display = "";
+    filterOutboundTable();
   }
-  
-  filterOutboundTable();
 }
 
 function filterOutboundTable() {
@@ -161,7 +178,7 @@ function switchDrawerChannel(channel) {
         <textarea class="input-control" id="email-draft-body" style="height: 180px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
       </div>
 
-      <div class="email-preview-card" style="margin-top: 12px; padding: 14px; border: 1px solid var(--hairline-soft, #e7e5e4); border-radius: 8px; background: var(--surface-card, #f5f0e0);">
+      <div class="email-preview-card" style="margin-top: 12px; padding: 14px; border: 1px solid var(--hairline-soft, #e7e5e4); border-radius: var(--radius-sm); background: var(--surface-card, #f5f0e0);">
         <span style="font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Email Rendered Preview:</span>
         <div style="font-size: 13px; line-height: 1.5; color: var(--ink); white-space: pre-line;">
           ${contact.emailDraft.body}
@@ -793,6 +810,11 @@ function openOutboundModal(contactId, channel = 'email') {
     if (typeof dlg.showModal === "function") dlg.showModal();
     else dlg.style.display = "block";
   }
+
+  // Auto-run deliverability check on the pre-filled email draft
+  if (channel === 'email' && contact.emailDraft) {
+    runInlineSpamCheck(contact.emailDraft.body || "");
+  }
 }
 
 function closeOutboundModal() {
@@ -884,6 +906,11 @@ function updateOutboundLivePreview() {
   } else {
     if (prevSubj) prevSubj.style.display = "none";
     prevBody.textContent = bodyInput ? bodyInput.value : "";
+  }
+
+  // Auto-run inline spam/deliverability check when drafting email
+  if (currentModalChannel === 'email') {
+    runInlineSpamCheck(bodyInput ? bodyInput.value : "");
   }
 }
 
@@ -1176,34 +1203,54 @@ function runSpamAuditorCheck(text) {
   }
 }
 
-// --- CATEGORY 2C: VISUAL SEQUENCE TIMELINE STEP HANDLERS ---
-function addSequenceStep() {
-  const grid = document.getElementById("sequence-timeline-grid");
-  if (!grid) return;
+// --- INLINE SPAM & DELIVERABILITY CHECK (compact modal indicator) ---
+function runInlineSpamCheck(text) {
+  const scoreEl = document.getElementById("inline-spam-score");
+  const readEl = document.getElementById("inline-spam-readability");
+  const risksEl = document.getElementById("inline-spam-risks");
+  if (!scoreEl) return;
 
-  const currentCount = grid.children.length + 1;
-  const days = currentCount * 2 + 1;
+  if (!text || text.trim().length === 0) {
+    scoreEl.textContent = "0.2 (Clean)";
+    scoreEl.style.color = "#34d399";
+    if (readEl) readEl.textContent = "Grade 7";
+    if (risksEl) risksEl.textContent = "No triggers";
+    return;
+  }
 
-  const newStep = document.createElement("div");
-  newStep.style.cssText = "background: var(--surface-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 0.875rem;";
-  newStep.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-      <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary);">Day ${days} · Step ${currentCount}</span>
-      <span style="font-size: 14px;">📧</span>
-    </div>
-    <strong style="font-size: 13px; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Follow-up Touch #${currentCount}</strong>
-    <p style="font-size: 11.5px; color: var(--color-text-secondary); margin: 0 0 8px 0;">Automated value-add case study follow up.</p>
-    <span style="font-size: 10.5px; color: var(--color-text-secondary); font-weight: 600;">Threaded email</span>
-  `;
-  grid.appendChild(newStep);
-}
+  const spamTriggers = ["free", "guaranteed", "100%", "no risk", "act now", "limited time", "click here", "cash", "make money", "urgent", "secret"];
+  const lower = text.toLowerCase();
+  let foundTriggers = [];
+  spamTriggers.forEach(word => {
+    if (lower.includes(word)) foundTriggers.push(word);
+  });
 
-function runOutboundCadenceBatch() {
-  alert("🚀 Batch Cadence Sequence Launched across target prospect list!");
-  if (typeof addLogConsole === "function") {
-    addLogConsole("campaign-outbound", "[SUCCESS] Launched 4-step cadence sequence across 15 target prospects.", "success");
+  const wordCount = text.trim().split(/\s+/).length;
+  const sentenceCount = (text.match(/[.!?]+/g) || []).length || 1;
+  const avgWordsPerSentence = wordCount / sentenceCount;
+  const gradeLevel = Math.max(4, Math.min(16, Math.round(0.39 * avgWordsPerSentence + 11.8)));
+
+  let baseScore = (foundTriggers.length * 2.1) + (text.includes("!") ? 1.2 : 0) + (text.toUpperCase() === text && text.length > 20 ? 3.0 : 0);
+  baseScore = Math.min(10, Math.max(0.2, baseScore));
+
+  if (baseScore < 3.0) {
+    scoreEl.textContent = `${baseScore.toFixed(1)} (Clean)`;
+    scoreEl.style.color = "#34d399";
+  } else if (baseScore < 6.0) {
+    scoreEl.textContent = `${baseScore.toFixed(1)} (Moderate)`;
+    scoreEl.style.color = "#d97706";
+  } else {
+    scoreEl.textContent = `${baseScore.toFixed(1)} (High Risk)`;
+    scoreEl.style.color = "#dc2626";
+  }
+
+  if (readEl) readEl.textContent = `Grade ${gradeLevel}`;
+  if (risksEl) {
+    risksEl.textContent = foundTriggers.length > 0 ? `"${foundTriggers.join('", "')}"` : "No triggers";
+    risksEl.style.color = foundTriggers.length > 0 ? "#d97706" : "";
   }
 }
+
 
 window.startSimulatedAICall = startSimulatedAICall;
 window.stopSimulatedAICall = stopSimulatedAICall;
@@ -1239,5 +1286,4 @@ window.playBeepSound = playBeepSound;
 window.stopBeepSound = stopBeepSound;
 window.renderContactTimeline = renderContactTimeline;
 window.runSpamAuditorCheck = runSpamAuditorCheck;
-window.addSequenceStep = addSequenceStep;
-window.runOutboundCadenceBatch = runOutboundCadenceBatch;
+window.runInlineSpamCheck = runInlineSpamCheck;

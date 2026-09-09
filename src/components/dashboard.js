@@ -2,6 +2,7 @@
 
 function renderDashboard() {
   const totalContactsEl = document.getElementById("dashboard-total-contacts");
+  const prospectsCountEl = document.getElementById("dashboard-prospects-count");
   const enrichedContactsEl = document.getElementById("dashboard-enriched-contacts");
   const outboundSentEl = document.getElementById("dashboard-outbound-sent");
   const meetingsBookedEl = document.getElementById("dashboard-meetings-booked");
@@ -15,16 +16,19 @@ function renderDashboard() {
   if (!totalContactsEl) return;
 
   const total = database.contacts.length;
+  const influencersCount = database.contacts.filter(c => c.isInfluencer === true).length;
+  const prospectsCount = database.contacts.filter(c => c.isInfluencer !== true).length;
   const enriched = database.contacts.filter(c => c.enriched).length;
   const emailsCount = database.contacts.filter(c => c.emailsSent).length;
   const linkedinCount = database.contacts.filter(c => c.linkedinSent).length;
   const outbound = emailsCount + linkedinCount + (database.stats.emailsSent || 0) + (database.stats.linkedinSent || 0);
-  
+
   // Calculate meetings booked from the schedule
   const meetings = database.meetings ? database.meetings.length : 0;
   const hotLeads = database.contacts.filter(c => c.leadTemp === "Hot Lead").length;
-  
-  totalContactsEl.textContent = total.toLocaleString();
+
+  totalContactsEl.textContent = influencersCount.toLocaleString();
+  if (prospectsCountEl) prospectsCountEl.textContent = prospectsCount.toLocaleString();
   enrichedContactsEl.textContent = enriched.toLocaleString();
   outboundSentEl.textContent = outbound.toLocaleString();
   meetingsBookedEl.textContent = meetings.toLocaleString();

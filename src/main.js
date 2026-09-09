@@ -4,10 +4,7 @@ const componentsList = {
   'dashboard': 'components/dashboard.html',
   'upload': 'components/upload.html',
   'analyse': 'components/analytics.html',
-  'influencers': 'components/influencers.html',
-  'enrich': 'components/enrich.html',
   'campaign-outbound': 'components/campaign-outbound.html',
-  'campaign-schedule': 'components/campaign-schedule.html',
   'events-list': 'components/events-list.html',
   'settings-keys': 'components/settings-keys.html',
   'agent-mode': 'components/agent-mode.html'
@@ -62,15 +59,6 @@ async function bootstrapApp() {
   if (savedGoogleBrowserClientId && window.GoogleConfig) window.GoogleConfig.clientId = savedGoogleBrowserClientId;
   const googleBrowserClientInput = document.getElementById("settings-google-browser-client-id");
   if (googleBrowserClientInput) googleBrowserClientInput.value = window.GoogleConfig?.clientId || "";
-  if (typeof restoreLocalWorkbook === "function") {
-    restoreLocalWorkbook().then(connected => {
-      if (!connected && typeof startWorkbookAutoSaveDaemon === "function") {
-        startWorkbookAutoSaveDaemon();
-      }
-    });
-  } else if (typeof updateLocalWorkbookStatus === "function") {
-    updateLocalWorkbookStatus();
-  }
 
   // Load saved API Keys
   // Provider secrets are session-only and are never restored from browser storage.
@@ -155,70 +143,92 @@ async function bootstrapApp() {
     if (sidebar) sidebar.classList.add("collapsed");
   }
 
-  // Check for auto loading in local storage
-  const savedData = localStorage.getItem("gtm_cached_database");
-  let loadedFromCache = false;
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData);
-      database.contacts = parsed.contacts || [];
-      database.events = parsed.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
-      database.stats = parsed.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
-
-      if (database.contacts.length > 0 && !isDemoSeededContactList(database.contacts)) {
-        initLoadedData();
-        addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} cached contacts from LocalStorage.`, "info");
-        loadedFromCache = true;
-      } else if (database.contacts.length > 0) {
-        database.contacts = [];
-        database.meetings = [];
-        localStorage.removeItem("gtm_cached_database");
-        addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records. Import real contacts or open a workbook to begin.", "warning");
+  // gtm-console-database.xlsx (server-managed) is the authoritative source. Always load from it first.
+  // A single failed attempt would otherwise leave auto-save permanently disabled for the whole
+  // session (every save path is gated on database.workbookMode, which only a successful load sets),
+  // so retry a few times with backoff before giving up - this is almost always a transient blip.
+  let loadedFromWorkbook = false;
+  if (typeof loadWorkbookFromServer === "function") {
+    const maxAttempts = 3;
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts && !loadedFromWorkbook; attempt++) {
+      try {
+        await loadWorkbookFromServer();
+        loadedFromWorkbook = true;
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxAttempts) await new Promise(resolve => setTimeout(resolve, attempt * 1000));
       }
-    } catch (e) {
-      console.error("Error reading cached db", e);
+    }
+    if (!loadedFromWorkbook) {
+      const message = `Workbook NOT connected after ${maxAttempts} attempts (${lastError?.message || "unknown error"}). Changes will NOT be saved to gtm-console-database.xlsx until you reload the page.`;
+      addLogConsole("enrich", `[LOCAL WORKBOOK] ${message}`, "error");
+      if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus(message);
     }
   }
 
-  if (!loadedFromCache) {
-    database.contacts = [];
-    database.meetings = [];
-    initLoadedData();
-    addLogConsole("enrich", "[SYSTEM] Ready for a real workflow. Import contacts or open a local workbook to begin.", "info");
-  }
+  // Offline/network-failure fallback only: browser cache, then the durable local SQLite snapshot.
+  if (!loadedFromWorkbook) {
+    const savedData = localStorage.getItem("gtm_cached_database");
+    let loadedFromCache = false;
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        database.contacts = parsed.contacts || [];
+        database.events = parsed.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
+        database.stats = parsed.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
 
-  // Prefer the durable local backend snapshot when it contains data.
-  try {
-    const durableResponse = await fetch("/api/state");
-    const durable = await durableResponse.json();
-    const durableState = durable.state || {};
-    if (durableState.contacts && durableState.contacts.length > 0 && !isDemoSeededContactList(durableState.contacts)) {
-      database.contacts = durableState.contacts;
-      database.events = durableState.events || database.events;
-      database.stats = durableState.stats || database.stats;
-      database.meetings = durableState.meetings || database.meetings || [];
+        if (database.contacts.length > 0 && !isDemoSeededContactList(database.contacts)) {
+          initLoadedData();
+          addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} cached contacts from LocalStorage.`, "info");
+          loadedFromCache = true;
+        } else if (database.contacts.length > 0) {
+          database.contacts = [];
+          database.meetings = [];
+          localStorage.removeItem("gtm_cached_database");
+          addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records. Import real contacts or open a workbook to begin.", "warning");
+        }
+      } catch (e) {
+        console.error("Error reading cached db", e);
+      }
+    }
+
+    if (!loadedFromCache) {
+      database.contacts = [];
+      database.meetings = [];
       initLoadedData();
-      addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} contacts from durable local storage.`, "info");
-    } else if (durableState.contacts && durableState.contacts.length > 0) {
-      addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records from durable storage.", "warning");
+      addLogConsole("enrich", "[SYSTEM] Ready for a real workflow. Import contacts or open a local workbook to begin.", "info");
     }
-  } catch (error) {
-    addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
+
+    try {
+      const durableResponse = await fetch("/api/state");
+      const durable = await durableResponse.json();
+      const durableState = durable.state || {};
+      if (durableState.contacts && durableState.contacts.length > 0 && !isDemoSeededContactList(durableState.contacts)) {
+        database.contacts = durableState.contacts;
+        database.events = durableState.events || database.events;
+        database.stats = durableState.stats || database.stats;
+        database.meetings = durableState.meetings || database.meetings || [];
+        initLoadedData();
+        addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} contacts from durable local storage.`, "info");
+      } else if (durableState.contacts && durableState.contacts.length > 0) {
+        addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records from durable storage.", "warning");
+      }
+    } catch (error) {
+      addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
+    }
   }
 
-  // Restore the selected workbook when the browser grants the saved file handle.
-  // Workbook data wins over browser cache and the optional local API snapshot.
-  if (typeof restoreLocalWorkbook === "function") {
-    try { await restoreLocalWorkbook(); } catch (error) {
-      addLogConsole("enrich", `[LOCAL WORKBOOK] Could not restore the workbook: ${error.message}`, "warning");
-    }
-  }
+  if (typeof startWorkbookAutoSaveDaemon === "function") startWorkbookAutoSaveDaemon();
 
   // Initialize autocomplete typing
   if (typeof initAgentAutocomplete === "function") initAgentAutocomplete();
 
   // Dynamically load Clerk Auth SDK
   if (typeof loadClerkSDK === "function") loadClerkSDK();
+
+  // Check for GitHub updates non-blockingly
+  checkForAppUpdates();
 }
 
 let lastActiveTabId = 'dashboard';
@@ -276,18 +286,13 @@ function switchTab(tabId) {
   // Trigger tab-specific renders
   if (tabId === 'dashboard' && typeof renderDashboard === "function") {
     renderDashboard();
-  } else if (tabId === 'upload' && typeof filterUploadTable === "function") {
-    filterUploadTable();
-  } else if (tabId === 'influencers' && typeof filterInfluencersTable === "function") {
-    filterInfluencersTable();
+  } else if (tabId === 'upload') {
+    if (typeof filterUploadTable === "function") filterUploadTable();
+    if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
   } else if (tabId === 'campaign-outbound' && typeof filterOutboundTable === "function") {
     filterOutboundTable();
-  } else if (tabId === 'campaign-schedule' && typeof renderScheduleMeetings === "function") {
-    renderScheduleMeetings();
   } else if (tabId === 'events-list' && typeof renderEventsList === "function") {
     renderEventsList();
-  } else if (tabId === 'enrich' && typeof checkEnrichButtonState === "function") {
-    checkEnrichButtonState();
   } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {
     filterFunnelSegment(document.getElementById("funnel-industry-filter")?.value || "all");
   } else if (tabId === 'agent-mode' && typeof initAgentAutocomplete === "function") {
@@ -313,28 +318,12 @@ function updateHeader(tabId) {
       subtitleEl.textContent = "Monitor campaign metrics, agent execution progress, and meeting conversion rates.";
       break;
     case 'upload':
-      titleEl.textContent = "Upload Contacts";
-      subtitleEl.textContent = "Upload manual CSV or load target database of credit union accounts.";
-      break;
-    case 'enrich':
-      titleEl.textContent = "AgentSource B2B Data Enrichment";
-      subtitleEl.textContent = "Verify key and enrich leads with verified corporate intelligence.";
-      break;
-    case 'influencers':
-      titleEl.textContent = "Influencers Match Matching";
-      subtitleEl.textContent = "Assess target personas, ICP compatibility scores, and lead temperature classification.";
-      break;
-    case 'enrich':
-      titleEl.textContent = "AgentSource B2B Data Enrichment";
-      subtitleEl.textContent = "Verify key and enrich leads with verified corporate intelligence.";
+      titleEl.textContent = "Upload & Enrich Contacts";
+      subtitleEl.textContent = "Upload CSV data, enrich leads with verified corporate intelligence, and manage contacts.";
       break;
     case 'campaign-outbound':
-      titleEl.textContent = "Omnichannel Campaign Outbound";
-      subtitleEl.textContent = "Engage prospects across Email, LinkedIn, and Phone channels in one console.";
-      break;
-    case 'campaign-schedule':
-      titleEl.textContent = "Campaign Briefings & Meetings";
-      subtitleEl.textContent = "Track scheduled appointments, review briefs, and launch briefings.";
+      titleEl.textContent = "Campaign Outbound";
+      subtitleEl.textContent = "Engage prospects and influencers across Email, LinkedIn, and Phone — and manage scheduled briefings.";
       break;
     case 'events-list':
       titleEl.textContent = "Events Lists & Attendances";
@@ -545,6 +534,61 @@ function runCommandPaletteAction(actionType, targetVal) {
   }
 }
 
+// --- AUTO-UPDATE ENGINE ---
+async function checkForAppUpdates() {
+  try {
+    const res = await fetch("/api/system/update-check");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.update_available) {
+      const banner = document.getElementById("system-update-banner");
+      const tag = document.getElementById("update-banner-tag");
+      const msg = document.getElementById("update-banner-msg");
+      if (banner) {
+        banner.style.display = "flex";
+        if (tag) tag.textContent = data.latest_commit || "New Commit";
+        if (msg) msg.textContent = `Update from ${data.author || "GitHub"}: "${data.commit_message || "Latest enhancements"}"`;
+      }
+    }
+  } catch (_) {
+    // Non-blocking background check
+  }
+}
+
+function dismissUpdateBanner() {
+  const banner = document.getElementById("system-update-banner");
+  if (banner) banner.style.display = "none";
+}
+
+async function triggerOneClickUpdate() {
+  const btn = document.getElementById("btn-run-auto-update");
+  const btnText = document.getElementById("btn-update-text");
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.textContent = "Updating Application...";
+
+  try {
+    const res = await fetch("/api/system/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    });
+    const result = await res.json();
+    if (res.ok && result.status === "success") {
+      if (btnText) btnText.textContent = "✅ Updated! Reloading...";
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } else {
+      alert("Update failed: " + (result.error || "Unknown error occurred"));
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.textContent = "1-Click Update";
+    }
+  } catch (err) {
+    alert("Update request error: " + err.message);
+    if (btn) btn.disabled = false;
+    if (btnText) btnText.textContent = "1-Click Update";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   bootstrapApp();
   initCommandPaletteKeyListeners();
@@ -566,3 +610,6 @@ window.openCommandPalette = openCommandPalette;
 window.closeCommandPalette = closeCommandPalette;
 window.handleCommandPaletteSearch = handleCommandPaletteSearch;
 window.runCommandPaletteAction = runCommandPaletteAction;
+window.checkForAppUpdates = checkForAppUpdates;
+window.dismissUpdateBanner = dismissUpdateBanner;
+window.triggerOneClickUpdate = triggerOneClickUpdate;

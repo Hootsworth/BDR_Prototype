@@ -38,12 +38,71 @@ let database = {
   meetings: [],
   currentOutboundSubtab: 'prospects'
 };
-window.database = database;
+// --- Theme Switcher (Light / Dark Mode) ---
+function getActiveTheme() {
+  return document.documentElement.getAttribute("data-theme") || 
+    (localStorage.getItem("gtm_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+}
+
+function setTheme(themeName) {
+  var theme = (themeName === "light") ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-astryx-theme", "neutral");
+  localStorage.setItem("gtm_theme", theme);
+  updateThemeUI(theme);
+}
+
+function toggleTheme() {
+  var currentTheme = getActiveTheme();
+  var nextTheme = (currentTheme === "light") ? "dark" : "light";
+  setTheme(nextTheme);
+}
+
+function updateThemeUI(theme) {
+  var isLight = theme === "light";
+  
+  // Icon SVGs
+  var sunSvg = '<svg class="theme-icon-svg" id="topnav-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+  
+  var moonSvg = '<svg class="theme-icon-svg" id="topnav-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+
+  var sidebarSunSvg = '<svg class="theme-icon-svg" id="sidebar-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+
+  var sidebarMoonSvg = '<svg class="theme-icon-svg" id="sidebar-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+
+  // Topnav
+  var topnavBtn = document.getElementById("topnav-theme-btn");
+  var topnavLabel = document.getElementById("topnav-theme-label");
+  var topnavIcon = document.getElementById("topnav-theme-icon");
+  if (topnavBtn) {
+    topnavBtn.title = isLight ? "Switch to Dark Mode" : "Switch to Light Mode";
+    if (topnavLabel) topnavLabel.textContent = isLight ? "Dark Mode" : "Light Mode";
+    if (topnavIcon) topnavIcon.outerHTML = isLight ? moonSvg : sunSvg;
+  }
+
+  // Sidebar
+  var sidebarBtn = document.getElementById("sidebar-theme-btn");
+  var sidebarLabel = document.getElementById("sidebar-theme-label");
+  var sidebarIcon = document.getElementById("sidebar-theme-icon");
+  if (sidebarBtn) {
+    sidebarBtn.title = isLight ? "Switch to Dark Mode" : "Switch to Light Mode";
+    if (sidebarLabel) sidebarLabel.textContent = isLight ? "Theme: Light" : "Theme: Dark";
+    if (sidebarIcon) sidebarIcon.outerHTML = isLight ? sidebarMoonSvg : sidebarSunSvg;
+  }
+}
+
+// Make theme functions globally available
+window.getActiveTheme = getActiveTheme;
+window.setTheme = setTheme;
+window.toggleTheme = toggleTheme;
 
 // Main tab switching logic (handles subtabs and collapses others)
 let currentTabId = 'upload';
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Initialize theme UI
+  setTheme(getActiveTheme());
+
   // Load saved API Keys
   database.exploriumApiKey = localStorage.getItem("gtm_key_explorium") || "";
   database.llmHelperKey = localStorage.getItem("gtm_key_llm_helper") || "";
@@ -4302,6 +4361,7 @@ window.renderDashboardActivityFeed = renderDashboardActivityFeed;
 
 function renderDashboard() {
   const totalContactsEl = document.getElementById("dashboard-total-contacts");
+  const prospectsCountEl = document.getElementById("dashboard-prospects-count");
   const enrichedContactsEl = document.getElementById("dashboard-enriched-contacts");
   const outboundSentEl = document.getElementById("dashboard-outbound-sent");
   const meetingsBookedEl = document.getElementById("dashboard-meetings-booked");
@@ -4315,16 +4375,19 @@ function renderDashboard() {
   if (!totalContactsEl) return;
 
   const total = database.contacts.length;
+  const influencersCount = database.contacts.filter(c => c.isInfluencer === true).length;
+  const prospectsCount = database.contacts.filter(c => c.isInfluencer !== true).length;
   const enriched = database.contacts.filter(c => c.enriched).length;
   const emailsCount = database.contacts.filter(c => c.emailsSent).length;
   const linkedinCount = database.contacts.filter(c => c.linkedinSent).length;
   const outbound = emailsCount + linkedinCount + (database.stats.emailsSent || 0) + (database.stats.linkedinSent || 0);
-  
+
   // Calculate meetings booked from the schedule
   const meetings = database.meetings ? database.meetings.length : 0;
   const hotLeads = database.contacts.filter(c => c.leadTemp === "Hot Lead").length;
-  
-  totalContactsEl.textContent = total.toLocaleString();
+
+  totalContactsEl.textContent = influencersCount.toLocaleString();
+  if (prospectsCountEl) prospectsCountEl.textContent = prospectsCount.toLocaleString();
   enrichedContactsEl.textContent = enriched.toLocaleString();
   outboundSentEl.textContent = outbound.toLocaleString();
   meetingsBookedEl.textContent = meetings.toLocaleString();

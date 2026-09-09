@@ -1,13 +1,13 @@
-<!-- ═══ FIELD EVENTS & BRIEFING ROOM HERO BANNER (DARK MODE) ═══ -->
-<div class="card" style="padding: 1.75rem 2rem; margin-bottom: 1.75rem; background: linear-gradient(135deg, #141414 0%, #1a1a1e 100%); border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);">
+<!-- ═══ FIELD EVENTS & BRIEFING ROOM HERO BANNER ═══ -->
+<div class="card" style="padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;">
   <div style="display: flex; justify-content: space-between; align-items: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
     <div style="display: flex; align-items: center; gap: 1rem;">
-      <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(16, 185, 129, 0.15); color: #34d399; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.3);">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      <div style="width: 40px; height: 40px; border-radius: var(--radius-xs); background: rgba(16, 185, 129, 0.15); color: #34d399; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.3);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
       </div>
       <div>
-        <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc;">Field Events &amp; Briefing Room Scheduler</h2>
-        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: #a1a1aa;">Manage event attendees, executive briefing sessions, and VIP calendar bookings</p>
+        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary);">Field Events &amp; Briefing Room Scheduler</h2>
+        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: var(--color-text-secondary);">Manage event attendees, executive briefing sessions, and VIP calendar bookings</p>
       </div>
     </div>
 
@@ -19,9 +19,9 @@
     </div>
   </div>
 
-  <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: #1f1f23; padding: 0.85rem 1.1rem; border: 1px solid #27272a; border-radius: 14px;">
-    <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap; font-weight: 700; color: #f8fafc;">Select Event View:</label>
-    <select class="form-select" id="select-event-view" onchange="renderEventsList()" style="flex: 1; min-width: 260px; font-weight: 600; background: #141414; color: #f8fafc; border-color: #27272a;">
+  <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: var(--surface-soft); padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+    <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap; font-weight: 600; color: var(--color-text-primary);">Select Event View:</label>
+    <select class="form-select" id="select-event-view" onchange="renderEventsList()" style="flex: 1; min-width: 260px; font-weight: 600; background: var(--color-background-surface); color: var(--color-text-primary); border-color: var(--color-border);">
       <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
       <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
       <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
@@ -34,11 +34,11 @@
 </div>
 
 <!-- ═══ ATTENDEES DATA TABLE CARD ═══ -->
-<div class="card" style="padding: 1.5rem 1.75rem; background: #141414; border: 1px solid #27272a; border-radius: 20px;">
+<div class="card" style="padding: 1.25rem 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;">
   <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
     <div>
-      <h3 id="events-list-title" style="font-family: inherit; font-size: 15px; font-weight: 700; margin: 0; color: #f8fafc;">GAC 2023 Dinner Attendees</h3>
-      <span style="font-size: 12px; color: #a1a1aa;">Confirmed registrations &amp; briefing schedules</span>
+      <h3 id="events-list-title" style="font-family: inherit; font-size: 15px; font-weight: 700; margin: 0; color: var(--color-text-primary);">GAC 2023 Dinner Attendees</h3>
+      <span style="font-size: 12px; color: var(--color-text-secondary);">Confirmed registrations &amp; briefing schedules</span>
     </div>
     <span class="badge badge-success" id="events-list-count" style="font-size: 12px; padding: 6px 14px;">0 attendees</span>
   </div>
@@ -56,7 +56,7 @@
         </tr>
       </thead>
       <tbody id="table-events-attendees-body">
-        <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #52525b;">No attendees found for this event view.</td></tr>
+        <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No attendees found for this event view.</td></tr>
       </tbody>
     </table>
   </div>

@@ -1,15 +1,15 @@
 <div style="display: flex; flex-direction: column; height: calc(100vh - 120px); max-width: 860px; margin: 0 auto; position: relative;">
 
   <!-- Minimalist Chat Header -->
-  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0 1rem 0; border-bottom: 1px solid #27272a; margin-bottom: 1rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0 1rem 0; border-bottom: 1px solid var(--color-border); margin-bottom: 1rem;">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <div style="width: 38px; height: 38px; border-radius: 12px; background: #1f1f23; border: 1px solid #27272a; display: flex; align-items: center; justify-content: center; color: #e4e4e7;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      <div style="width: 36px; height: 36px; border-radius: var(--radius-xs); background: var(--surface-soft); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; color: var(--color-text-primary);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
       </div>
       <div>
-        <h2 style="font-size: 15px; font-weight: 700; margin: 0; color: #f8fafc;">GTM AI Assistant</h2>
-        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a1a1aa;">
-          <span style="width: 7px; height: 7px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
+        <h2 style="font-size: 14px; font-weight: 700; margin: 0; color: var(--color-text-primary);">GTM AI Assistant</h2>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-secondary);">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
           <span>Online &amp; Ready</span>
         </div>
       </div>
@@ -17,7 +17,7 @@
 
     <!-- Minimal Controls -->
     <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <select id="agent-model-select" onchange="changeAgentModel(this.value)" class="form-select" style="padding: 0.35rem 0.65rem; font-size: 12px; font-weight: 600; width: auto; background: #1f1f23; border-color: #27272a; color: #f8fafc;">
+      <select id="agent-model-select" onchange="changeAgentModel(this.value)" class="form-select" style="padding: 0.35rem 0.65rem; font-size: 12px; font-weight: 600; width: auto; background: var(--surface-soft); border-color: var(--color-border); color: var(--color-text-primary);">
         <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
         <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
         <option value="gpt-4o">GPT-4o</option>
@@ -30,18 +30,18 @@
   </div>
 
   <!-- Collapsible Technical DAG Graph (Hidden by default for clean chatbot feel) -->
-  <div id="langgraph-dag-container" style="display: none; background: #141414; border: 1px solid #27272a; border-radius: 16px; padding: 1rem; margin-bottom: 1rem;">
+  <div id="langgraph-dag-container" style="display: none; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem;">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-      <span style="font-size: 12px; font-weight: 700; color: #a1a1aa; text-transform: uppercase;">Technical Execution Pipeline</span>
+      <span style="font-size: 12px; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase;">Technical Execution Pipeline</span>
       <span style="font-size: 11.5px; color: #34d399;" id="dag-active-phase">Phase 2 · Active</span>
     </div>
     <div id="dag-node-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; overflow-x: auto;">
-      <div class="dag-node completed" id="node-icp_discovery" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #1f1f23; font-size: 11px; font-weight: 600; color: #f8fafc;">ICP Discovery</div>
-      <div class="dag-node completed" id="node-contact_intelligence" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #1f1f23; font-size: 11px; font-weight: 600; color: #f8fafc;">Contact Intel</div>
-      <div class="dag-node completed" id="node-data_quality" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #1f1f23; font-size: 11px; font-weight: 600; color: #f8fafc;">Data Quality</div>
-      <div class="dag-node active" id="node-personalization" style="border: 1px solid #e4e4e7; border-radius: 8px; padding: 6px 8px; background: #27272a; font-size: 11px; font-weight: 600; color: #f8fafc;">Personalize</div>
-      <div class="dag-node breakpoint" id="node-campaign_launch" style="border: 1px dashed #fbbf24; border-radius: 8px; padding: 6px 8px; background: #141414; font-size: 11px; font-weight: 600; color: #fbbf24;">Outbound Send</div>
-      <div class="dag-node idle" id="node-crm_intelligence" style="border: 1px solid #27272a; border-radius: 8px; padding: 6px 8px; background: #141414; font-size: 11px; font-weight: 600; color: #a1a1aa;">CRM Sync</div>
+      <div class="dag-node completed" id="node-icp_discovery" style="border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 6px 8px; background: var(--surface-soft); font-size: 11px; font-weight: 600; color: var(--color-text-primary);">ICP Discovery</div>
+      <div class="dag-node completed" id="node-contact_intelligence" style="border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 6px 8px; background: var(--surface-soft); font-size: 11px; font-weight: 600; color: var(--color-text-primary);">Contact Intel</div>
+      <div class="dag-node completed" id="node-data_quality" style="border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 6px 8px; background: var(--surface-soft); font-size: 11px; font-weight: 600; color: var(--color-text-primary);">Data Quality</div>
+      <div class="dag-node active" id="node-personalization" style="border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-xs); padding: 6px 8px; background: var(--surface-hover); font-size: 11px; font-weight: 600; color: var(--color-text-primary);">Personalize</div>
+      <div class="dag-node breakpoint" id="node-campaign_launch" style="border: 1px dashed #fbbf24; border-radius: var(--radius-xs); padding: 6px 8px; background: var(--surface-card); font-size: 11px; font-weight: 600; color: #fbbf24;">Outbound Send</div>
+      <div class="dag-node idle" id="node-crm_intelligence" style="border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 6px 8px; background: var(--surface-card); font-size: 11px; font-weight: 600; color: var(--color-text-secondary);">CRM Sync</div>
     </div>
   </div>
 
@@ -50,14 +50,14 @@
     
     <!-- Clean Welcome Hero -->
     <div id="agent-landing-hero" style="text-align: center; margin: auto; max-width: 540px; padding: 2rem 0;">
-      <h2 style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin: 0 0 0.5rem 0;">How can I help your outreach today?</h2>
-      <p style="font-size: 13.5px; color: #a1a1aa; margin: 0 0 1.75rem 0; line-height: 1.5;">Ask anything, enrich accounts, generate campaign copy, or manage outreach approvals.</p>
+      <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--color-text-primary); margin: 0 0 0.5rem 0;">How can I help your outreach today?</h2>
+      <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 1.5rem 0; line-height: 1.5;">Ask anything, enrich accounts, generate campaign copy, or manage outreach approvals.</p>
       
       <!-- Minimal Quick Prompt Chips -->
       <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
-        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('enrich_all')" style="border-radius: 20px; font-size: 12.5px;">Enrich target accounts</button>
-        <button class="btn btn-secondary btn-sm" onclick="openHilCopilotModal()" style="border-radius: 20px; font-size: 12.5px;">Review email drafts</button>
-        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('send_outbound')" style="border-radius: 20px; font-size: 12.5px;">Dispatch campaign</button>
+        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('enrich_all')" style="border-radius: var(--radius-xs); font-size: 12px;">Enrich target accounts</button>
+        <button class="btn btn-secondary btn-sm" onclick="openHilCopilotModal()" style="border-radius: var(--radius-xs); font-size: 12px;">Review email drafts</button>
+        <button class="btn btn-secondary btn-sm" onclick="runAgentQuickAction('send_outbound')" style="border-radius: var(--radius-xs); font-size: 12px;">Dispatch campaign</button>
       </div>
     </div>
 
@@ -68,7 +68,7 @@
   </div>
 
   <!-- Floating Loading Indicator -->
-  <div id="agent-floating-loader" style="display: none; position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); z-index: 500; padding: 0.6rem 1.25rem; background: #1f1f23; border: 1px solid #27272a; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-size: 12.5px; color: #f8fafc;">
+  <div id="agent-floating-loader" style="display: none; position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); z-index: 500; padding: 0.5rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none; font-size: 12.5px; color: var(--color-text-primary);">
     <div style="display: flex; align-items: center; gap: 0.5rem;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1.5s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>
       <span id="agent-loader-title">Thinking...</span>
@@ -76,13 +76,13 @@
   </div>
 
   <!-- Chat Input Composer -->
-  <div style="padding-top: 0.75rem; border-top: 1px solid #27272a; position: relative;">
+  <div style="padding-top: 0.75rem; border-top: 1px solid var(--color-border); position: relative;">
     <div id="agent-autocomplete-list"></div>
-    <div style="display: flex; gap: 0.625rem; align-items: center; background: #141414; border: 1.5px solid #27272a; border-radius: 16px; padding: 0.4rem 0.5rem 0.4rem 0.85rem;">
-      <textarea id="agent-chat-input" class="form-input" placeholder="Message GTM Assistant..." onkeydown="handleAgentChatKeyDown(event)" style="border: none; background: transparent; height: 44px; resize: none; font-size: 13.5px; padding: 0.6rem 0; color: #f8fafc; outline: none; flex: 1;"></textarea>
-      <button class="btn btn-primary btn-sm" id="btn-agent-chat-send" onclick="sendAgentChatMessage()" style="height: 38px; padding: 0 1.1rem; border-radius: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+    <div style="display: flex; gap: 0.625rem; align-items: center; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.4rem 0.5rem 0.4rem 0.85rem;">
+      <textarea id="agent-chat-input" class="form-input" placeholder="Message GTM Assistant..." onkeydown="handleAgentChatKeyDown(event)" style="border: none; background: transparent; height: 40px; resize: none; font-size: 13.5px; padding: 0.5rem 0; color: var(--color-text-primary); outline: none; flex: 1;"></textarea>
+      <button class="btn btn-primary btn-sm" id="btn-agent-chat-send" onclick="sendAgentChatMessage()" style="height: 34px; padding: 0 1rem; border-radius: var(--radius-xs); font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
         <span>Send</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
       </button>
     </div>
   </div>
@@ -90,14 +90,14 @@
 </div>
 
 <!-- ═══ HUMAN-IN-THE-LOOP (HIL) REVIEW MODAL ═══ -->
-<div id="hil-copilot-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;">
-  <div class="card" style="width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: #141414; border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.8);">
+<div id="hil-copilot-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: var(--color-overlay); backdrop-filter: blur(2px); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem;">
+  <div class="card" style="width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--surface-card); border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
     
     <!-- Modal Header -->
-    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #27272a; display: flex; align-items: center; justify-content: space-between; background: #1a1a1e;">
+    <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-soft);">
       <div>
-        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Review Email Draft</h3>
-        <span style="font-size: 12px; color: #a1a1aa;">Approve or customize outbound email before dispatch</span>
+        <h3 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--color-text-primary);">Review Email Draft</h3>
+        <span style="font-size: 12px; color: var(--color-text-secondary);">Approve or customize outbound email before dispatch</span>
       </div>
       <button class="btn btn-secondary btn-sm" onclick="closeHilCopilotModal()">Close</button>
     </div>
@@ -105,34 +105,34 @@
     <!-- Body Layout -->
     <div style="display: flex; flex: 1; overflow: hidden; height: 440px;">
       <!-- Left Panel: Lead Context -->
-      <div style="width: 35%; border-right: 1px solid #27272a; padding: 1.25rem; overflow-y: auto; background: #19191c;">
+      <div style="width: 35%; border-right: 1px solid var(--color-border); padding: 1.25rem; overflow-y: auto; background: var(--surface-soft);">
         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-          <div style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; color: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;" id="hil-lead-avatar">SJ</div>
+          <div style="width: 36px; height: 36px; border-radius: var(--radius-xs); background: var(--surface-hover); color: var(--color-text-primary); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border: 1px solid var(--color-border);" id="hil-lead-avatar">SJ</div>
           <div>
-            <div style="font-weight: 700; font-size: 14px; color: #f8fafc;" id="hil-lead-name">Sarah Jenkins</div>
-            <div style="font-size: 11.5px; color: #a1a1aa;" id="hil-lead-title">VP Operations</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--color-text-primary);" id="hil-lead-name">Sarah Jenkins</div>
+            <div style="font-size: 11.5px; color: var(--color-text-secondary);" id="hil-lead-title">VP Operations</div>
           </div>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 12px;">
-          <div style="padding: 8px 10px; background: #141414; border: 1px solid #27272a; border-radius: 8px;">
-            <span style="color: #a1a1aa; display: block; font-size: 10.5px;">Match Score</span>
-            <strong style="color: #34d399; font-size: 14px;">94 / 100 (High Intent)</strong>
+          <div style="padding: 8px 10px; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+            <span style="color: var(--color-text-secondary); display: block; font-size: 10.5px;">Match Score</span>
+            <strong style="color: #34d399; font-size: 13.5px;">94 / 100 (High Intent)</strong>
           </div>
-          <div style="padding: 8px 10px; background: #141414; border: 1px solid #27272a; border-radius: 8px;">
-            <span style="color: #a1a1aa; display: block; font-size: 10.5px;">Trigger Signal</span>
-            <span id="hil-lead-news" style="color: #f8fafc;">Digital branch expansion in Q3.</span>
+          <div style="padding: 8px 10px; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+            <span style="color: var(--color-text-secondary); display: block; font-size: 10.5px;">Trigger Signal</span>
+            <span id="hil-lead-news" style="color: var(--color-text-primary);">Digital branch expansion in Q3.</span>
           </div>
         </div>
       </div>
 
       <!-- Right Panel: Draft Review -->
       <div style="flex: 1; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto;">
-        <div style="border: 1px solid #27272a; border-radius: 12px; padding: 1rem; background: #19191c;">
-          <div style="margin-bottom: 0.5rem; font-size: 12px; color: #a1a1aa;">
-            Subject: <input type="text" id="hil-email-subject" value="Quick question re: First Credit Union digital branch expansion" style="width: 80%; border: none; border-bottom: 1px solid #27272a; font-weight: 600; color: #f8fafc; outline: none; background: transparent;" />
+        <div style="border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 1rem; background: var(--surface-soft);">
+          <div style="margin-bottom: 0.5rem; font-size: 12px; color: var(--color-text-secondary);">
+            Subject: <input type="text" id="hil-email-subject" value="Quick question re: First Credit Union digital branch expansion" style="width: 80%; border: none; border-bottom: 1px solid var(--color-border); font-weight: 600; color: var(--color-text-primary); outline: none; background: transparent;" />
           </div>
-          <textarea id="hil-email-body" rows="6" style="width: 100%; border: none; font-family: inherit; font-size: 13px; line-height: 1.5; color: #f8fafc; resize: vertical; outline: none; background: transparent;">Hi Sarah,
+          <textarea id="hil-email-body" rows="6" style="width: 100%; border: none; font-family: inherit; font-size: 13px; line-height: 1.5; color: var(--color-text-primary); resize: vertical; outline: none; background: transparent;">Hi Sarah,
 
 Noticed First Credit Union's recent announcement regarding your Q3 digital branch expansion. Given your focus on automating loan intake workflows, I thought you'd find our autonomous GTM engine relevant.
 
@@ -144,7 +144,7 @@ GTM Automation Team</textarea>
 
         <!-- Quick One-Click Rewrites -->
         <div>
-          <span style="font-size: 11px; font-weight: 700; color: #a1a1aa; display: block; margin-bottom: 0.5rem; text-transform: uppercase;">Quick AI Rewrites</span>
+          <span style="font-size: 11px; font-weight: 700; color: var(--color-text-secondary); display: block; margin-bottom: 0.5rem; text-transform: uppercase;">Quick AI Rewrites</span>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('casual')">Make Casual</button>
             <button class="btn btn-secondary btn-sm" onclick="applyAiPromptChip('roi')">Emphasize ROI</button>
@@ -153,7 +153,7 @@ GTM Automation Team</textarea>
         </div>
 
         <!-- Action Bar -->
-        <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #27272a;">
+        <div style="margin-top: auto; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border);">
           <button class="btn btn-secondary btn-sm" onclick="closeHilCopilotModal()">Skip</button>
           <button class="btn btn-primary btn-sm" onclick="approveHilCopyDraft()">Approve &amp; Send</button>
         </div>

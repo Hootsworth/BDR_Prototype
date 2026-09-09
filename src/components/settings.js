@@ -11,17 +11,9 @@ function saveExploriumKey() {
   addLogConsole("enrich", `[SYSTEM] Explorium / AgentSource credential updated.`, "system");
 }
 
-async function openWorkbookFromSettings() {
+async function saveWorkbookNowFromSettings() {
   try {
-    await openLocalWorkbook();
-    if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
-  } catch (error) { alert(error.message); }
-}
-
-async function saveWorkbookAsFromSettings() {
-  try {
-    await saveLocalWorkbookAs();
-    if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus();
+    await saveWorkbookToServer();
   } catch (error) { alert(error.message); }
 }
 
@@ -111,14 +103,14 @@ function ensureLemlistModalInDOM() {
   const modalDiv = document.createElement("div");
   modalDiv.id = "lemlist-onboarding-modal";
   modalDiv.className = "modal-overlay";
-  modalDiv.style.cssText = "display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
+  modalDiv.style.cssText = "display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
   modalDiv.innerHTML = `
-    <div class="modal-container" style="width: 100%; max-width: 640px; padding: 0; overflow: hidden; background-color: #ffffff; color: #0f172a; border-radius: 12px; box-shadow: 0 24px 48px rgba(0,0,0,0.35); border: 1px solid #e2e8f0;">
+    <div class="modal-container" style="width: 100%; max-width: 640px; padding: 0; overflow: hidden; background-color: #ffffff; color: #0f172a; border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #e2e8f0;">
       
       <!-- Wizard Header -->
       <div style="padding: 1.25rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <div style="width: 34px; height: 34px; border-radius: 50%; background: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;">⚡</div>
+          <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;">⚡</div>
           <div>
             <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;" id="lem-modal-title">Lemlist MCP Connection Setup</h3>
             <span style="font-size: 11.5px; color: #64748b;" id="lem-modal-step-indicator">Step 1 of 4</span>
@@ -130,12 +122,12 @@ function ensureLemlistModalInDOM() {
       <!-- Step 1: Welcome Screen -->
       <div id="lem-step-1" style="padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
         <div style="font-size: 48px; margin-bottom: 0.75rem;">🎉</div>
-        <h2 style="font-family: var(--font-family-heading); font-size: 22px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">YAY! Well Done!</h2>
+        <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">YAY! Well Done!</h2>
         <p style="font-size: 13.5px; color: #334155; max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
           You're initializing the <strong>Lemlist Model Context Protocol (MCP)</strong> integration. In the next steps, we'll collect your credentials, explain why each item is needed, and send a <strong>live test email to your personal inbox</strong> to prove the connection works!
         </p>
 
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; max-width: 440px; margin: 0 auto 1.75rem auto; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12.5px; color: #0f172a;">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; max-width: 440px; margin: 0 auto 1.75rem auto; background: #f8fafc; padding: 1rem; border-radius: var(--radius-xs); border: 1px solid #e2e8f0; font-size: 12.5px; color: #0f172a;">
           <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
             <span>⚡</span>
             <span><strong style="color: #0f172a;">Automated Sequence Control:</strong> AI agents can enroll leads into your Lemlist campaigns automatically.</span>
@@ -150,7 +142,7 @@ function ensureLemlistModalInDOM() {
           </div>
         </div>
 
-        <button class="btn btn-primary" onclick="setLemlistModalStep(2)" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer;">
+        <button class="btn btn-primary" onclick="setLemlistModalStep(2)" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: var(--radius-xs); cursor: pointer;">
           Let's Begin: Configure Connection →
         </button>
       </div>
@@ -206,7 +198,7 @@ function ensureLemlistModalInDOM() {
 
         <div style="margin-bottom: 1rem;">
           <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Select Demo Pitch Copy Template</label>
-          <select id="modal-lem-template-select" class="form-select" style="width: 100%; font-size: 12.5px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px;" onchange="updateModalEmailPreview(this.value)">
+          <select id="modal-lem-template-select" class="form-select" style="width: 100%; font-size: 12.5px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: var(--radius-xs);" onchange="updateModalEmailPreview(this.value)">
             <option value="credit_union">Credit Union Innovation Hook (Data Platform Security)</option>
             <option value="ai_guardrails">AI Financial Compliance &amp; Query Guardrails</option>
             <option value="gtm_automation">GTM Pipeline Automation (15+ Eng Hours Saved)</option>
@@ -214,7 +206,7 @@ function ensureLemlistModalInDOM() {
         </div>
 
         <!-- Live Preview Box -->
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.875rem; background: #f8fafc; font-size: 12px; margin-bottom: 1.25rem; color: #0f172a;">
+        <div style="border: 1px solid #e2e8f0; border-radius: var(--radius-xs); padding: 0.875rem; background: #f8fafc; font-size: 12px; margin-bottom: 1.25rem; color: #0f172a;">
           <div style="margin-bottom: 4px; font-weight: 700; color: #0f172a;" id="modal-preview-subject">Subject: Securing data platforms &amp; automating member onboarding</div>
           <div style="color: #334155; line-height: 1.5; white-space: pre-line;" id="modal-preview-body">Hi Aditya,
 
@@ -227,8 +219,8 @@ Autonomous GTM Copilot</div>
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-          <button class="btn btn-secondary btn-sm" onclick="setLemlistModalStep(2)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;">← Back</button>
-          <button class="btn btn-primary" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; background: #0f172a; color: #ffffff; border: none; padding: 0.625rem 1.25rem; border-radius: 6px; cursor: pointer;">🚀 Send Test Demo Email Now!</button>
+          <button class="btn btn-secondary btn-sm" onclick="setLemlistModalStep(2)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: var(--radius-xs); font-weight: 600; cursor: pointer;">← Back</button>
+          <button class="btn btn-primary" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; background: #0f172a; color: #ffffff; border: none; padding: 0.625rem 1.25rem; border-radius: var(--radius-xs); cursor: pointer;">🚀 Send Test Demo Email Now!</button>
         </div>
       </div>
 
@@ -240,14 +232,14 @@ Autonomous GTM Copilot</div>
           A live test email has been dispatched via Lemlist MCP to <strong id="modal-success-recipient-email" style="color: #0f172a;">your personal inbox</strong>!
         </p>
 
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; text-align: left; max-width: 460px; margin: 0 auto 1.5rem auto; font-size: 11.5px; font-family: var(--font-family-mono); color: #0f172a;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-xs); padding: 1rem; text-align: left; max-width: 460px; margin: 0 auto 1.5rem auto; font-size: 11.5px; font-family: var(--font-family-mono); color: #0f172a;">
           <div style="color: #16a34a; font-weight: 700; margin-bottom: 4px;">Status: 200 OK (Lemlist MCP Handshake Verified)</div>
-          <div style="color: #334155;">Campaign ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px;">cmp_lemlist_demo_9821</code></div>
-          <div style="color: #334155;">Message ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px;">msg_live_dispatch_4812</code></div>
-          <div style="color: #334155;">Sender Account: <code id="modal-success-sender-email" style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px;">user@domain.com</code></div>
+          <div style="color: #334155;">Campaign ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 2px;">cmp_lemlist_demo_9821</code></div>
+          <div style="color: #334155;">Message ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 2px;">msg_live_dispatch_4812</code></div>
+          <div style="color: #334155;">Sender Account: <code id="modal-success-sender-email" style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 2px;">user@domain.com</code></div>
         </div>
 
-        <button class="btn btn-primary" onclick="closeLemlistOnboardingModal()" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: 6px; cursor: pointer;">
+        <button class="btn btn-primary" onclick="closeLemlistOnboardingModal()" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: var(--radius-xs); cursor: pointer;">
           Finish &amp; Explore Console ↗
         </button>
       </div>
@@ -741,8 +733,7 @@ window.checkGoogleCalendarStatus = checkGoogleCalendarStatus;
 window.syncGmailReplies = syncGmailReplies;
 window.verifyGoogleWorkspace = verifyGoogleWorkspace;
 window.saveBrowserGoogleClientId = saveBrowserGoogleClientId;
-window.openWorkbookFromSettings = openWorkbookFromSettings;
-window.saveWorkbookAsFromSettings = saveWorkbookAsFromSettings;
+window.saveWorkbookNowFromSettings = saveWorkbookNowFromSettings;
 window.exportWorkbookFromSettings = exportWorkbookFromSettings;
 window.saveSlackWebhookUrl = saveSlackWebhookUrl;
 window.testSlackWebhookNotification = testSlackWebhookNotification;

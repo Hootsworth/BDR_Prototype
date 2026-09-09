@@ -22,6 +22,11 @@ if ! "$PYTHON_BIN" -c 'import cryptography' >/dev/null 2>&1; then
   "$PYTHON_BIN" -m pip install --disable-pip-version-check -q cryptography
 fi
 
+if ! "$PYTHON_BIN" -c 'import openpyxl' >/dev/null 2>&1; then
+  echo "Installing the local workbook dependency..."
+  "$PYTHON_BIN" -m pip install --disable-pip-version-check -q openpyxl
+fi
+
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp .env.example .env
   echo "Created .env from .env.example. Add provider credentials there only if you need server-side integrations."

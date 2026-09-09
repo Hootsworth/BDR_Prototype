@@ -1,0 +1,341 @@
+\documentclass[10pt,letterpaper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=0.75in,headheight=14pt]{geometry}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=brandblue,citecolor=brandblue,urlcolor=brandblue,filecolor=brandblue]{hyperref}
+
+% Color Palette
+\definecolor{branddark}{HTML}{0F172A}      % Slate 900
+\definecolor{brandblue}{HTML}{1D4ED8}      % Blue 700
+\definecolor{brandteal}{HTML}{0F766E}      % Teal 700
+\definecolor{brandgray}{HTML}{475569}      % Slate 600
+\definecolor{brandlightgray}{HTML}{F8FAFC} % Slate 50
+\definecolor{bordergray}{HTML}{CBD5E1}     % Slate 300
+\definecolor{codebg}{HTML}{F1F5F9}         % Slate 100
+\definecolor{codetext}{HTML}{0F172A}       % Dark text
+\definecolor{accentgreen}{HTML}{059669}    % Emerald 600
+\definecolor{accentamber}{HTML}{D97706}    % Amber 600
+
+% Header & Footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small\color{brandgray} GTM Console \& Autonomous BDR Platform}
+\lhead{\small\color{brandgray} Technical System Architecture}
+\cfoot{\small\color{brandgray} Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Section formatting with standard LaTeX
+\makeatletter
+\renewcommand{\section}{\@startsection{section}{1}{\z@}%
+  {-3.0ex \@plus -1ex \@minus -.2ex}%
+  {1.2ex \@plus .2ex}%
+  {\normalfont\large\bfseries\color{branddark}}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}%
+  {-2.5ex \@plus -1ex \@minus -.2ex}%
+  {0.8ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries\color{brandblue}}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{\z@}%
+  {-2.0ex \@plus -1ex \@minus -.2ex}%
+  {0.5ex \@plus .2ex}%
+  {\normalfont\small\bfseries\color{brandteal}}}
+\makeatother
+
+% Code Listing Settings
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\scriptsize\color{codetext},
+    breaklines=true,
+    breakatwhitespace=true,
+    frame=single,
+    rulecolor=\color{bordergray},
+    numbers=left,
+    numberstyle=\tiny\color{brandgray},
+    numbersep=5pt,
+    tabsize=2,
+    showstringspaces=false,
+    keywordstyle=\bfseries\color{brandblue},
+    commentstyle=\itshape\color{brandgray},
+    stringstyle=\color{accentgreen}
+}
+
+% Custom Card Environment
+\newcommand{\cardbox}[2]{%
+\noindent\fcolorbox{bordergray}{codebg}{%
+\begin{minipage}{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}
+\vspace{2pt}
+{\bfseries\color{brandblue} #1}\\[3pt]
+{\small #2}
+\vspace{2pt}
+\end{minipage}
+}\par\vspace{6pt}
+}
+
+\begin{document}
+
+% Title Block
+\begin{center}
+    {\LARGE\bfseries\color{branddark} Autonomous BDR Platform \& GTM Console}\\[4pt]
+    {\normalsize\bfseries\color{brandblue} Comprehensive Technical Architecture \& System Reference}\\[4pt]
+    {\small\color{brandgray} Multi-Agent LangGraph Pipeline $\bullet$ REST/RPC Server $\bullet$ Local-First Persistence $\bullet$ Human-in-the-Loop Orchestration}
+\end{center}
+\vspace{-2pt}
+\hrule height 1pt
+\vspace{8pt}
+
+\section{System Architecture Overview}
+
+The \textbf{Autonomous BDR GTM Platform} is an enterprise-grade agentic sales development system. It pairs an asynchronous \textbf{LangGraph multi-agent pipeline} with a local-first \textbf{Python REST/RPC server} (\texttt{server.py} and Vercel serverless \texttt{api/index.py}), a terminal-based \textbf{Interactive ANSI Dashboard} (\texttt{main.py} / \texttt{cli/dashboard.py}), and a lightweight \textbf{Web Console} supporting Google Workspace OAuth2 and local workbook (\texttt{.xlsx}) persistence via the Chrome/Edge File System Access API.
+
+\begin{center}
+\begin{minipage}{0.95\textwidth}
+\begin{verbatim}
++----------------------------------------------------------------------------------+
+|                                 CLIENT LAYER                                     |
++-------------------------------+--------------------------------------------------+
+|        Web Console UI         |           Terminal CLI (main.py)                 |
+|  - Vanilla JS / HTML5 Shell   |  - Interactive ANSI Dashboard (cli/dashboard.py) |
+|  - Local Workbook (.xlsx)     |  - LangGraph Thread Runner                       |
+|  - Client Google Auth (GIS)   |  - Human-in-the-Loop Approval Interceptor        |
++---------------+---------------+--------------------------+-----------------------+
+                | HTTP / REST                              | Graph Invocation
+                v                                          v
++-------------------------------+          +---------------------------------------+
+|     BACKEND API SERVER        |          |       LANGGRAPH BDR MULTI-AGENT       |
+|         (server.py)           |          |             (agents/graph.py)         |
++-------------------------------+          +---------------------------------------+
+| * Auth & Token Encryption     |          | 1. ICP Discovery Agent                |
+| * Google Gmail & Cal Proxies  |          | 2. Contact Intelligence Agent         |
+| * Guardrails & Rate Limits    |          | 3. Data Quality Agent (ZeroBounce)    |
+| * OpenAI Enrichment Route     |          | 4. Personalization Agent (LLM)        |
+| * Resend Email Delivery       |          | || [BREAKPOINT 1: campaign_launch]    |
+| * Explorium Proxy             |          | 5. Campaign Launch Agent (Lemlist)    |
++---------------+---------------+          | 6. Deliverability Agent (InboxKit)    |
+                |                          | 7. Engagement Monitoring Agent        |
+                |                          | 8. Intent Detection Agent             |
+                |                          | || [BREAKPOINT 2: linkedin_engagement]|
+                |                          | 9. LinkedIn Engagement Agent          |
+                |                          | 10. Qualification Agent (BANT LLM)    |
+                |                          | 11. Meeting Scheduler Agent           |
+                |                          | || [BREAKPOINT 3: crm_intelligence]   |
+                |                          | 12. CRM Intelligence Agent (HubSpot)  |
+                |                          +-------------------+-------------------+
+                v                                              |
++-------------------------------+                              |
+|         DATA PERSISTENCE      |                              v
++-------------------------------+          +---------------------------------------+
+| * SQLite: gtm.sqlite3         |<---------|     STATE & MEMORY CHECKPOINTING      |
+| * Local Workbook (.xlsx)      |          | * BDRState (TypedDict + Reducers)     |
+| * Fernet Token Vault          |          | * SqliteSaver / MemorySaver Checkpoint|
++-------------------------------+          +---------------------------------------+
+\end{verbatim}
+\end{minipage}
+\end{center}
+
+\section{Markdown Files \& Specifications Directory}
+
+The workspace maintains strict separation of architectural concerns across dedicated markdown specifications:
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabularx}{\textwidth}{l p{3.2cm} X}
+\toprule
+\textbf{File} & \textbf{Path} & \textbf{Scope, Content \& Operational Guidance} \\
+\midrule
+\texttt{README.md} & \texttt{./README.md} & Primary manual. Details local launch (\texttt{./run\_local.sh}, \texttt{main.py}), Vercel serverless functions, Google OAuth client setup, local workbook modes, Clerk gate, pilot verification, and system boundaries. \\
+\texttt{INSTALLATION.md} & \texttt{./INSTALLATION.md} & Step-by-step developer runtime installation (Python 3.9+, Node.js, virtualenv, \texttt{.env} setup, and dependency management). \\
+\texttt{DESIGN.md} & \texttt{./DESIGN.md} & Editorial design token specification. Details color palette (\texttt{\#292524} warm ink, \texttt{\#f5f5f5} canvas, pastel gradient orbs), typography (Waldenburg Light 300 serif headers, Inter body), component surfaces, and elevation rules. \\
+\texttt{AGENTS.md} & \texttt{./AGENTS.md} & Coding agent rules governing Astryx component design: frame-first layout, avoidance of raw HTML \texttt{<div>}, dense data rows, and design token constraints (\texttt{var(--color-*)}). \\
+\texttt{elevenlabs/DESIGN.md} & \texttt{./elevenlabs/DESIGN.md} & Specialized brand voice-AI design tokens and typography rules. \\
+\texttt{miro/DESIGN.md} & \texttt{./miro/DESIGN.md} & Canvas visual styling, whiteboard layout models, and spatial design system tokens. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Tools Ecosystem \& Provider Mocks}
+
+The tool architecture in \texttt{tools/} supplies deterministic, testable interfaces across data enrichment, deliverability testing, cold sequencing, CRM sync, and social touches. Shared singletons are exported via \texttt{tools/\_\_init\_\_.py}.
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabularx}{\textwidth}{l p{2.8cm} X}
+\toprule
+\textbf{Module} & \textbf{Class / Singleton} & \textbf{Core Methods \& Operational Responsibilities} \\
+\midrule
+\texttt{apollo\_mock.py} & \texttt{ApolloMock} & \textbf{Account Discovery \& Personas}: \texttt{search\_accounts(industries, employee\_range, geography)} queries firmographic databases; \texttt{find\_contacts(domain, roles)} identifies buying committees (CIO, CTO, Data Head); \texttt{enrich\_contact(email)} supplies direct dials and seniority. \\
+\texttt{clay\_mock.py} & \texttt{ClayMock} & \textbf{Signal Intelligence}: \texttt{get\_company\_signals(domain)} detects funding rounds, hiring spikes, AI initiatives, and trigger events; \texttt{get\_contact\_signals(email)} parses social posts. \\
+\texttt{zerobounce\_mock.py} & \texttt{ZeroBounceMock} & \textbf{Deliverability Verification}: \texttt{validate\_email(email)} classifies syntax, DNS/MX validity, and spam traps; returns status (\texttt{valid}, \texttt{invalid}, \texttt{spamtrap}, \texttt{abuse}) and health score. \\
+\texttt{inboxkit\_mock.py} & \texttt{InboxKitMock} & \textbf{Sender Domain Health}: \texttt{get\_healthy\_sending\_inboxes()} filters active pools; \texttt{get\_inbox\_health(email)} monitors warming status and spam score; \texttt{log\_send(email)} updates limits. \\
+\texttt{lemlist\_mock.py} & \texttt{LemlistMock} & \textbf{Outreach Orchestration}: \texttt{add\_to\_sequence(contact, seq\_id, subject, body)} enrolls prospects; \texttt{get\_sequence(email)} and \texttt{get\_all\_active\_sequences()} provide open, click, and reply telemetry. \\
+\texttt{linkedin\_mock.py} & \texttt{LinkedInMock} & \textbf{Social Touches}: \texttt{like\_recent\_post(profile\_url, snippet)} simulates automated engagement; \texttt{send\_connection\_request(profile\_url, note)} delivers personalized notes after human review. \\
+\texttt{hubspot\_mock.py} & \texttt{HubSpotMock} & \textbf{CRM Synchronization}: \texttt{upsert\_contact(email, properties)} syncs prospect attributes; \texttt{update\_lifecycle\_stage()} transitions stages; \texttt{create\_deal()} creates deals and computes pipeline ARR. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Backend HTTP API \& RPC Endpoints}
+
+Implemented in \texttt{server.py} (\texttt{ProxyHTTPRequestHandler}) with serverless routing via \texttt{api/index.py}:
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabularx}{\textwidth}{l l p{3.2cm} X}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Authentication / Guard} & \textbf{Functional Description} \\
+\midrule
+\texttt{/api/google/oauth/start} & \texttt{GET} & Public & Generates cryptographically random state token and redirects to Google OAuth2 consent URL with Gmail \& Calendar scopes. \\
+\texttt{/api/google/oauth/callback} & \texttt{GET} & OAuth Code \& State & Verifies state expiry ($<600$s), exchanges code for tokens, encrypts tokens, issues \texttt{gtm\_session} HttpOnly cookie, and persists connection. \\
+\texttt{/api/google/status} & \texttt{GET} & Session Cookie & Returns connection health and authenticated Google email. \\
+\texttt{/api/google/verify} & \texttt{GET} & Session Cookie & Performs live probe on Gmail profile and Primary Calendar to assert active token permissions. \\
+\texttt{/api/google/disconnect} & \texttt{GET} & Session Cookie & Invalidates session, drops SQLite credentials, and clears cookies. \\
+\texttt{/api/state} & \texttt{GET/POST} & Optional / Local & Retrieves or updates serialized application database state snapshot in SQLite \texttt{app\_state}. \\
+\texttt{/api/google/gmail/draft} & \texttt{POST} & Session Cookie & Creates a raw RFC 2822 base64url-encoded draft in user's Gmail. \\
+\texttt{/api/google/gmail/send} & \texttt{POST} & \texttt{check\_send\_guardrails} & Validates explicit human approval, suppression status, SHA-256 duplicate fingerprint, and daily send limit before dispatching message. \\
+\texttt{/api/google/calendar/freebusy} & \texttt{POST} & Session Cookie & Queries Google Calendar API for free/busy intervals of attendees. \\
+\texttt{/api/google/calendar/events} & \texttt{POST} & Session Cookie & Creates Google Calendar event with auto-generated Google Meet conference. \\
+\texttt{/api/google/gmail/replies} & \texttt{POST} & Session Cookie & Scans Gmail for incoming messages from target prospects received within 30 days. \\
+\texttt{/api/ai/enrich} & \texttt{POST} & Server-side \texttt{OPENAI\_API\_KEY} & Executes structured LLM analysis of prospect lists, enforcing strict anti-hallucination research rules. \\
+\texttt{/api/email/send} & \texttt{POST} & \texttt{RESEND\_API\_KEY} & Delivers transactional outbound emails via Resend HTTPS API. \\
+\texttt{/api/proxy/*} & \texttt{POST} & \texttt{EXPLORIUM\_API\_KEY} & Reverse proxies requests to \texttt{api.explorium.ai}, injecting server-held credentials safely. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Security Guardrails for Outbound Messaging}
+The \texttt{check\_send\_guardrails(payload)} routine strictly enforces multi-layer safety before executing live sends:
+\begin{enumerate}
+    \item \textbf{Payload Verification}: Requires non-empty \texttt{to}, \texttt{subject}, and \texttt{body}.
+    \item \textbf{Suppression Enforcement}: Immediately halts if prospect has \texttt{suppressed} or \texttt{unsubscribed} flags.
+    \item \textbf{Mandatory Approval}: Requires strict \texttt{approved === True}.
+    \item \textbf{Deduplication}: Generates $\text{SHA256}(\text{to} \parallel \text{subject} \parallel \text{body})$ and verifies non-existence in \texttt{sent\_emails}.
+    \item \textbf{Throttling}: Rejects sends exceeding \texttt{PROTOTYPE\_DAILY\_SEND\_LIMIT} (default: 25/day).
+\end{enumerate}
+
+\section{Data Models \& Persistence Architecture}
+
+\subsection{SQLite Storage Model (\texttt{.prototype-data/gtm.sqlite3})}
+\begin{itemize}
+    \item \textbf{\texttt{app\_state (key TEXT PK, value TEXT, updated\_at TEXT)}}: Serialized state store for web console records.
+    \item \textbf{\texttt{google\_connections (id INTEGER PK, session\_id, email, name, access\_token, refresh\_token, expires\_at, updated\_at)}}: Stores OAuth tokens encrypted at rest with Fernet symmetric cipher (derived from \texttt{TOKEN\_ENCRYPTION\_KEY}).
+    \item \textbf{\texttt{sent\_emails (id INTEGER PK, fingerprint TEXT UNIQUE, recipient, subject, provider\_id, sent\_at)}}: Audit ledger preventing duplicate message transmission.
+\end{itemize}
+
+\subsection{Local Workbook Mode (\texttt{.xlsx})}
+Using the browser's File System Access API, the app establishes direct two-way binding with a local Excel file containing 10 auditable sheets: \texttt{Contacts}, \texttt{Companies}, \texttt{Enrichment}, \texttt{Campaigns}, \texttt{Activities}, \texttt{Approvals}, \texttt{Events}, \texttt{Settings}, \texttt{Runs}, and \texttt{Metadata}. Provider API keys are never committed to the workbook.
+
+\section{State Schema \& Memory Management}
+
+\subsection{\texttt{BDRState} Schema Definition (\texttt{agents/state.py})}
+\begin{lstlisting}[language=Python]
+from typing import TypedDict, List, Dict, Any, Annotated
+import operator
+
+class BDRState(TypedDict):
+    icp_definition: Dict[str, Any]             # Target industries, employee size, geography
+    accounts: List[Dict[str, Any]]             # Identified target accounts
+    contacts: List[Dict[str, Any]]             # Target buying committee contacts
+    sequences: Dict[str, Any]                  # Active campaigns & outreach copy
+    email_outbox: List[Dict[str, Any]]         # Dispatched emails audit log
+    linkedin_actions: List[Dict[str, Any]]     # Dispatched social touches audit log
+    intent_scores: Dict[str, int]              # Calculated engagement intent scores
+    qualification_status: Dict[str, Dict]      # BANT qualification results
+    crm_records: Dict[str, Any]                # Mirrored HubSpot records (deals, meetings)
+    human_approval_queue: List[Dict[str, Any]] # Human-in-the-loop intercept queue
+    metrics: Dict[str, Any]                    # Operational telemetry metrics
+    logs: Annotated[List[str], operator.add]   # Monotonic append-only log stream
+    current_agent: str                         # Active executing agent
+\end{lstlisting}
+
+\subsection{LangGraph Checkpointing \& Human-in-the-Loop Interception}
+The workflow is compiled using \texttt{SqliteSaver} (persisted to \texttt{.prototype-data/langgraph.sqlite}) or \texttt{MemorySaver}:
+\begin{lstlisting}[language=Python]
+compiled_graph = builder.compile(
+    checkpointer=memory,
+    interrupt_before=[
+        "campaign_launch",      # Intercept high-value outreach email copy
+        "linkedin_engagement",  # Intercept personalized LinkedIn notes
+        "crm_intelligence"      # Intercept meeting logs and deal values
+    ]
+)
+\end{lstlisting}
+When execution hits an interrupted node, state is snapshotted under \texttt{thread\_id}. The user inspects the queue via CLI or Web UI, mutates the state via \texttt{graph.update\_state(config, ...)}, and calls \texttt{graph.invoke(None, config)} to resume.
+
+\section{LLM Configurations \& Prompt Engineering}
+
+The platform standardizes on \textbf{OpenAI \texttt{gpt-4o-mini}} configured with \texttt{temperature=0.2} and \texttt{response\_format=\{"type": "json\_object"\}} for deterministic, structured reasoning.
+
+\subsection{Core Agent Prompt Templates}
+
+\cardbox{1. Personalization Agent (\texttt{agents/campaign\_agents.py})}{
+\textbf{System Prompt}: \textit{You are an expert outbound BDR specializing in sales development for SaaS enterprise platforms. Generate a short, direct, highly personalized email outreach copy (1-2 paragraphs max, no generic fluff).}\\
+\textbf{User Prompt Inputs}: Prospect Name, Title, Company Name, Trigger Event, AI Initiatives, Recent LinkedIn Post Snippet, Base Template.\\
+\textbf{Output Contract}: \texttt{\{"subject": "...", "body": "..."\}}
+}
+
+\cardbox{2. Qualification Agent (\texttt{agents/qualification\_agents.py})}{
+\textbf{System Prompt}: \textit{You are an expert sales qualifier. Evaluate the prospect's reply and details against the BANT (Budget, Authority, Need, Timeline) framework. Summarize your evaluation and output a qualification status.}\\
+\textbf{User Prompt Inputs}: Prospect Full Name, Title, Company, Received Reply Text, Company Tech Stack, Trigger Signals.\\
+\textbf{Output Contract}: \texttt{\{"budget": str, "authority": str, "need": str, "timeline": str, "is\_qualified": bool, "evaluation\_summary": str\}}
+}
+
+\cardbox{3. AI Research Enrichment Route (\texttt{server.py} \texttt{/api/ai/enrich})}{
+\textbf{System Prompt}: \textit{You are a careful B2B research assistant.}\\
+\textbf{Instructions}: \textit{Return one profile per input contact using requested fields. Use only supplied facts and cautious inferences. Never invent phone numbers, emails, URLs, employers, events, or specific claims. Mark inferred values and leave unknown fields empty. Return JSON only.}
+}
+
+\section{Client Invocation \& RPC Execution Flow}
+
+\subsection{\texttt{main.py} Execution Engine}
+\begin{enumerate}
+    \item \textbf{Initialization}: Compiles LangGraph instance and binds a unique execution session \texttt{thread\_id} (\texttt{"bdr-<uuid>"}).
+    \item \textbf{First Run / Resume}: Invokes \texttt{graph.invoke(initial\_state, config)} on cold launch, or \texttt{graph.invoke(None, config)} when resuming from an approval breakpoint.
+    \item \textbf{Interrupt Handling}: If \texttt{state\_snapshot.next} hits a breakpoint node, execution yields control to \texttt{cli.dashboard.render\_dashboard(state)}.
+    \item \textbf{Approval Processing}: Operators approve, reject, or edit content. \texttt{update\_current\_state()} commits approved items back into the checkpointer before the next cycle resumes.
+\end{enumerate}
+
+\subsection{Client-to-Server RPC Sequence}
+\begin{lstlisting}[language=bash]
+[Web Console / CLI Client]
+           |
+           |  POST /api/google/gmail/send
+           |  Body: { "to": "...", "subject": "...", "body": "...", "approved": true }
+           v
+[ProxyHTTPRequestHandler (server.py)]
+           |
+           +-- 1. Read 'gtm_session' cookie & decrypt OAuth tokens via Fernet
+           +-- 2. Auto-refresh Google access token if within 60s of expiration
+           +-- 3. Execute check_send_guardrails() (Deduplication & rate limit check)
+           +-- 4. Make HTTP RPC to Gmail API (https://gmail.googleapis.com/v1/...)
+           +-- 5. Write SHA-256 fingerprint into sent_emails table in gtm.sqlite3
+           \-- 6. Return HTTP 200 { "id": "msg_xxx", "status": "sent" }
+\end{lstlisting}
+
+\section{Test Verification Suite}
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\begin{tabularx}{\textwidth}{l p{3.5cm} X}
+\toprule
+\textbf{Test Target} & \textbf{Script Path} & \textbf{Validation Assertions} \\
+\midrule
+Multi-Agent Graph & \texttt{tests/test\_workflow.py} & Asserts deterministic execution across all 12 nodes, data propagation in \texttt{BDRState}, and breakpoint halts. \\
+Server \& Guardrails & \texttt{tests/test\_server.py} & Verifies Google OAuth flow, Fernet token cipher, SHA-256 deduplication, daily send limits, and AI proxies. \\
+Frontend Contract & \texttt{tests/test\_frontend\_contract.py} & Asserts alignment between UI requirements, local workbook columns, and REST payloads. \\
+Smoke Verification & \texttt{scripts/verify\_prototype.py} & Executes full end-to-end headless run of the GTM pipeline. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}

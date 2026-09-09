@@ -1,141 +1,19 @@
-<!-- ═══ OMNICHANNEL OUTBOUND HERO HEADER BANNER ═══ -->
-<div class="card" style="padding: 1.75rem 2rem; margin-bottom: 1.75rem; background: linear-gradient(135deg, #141414 0%, #1a1a1e 100%); border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <div style="width: 48px; height: 48px; border-radius: 14px; background: #1f1f23; color: #e4e4e7; display: flex; align-items: center; justify-content: center; border: 1px solid #3f3f46;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-      </div>
-      <div>
-        <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc;">Omnichannel Outbound Cadence Builder</h2>
-        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: #a1a1aa;">4-Step Automated Outreach Sequence (Email, LinkedIn, Phone) synced to Lemlist &amp; Gmail</p>
-      </div>
-    </div>
-    <div style="display: flex; gap: 0.625rem; flex-wrap: wrap;">
-      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px; background: #27272a; border-color: #3f3f46; color: #f8fafc;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-        Autonomous Agent Mode
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="addSequenceStep()" style="font-weight: 600;">+ Add Cadence Step</button>
-      <button class="btn btn-secondary btn-sm" onclick="syncOutboundToLemlist()" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        Lemlist Sync
-      </button>
-      <button class="btn btn-primary btn-sm" onclick="runOutboundCadenceBatch()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        Launch Batch Cadence
-      </button>
-    </div>
-  </div>
-
-  <!-- Visual Connected Sequence Step Timeline Canvas -->
-  <div style="position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-top: 1rem;" id="sequence-timeline-grid">
-    
-    <!-- Step 1 Card -->
-    <div style="background: #1f1f23; border: 2px solid #3f3f46; border-radius: 16px; padding: 1.1rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
-        <span class="badge" style="background: #27272a; color: #e4e4e7; border-color: #3f3f46; font-weight: 700;">Day 1 · Step 1</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-      </div>
-      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">Initial Cold Email</strong>
-      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Personalized Q3 expansion intro hook.</p>
-      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
-        <span style="color: #34d399; font-weight: 700;">84% Target Open</span>
-        <span style="color: #a1a1aa; font-weight: 600;">Gmail / Lemlist</span>
-      </div>
-    </div>
-
-    <!-- Step 2 Card -->
-    <div style="background: #1f1f23; border: 1.5px solid #27272a; border-radius: 16px; padding: 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
-        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); font-weight: 700;">Day 3 · Step 2</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-      </div>
-      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">LinkedIn Profile &amp; Note</strong>
-      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Soft connection request referencing email.</p>
-      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
-        <span style="color: #a1a1aa; font-weight: 600;">Auto-Trigger</span>
-        <span style="color: #38bdf8; font-weight: 600;">LinkedIn InMail</span>
-      </div>
-    </div>
-
-    <!-- Step 3 Card -->
-    <div style="background: #1f1f23; border: 1.5px solid #27272a; border-radius: 16px; padding: 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
-        <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); font-weight: 700;">Day 5 · Step 3</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-      </div>
-      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">Follow-Up Case Study</strong>
-      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Credit Union ROI Benchmark PDF.</p>
-      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
-        <span style="color: #a1a1aa; font-weight: 600;">Threaded Reply</span>
-        <span style="color: #e4e4e7; font-weight: 600;">Lemlist Outbox</span>
-      </div>
-    </div>
-
-    <!-- Step 4 Card -->
-    <div style="background: #1f1f23; border: 1.5px solid #27272a; border-radius: 16px; padding: 1.1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem;">
-        <span class="badge" style="background: #27272a; color: #d4d4d8; border-color: #3f3f46; font-weight: 700;">Day 8 · Step 4</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-      </div>
-      <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 4px;">SDR Voice Call Task</strong>
-      <p style="font-size: 12px; color: #a1a1aa; margin: 0 0 10px 0; line-height: 1.4;">Phone prompt if intent score &gt; 75.</p>
-      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; border-top: 1px solid #27272a; padding-top: 8px;">
-        <span style="color: #a1a1aa; font-weight: 600;">Task Queue</span>
-        <span style="color: #e4e4e7; font-weight: 600;">Twilio / Web Dialer</span>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ═══ REAL-TIME EMAIL DELIVERABILITY & SPAM SCORE AUDITOR ═══ -->
-<div class="card" style="padding: 1.5rem 1.75rem; margin-bottom: 1.75rem; background: #141414; border: 1px solid #27272a; border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); color: #34d399; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(16, 185, 129, 0.3);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-      </div>
-      <div>
-        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Deliverability &amp; Spam Score Auditor</h3>
-        <p style="margin: 0; font-size: 12px; color: #a1a1aa;">Real-time email copy risk scanner &amp; DNS health check</p>
-      </div>
-    </div>
-    <div style="display: flex; gap: 0.75rem; font-size: 12px; font-weight: 700;">
-      <span class="badge badge-success">SPF: PASS ✓</span>
-      <span class="badge badge-success">DKIM: PASS ✓</span>
-      <span class="badge badge-success">DMARC: REJECT Policy ✓</span>
-    </div>
-  </div>
-
-  <div style="display: flex; gap: 1.25rem; flex-wrap: wrap;">
-    <div style="flex: 1; min-width: 300px;">
-      <textarea id="spam-audit-input" oninput="runSpamAuditorCheck(this.value)" rows="3" class="form-input" style="width: 100%; font-size: 13px; line-height: 1.5; resize: vertical;" placeholder="Type or paste draft copy here to run real-time deliverability audit..."></textarea>
-    </div>
-    <div style="width: 320px; background: #1f1f23; border: 1px solid #27272a; border-radius: 14px; padding: 1rem; display: flex; flex-direction: column; justify-content: space-between; font-size: 12.5px;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-        <span style="color: #a1a1aa;">Spam Risk Rating:</span>
-        <strong id="spam-score-val" style="color: #34d399;">0.2 / 10 (Clean)</strong>
-      </div>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-        <span style="color: #a1a1aa;">Readability Score:</span>
-        <strong id="spam-readability-val" style="color: #f8fafc;">Grade 7 (Optimal)</strong>
-      </div>
-      <div style="display: flex; justify-content: space-between;">
-        <span style="color: #a1a1aa;">Detected Trigger Risks:</span>
-        <span id="spam-risks-val" style="color: #a1a1aa; font-weight: 600;">None detected</span>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ═══ PROSPECTS & OUTBOUND TABLE ═══ -->
-<div class="card" style="padding: 1.5rem 1.75rem; background: #141414; border: 1px solid #27272a; border-radius: 20px;">
+<div class="card" style="padding: 1.25rem 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;">
   <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
     <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
       <button class="btn btn-primary btn-sm" id="outbound-subtab-prospects" onclick="switchOutboundSubtab('prospects')">Prospect List</button>
       <button class="btn btn-secondary btn-sm" id="outbound-subtab-influencers" onclick="switchOutboundSubtab('influencers')">Influencers</button>
-      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px; background: #1f1f23; border-color: #3f3f46; color: #f8fafc; font-weight: 600;">
+      <button class="btn btn-secondary btn-sm" id="outbound-subtab-schedule" onclick="switchOutboundSubtab('schedule')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px;">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        Schedule
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         Autonomous Agent Control Center
       </button>
@@ -146,24 +24,62 @@
     </div>
   </div>
 
-  <div style="overflow-x: auto;">
-    <table class="data-table" id="table-campaign-outbound">
-      <thead>
-        <tr>
-          <th>Contact Name</th>
-          <th>Job Title</th>
-          <th>Lead Status</th>
-          <th>Email Outbound</th>
-          <th>LinkedIn Outbound</th>
-          <th>Voice Call</th>
-          <th style="text-align: right;">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="table-campaign-outbound-body">
-        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: #52525b;">No contacts loaded. Discover contacts or upload workbook first.</td></tr>
-      </tbody>
-    </table>
+  <!-- PROSPECTS & INFLUENCERS TABLE VIEW -->
+  <div id="outbound-table-container">
+    <div style="overflow-x: auto;">
+      <table class="data-table" id="table-campaign-outbound">
+        <thead>
+          <tr>
+            <th>Contact Name</th>
+            <th>Job Title</th>
+            <th>Lead Status</th>
+            <th>Email Outbound</th>
+            <th>LinkedIn Outbound</th>
+            <th>Voice Call</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-campaign-outbound-body">
+          <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No contacts loaded. Discover contacts or upload workbook first.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination-bar" id="outbound-pagination" style="padding: 1rem 0 0 0; margin-top: 0.5rem; border-top: 1px solid var(--color-border);"></div>
   </div>
 
-  <div class="pagination-bar" id="outbound-pagination" style="padding: 1rem 0 0 0; margin-top: 0.5rem; border-top: 1px solid #27272a;"></div>
+  <!-- SCHEDULE VIEW (Hidden by default, shown when Schedule subtab is active) -->
+  <div id="outbound-schedule-container" style="display: none;">
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; min-height: 500px;">
+      <div class="card" style="margin: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+          <h3 id="calendar-month-year" style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">July 2026</h3>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(-1)">Previous</button>
+            <button class="btn btn-secondary btn-sm" onclick="changeCalendarMonth(1)">Next</button>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-secondary); margin-bottom: 0.5rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.25rem;">
+          <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
+        </div>
+        
+        <div id="calendar-days-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem;">
+          <!-- Days populated dynamically by renderCalendar() -->
+        </div>
+      </div>
+
+      <div class="card" style="margin: 0; display: flex; flex-direction: column;">
+        <div style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--color-border);">
+          <h3 id="selected-date-title" style="font-family: var(--font-family-heading); font-size: var(--font-size-base); font-weight: 700; margin: 0;">No Date Selected</h3>
+          <p id="selected-date-subtitle" style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0.25rem 0 0 0;">
+            Select a highlighted date to view briefings.
+          </p>
+        </div>
+        <div id="selected-date-meetings-list" style="flex: 1; overflow-y: auto;">
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-disabled); text-align: center; padding: 3rem 0;">Select a date on the calendar grid to inspect briefing details.</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

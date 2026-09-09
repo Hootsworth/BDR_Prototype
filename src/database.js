@@ -50,8 +50,8 @@ let database = {
   autoEnrich: false,
   simulationMode: true,
   workbookMode: false,
-  localWorkbookHandle: null,
   workbookName: "",
+  workbookPath: "",
   localWorkbookLastSaved: "",
   approvals: [],
   workflowRuns: []
@@ -59,8 +59,8 @@ let database = {
 window.database = database;
 
 function saveDatabaseCache() {
-  if (database.workbookMode && database.localWorkbookHandle && typeof saveLocalWorkbook === "function") {
-    saveLocalWorkbook().catch(error => addLogConsole("enrich", `[LOCAL WORKBOOK ERROR] ${error.message}`, "error"));
+  if (database.workbookMode && typeof saveWorkbookToServer === "function") {
+    saveWorkbookToServer().catch(error => addLogConsole("enrich", `[LOCAL WORKBOOK ERROR] ${error.message}`, "error"));
     return;
   }
   const stateSnapshot = {

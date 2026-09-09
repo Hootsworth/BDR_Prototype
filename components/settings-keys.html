@@ -19,15 +19,14 @@
     <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
       <div>
         <h3 class="section-title" style="border:0; margin:0; padding:0;">Local workbook mode</h3>
-        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0.35rem 0 0;">Keep contacts, enrichment, campaigns, approvals, activity, and runs in an on-device Excel workbook.</p>
+        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0.35rem 0 0;">Contacts, enrichment, campaigns, approvals, activity, and runs are kept in gtm-console-database.xlsx and auto-managed by the local server &mdash; no file picker needed.</p>
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-        <button class="btn btn-primary btn-sm" onclick="openWorkbookFromSettings()">Open .xlsx</button>
-        <button class="btn btn-secondary btn-sm" onclick="saveWorkbookAsFromSettings()">Save as .xlsx</button>
+        <button class="btn btn-secondary btn-sm" onclick="saveWorkbookNowFromSettings()">Save now</button>
         <button class="btn btn-secondary btn-sm" onclick="exportWorkbookFromSettings()">Export copy</button>
       </div>
     </div>
-    <div id="local-workbook-status" style="margin-top:0.75rem; font-size:var(--font-size-xs); color:var(--color-text-secondary);">No workbook open. Browser cache remains the fallback.</div>
+    <div id="local-workbook-status" style="margin-top:0.75rem; font-size:var(--font-size-xs); color:var(--color-text-secondary);">Connecting to the local workbook&hellip;</div>
   </div>
 
   <!-- SETTINGS FULL-SCREEN GRID (SETTINGS SIDEBAR + MAIN CONTENT AREA) -->

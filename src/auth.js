@@ -192,9 +192,9 @@ function openQuickAccountPickerModal() {
     modal = document.createElement("div");
     modal.id = "quick-account-picker-modal";
     modal.className = "modal-overlay";
-    modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
+    modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
     modal.innerHTML = `
-      <div class="modal-container" style="width: 100%; max-width: 440px; background: #ffffff; color: #0f172a; border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid #cbd5e1;">
+      <div class="modal-container" style="width: 100%; max-width: 440px; background: #ffffff; color: #0f172a; border-radius: var(--radius-sm); padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #cbd5e1;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -203,7 +203,7 @@ function openQuickAccountPickerModal() {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
             </svg>
-            <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Choose an Account</h3>
+            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Choose an Account</h3>
           </div>
           <button class="btn btn-secondary btn-sm" onclick="closeQuickAccountPickerModal()" style="padding: 2px 8px; font-weight: 600;">✕</button>
         </div>
@@ -213,8 +213,8 @@ function openQuickAccountPickerModal() {
         </p>
 
         <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem;">
-          <div onclick="selectGoogleAccount('Aditya Dixit', 'aditya.dixit@gtmconsole.com')" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: #ffffff; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
-            <div style="width: 36px; height: 36px; border-radius: 50%; background: #4285F4; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">AD</div>
+          <div onclick="selectGoogleAccount('Aditya Dixit', 'aditya.dixit@gtmconsole.com')" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); cursor: pointer; background: #ffffff; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+            <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: #4285F4; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;">AD</div>
             <div style="flex: 1;">
               <strong style="font-size: 13px; color: #0f172a; display: block;">Aditya Dixit</strong>
               <span style="font-size: 11.5px; color: #64748b;">aditya.dixit@gtmconsole.com</span>
@@ -222,8 +222,8 @@ function openQuickAccountPickerModal() {
             <span style="font-size: 11px; color: #16a34a; font-weight: 600;">Active Session</span>
           </div>
 
-          <div onclick="selectGoogleAccount('GTM Admin Operator', 'admin@gtmconsole.com')" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; background: #ffffff; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
-            <div style="width: 36px; height: 36px; border-radius: 50%; background: #34A853; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">GO</div>
+          <div onclick="selectGoogleAccount('GTM Admin Operator', 'admin@gtmconsole.com')" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); cursor: pointer; background: #ffffff; transition: background 0.15s ease;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+            <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: #34A853; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;">GO</div>
             <div style="flex: 1;">
               <strong style="font-size: 13px; color: #0f172a; display: block;">GTM Admin Operator</strong>
               <span style="font-size: 11.5px; color: #64748b;">admin@gtmconsole.com</span>
@@ -272,15 +272,15 @@ function openLocalAuthModal() {
     modal = document.createElement("div");
     modal.id = "local-auth-modal";
     modal.className = "modal-overlay";
-    modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
+    modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
     modal.innerHTML = `
-      <div class="modal-container" style="width: 100%; max-width: 480px; background: #ffffff; color: #0f172a; border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.3); border: 1px solid #cbd5e1;">
+      <div class="modal-container" style="width: 100%; max-width: 480px; background: #ffffff; color: #0f172a; border-radius: var(--radius-sm); padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #cbd5e1;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">Sign In / Account Session Profile</h3>
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Sign In / Account Session Profile</h3>
           <button class="btn btn-secondary btn-sm" onclick="closeLocalAuthModal()" style="padding: 2px 8px; font-weight: 600;">✕</button>
         </div>
 
-        <button class="btn" onclick="closeLocalAuthModal(); triggerGoogleSignIn();" style="width: 100%; margin-bottom: 1.25rem; padding: 0.65rem 1rem; font-size: 13.5px; font-weight: 700; background: #ffffff; color: #1f2937; border: 1.5px solid #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 0.625rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer;">
+        <button class="btn" onclick="closeLocalAuthModal(); triggerGoogleSignIn();" style="width: 100%; margin-bottom: 1.25rem; padding: 0.65rem 1rem; font-size: 13.5px; font-weight: 600; background: #ffffff; color: #1f2937; border: 1px solid #cbd5e1; border-radius: var(--radius-xs); display: flex; align-items: center; justify-content: center; gap: 0.625rem; box-shadow: none; cursor: pointer;">
           <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

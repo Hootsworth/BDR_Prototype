@@ -8,6 +8,17 @@ import secrets
 import urllib.parse
 import sqlite3
 import random
+import subprocess
+import zipfile
+import io
+import shutil
+import threading
+try:
+    import openpyxl
+    HAS_OPENPYXL = True
+except ImportError:
+    openpyxl = None
+    HAS_OPENPYXL = False
 try:
     from cryptography.fernet import Fernet, InvalidToken
     HAS_CRYPTOGRAPHY = True
@@ -17,6 +28,19 @@ except ImportError:
     HAS_CRYPTOGRAPHY = False
 
 PORT = 8001
+GITHUB_REPO = "Hootsworth/BDR_Prototype"
+GITHUB_COMMITS_API = f"https://api.github.com/repos/{GITHUB_REPO}/commits/main"
+GITHUB_ZIPBALL_URL = f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip"
+
+def safe_urlopen(request, timeout=30):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.URLError as ex:
+        if "CERTIFICATE_VERIFY_FAILED" in str(ex):
+            import ssl
+            ctx = ssl._create_unverified_context()
+            return urllib.request.urlopen(request, timeout=timeout, context=ctx)
+        raise
 
 def load_local_env():
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -48,6 +72,12 @@ google_sessions = {}
 google_oauth_states = {}
 DATA_DIR = os.environ.get('PROTOTYPE_DATA_DIR', '/tmp/gtm-data' if os.environ.get('VERCEL') else os.path.join(os.path.dirname(os.path.abspath(__file__)), '.prototype-data'))
 DB_PATH = os.path.join(DATA_DIR, 'gtm.sqlite3')
+WORKBOOK_PATH = os.environ.get('GTM_WORKBOOK_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx'))
+WORKBOOK_SHEETS = [
+    'Contacts', 'Companies', 'Enrichment', 'Campaigns', 'Activities',
+    'Approvals', 'Events', 'Settings', 'Runs', 'Metadata'
+]
+workbook_lock = threading.Lock()
 
 def token_cipher():
     key = os.environ.get('TOKEN_ENCRYPTION_KEY')
@@ -98,6 +128,249 @@ def read_state(key):
     with db() as connection:
         row = connection.execute('SELECT value FROM app_state WHERE key = ?', (key,)).fetchone()
         return json.loads(row['value']) if row else None
+
+def default_workbook_state():
+    return {
+        'contacts': [], 'events': {}, 'stats': {'emailsSent': 0, 'linkedinSent': 0, 'callsMade': 0, 'enrichedCount': 0},
+        'meetings': [], 'approvals': [], 'workflowRuns': [], 'currentOutboundSubtab': 'prospects', 'autoEnrich': False
+    }
+
+def _maybe_json(value):
+    if isinstance(value, str):
+        text = value.strip()
+        if (text.startswith('{') and text.endswith('}')) or (text.startswith('[') and text.endswith(']')):
+            try:
+                return json.loads(text)
+            except ValueError:
+                return value
+    return value
+
+def sheet_records(worksheet):
+    if worksheet is None:
+        return []
+    rows = worksheet.iter_rows(values_only=True)
+    try:
+        headers = next(rows)
+    except StopIteration:
+        return []
+    records = []
+    for row in rows:
+        if row is None or all(cell is None for cell in row):
+            continue
+        record = {}
+        for key, value in zip(headers, row):
+            if key is None:
+                continue
+            record[key] = _maybe_json('' if value is None else value)
+        records.append(record)
+    return records
+
+def contact_for_workbook_record(contacts_by_id, contacts_by_email, record):
+    contact_id = record.get('contactId')
+    if contact_id is not None and str(contact_id) in contacts_by_id:
+        return contacts_by_id[str(contact_id)]
+    email = record.get('email')
+    if email:
+        return contacts_by_email.get(email)
+    return None
+
+def read_workbook_state():
+    json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
+    if not os.path.exists(WORKBOOK_PATH):
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return default_workbook_state()
+
+    if not HAS_OPENPYXL or openpyxl is None:
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return default_workbook_state()
+
+    with workbook_lock:
+        workbook = openpyxl.load_workbook(WORKBOOK_PATH, data_only=True)
+
+    sheets = {name: (workbook[name] if name in workbook.sheetnames else None) for name in WORKBOOK_SHEETS}
+    contacts = sheet_records(sheets['Contacts'])
+    contacts_by_id = {str(c['id']): c for c in contacts if c.get('id') is not None}
+    contacts_by_email = {c['email']: c for c in contacts if c.get('email')}
+
+    for enrichment in sheet_records(sheets['Enrichment']):
+        contact = contact_for_workbook_record(contacts_by_id, contacts_by_email, enrichment)
+        if not contact:
+            continue
+        contact.update({
+            'enriched': enrichment.get('enriched'),
+            'enrichmentStatus': enrichment.get('enrichmentStatus'),
+            'enrichmentSources': enrichment.get('enrichmentSources'),
+            'enrichmentFields': enrichment.get('enrichmentFields'),
+            'aiEnrichment': enrichment.get('aiEnrichment'),
+            'enrichedAt': enrichment.get('enrichedAt')
+        })
+
+    for campaign in sheet_records(sheets['Campaigns']):
+        contact = contact_for_workbook_record(contacts_by_id, contacts_by_email, campaign)
+        if contact:
+            contact.update(campaign)
+
+    for activity in sheet_records(sheets['Activities']):
+        contact = contact_for_workbook_record(contacts_by_id, contacts_by_email, activity)
+        if contact and activity.get('type') == 'gmail_reply':
+            contact.setdefault('replyHistory', [])
+            if not any(r.get('messageId') == activity.get('messageId') for r in contact['replyHistory']):
+                contact['replyHistory'].append(activity)
+
+    events = {}
+    for row in sheet_records(sheets['Events']):
+        event_name = row.pop('eventName', None)
+        if not event_name:
+            continue
+        events.setdefault(event_name, []).append(row)
+
+    settings_values = {}
+    for row in sheet_records(sheets['Settings']):
+        key = row.get('key')
+        if not key:
+            continue
+        raw_value = row.get('value')
+        try:
+            settings_values[key] = json.loads(raw_value) if isinstance(raw_value, str) else raw_value
+        except ValueError:
+            settings_values[key] = raw_value
+
+    state = default_workbook_state()
+    state['contacts'] = contacts
+    state['approvals'] = sheet_records(sheets['Approvals'])
+    state['workflowRuns'] = sheet_records(sheets['Runs'])
+    if events:
+        state['events'] = events
+    if 'stats' in settings_values:
+        state['stats'] = settings_values['stats']
+    if 'meetings' in settings_values:
+        state['meetings'] = settings_values['meetings']
+    if 'currentOutboundSubtab' in settings_values:
+        state['currentOutboundSubtab'] = settings_values['currentOutboundSubtab']
+    if 'autoEnrich' in settings_values:
+        state['autoEnrich'] = bool(settings_values['autoEnrich'])
+    return state
+
+def workbook_rows_for(records):
+    rows = []
+    for record in records or []:
+        row = {}
+        for key, value in record.items():
+            row[key] = json.dumps(value) if isinstance(value, (dict, list)) else value
+        rows.append(row)
+    return rows
+
+def build_workbook_snapshot(state):
+    contacts = state.get('contacts') or []
+
+    companies_seen = {}
+    for contact in contacts:
+        company = contact.get('company')
+        if not company or company in companies_seen:
+            continue
+        companies_seen[company] = {
+            'company': company,
+            'industry': contact.get('industry', ''),
+            'contacts': sum(1 for c in contacts if c.get('company') == company)
+        }
+
+    enrichment = [{
+        'contactId': c.get('id'), 'email': c.get('email'),
+        'enriched': bool(c.get('enriched')), 'enrichmentStatus': c.get('enrichmentStatus', ''),
+        'enrichmentSources': c.get('enrichmentSources') or [], 'enrichmentFields': c.get('enrichmentFields') or [],
+        'aiEnrichment': c.get('aiEnrichment') or {}, 'enrichedAt': c.get('enrichedAt', '')
+    } for c in contacts if c.get('aiEnrichment') or c.get('enrichmentStatus') or c.get('enriched')]
+
+    campaigns = [{
+        'contactId': c.get('id'), 'email': c.get('email'),
+        'emailDraft': c.get('emailDraft') or {}, 'emailsSent': bool(c.get('emailsSent')),
+        'emailSentAt': c.get('emailSentAt', ''), 'emailProviderId': c.get('emailProviderId', ''),
+        'linkedinDraft': c.get('linkedinDraft'), 'linkedinSent': bool(c.get('linkedinSent')),
+        'callsMade': c.get('callsMade') or []
+    } for c in contacts if c.get('emailDraft') or c.get('emailsSent') or c.get('linkedinDraft') or c.get('linkedinSent') or c.get('callsMade')]
+
+    activities = []
+    for c in contacts:
+        for reply in (c.get('replyHistory') or []):
+            activities.append({'contactId': c.get('id'), 'email': c.get('email'), 'type': 'gmail_reply', **reply})
+
+    events_rows = []
+    for event_name, attendees in (state.get('events') or {}).items():
+        for attendee in (attendees or []):
+            events_rows.append({'eventName': event_name, **attendee})
+
+    settings_rows = [
+        {'key': 'events', 'value': json.dumps(state.get('events') or {})},
+        {'key': 'stats', 'value': json.dumps(state.get('stats') or {})},
+        {'key': 'meetings', 'value': json.dumps(state.get('meetings') or [])},
+        {'key': 'currentOutboundSubtab', 'value': json.dumps(state.get('currentOutboundSubtab') or 'prospects')},
+        {'key': 'autoEnrich', 'value': json.dumps(bool(state.get('autoEnrich')))},
+        {'key': 'savedAt', 'value': json.dumps(time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))}
+    ]
+
+    return {
+        'Contacts': contacts,
+        'Companies': list(companies_seen.values()),
+        'Enrichment': enrichment,
+        'Campaigns': campaigns,
+        'Activities': activities,
+        'Approvals': state.get('approvals') or [],
+        'Events': events_rows,
+        'Settings': settings_rows,
+        'Runs': state.get('workflowRuns') or [],
+        'Metadata': [{'schema': 'gtm-console-workbook-v2', 'exportedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}]
+    }
+
+def write_workbook_state(state):
+    json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
+    if not HAS_OPENPYXL or openpyxl is None:
+        with workbook_lock:
+            os.makedirs(os.path.dirname(WORKBOOK_PATH) or '.', exist_ok=True)
+            tmp_json = json_path + '.tmp'
+            with open(tmp_json, 'w', encoding='utf-8') as f:
+                json.dump(state, f, indent=2)
+            os.replace(tmp_json, json_path)
+        return
+
+    snapshot = build_workbook_snapshot(state)
+    workbook = openpyxl.Workbook()
+    workbook.remove(workbook.active)
+
+    for name in WORKBOOK_SHEETS:
+        sheet = workbook.create_sheet(title=name)
+        rows = workbook_rows_for(snapshot.get(name) or [])
+        headers = []
+        for row in rows:
+            for key in row.keys():
+                if key not in headers:
+                    headers.append(key)
+        if headers:
+            sheet.append(headers)
+            for row in rows:
+                sheet.append([row.get(header, '') for header in headers])
+
+    with workbook_lock:
+        os.makedirs(os.path.dirname(WORKBOOK_PATH) or '.', exist_ok=True)
+        tmp_path = WORKBOOK_PATH + '.tmp'
+        workbook.save(tmp_path)
+        os.replace(tmp_path, WORKBOOK_PATH)
+        # Also write JSON snapshot for quick reference and backup
+        try:
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(state, f, indent=2)
+        except Exception:
+            pass
+
 
 def persist_google_connection(session):
     with db() as connection:
@@ -193,7 +466,7 @@ def request_with_retry(url, data, headers, method, attempts=3):
     for attempt in range(attempts):
         try:
             request = urllib.request.Request(url, data=data, headers=headers, method=method)
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with safe_urlopen(request, timeout=30) as response:
                 raw = response.read().decode('utf-8')
                 return response.status, json.loads(raw) if raw else {}
         except urllib.error.HTTPError as ex:
@@ -235,6 +508,128 @@ def gmail_request(session, resource, payload, send=False):
         request_body = {'message': {'raw': raw}}
     return google_api('POST', url, session['access_token'], request_body)[1]
 
+def get_local_version_info():
+    version_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'version.json')
+    local_sha = ""
+    version_name = "1.0.0"
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                local_sha = data.get('commit', '')
+                version_name = data.get('version', '1.0.0')
+        except Exception:
+            pass
+    if not local_sha:
+        try:
+            local_sha = subprocess.check_output(
+                ['git', 'rev-parse', 'HEAD'],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                stderr=subprocess.DEVNULL
+            ).decode('utf-8').strip()
+        except Exception:
+            local_sha = "unknown"
+    return {"sha": local_sha, "version": version_name}
+
+def check_for_updates():
+    local_info = get_local_version_info()
+    local_sha = local_info.get("sha", "")
+    req = urllib.request.Request(
+        GITHUB_COMMITS_API,
+        headers={"User-Agent": "GTM-Console-App", "Accept": "application/vnd.github.v3+json"}
+    )
+    try:
+        with safe_urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                remote_sha = data.get("sha", "")
+                commit_info = data.get("commit", {})
+                commit_msg = commit_info.get("message", "").split("\n")[0]
+                commit_author = commit_info.get("author", {}).get("name", "")
+                commit_date = commit_info.get("author", {}).get("date", "")
+                
+                is_update_available = bool(
+                    remote_sha and local_sha and local_sha != "unknown" and local_sha != remote_sha
+                )
+                
+                return {
+                    "update_available": is_update_available,
+                    "current_commit": local_sha[:7] if local_sha != "unknown" else "v1.0.0",
+                    "latest_commit": remote_sha[:7] if remote_sha else "",
+                    "commit_message": commit_msg,
+                    "author": commit_author,
+                    "date": commit_date,
+                    "repo_url": f"https://github.com/{GITHUB_REPO}"
+                }
+    except Exception as ex:
+        return {
+            "update_available": False,
+            "error": str(ex),
+            "current_commit": local_info.get("sha", "")[:7]
+        }
+    return {"update_available": False, "current_commit": local_info.get("sha", "")[:7]}
+
+def apply_system_update():
+    app_root = os.path.dirname(os.path.abspath(__file__))
+    has_git = os.path.isdir(os.path.join(app_root, '.git'))
+    
+    if has_git:
+        try:
+            subprocess.check_call(['git', 'pull', 'origin', 'main'], cwd=app_root, timeout=60)
+            new_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=app_root).decode('utf-8').strip()
+            
+            version_file = os.path.join(app_root, 'version.json')
+            with open(version_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    "version": "1.0.0",
+                    "commit": new_sha,
+                    "updated_at": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                }, f, indent=2)
+                
+            return {"status": "success", "mode": "git", "new_version": new_sha[:7]}
+        except Exception:
+            pass  # Fall through to zipball extraction if git fails
+            
+    req = urllib.request.Request(GITHUB_ZIPBALL_URL, headers={"User-Agent": "GTM-Console-App"})
+    with safe_urlopen(req, timeout=45) as response:
+        zip_bytes = response.read()
+        
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        if not names:
+            raise RuntimeError("Empty archive received from GitHub.")
+        prefix = names[0].split('/')[0] + '/'
+        
+        preserve_paths = {'.env', '.prototype-data', '.venv', 'node_modules', 'gtm.sqlite3'}
+        
+        for member in zf.infolist():
+            if not member.filename.startswith(prefix):
+                continue
+            rel_path = member.filename[len(prefix):]
+            if not rel_path or rel_path.endswith('/'):
+                continue
+                
+            first_segment = rel_path.split('/')[0]
+            if first_segment in preserve_paths or rel_path.endswith('.xlsx') or rel_path.endswith('.sqlite3'):
+                continue
+                
+            target_file = os.path.join(app_root, rel_path)
+            os.makedirs(os.path.dirname(target_file), exist_ok=True)
+            with zf.open(member) as src, open(target_file, 'wb') as dst:
+                shutil.copyfileobj(src, dst)
+                
+    update_info = check_for_updates()
+    latest_sha = update_info.get("latest_commit", "latest")
+    version_file = os.path.join(app_root, 'version.json')
+    with open(version_file, 'w', encoding='utf-8') as f:
+        json.dump({
+            "version": "1.0.0",
+            "commit": latest_sha,
+            "updated_at": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }, f, indent=2)
+        
+    return {"status": "success", "mode": "zipball", "new_version": latest_sha}
+
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         # Same-origin is the normal path; restrict cross-origin calls to local development.
@@ -244,6 +639,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Credentials', 'true')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -358,6 +756,17 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'state': read_state('database') or {}})
             return
 
+        if self.path == '/api/workbook/state':
+            try:
+                json_response(self, 200, {'state': read_workbook_state(), 'path': WORKBOOK_PATH})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not read the workbook: {ex}'})
+            return
+
+        if self.path == '/api/system/update-check':
+            json_response(self, 200, check_for_updates())
+            return
+
         super().do_GET()
 
     def do_POST(self):
@@ -367,6 +776,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             payload = json.loads(post_data.decode('utf-8')) if post_data else {}
         except json.JSONDecodeError:
             json_response(self, 400, {'error': 'Request body must be valid JSON.'})
+            return
+
+        if self.path == '/api/system/update':
+            try:
+                result = apply_system_update()
+                json_response(self, 200, result)
+            except Exception as ex:
+                json_response(self, 500, {'error': f'System update failed: {ex}'})
             return
 
         if self.path.startswith('/api/google/'):
@@ -404,6 +821,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/api/state':
             persist_state('database', payload.get('state', {}))
             json_response(self, 200, {'status': 'saved'})
+            return
+
+        if self.path == '/api/workbook/state':
+            try:
+                write_workbook_state(payload.get('state', {}))
+                json_response(self, 200, {'status': 'saved', 'savedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not save the workbook: {ex}'})
             return
 
         # AI enrichment stays server-side so provider credentials never reach the browser.
@@ -491,7 +916,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             
             req = urllib.request.Request(target_url, data=post_data, headers=headers, method='POST')
             try:
-                with urllib.request.urlopen(req) as response:
+                with safe_urlopen(req, timeout=30) as response:
                     res_data = response.read()
                     self.send_response(response.status)
                     self.send_header('Content-Type', response.headers.get('Content-Type', 'application/json'))

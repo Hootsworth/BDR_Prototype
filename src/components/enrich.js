@@ -57,6 +57,8 @@ async function runAgenticWebDorkingAndScraping(contactsToEnrich) {
 
   addLogConsole("enrich", `[AGENTIC DORKING COMPLETE] Scraped multi-tab dossiers & tech stacks for ${contactsToEnrich.length} contacts.`, "success");
 }
+
+function getApiBaseUrl() {
   if (window.location.hostname.includes("github.io")) {
     return "https://api.explorium.ai";
   }
