@@ -40,6 +40,19 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("Populate default database", main)
         self.assertNotIn("Simulated sandbox databases initialized", dashboard)
 
+    def test_influencer_add_prospect_and_affiliated_referrals(self):
+        outbound = self.read("src/components/outbound.js")
+        dialogs = self.read("components/dialogs.html")
+        influencers = self.read("src/components/influencers.js")
+
+        self.assertIn("openAddProspectForInfluencer", outbound)
+        self.assertIn("openAddProspectForInfluencer", influencers)
+        self.assertIn("+ Add Prospect", outbound)
+        self.assertIn("influencer-affiliated-row", outbound)
+        self.assertIn("outbound-modal-referred-tag", dialogs)
+        self.assertIn("modal-info-referred-by", dialogs)
+        self.assertIn("Add Affiliated Prospect", dialogs)
+
 
 if __name__ == "__main__":
     unittest.main()

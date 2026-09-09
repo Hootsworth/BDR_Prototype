@@ -80,15 +80,29 @@ function handleManualInfluencerSubmit(event) {
   filterImportTable();
 }
 
+function openAddProspectForInfluencer(influencerId) {
+  const influencer = database.contacts.find(c => c.id === influencerId || String(c.id) === String(influencerId) || c.email === influencerId);
+  if (!influencer) return;
+
+  const emailInput = document.getElementById("referral-influencer-email");
+  const idInput = document.getElementById("referral-influencer-id");
+  const targetName = document.getElementById("reward-target-name");
+  
+  if (emailInput) emailInput.value = influencer.email || "";
+  if (idInput) idInput.value = influencer.id || "";
+  if (targetName) targetName.textContent = influencer.fullName;
+  
+  const dialog = document.getElementById("referral-dialog");
+  if (dialog) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.style.display = "block";
+  }
+}
+
 function openAddReferralModal(email) {
   const influencer = database.contacts.find(c => c.email === email);
   if (!influencer) return;
-
-  document.getElementById("referral-influencer-email").value = email;
-  document.getElementById("reward-target-name").textContent = influencer.fullName;
-  
-  const dialog = document.getElementById("referral-dialog");
-  if (dialog) dialog.showModal();
+  openAddProspectForInfluencer(influencer.id);
 }
 
 function closeReferralDialog() {
@@ -99,7 +113,8 @@ function closeReferralDialog() {
 
 function handleReferralSubmit(event) {
   event.preventDefault();
-  const infEmail = document.getElementById("referral-influencer-email").value;
+  const infEmail = document.getElementById("referral-influencer-email")?.value;
+  const infId = document.getElementById("referral-influencer-id")?.value;
   const name = document.getElementById("ref-name").value.trim();
   const title = document.getElementById("ref-title").value.trim();
   const company = document.getElementById("ref-company").value.trim();
@@ -107,9 +122,9 @@ function handleReferralSubmit(event) {
   const phone = document.getElementById("ref-phone").value.trim();
   const credits = parseInt(document.getElementById("ref-credits").value) || 10;
 
-  const influencer = database.contacts.find(c => c.email === infEmail);
+  const influencer = database.contacts.find(c => (infId && String(c.id) === String(infId)) || (infEmail && c.email === infEmail));
   if (!influencer) {
-    alert("Influencer not found.");
+    alert("Influencer partner not found.");
     return;
   }
 
@@ -137,13 +152,15 @@ function handleReferralSubmit(event) {
     emailDraft: null,
     linkedinDraft: null,
     isInfluencer: false,
-    referredBy: influencer.fullName
+    referredBy: influencer.fullName,
+    influencerId: influencer.id
   };
 
   database.contacts.push(newContact);
 
   if (!influencer.referrals) influencer.referrals = [];
   influencer.referrals.push({
+    id: newContact.id,
     fullName: name,
     jobTitle: title,
     company: company,
@@ -155,10 +172,11 @@ function handleReferralSubmit(event) {
 
   saveDatabaseCache();
 
-  addLogConsole("enrich", `[REWARD] Influencer ${influencer.fullName} awarded ${credits} credits for referring ${name} (${company}).`, "success");
+  addLogConsole("enrich", `[AFFILIATED PROSPECT] ${name} (${company}) affiliated with influencer ${influencer.fullName}. Awarded ${credits} partner credits.`, "success");
 
-  filterInfluencersTable();
-  filterImportTable();
+  if (typeof filterInfluencersTable === 'function') filterInfluencersTable();
+  if (typeof filterImportTable === 'function') filterImportTable();
+  if (typeof filterOutboundTable === 'function') filterOutboundTable();
 
   closeReferralDialog();
 }
@@ -212,6 +230,7 @@ window.handleManualInfluencerSubmit = handleManualInfluencerSubmit;
 window.openAddInfluencerModal = openAddInfluencerModal;
 window.closeAddInfluencerModal = closeAddInfluencerModal;
 window.openAddReferralModal = openAddReferralModal;
+window.openAddProspectForInfluencer = openAddProspectForInfluencer;
 window.closeReferralDialog = closeReferralDialog;
 window.handleReferralSubmit = handleReferralSubmit;
 window.viewReferralsDetails = viewReferralsDetails;

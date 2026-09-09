@@ -75,13 +75,14 @@
 <dialog id="referral-dialog" style="border: none; background: transparent; padding: 0;">
   <div class="modal-container" style="max-width: 480px;">
     <div class="modal-header">
-      <h3 style="margin: 0;">Add Referred Contact</h3>
+      <h3 style="margin: 0;">Add Affiliated Prospect</h3>
       <button class="btn btn-secondary btn-sm" onclick="closeReferralDialog()">×</button>
     </div>
     <form id="referral-form" onsubmit="handleReferralSubmit(event)">
       <input type="hidden" id="referral-influencer-email" value="">
+      <input type="hidden" id="referral-influencer-id" value="">
       <div class="modal-body">
-        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Reward <span id="reward-target-name">Influencer</span> with <strong>10 credits</strong>.</p>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Affiliated with <strong id="reward-target-name">Influencer</strong> (Awards partner credits).</p>
         <div class="form-group">
           <label class="form-label" for="ref-name">Full Name</label>
           <input type="text" class="form-input" id="ref-name" placeholder="Sarah Jenkins" required>
@@ -109,7 +110,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeReferralDialog()">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Submit &amp; Reward</button>
+        <button type="submit" class="btn btn-primary btn-sm">Add Affiliated Prospect</button>
       </div>
     </form>
   </div>
@@ -253,9 +254,10 @@
 <dialog id="outbound-action-dialog" style="border: none; background: transparent; padding: 0;">
   <div class="modal-container" style="max-width: 960px; width: 92vw; max-height: 90vh;">
     <div class="modal-header">
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
         <h3 id="outbound-modal-contact-name" style="margin: 0;">Outbound Campaign</h3>
         <span class="badge" id="outbound-modal-contact-badge">Hot Lead</span>
+        <span class="badge" id="outbound-modal-referred-tag" style="display: none; background: rgba(13, 148, 136, 0.15); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.3); font-weight: 600;">Referred by: -</span>
       </div>
       <button class="btn btn-secondary btn-sm" onclick="closeOutboundModal()">×</button>
     </div>
@@ -366,6 +368,7 @@
               <div>Title: <strong id="modal-info-title" style="color: var(--color-text-primary);">-</strong></div>
               <div>Email: <strong id="modal-info-email" style="color: var(--color-text-primary);">-</strong></div>
               <div>Phone: <strong id="modal-info-phone" style="color: var(--color-text-primary);">-</strong></div>
+              <div id="modal-info-referred-row">Referred by: <strong id="modal-info-referred-by" style="color: var(--color-text-primary);">-</strong></div>
             </div>
           </div>
 

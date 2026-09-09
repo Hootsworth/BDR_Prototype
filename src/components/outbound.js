@@ -52,9 +52,14 @@ function changeOutboundPage(page) {
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--color-text-secondary);">No contacts available.</td></tr>`;
+    const emptyMsg = database.currentOutboundSubtab === 'influencers'
+      ? "No influencers available. Enroll influencers to build referral pipelines."
+      : "No prospects available. Add prospects or upload a workbook.";
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--color-text-secondary);">${emptyMsg}</td></tr>`;
     return;
   }
+
+  const isInfluencersTab = (database.currentOutboundSubtab === 'influencers');
 
   pageData.forEach(c => {
     const tr = document.createElement("tr");
@@ -72,21 +77,125 @@ function changeOutboundPage(page) {
       callStatus = `<span style="color:var(--color-success); font-weight:600;">${c.callsMade.length} calls</span>`;
     }
 
-    tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
-      <td>${c.jobTitle || "Decision Maker"}</td>
-      <td><span class="badge ${badgeClass}">${c.leadTemp || "Warm Lead"}</span></td>
-      <td>${emailStatus}</td>
-      <td>${linkedinStatus}</td>
-      <td>${callStatus}</td>
-      <td style="text-align: right;">
-        <div style="display: flex; gap: 0.375rem; justify-content: flex-end;">
-          <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
-          <button class="btn btn-secondary btn-sm" style="color: var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
+    if (isInfluencersTab) {
+      tr.innerHTML = `
+        <td>
+          <strong>${c.fullName}</strong>
+          ${c.referralCredits ? `<div style="font-size: 11px; color: var(--brand-teal); font-weight: 600; margin-top: 2px;">${c.referralCredits} Partner Credits</div>` : ''}
+        </td>
+        <td>${c.jobTitle || "Industry Advisor"}</td>
+        <td><span class="badge ${badgeClass}">${c.leadTemp || "Influencer Partner"}</span></td>
+        <td>${emailStatus}</td>
+        <td>${linkedinStatus}</td>
+        <td>${callStatus}</td>
+        <td style="text-align: right;">
+          <div style="display: flex; gap: 0.375rem; justify-content: flex-end; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
+            <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
+            <button class="btn btn-secondary btn-sm" style="color: var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+
+      // Render affiliated prospects container for this influencer
+      const affiliated = (database.contacts || []).filter(p => !p.isInfluencer && (
+        (p.referredBy && p.referredBy.trim().toLowerCase() === c.fullName.trim().toLowerCase()) ||
+        (p.influencerId && String(p.influencerId) === String(c.id)) ||
+        (c.referrals && c.referrals.some(r => (r.email && p.email && r.email.trim().toLowerCase() === p.email.trim().toLowerCase()) || (r.fullName && p.fullName && r.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase())))
+      ));
+
+      const subTr = document.createElement("tr");
+      subTr.className = "influencer-affiliated-row";
+
+      let affiliatedContent = "";
+      if (affiliated.length === 0) {
+        affiliatedContent = `
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-background-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 0.625rem 1rem;">
+            <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+              No prospects affiliated with <strong>${c.fullName}</strong> yet.
+            </span>
+            <button class="btn btn-secondary btn-xs" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
+          </div>
+        `;
+      } else {
+        const rowsHtml = affiliated.map(p => {
+          const pBadge = p.leadTemp === "Hot Lead" ? "badge-success" : "badge";
+          const pEmail = p.emailsSent 
+            ? `<span style="color:var(--color-success); font-weight:600;">Sent ✓</span>` 
+            : (p.emailDraft ? `<span style="color:var(--color-text-primary); font-weight:500;">Drafted</span>` : `<span style="color:var(--color-text-secondary)">Pending</span>`);
+          return `
+            <tr style="border-bottom: 1px solid var(--color-border); background: var(--color-background-surface);">
+              <td style="padding: 0.5rem 0.875rem;">
+                <strong>${p.fullName}</strong>
+                <span class="badge" style="margin-left: 6px; font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488;">Affiliated</span>
+              </td>
+              <td style="padding: 0.5rem 0.875rem;">${p.jobTitle || 'Decision Maker'} (${p.company || 'N/A'})</td>
+              <td style="padding: 0.5rem 0.875rem;"><span class="badge ${pBadge}">${p.leadTemp || 'Warm Lead'}</span></td>
+              <td style="padding: 0.5rem 0.875rem;">${pEmail}</td>
+              <td style="padding: 0.5rem 0.875rem; text-align: right;">
+                <button class="btn btn-primary btn-xs" onclick="openOutboundModal(${p.id}, 'email')">Outreach</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+        affiliatedContent = `
+          <div style="background: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;">
+            <div style="padding: 0.5rem 0.875rem; background: var(--color-background-muted); border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                Affiliated Prospects (${affiliated.length})
+              </div>
+              <button class="btn btn-secondary btn-xs" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-xs);">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--color-border); background: var(--color-background-subtle, rgba(0,0,0,0.02)); color: var(--color-text-secondary); font-size: 11px;">
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Prospect</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Role &amp; Company</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Lead Status</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Email Outbound</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: right; font-weight: 600;">Outreach</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      subTr.innerHTML = `
+        <td colspan="7" style="padding: 0.375rem 1rem 1rem 2rem; background: var(--color-background-subtle, rgba(0,0,0,0.015));">
+          ${affiliatedContent}
+        </td>
+      `;
+      tbody.appendChild(subTr);
+
+    } else {
+      // Prospects Tab Row
+      const referredBadge = c.referredBy ? `<div style="font-size: 11px; color: #0d9488; font-weight: 600; margin-top: 2px;">Referred by: ${c.referredBy}</div>` : '';
+      tr.innerHTML = `
+        <td>
+          <strong>${c.fullName}</strong>
+          ${referredBadge}
+        </td>
+        <td>${c.jobTitle || "Decision Maker"}</td>
+        <td><span class="badge ${badgeClass}">${c.leadTemp || "Warm Lead"}</span></td>
+        <td>${emailStatus}</td>
+        <td>${linkedinStatus}</td>
+        <td>${callStatus}</td>
+        <td style="text-align: right;">
+          <div style="display: flex; gap: 0.375rem; justify-content: flex-end;">
+            <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
+            <button class="btn btn-secondary btn-sm" style="color: var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
   });
 }
 
@@ -774,33 +883,75 @@ function openOutboundModal(contactId, channel = 'email') {
   currentModalChannel = channel;
 
   if (!contact.emailDraft) {
-    contact.emailDraft = {
-      subject: `Safe compliance & automation for ${contact.company}`,
-      body: `Hi ${contact.firstName},\n\nNotice ${contact.company} is scaling operations. Our platform automates BDR queries & outbound pipelines.\n\nWould 15 minutes next Tuesday work to discuss?\n\nBest,\nSDR Campaign Agent`
-    };
+    if (contact.isInfluencer) {
+      contact.emailDraft = {
+        subject: `Briefing partnership / Referral check-in`,
+        body: `Hi ${contact.firstName},\n\nI was looking through some of your industry contacts in credit unions. We're launching secure LLM query gateways.\n\nWho in credit union IT leadership should we talk to? For every introduction, we credit your account with BDR partner benefits.\n\nBest,\nSDR Campaign Agent`
+      };
+    } else if (contact.referredBy) {
+      contact.emailDraft = {
+        subject: `Introduction via ${contact.referredBy} - Safe compliance for ${contact.company}`,
+        body: `Hi ${contact.firstName},\n\n${contact.referredBy} suggested I connect with you regarding your role as ${contact.jobTitle || 'Executive'} at ${contact.company}.\n\nWe provide query validation guardrails and automated compliance pipelines tailored for credit unions.\n\nWould 15 minutes next Tuesday work for a brief intro?\n\nBest,\nSDR Campaign Agent`
+      };
+    } else {
+      contact.emailDraft = {
+        subject: `Safe compliance & automation for ${contact.company}`,
+        body: `Hi ${contact.firstName},\n\nNotice ${contact.company} is scaling operations. Our platform automates BDR queries & outbound pipelines.\n\nWould 15 minutes next Tuesday work to discuss?\n\nBest,\nSDR Campaign Agent`
+      };
+    }
   }
   if (!contact.linkedinDraft) {
-    contact.linkedinDraft = {
-      body: `Hi ${contact.firstName}, impressed by your leadership at ${contact.company}. Would love to connect and share BDR automation benchmarks.`
-    };
+    if (contact.isInfluencer) {
+      contact.linkedinDraft = {
+        body: `Hi ${contact.firstName}, connecting with tech advisors regarding credit union database security. Would love to partner on referrals.`
+      };
+    } else if (contact.referredBy) {
+      contact.linkedinDraft = {
+        body: `Hi ${contact.firstName}, connecting with you through ${contact.referredBy}. Impressed by your work at ${contact.company} and would love to share our compliance benchmarks.`
+      };
+    } else {
+      contact.linkedinDraft = {
+        body: `Hi ${contact.firstName}, impressed by your leadership at ${contact.company}. Would love to connect and share BDR automation benchmarks.`
+      };
+    }
   }
 
   const nameEl = document.getElementById("outbound-modal-contact-name");
   const badgeEl = document.getElementById("outbound-modal-contact-badge");
+  const referredTagEl = document.getElementById("outbound-modal-referred-tag");
   if (nameEl) nameEl.textContent = `${contact.fullName} (${contact.jobTitle || 'Executive'})`;
   if (badgeEl) {
     badgeEl.textContent = contact.leadTemp || "Warm Lead";
     badgeEl.className = (contact.leadTemp === "Hot Lead") ? "badge badge-success" : "badge";
+  }
+  if (referredTagEl) {
+    if (contact.referredBy) {
+      referredTagEl.textContent = `Referred by: ${contact.referredBy}`;
+      referredTagEl.style.display = "inline-flex";
+    } else if (contact.isInfluencer) {
+      referredTagEl.textContent = "Influencer Partner";
+      referredTagEl.style.display = "inline-flex";
+    } else {
+      referredTagEl.style.display = "none";
+    }
   }
 
   const infoCompany = document.getElementById("modal-info-company");
   const infoTitle = document.getElementById("modal-info-title");
   const infoEmail = document.getElementById("modal-info-email");
   const infoPhone = document.getElementById("modal-info-phone");
+  const infoReferredRow = document.getElementById("modal-info-referred-row");
+  const infoReferredBy = document.getElementById("modal-info-referred-by");
   if (infoCompany) infoCompany.textContent = contact.company || "N/A";
   if (infoTitle) infoTitle.textContent = contact.jobTitle || "Decision Maker";
   if (infoEmail) infoEmail.textContent = contact.email || "N/A";
   if (infoPhone) infoPhone.textContent = contact.phone || "+1 (555) 019-2834";
+  if (infoReferredBy) {
+    infoReferredBy.textContent = contact.referredBy || (contact.isInfluencer ? "None (Influencer Partner)" : "Direct / None");
+  }
+  if (infoReferredRow) {
+    infoReferredRow.style.display = "block";
+  }
 
   renderOutboundModalHistory(contact);
   switchOutboundModalChannel(channel);
@@ -1287,3 +1438,9 @@ window.stopBeepSound = stopBeepSound;
 window.renderContactTimeline = renderContactTimeline;
 window.runSpamAuditorCheck = runSpamAuditorCheck;
 window.runInlineSpamCheck = runInlineSpamCheck;
+window.openAddProspectForInfluencer = function(influencerId) {
+  if (typeof openAddReferralModal === "function") {
+    const influencer = database.contacts.find(c => c.id === influencerId || String(c.id) === String(influencerId) || c.email === influencerId);
+    if (influencer) return openAddReferralModal(influencer.email);
+  }
+};
