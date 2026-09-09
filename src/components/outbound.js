@@ -156,10 +156,7 @@ function changeOutboundPage(page) {
         <td>${callStatus}</td>
         <td style="text-align: right;">
           <div style="display: flex; gap: 0.375rem; justify-content: flex-end; align-items: center;">
-            <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})" style="display: inline-flex; align-items: center; gap: 4px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              + Add Prospect
-            </button>
+            <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
             <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
             <button class="btn btn-secondary btn-sm" style="color: var(--color-error); padding: 0.25rem 0.5rem;" onclick="deleteContactRecord(${c.id})" title="Delete Partner">✕</button>
           </div>
@@ -180,12 +177,11 @@ function changeOutboundPage(page) {
       let affiliatedContent = "";
       if (affiliated.length === 0) {
         affiliatedContent = `
-          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-background-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 0.625rem 1rem;">
+          <div style="background: var(--color-background-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              No prospects affiliated with <strong>${c.fullName}</strong> yet.
+              No prospects affiliated with <strong>${c.fullName}</strong> yet. Use "+ Add Prospect" above to attach referrals.
             </div>
-            <button class="btn btn-secondary btn-xs" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
           </div>
         `;
       } else {
@@ -226,7 +222,6 @@ function changeOutboundPage(page) {
                 Affiliated Prospects (${affiliated.length})
                 <span style="font-weight: 400; text-transform: none; color: var(--color-text-disabled);">— Referred by ${c.fullName}</span>
               </div>
-              <button class="btn btn-secondary btn-xs" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-xs);">
               <thead>
