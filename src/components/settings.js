@@ -740,6 +740,11 @@ async function checkSettingsUpdates(isManual = false) {
         updateDesc.innerHTML = `<span style="color: var(--color-primary); font-weight: 700;">⚡ Update Available:</span> <strong>${data.latest_commit}</strong> &mdash; "${data.commit_message || 'New enhancements'}"`;
       }
       if (updateBtn) updateBtn.style.display = "inline-flex";
+    } else if (data.error) {
+      if (updateDesc) {
+        updateDesc.innerHTML = `<span style="color: var(--color-warning, #d97706); font-weight: 600;">⚠️ Update Check:</span> ${data.error}`;
+      }
+      if (updateBtn) updateBtn.style.display = "none";
     } else {
       if (updateDesc) {
         updateDesc.innerHTML = `<span style="color: var(--color-success, #16a34a); font-weight: 700;">✓ Up to Date</span> &mdash; Running latest build (${data.current_commit || 'HEAD'})`;

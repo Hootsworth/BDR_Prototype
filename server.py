@@ -13,6 +13,8 @@ import zipfile
 import io
 import shutil
 import threading
+import re
+import xml.etree.ElementTree as ET
 try:
     import openpyxl
     HAS_OPENPYXL = True
@@ -537,14 +539,55 @@ def is_same_commit(sha1, sha2):
     s1, s2 = str(sha1).strip().lower(), str(sha2).strip().lower()
     return s1 == s2 or s1.startswith(s2) or s2.startswith(s1)
 
-def check_for_updates():
-    local_info = get_local_version_info()
-    local_sha = local_info.get("sha", "")
-    req = urllib.request.Request(
-        GITHUB_COMMITS_API,
-        headers={"User-Agent": "GTM-Console-App", "Accept": "application/vnd.github.v3+json"}
-    )
+def fetch_remote_commit_info():
+    # 1. Try public Atom feed (fast, full commit info + message, NEVER rate limited by GitHub)
     try:
+        atom_url = f"https://github.com/{GITHUB_REPO}/commits/main.atom"
+        req = urllib.request.Request(atom_url, headers={"User-Agent": "GTM-Console-App"})
+        with safe_urlopen(req, timeout=10) as resp:
+            if resp.status == 200:
+                content = resp.read().decode('utf-8')
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(content)
+                ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                entry = root.find('atom:entry', ns)
+                if entry is not None:
+                    id_elem = entry.find('atom:id', ns)
+                    title_elem = entry.find('atom:title', ns)
+                    author_elem = entry.find('atom:author/atom:name', ns)
+                    updated_elem = entry.find('atom:updated', ns)
+                    
+                    id_text = id_elem.text if id_elem is not None and id_elem.text else ""
+                    m = re.search(r'Commit/([a-f0-9]{40})', id_text)
+                    sha = m.group(1) if m else ""
+                    msg = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
+                    author = author_elem.text.strip() if author_elem is not None and author_elem.text else "GitHub"
+                    date = updated_elem.text.strip() if updated_elem is not None and updated_elem.text else ""
+                    if sha:
+                        return {"sha": sha, "message": msg, "author": author, "date": date}
+    except Exception:
+        pass
+
+    # 2. Try git ls-remote (uses HTTPS git smart protocol, never rate limited)
+    try:
+        out = subprocess.check_output(
+            ['git', 'ls-remote', f'https://github.com/{GITHUB_REPO}.git', 'refs/heads/main'],
+            timeout=6,
+            stderr=subprocess.DEVNULL
+        ).decode('utf-8').strip()
+        if out:
+            sha = out.split()[0]
+            if len(sha) >= 7:
+                return {"sha": sha, "message": "Latest update from GitHub", "author": "GitHub", "date": ""}
+    except Exception:
+        pass
+
+    # 3. Fallback to GitHub REST API (subject to 60 req/hr rate limit)
+    try:
+        req = urllib.request.Request(
+            GITHUB_COMMITS_API,
+            headers={"User-Agent": "GTM-Console-App", "Accept": "application/vnd.github.v3+json"}
+        )
         with safe_urlopen(req, timeout=10) as response:
             if response.status == 200:
                 data = json.loads(response.read().decode('utf-8'))
@@ -553,32 +596,40 @@ def check_for_updates():
                 commit_msg = commit_info.get("message", "").split("\n")[0]
                 commit_author = commit_info.get("author", {}).get("name", "")
                 commit_date = commit_info.get("author", {}).get("date", "")
-                
-                is_update_available = bool(
-                    remote_sha and local_sha and local_sha != "unknown" and not is_same_commit(local_sha, remote_sha)
-                )
-                
-                return {
-                    "update_available": is_update_available,
-                    "current_version": local_info.get("version", "1.1.0"),
-                    "current_commit": local_sha[:7] if local_sha != "unknown" else "v1.1.0",
-                    "latest_commit": remote_sha[:7] if remote_sha else "",
-                    "commit_message": commit_msg,
-                    "author": commit_author,
-                    "date": commit_date,
-                    "repo_url": f"https://github.com/{GITHUB_REPO}"
-                }
-    except Exception as ex:
+                if remote_sha:
+                    return {"sha": remote_sha, "message": commit_msg, "author": commit_author, "date": commit_date}
+    except Exception:
+        pass
+
+    return None
+
+def check_for_updates():
+    local_info = get_local_version_info()
+    local_sha = local_info.get("sha", "")
+    
+    remote_info = fetch_remote_commit_info()
+    if not remote_info:
         return {
             "update_available": False,
-            "error": str(ex),
+            "error": "Could not reach GitHub to check updates (offline or connection issue).",
             "current_version": local_info.get("version", "1.1.0"),
-            "current_commit": local_info.get("sha", "")[:7]
+            "current_commit": local_sha[:7] if local_sha != "unknown" else "v1.1.0"
         }
+        
+    remote_sha = remote_info.get("sha", "")
+    is_update_available = bool(
+        remote_sha and local_sha and local_sha != "unknown" and not is_same_commit(local_sha, remote_sha)
+    )
+    
     return {
-        "update_available": False,
+        "update_available": is_update_available,
         "current_version": local_info.get("version", "1.1.0"),
-        "current_commit": local_info.get("sha", "")[:7]
+        "current_commit": local_sha[:7] if local_sha != "unknown" else "v1.1.0",
+        "latest_commit": remote_sha[:7] if remote_sha else "",
+        "commit_message": remote_info.get("message", ""),
+        "author": remote_info.get("author", ""),
+        "date": remote_info.get("date", ""),
+        "repo_url": f"https://github.com/{GITHUB_REPO}"
     }
 
 def apply_system_update():
@@ -631,16 +682,10 @@ def apply_system_update():
                 shutil.copyfileobj(src, dst)
                 
     # Fetch latest full commit sha from GitHub to write into version.json
-    latest_full_sha = ""
-    try:
-        req_commit = urllib.request.Request(GITHUB_COMMITS_API, headers={"User-Agent": "GTM-Console-App", "Accept": "application/vnd.github.v3+json"})
-        with safe_urlopen(req_commit, timeout=10) as c_resp:
-            c_data = json.loads(c_resp.read().decode('utf-8'))
-            latest_full_sha = c_data.get("sha", "")
-    except Exception:
-        pass
-
-    latest_sha = latest_full_sha or "latest"
+    remote_info = fetch_remote_commit_info()
+    latest_sha = remote_info.get("sha", "") if remote_info else ""
+    if not latest_sha:
+        latest_sha = "latest"
     version_file = os.path.join(app_root, 'version.json')
     with open(version_file, 'w', encoding='utf-8') as f:
         json.dump({
