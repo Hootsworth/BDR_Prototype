@@ -65,11 +65,29 @@ function paginateData(dataArray, pageNum, containerId, pageChangeCallbackName) {
   return pageData;
 }
 
+function updateUploadEnrichKPIs() {
+  const totalEl = document.getElementById("upload-kpi-total");
+  const enrichedEl = document.getElementById("upload-kpi-enriched");
+  const rateEl = document.getElementById("upload-kpi-rate");
+  if (!totalEl) return;
+
+  const prospects = (database.contacts || []).filter(c => !c.isInfluencer);
+  const total = prospects.length;
+  const enriched = prospects.filter(c => c.enriched || c.enrichmentStatus === 'verified_provider_data' || c.deepWebDossier).length;
+  const rate = total > 0 ? Math.round((enriched / total) * 100) : 0;
+
+  totalEl.textContent = total.toLocaleString();
+  if (enrichedEl) enrichedEl.textContent = enriched.toLocaleString();
+  if (rateEl) rateEl.textContent = `(${rate}%)`;
+}
+window.updateUploadEnrichKPIs = updateUploadEnrichKPIs;
+
 // Subtab: Upload table renderer
 function filterUploadTable() {
   const prospectsOnly = database.contacts.filter(c => c.isInfluencer !== true);
   database.filteredUpload = getFilteredData(prospectsOnly, "upload-search-input", "filter-industry", "filter-source", null, null);
   changeUploadPage(1);
+  updateUploadEnrichKPIs();
 }
 
 function changeUploadPage(page) {
@@ -81,7 +99,8 @@ function changeUploadPage(page) {
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-placeholder">No matching prospects found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-placeholder" style="text-align: center; padding: 2.5rem 1rem; color: var(--color-text-secondary);">No matching prospects found.</td></tr>`;
+    updateUploadEnrichKPIs();
     return;
   }
 
@@ -91,28 +110,41 @@ function changeUploadPage(page) {
     const color = getAvatarColor(c.fullName);
     const isChecked = database.selectedUploadRows && database.selectedUploadRows.includes(c.id) ? "checked" : "";
     
+    let enrichBadge = `<span class="badge" style="font-size:10px; color:var(--color-text-secondary); background:var(--color-background-muted); border:1px solid var(--color-border);">Pending</span>`;
+    if (c.enriched || c.enrichmentStatus === 'verified_provider_data') {
+      enrichBadge = `<span class="badge badge-success" style="font-size:10px; display:inline-flex; align-items:center; gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Enriched</span>`;
+    } else if (c.deepWebDossier) {
+      enrichBadge = `<span class="badge" style="font-size:10px; background:rgba(52, 211, 153, 0.15); color:#34d399; border:1px solid rgba(52, 211, 153, 0.3);">Scraped</span>`;
+    }
+
     tr.innerHTML = `
       <td style="text-align: center;"><input type="checkbox" class="row-check-upload" data-id="${c.id}" ${isChecked} onchange="toggleSelectUploadRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
       <td>
         <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:30px; height:30px; border-radius:var(--radius-xs); background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); flex-shrink:0;">${initials}</div>
-          <strong>${c.fullName}</strong>
+          <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">${initials}</div>
+          <div>
+            <strong>${c.fullName}</strong>
+            ${c.leadTemp === "Hot Lead" ? `<span class="badge badge-success" style="font-size:9px; margin-left:4px;">Hot</span>` : ""}
+          </div>
         </div>
       </td>
       <td>${c.jobTitle}</td>
       <td>${c.company}</td>
       <td><code>${c.email || "N/A"}</code></td>
-      <td><span class="badge-tag" style="background:var(--surface-soft); border:1px solid var(--hairline); font-size:11px; padding:2px 8px; border-radius:var(--radius-xs); font-weight:600; color:var(--ink);">${c.industry}</span></td>
-      <td><span style="font-size:11px;color:var(--muted);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
-      <td>
-        <div class="table-cell-actions" style="display:flex; gap:10px;">
-          <button class="row-action-link" style="color:var(--brand-pink); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="openCampaignTarget('${c.email}', 'email')">Outbound</button>
-          <button class="row-action-link" style="color:var(--error); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="deleteContactRecord(${c.id})">Delete</button>
+      <td><span class="badge" style="font-size:11px; background:var(--surface-soft); border:1px solid var(--color-border);">${c.industry}</span></td>
+      <td>${enrichBadge}</td>
+      <td><span style="font-size:11px; color:var(--color-text-secondary);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
+      <td style="text-align: right;">
+        <div style="display:flex; gap:8px; justify-content: flex-end;">
+          <button class="btn btn-secondary btn-xs" onclick="openCampaignTarget('${c.email}', 'email')">Outbound</button>
+          <button class="btn btn-secondary btn-xs" style="color:var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
+
+  updateUploadEnrichKPIs();
 }
 
 function filterImportTable() {

@@ -53,6 +53,20 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("modal-info-referred-by", dialogs)
         self.assertIn("Add Affiliated Prospect", dialogs)
 
+    def test_unified_upload_and_enrich_interface(self):
+        upload_html = self.read("components/upload.html")
+        tables_js = self.read("src/components/tables.js")
+        enrich_js = self.read("src/components/enrich.js")
+
+        self.assertIn("upload-dropzone", upload_html)
+        self.assertIn("btn-run-enrich", upload_html)
+        self.assertIn("enrich-console-box", upload_html)
+        self.assertIn("table-upload-data", upload_html)
+        self.assertIn("upload-kpi-total", upload_html)
+        self.assertIn("upload-kpi-enriched", upload_html)
+        self.assertIn("updateUploadEnrichKPIs", tables_js)
+        self.assertIn("renderEnrichmentFieldOptions", enrich_js)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,39 +1,189 @@
-<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.5rem;">
-  <div class="upload-dropzone" id="upload-dropzone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('csv-file-input').click()">
-    <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSVFileUpload(event)" hidden>
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
-      <div class="dropzone-icon">
-        <svg class="icon-svg icon-svg-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+<!-- ═══ UPLOAD & ENRICH COMMAND CENTER HEADER ═══ -->
+<div class="card" style="padding: 1.25rem 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; border-bottom: 1px solid var(--color-border); padding-bottom: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.25rem;">
+        <span style="display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: var(--radius-sm); background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </span>
+        <h2 style="font-size: var(--font-size-base); font-weight: 700; margin: 0; letter-spacing: -0.01em;">Ingestion &amp; Lead Intelligence Hub</h2>
+        <span class="badge badge-success" style="font-size: 10px; text-transform: uppercase;">Engine Ready</span>
       </div>
-      <h3 class="dropzone-title" style="margin: 0; font-size: var(--font-size-base); font-weight: 700;">Drag &amp; drop your CSV dataset here</h3>
-      <p class="dropzone-sub" style="margin: 0; font-size: var(--font-size-xs); color: var(--color-text-secondary);">or click to browse from your computer (CSV format, max 25MB)</p>
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">
+        Import target prospect datasets, configure automated schema mappings, and enrich profiles with multi-tab web research and Explorium dossiers.
+      </p>
+    </div>
+
+    <!-- Quick Telemetry Chips -->
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); font-size: 12px;">
+        <span style="color: var(--color-text-secondary);">Ingested:</span>
+        <strong id="upload-kpi-total" style="color: var(--color-text-primary);">0</strong>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); font-size: 12px;">
+        <span style="color: var(--color-text-secondary);">Enriched:</span>
+        <strong id="upload-kpi-enriched" style="color: #10b981;">0</strong>
+        <span id="upload-kpi-rate" style="color: var(--color-text-secondary); font-size: 11px;">(0%)</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('settings-keys')" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        API Keys
+      </button>
     </div>
   </div>
-  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.25rem; background-color: var(--color-background-muted); border-top: 1px solid var(--color-border);">
-    <div class="data-summary-count" id="upload-stats-summary" style="font-size: var(--font-size-xs); font-weight: 600;">No CSV data loaded yet.</div>
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <label style="display: flex; align-items: center; gap: 0.5rem; font-size: var(--font-size-xs); font-weight: 600; cursor: pointer;">
-        <input type="checkbox" id="toggle-auto-enrich" onchange="toggleAutoEnrichSetting(this.checked)" style="cursor: pointer;">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Auto-Enrich Uploaded Contacts
-      </label>
-      <button class="btn btn-secondary btn-sm" id="btn-show-mapping" onclick="openColumnMapper()" style="display: none;">Configure Field Mapping</button>
+
+  <!-- DUAL-ENGINE WORKSPACE GRID -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.25rem;">
+    
+    <!-- PANEL 1: DATASET INGESTION -->
+    <div style="display: flex; flex-direction: column; justify-content: space-between; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1.125rem;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Dataset Ingestion &amp; Mapping
+          </span>
+          <button class="btn btn-secondary btn-xs" id="btn-show-mapping" onclick="openColumnMapper()" style="display: none;">
+            Configure Mapping
+          </button>
+        </div>
+
+        <!-- Dropzone -->
+        <div class="upload-dropzone" id="upload-dropzone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('csv-file-input').click()" style="margin-bottom: 0.75rem; padding: 1.75rem 1.25rem; border: 1px dashed var(--color-border-emphasized); background: var(--color-background-surface); border-radius: var(--radius-inner); text-align: center; cursor: pointer;">
+          <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSVFileUpload(event)" hidden>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--surface-soft); display: flex; align-items: center; justify-content: center; color: var(--color-text-primary);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div>
+              <div style="font-size: var(--font-size-sm); font-weight: 700; color: var(--color-text-primary);">Drop your CSV dataset here</div>
+              <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-top: 2px;">or click to browse local files (max 25MB)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- File Summary Status -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); font-size: var(--font-size-xs);">
+          <span id="upload-stats-summary" style="font-weight: 600; color: var(--color-text-secondary);">No CSV dataset loaded yet.</span>
+        </div>
+      </div>
+
+      <!-- Ingestion Options -->
+      <div style="margin-top: 0.875rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: var(--font-size-xs); font-weight: 600; cursor: pointer;">
+          <input type="checkbox" id="toggle-auto-enrich" onchange="toggleAutoEnrichSetting(this.checked)" style="cursor: pointer;">
+          <span>Auto-Enrich new contacts on upload</span>
+        </label>
+        <span class="badge" style="font-size: 10px; color: var(--color-text-secondary);">CSV / Workbook</span>
+      </div>
+    </div>
+
+    <!-- PANEL 2: AI GROUNDING & SCRAPING CONFIGURATION -->
+    <div style="display: flex; flex-direction: column; justify-content: space-between; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1.125rem;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            AI Grounding &amp; Web Intelligence
+          </span>
+          <span class="badge badge-success" style="font-size: 10px;">Firecrawl &amp; Explorium</span>
+        </div>
+
+        <!-- Scraping Toggles -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0.625rem; background: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); cursor: pointer;">
+            <input type="checkbox" id="toggle-agentic-dorking" checked onchange="saveAgenticEnrichmentToggle()" style="margin-top: 2px; cursor: pointer;">
+            <div style="font-size: 11.5px; line-height: 1.35;">
+              <strong style="color: var(--color-text-primary); display: block;">Multi-Tab Dorking</strong>
+              <span style="color: var(--color-text-secondary); font-size: 10.5px;">Search interviews, quotes &amp; press</span>
+            </div>
+          </label>
+          <label style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0.625rem; background: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); cursor: pointer;">
+            <input type="checkbox" id="toggle-firecrawl-scrape" checked onchange="saveAgenticEnrichmentToggle()" style="margin-top: 2px; cursor: pointer;">
+            <div style="font-size: 11.5px; line-height: 1.35;">
+              <strong style="color: var(--color-text-primary); display: block;">Firecrawl Scraper</strong>
+              <span style="color: var(--color-text-secondary); font-size: 10.5px;">Extract tech stack &amp; bios</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Enrichment Fields Selection -->
+        <div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.375rem;">
+            Enrichment Profile Attributes
+          </div>
+          <div id="enrichment-field-options" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.375rem;">
+            <!-- Rendered dynamically by renderEnrichmentFieldOptions() -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution Bar -->
+      <div style="margin-top: 0.875rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn btn-primary btn-sm" id="btn-run-enrich" onclick="runDataEnrichment()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Execute Deep AI Web Enrichment
+        </button>
+        <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+          Manage API keys in <a href="#" onclick="switchTab('settings-keys'); return false;" style="color: var(--color-text-primary); text-decoration: underline;">Settings</a>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROGRESS & REAL-TIME LOG DRAWER (INTEGRATED DIRECTLY UNDER CONTROLS) -->
+  <div style="margin-top: 1.25rem;">
+    <!-- Progress Indicator -->
+    <div class="dashboard-progress-section" id="enrich-progress-container" style="display: none; margin-bottom: 0.75rem;">
+      <div class="progress-info-row">
+        <span class="progress-info-label">Pipeline Execution Progress</span>
+        <span class="progress-info-val" id="enrich-progress-label">Enriching 0%</span>
+      </div>
+      <div class="dashboard-progress-track">
+        <div class="dashboard-progress-fill" id="enrich-progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Live Intelligence Console -->
+    <div style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); overflow: hidden; background: #0c0c0e;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.875rem; background: #18181b; border-bottom: 1px solid var(--color-border); font-size: 11px;">
+        <div style="display: flex; align-items: center; gap: 6px; font-family: var(--font-family-code); color: #a1a1aa;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
+          <strong>Real-Time Intelligence &amp; Ingestion Log</strong>
+        </div>
+        <button class="btn btn-secondary btn-xs" onclick="document.getElementById('enrich-console-box').innerHTML = '[SYSTEM] Console cleared.';">Clear Log</button>
+      </div>
+      <div id="enrich-console-box" style="padding: 0.875rem; font-family: var(--font-family-code); font-size: 11.5px; color: #f4f4f5; height: 160px; overflow-y: auto; line-height: 1.5; background: #0c0c0e;">
+        <div style="color: #71717a;">[SYSTEM] Ingestion &amp; enrichment engine online. Upload a CSV dataset or click "Execute Deep AI Web Enrichment" to deploy research pipelines.</div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="table-container">
-  <div class="table-toolbar">
-    <div style="flex: 1; max-width: 320px;">
-      <input type="text" class="form-input" id="upload-search-input" placeholder="Search contacts..." oninput="filterUploadTable()">
+<!-- ═══ INGESTED PROSPECTS & ENRICHED DOSSIERS TABLE ═══ -->
+<div class="card" style="padding: 1.25rem 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;">
+  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-border);">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"></path></svg>
+      <h3 style="font-size: var(--font-size-base); font-weight: 700; margin: 0;">Prospect Directory</h3>
     </div>
-    <div style="display: flex; gap: 0.75rem;">
-      <select class="form-select" id="filter-industry" onchange="filterUploadTable()">
+    
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; max-width: 560px; justify-content: flex-end; flex-wrap: wrap;">
+      <div style="position: relative; flex: 1; min-width: 180px;">
+        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); pointer-events: none; display: flex; align-items: center;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input type="text" class="form-input" id="upload-search-input" placeholder="Search contacts..." oninput="filterUploadTable()" style="padding-left: 32px; width: 100%;">
+      </div>
+
+      <select class="form-select" id="filter-industry" onchange="filterUploadTable()" style="max-width: 150px;">
         <option value="">All Industries</option>
         <option value="Credit Union">Credit Union</option>
         <option value="Banking">Banking</option>
         <option value="Financial Services">Financial Services</option>
       </select>
-      <select class="form-select" id="filter-source" onchange="filterUploadTable()">
+
+      <select class="form-select" id="filter-source" onchange="filterUploadTable()" style="max-width: 140px;">
         <option value="">All Sources</option>
       </select>
     </div>
@@ -44,27 +194,28 @@
       <thead>
         <tr id="table-upload-headers">
           <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-all-upload" onchange="toggleSelectAllUpload(this)" style="cursor:pointer;"></th>
-          <th onclick="sortTable('upload', 'fullName')" style="cursor: pointer;">Name ↕</th>
+          <th onclick="sortTable('upload', 'fullName')" style="cursor: pointer;">Name &amp; Intelligence ↕</th>
           <th onclick="sortTable('upload', 'jobTitle')" style="cursor: pointer;">Job Title ↕</th>
           <th onclick="sortTable('upload', 'company')" style="cursor: pointer;">Company ↕</th>
           <th onclick="sortTable('upload', 'email')" style="cursor: pointer;">Email ↕</th>
           <th onclick="sortTable('upload', 'industry')" style="cursor: pointer;">Industry ↕</th>
+          <th>Enrichment</th>
           <th>Source File</th>
-          <th>Action</th>
+          <th style="text-align: right;">Actions</th>
         </tr>
       </thead>
       <tbody id="table-upload-body">
-        <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">Upload a CSV dataset to begin.</td></tr>
+        <tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">Upload a CSV dataset to begin.</td></tr>
       </tbody>
     </table>
   </div>
   
-  <div class="pagination-bar" id="upload-pagination"></div>
+  <div class="pagination-bar" id="upload-pagination" style="padding: 1rem 0 0 0; margin-top: 0.5rem; border-top: 1px solid var(--color-border);"></div>
   
   <!-- Bulk Actions Bar -->
-  <div id="upload-bulk-bar" style="display: none; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; background-color: var(--surface-card); border-top: 1.5px solid var(--color-primary); box-shadow: 0 -4px 12px rgba(0,0,0,0.05);">
+  <div id="upload-bulk-bar" style="display: none; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; background-color: var(--surface-card); border-top: 2px solid #3b82f6; border-radius: var(--radius-inner); margin-top: 0.75rem; box-shadow: 0 -4px 12px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 0.75rem;">
     <div style="font-size: var(--font-size-xs); font-weight: 700;">
-      Selected <span id="upload-selected-count" style="color: var(--color-primary, #0c0a09); font-size: 14px;">0</span> prospects
+      Selected <span id="upload-selected-count" style="color: #3b82f6; font-size: 14px;">0</span> prospects
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
       <button class="btn btn-primary btn-sm" onclick="bulkEnrichSelected()">
@@ -82,72 +233,6 @@
       <button class="btn btn-danger btn-sm" onclick="bulkDeleteSelected()">
         🗑️ Delete
       </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ DATA ENRICHMENT ENGINE (merged from Enrich tab) ═══ -->
-<div class="card" style="max-width: 900px; margin: 1.5rem auto 0 auto;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-border);">
-    <div>
-      <h2 style="font-family: var(--font-family-heading); font-size: var(--font-size-lg); font-weight: 700; margin: 0;">Data Enrichment Engine</h2>
-      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0.25rem 0 0 0;">Deep lead grounding &amp; Explorium dossier compilation for uploaded contacts.</p>
-    </div>
-    <div class="badge badge-success">API Connected</div>
-  </div>
-
-    <div style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1.1rem; background: var(--color-background-surface);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #34d399;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <strong style="font-size: 14px; color: var(--color-text-primary);">Deep Agentic Web Scraping &amp; Multi-Tab Dorking</strong>
-        </div>
-        <span class="badge badge-success">Firecrawl Enabled</span>
-      </div>
-      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 0.85rem 0;">
-        Allow AI agents to perform multi-step web searches, Google Dorking queries, Firecrawl page scraping, news/podcast extraction, and tech stack detection.
-      </p>
-
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 12.5px; margin-bottom: 0.75rem;">
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input type="checkbox" id="toggle-agentic-dorking" checked onchange="saveAgenticEnrichmentToggle()" style="cursor: pointer;">
-          <span><strong>Multi-Tab Google Dorking:</strong> Search LinkedIn, Twitter, press releases &amp; interview quotes.</span>
-        </label>
-        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input type="checkbox" id="toggle-firecrawl-scrape" checked onchange="saveAgenticEnrichmentToggle()" style="cursor: pointer;">
-          <span><strong>Firecrawl Web Scraper:</strong> Parse company website HTML/text for tech stack &amp; executive bios.</span>
-        </label>
-      </div>
-
-      <div style="display: flex; items-center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-        <button class="btn btn-primary btn-sm" id="btn-run-enrich" onclick="runDataEnrichment()">
-          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          Execute Deep AI Web Enrichment
-        </button>
-        <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
-          Manage Firecrawl API Key in <a href="#" onclick="switchTab('settings-keys'); return false;" style="color: var(--color-text-primary); text-decoration: underline;">Settings</a>
-        </div>
-      </div>
-    </div>
-
-    <div style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1rem; background: var(--color-background-muted);">
-      <div style="font-weight: 700; margin-bottom: 0.5rem;">Enrichment profile</div>
-      <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 0.75rem;">Choose the AI fields to generate. Verified provider fields remain separate from inferred research.</div>
-      <div id="enrichment-field-options" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem;"></div>
-    </div>
-
-    <div class="dashboard-progress-section" id="enrich-progress-container" style="display: none;">
-      <div class="progress-info-row">
-        <span class="progress-info-label">Enrichment Progress</span>
-        <span class="progress-info-val" id="enrich-progress-label">Enriching 0%</span>
-      </div>
-      <div class="dashboard-progress-track">
-        <div class="dashboard-progress-fill" id="enrich-progress-fill" style="width: 0%;"></div>
-      </div>
-    </div>
-
-    <div id="enrich-console-box" style="background-color: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 1rem; font-family: var(--font-family-code); font-size: var(--font-size-xs); color: var(--color-text-primary); height: 260px; overflow-y: auto;">
-      <div style="color: var(--color-text-secondary);">[SYSTEM] Ready to deploy enrichment pipeline. Click "Run Data Enrichment" above to start.</div>
     </div>
   </div>
 </div>

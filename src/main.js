@@ -289,6 +289,8 @@ function switchTab(tabId) {
   } else if (tabId === 'upload') {
     if (typeof filterUploadTable === "function") filterUploadTable();
     if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
+    if (typeof renderEnrichmentFieldOptions === "function") renderEnrichmentFieldOptions();
+    if (typeof updateUploadEnrichKPIs === "function") updateUploadEnrichKPIs();
   } else if (tabId === 'campaign-outbound') {
     if (typeof switchOutboundSubtab === "function") {
       switchOutboundSubtab(database.currentOutboundSubtab || 'influencers');
@@ -406,6 +408,7 @@ function updateStatsSummaryText() {
   const total = database.contacts.length;
   const enriched = database.contacts.filter(c => c.enriched).length;
   summaryEl.innerHTML = `<strong>Total Records:</strong> ${total.toLocaleString()} | <strong>Enriched:</strong> ${enriched.toLocaleString()}`;
+  if (typeof updateUploadEnrichKPIs === "function") updateUploadEnrichKPIs();
 }
 
 function toggleSidebarCollapse() {

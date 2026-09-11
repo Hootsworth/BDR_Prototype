@@ -11,7 +11,12 @@ function renderEnrichmentFieldOptions() {
   const container = document.getElementById("enrichment-field-options");
   if (!container) return;
   const selected = JSON.parse(localStorage.getItem("gtm_enrichment_fields") || "null") || enrichmentFields.map(f => f[0]);
-  container.innerHTML = enrichmentFields.map(([key, label]) => `<label style="font-size:var(--font-size-xs); display:flex; gap:0.4rem; align-items:center;"><input type="checkbox" data-enrichment-field="${key}" ${selected.includes(key) ? "checked" : ""}>${label}</label>`).join("");
+  container.innerHTML = enrichmentFields.map(([key, label]) => `
+    <label style="font-size: 11.5px; display: flex; gap: 0.35rem; align-items: center; padding: 0.3rem 0.5rem; background: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); cursor: pointer;">
+      <input type="checkbox" data-enrichment-field="${key}" ${selected.includes(key) ? "checked" : ""} style="cursor: pointer; margin: 0;">
+      <span style="color: var(--color-text-primary);">${label}</span>
+    </label>
+  `).join("");
 }
 
 function selectedEnrichmentFields() {
@@ -310,6 +315,8 @@ async function runDataEnrichment() {
     if (typeof updateSystemStatusDot === "function") updateSystemStatusDot();
     if (typeof updateStatsSummaryText === "function") updateStatsSummaryText();
     if (typeof filterInfluencersTable === "function") filterInfluencersTable();
+    if (typeof filterUploadTable === "function") filterUploadTable();
+    if (typeof updateUploadEnrichKPIs === "function") updateUploadEnrichKPIs();
   }, 2000);
 }
 
