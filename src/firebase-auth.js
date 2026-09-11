@@ -46,6 +46,20 @@ function initFirebaseAuth() {
   }
 }
 
+function updateSidebarUserAvatar(displayName, email, photoURL) {
+  const avatarEl = document.getElementById("sidebar-user-avatar");
+  if (!avatarEl) return;
+  if (photoURL) {
+    avatarEl.innerHTML = `<img src="${photoURL}" alt="${displayName || 'User'}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+  } else {
+    const nameToUse = displayName || email || "GTM Operator";
+    const initials = nameToUse.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("") || "GO";
+    avatarEl.innerHTML = `<span id="clerk-user-initials">${initials}</span>`;
+  }
+  avatarEl.setAttribute("title", `${displayName || 'User'} (${email || ''})`);
+}
+window.updateSidebarUserAvatar = updateSidebarUserAvatar;
+
 function updateFirebaseAuthUI(user) {
   const authGate = document.getElementById("clerk-auth-gate");
   const mainApp = document.getElementById("app-layout-main");
@@ -71,14 +85,16 @@ function updateFirebaseAuthUI(user) {
 
     if (nameEl) nameEl.textContent = displayName;
     if (emailEl) emailEl.textContent = email;
+    updateSidebarUserAvatar(displayName, email, user.photoURL);
 
     if (typeof addLogConsole === "function") {
       addLogConsole("enrich", `[FIREBASE AUTH] Logged in as ${displayName} (${email}) [UID: ${user.uid}]`, "success");
     }
   } else {
     // User is signed out - check if running local single-user mode or auth gate
-    const localUser = localStorage.getItem("gtm_local_user_name");
-    const localEmail = localStorage.getItem("gtm_local_user_email");
+    const localUser = localStorage.getItem("gtm_local_user_name") || "GTM Operator";
+    const localEmail = localStorage.getItem("gtm_local_user_email") || "operator@gtmconsole.internal";
+    const localPic = localStorage.getItem("gtm_local_user_picture");
 
     if (localUser && localEmail) {
       if (authGate) authGate.style.display = "none";
@@ -88,6 +104,7 @@ function updateFirebaseAuthUI(user) {
       if (userProfileWrap) userProfileWrap.style.display = "flex";
       if (nameEl) nameEl.textContent = localUser;
       if (emailEl) emailEl.textContent = localEmail;
+      updateSidebarUserAvatar(localUser, localEmail, localPic);
     } else {
       if (authGate) authGate.style.display = "flex";
       if (mainApp) mainApp.style.display = "none";

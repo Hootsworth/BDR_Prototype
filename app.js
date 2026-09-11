@@ -377,6 +377,13 @@ function switchTab(tabId) {
 
 // Collapsible side nav categories
 function toggleNavCategory(catId) {
+  const sidebar = document.getElementById("sidebar-panel");
+  if (sidebar && sidebar.classList.contains("collapsed")) {
+    if (catId === 'contacts') switchTab('upload');
+    else if (catId === 'campaign') switchTab('campaign-outbound');
+    else if (catId === 'events') switchTab('events-list');
+    return;
+  }
   const group = document.getElementById(`cat-group-${catId}`);
   if (group) {
     group.classList.toggle("collapsed");

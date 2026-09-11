@@ -96,8 +96,14 @@ function updateClerkUIState() {
     if (signInBtn) signInBtn.style.display = "none";
     if (userProfileWrap) userProfileWrap.style.display = "flex";
 
-    if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
-    if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
+    const clerkName = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
+    const clerkEmail = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
+    const clerkPic = window.Clerk.user.imageUrl || window.Clerk.user.profileImageUrl;
+    if (nameEl) nameEl.textContent = clerkName;
+    if (emailEl) emailEl.textContent = clerkEmail;
+    if (typeof updateSidebarUserAvatar === "function") {
+      updateSidebarUserAvatar(clerkName, clerkEmail, clerkPic);
+    }
 
     fetchClerkGoogleOAuthToken();
   } else if (!window.Clerk || (window.ClerkConfig && (!window.ClerkConfig.publishableKey || window.ClerkConfig.publishableKey.includes("placeholder")))) {
@@ -109,6 +115,9 @@ function updateClerkUIState() {
     if (userProfileWrap) userProfileWrap.style.display = "flex";
     if (nameEl) nameEl.textContent = localAuthUser;
     if (emailEl) emailEl.textContent = localAuthEmail;
+    if (typeof updateSidebarUserAvatar === "function") {
+      updateSidebarUserAvatar(localAuthUser, localAuthEmail, localStorage.getItem("gtm_local_user_picture"));
+    }
 
   } else {
     // A configured Clerk instance must authenticate before the app is usable.

@@ -124,14 +124,16 @@
     <aside class="sidebar-panel" id="sidebar-panel">
 
       <div class="sidebar-header">
-        <svg class="brand-spike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <line x1="12" y1="3" x2="12" y2="21" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
-          <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />
-        </svg>
-        <span class="brand-name">GTM Console</span>
-        <button class="sidebar-toggle-trigger" onclick="toggleSidebarCollapse()" title="Collapse Sidebar">
+        <div class="sidebar-brand-wrap" onclick="switchTab('dashboard')" title="GTM Console Dashboard">
+          <svg class="brand-spike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="3" x2="12" y2="21" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+            <line x1="5.6" y1="18.4" x2="18.4" y2="5.6" />
+          </svg>
+          <span class="brand-name">GTM Console</span>
+        </div>
+        <button class="sidebar-toggle-trigger" onclick="toggleSidebarCollapse()" title="Toggle Sidebar (Expand/Collapse)" id="btn-sidebar-toggle">
           <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
             <polyline points="11 17 6 12 11 7"></polyline>
             <polyline points="18 17 13 12 18 7"></polyline>
@@ -141,33 +143,41 @@
 
       <!-- Auth & User Profile Section -->
       <div class="sidebar-auth-section">
-        <button class="btn btn-secondary btn-sm sidebar-signin-btn" id="btn-clerk-signin" onclick="triggerClerkSignIn()">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <button class="btn btn-secondary btn-sm sidebar-signin-btn" id="btn-clerk-signin" onclick="triggerClerkSignIn()" title="Sign In">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
             <polyline points="10 17 15 12 10 7"></polyline>
             <line x1="15" y1="12" x2="3" y2="12"></line>
           </svg>
           <span class="nav-label">Sign In</span>
         </button>
-        <div id="clerk-user-profile" class="clerk-user-profile-wrap" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <div class="clerk-user-info nav-label" style="flex: 1; min-width: 0;">
-            <span class="user-display-name" id="clerk-user-name" style="display: block; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">GTM Operator</span>
-            <span class="user-email" id="clerk-user-email" style="display: block; font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">user@domain.com</span>
+        <div id="clerk-user-profile" class="clerk-user-profile-wrap">
+          <div class="clerk-user-avatar" id="sidebar-user-avatar" title="GTM Operator">
+            <span id="clerk-user-initials">GO</span>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="firebaseSignOut()" title="Sign Out" style="padding: 4px 8px; margin-left: 0.5rem;">
-            Sign Out
+          <div class="clerk-user-info nav-label">
+            <span class="user-display-name" id="clerk-user-name">GTM Operator</span>
+            <span class="user-email" id="clerk-user-email">user@domain.com</span>
+          </div>
+          <button class="btn btn-secondary btn-sm sidebar-signout-btn" onclick="firebaseSignOut()" title="Sign Out" id="btn-sidebar-signout">
+            <svg class="signout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span class="signout-text nav-label">Sign Out</span>
           </button>
         </div>
       </div>
 
       <!-- Quick Command Palette Launcher -->
-      <div style="padding: 0 0.875rem 0.5rem 0.875rem;">
-        <button class="btn btn-secondary btn-sm" onclick="openCommandPalette()" style="width: 100%; justify-content: space-between; font-size: 11.5px; background: var(--surface-card); border: 1px solid var(--color-border); color: var(--color-text-secondary); border-radius: var(--radius-inner);">
-          <span style="display: flex; align-items: center; gap: 0.5rem;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <div class="sidebar-search-section">
+        <button class="btn btn-secondary btn-sm sidebar-search-btn" onclick="openCommandPalette()" title="Search / Command Palette (⌘K)">
+          <span class="search-btn-inner">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <span class="nav-label">Search / Command</span>
           </span>
-          <kbd style="font-family: var(--font-family-mono); font-size: 10px; background: var(--surface-soft, #f0efed); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--color-border);">⌘K</kbd>
+          <kbd class="sidebar-kbd-badge nav-label">⌘K</kbd>
         </button>
       </div>
 
@@ -175,7 +185,7 @@
 
         <!-- Category: Dashboard -->
         <div class="nav-category-group direct-tab" id="cat-group-dashboard">
-          <div class="nav-category-header subtab-btn active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">
+          <div class="nav-category-header subtab-btn active" id="tab-btn-dashboard" onclick="switchTab('dashboard')" title="Dashboard">
             <svg class="nav-icon nav-icon--peach" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="9" rx="1" />
               <rect x="14" y="3" width="7" height="5" rx="1" />
@@ -188,7 +198,7 @@
 
         <!-- Category 1: Contacts -->
         <div class="nav-category-group expanded" id="cat-group-contacts">
-          <div class="nav-category-header" onclick="toggleNavCategory('contacts')">
+          <div class="nav-category-header" onclick="toggleNavCategory('contacts')" title="Contacts (Upload & Enrich)">
             <svg class="nav-icon nav-icon--lavender" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
@@ -197,7 +207,7 @@
             <svg class="chevron-indicator" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
           <div class="nav-subtabs" id="subtabs-contacts">
-            <button class="subtab-btn" id="tab-btn-upload" onclick="switchTab('upload')">
+            <button class="subtab-btn" id="tab-btn-upload" onclick="switchTab('upload')" title="Upload & Enrich">
               <span class="subtab-dot"></span>
               <span class="subtab-label">Upload & Enrich</span>
             </button>
@@ -206,7 +216,7 @@
 
         <!-- Category 2: Campaign -->
         <div class="nav-category-group expanded" id="cat-group-campaign">
-          <div class="nav-category-header" onclick="toggleNavCategory('campaign')">
+          <div class="nav-category-header" onclick="toggleNavCategory('campaign')" title="Campaign (Outbound)">
             <svg class="nav-icon nav-icon--pink" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
@@ -214,7 +224,7 @@
             <svg class="chevron-indicator" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
           <div class="nav-subtabs" id="subtabs-campaign">
-            <button class="subtab-btn" id="tab-btn-campaign-outbound" onclick="switchTab('campaign-outbound')">
+            <button class="subtab-btn" id="tab-btn-campaign-outbound" onclick="switchTab('campaign-outbound')" title="Outbound">
               <span class="subtab-dot"></span>
               <span class="subtab-label">Outbound</span>
             </button>
@@ -223,7 +233,7 @@
 
         <!-- Category 3: Events -->
         <div class="nav-category-group direct-tab" id="cat-group-events">
-          <div class="nav-category-header subtab-btn" id="tab-btn-events-list" onclick="switchTab('events-list')">
+          <div class="nav-category-header subtab-btn" id="tab-btn-events-list" onclick="switchTab('events-list')" title="Events">
             <svg class="nav-icon nav-icon--peach" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
@@ -238,7 +248,7 @@
 
       <!-- Agent Mode -->
       <div class="sidebar-controls-section agent-mode-section">
-        <button class="agent-mode-toggle-btn" id="btn-agent-mode" onclick="toggleAgentMode()">
+        <button class="agent-mode-toggle-btn" id="btn-agent-mode" onclick="toggleAgentMode()" title="Agent Mode Orchestrator">
           <div class="agent-radar-dot"></div>
           <span class="nav-label">Agent Mode</span>
         </button>

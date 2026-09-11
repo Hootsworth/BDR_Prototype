@@ -254,12 +254,19 @@ function switchTab(tabId) {
   document.querySelectorAll(".subtab-btn, .astryx-sidenav-item").forEach(btn => {
     btn.classList.remove("active");
   });
+  document.querySelectorAll(".nav-category-header").forEach(hdr => {
+    hdr.classList.remove("active");
+  });
   const activeBtn = document.getElementById(`tab-btn-${tabId}`);
   if (activeBtn) {
     activeBtn.classList.add("active");
     const categoryGroup = activeBtn.closest(".nav-category-group");
-    if (categoryGroup && !categoryGroup.classList.contains("expanded")) {
-      categoryGroup.classList.add("expanded");
+    if (categoryGroup) {
+      if (!categoryGroup.classList.contains("expanded")) {
+        categoryGroup.classList.add("expanded");
+      }
+      const catHdr = categoryGroup.querySelector(".nav-category-header");
+      if (catHdr) catHdr.classList.add("active");
     }
   }
 
@@ -309,6 +316,13 @@ function switchTab(tabId) {
 }
 
 function toggleNavCategory(catId) {
+  const sidebar = document.getElementById("sidebar-panel");
+  if (sidebar && sidebar.classList.contains("collapsed")) {
+    if (catId === 'contacts') switchTab('upload');
+    else if (catId === 'campaign') switchTab('campaign-outbound');
+    else if (catId === 'events') switchTab('events-list');
+    return;
+  }
   const group = document.getElementById(`cat-group-${catId}`);
   if (group) {
     group.classList.toggle("collapsed");
