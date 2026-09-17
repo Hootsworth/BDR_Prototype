@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
   database.exploriumApiKey = localStorage.getItem("gtm_key_explorium") || "";
   database.llmHelperKey = localStorage.getItem("gtm_key_llm_helper") || "";
   database.geminiApiKey = localStorage.getItem("gtm_key_gemini") || "";
-  database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-2.5-flash";
+  database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-3.5-flash";
   database.geminiSearchGrounding = localStorage.getItem("gtm_gemini_search_grounding") !== "false";
 
   const exploriumInput = document.getElementById("key-explorium");
@@ -3019,7 +3019,7 @@ function sendAgentChatMessage() {
     appendAgentLog(`🤖 Processing query: "<em>${text}</em>"...`);
   }, 100);
 
-  const model = database.geminiModel || "gemini-2.5-flash";
+  const model = database.geminiModel || "gemini-3.5-flash";
   const apiKey = database.geminiApiKey;
   const enableSearch = database.geminiSearchGrounding !== false;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -3153,7 +3153,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   `;
 
   try {
-    const model = database.geminiModel || "gemini-2.5-flash";
+    const model = database.geminiModel || "gemini-3.5-flash";
     const apiKey = database.geminiApiKey;
     const enableSearch = database.geminiSearchGrounding !== false;
 

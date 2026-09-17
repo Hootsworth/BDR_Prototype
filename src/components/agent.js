@@ -343,7 +343,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   `;
 
   try {
-    const model = database.geminiModel || "gemini-2.5-flash";
+    const model = database.geminiModel || "gemini-3.5-flash";
     const apiKey = database.geminiApiKey;
     const enableSearch = database.geminiSearchGrounding !== false;
 
@@ -405,6 +405,10 @@ let currentAgentCost = 0.042;
 
 function changeAgentModel(modelName) {
   database.selectedModel = modelName;
+  database.geminiModel = modelName;
+  localStorage.setItem("gtm_model_gemini", modelName);
+  const geminiSelect = document.getElementById("select-gemini-model");
+  if (geminiSelect) geminiSelect.value = modelName;
   appendAgentLog(`⚙️ <strong>Agent Model Switched to: ${modelName}</strong>. Guardrails re-configured.`);
 }
 

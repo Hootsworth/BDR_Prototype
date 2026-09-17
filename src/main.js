@@ -65,7 +65,7 @@ async function bootstrapApp() {
   database.exploriumApiKey = "";
   database.llmHelperKey = "";
   database.geminiApiKey = "";
-  database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-2.5-flash";
+  database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-3.5-flash";
   database.geminiSearchGrounding = localStorage.getItem("gtm_gemini_search_grounding") !== "false";
 
   const exploriumInput = document.getElementById("key-explorium");
