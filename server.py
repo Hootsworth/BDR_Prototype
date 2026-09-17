@@ -496,6 +496,15 @@ def google_api_get(url, access_token):
     request = urllib.request.Request(url, headers={'Authorization': f'Bearer {access_token}'}, method='GET')
     return request_with_retry(url, None, request.headers, 'GET')
 
+def linkedin_userinfo(access_token):
+    """Validate a member-authorized LinkedIn OAuth token without persisting it."""
+    request = urllib.request.Request(
+        'https://api.linkedin.com/v2/userinfo',
+        headers={'Authorization': f'Bearer {access_token}'},
+        method='GET',
+    )
+    return request_with_retry('https://api.linkedin.com/v2/userinfo', None, request.headers, 'GET')[1]
+
 def gmail_raw_message(to, subject, body):
     mime = f'To: {to}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n{body}'
     return base64.urlsafe_b64encode(mime.encode('utf-8')).decode('ascii').rstrip('=')
@@ -882,6 +891,26 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, ex.code, {'error': detail})
             except Exception as ex:
                 json_response(self, 502, {'error': f'Google API request failed: {ex}'})
+            return
+
+        if self.path == '/api/linkedin/verify':
+            access_token = str(payload.get('accessToken') or '').strip()
+            if not access_token:
+                json_response(self, 400, {'error': 'A LinkedIn OAuth access token is required.'})
+                return
+            try:
+                profile = linkedin_userinfo(access_token)
+                json_response(self, 200, {
+                    'status': 'verified',
+                    'name': profile.get('name') or profile.get('given_name') or 'LinkedIn member',
+                    'email': profile.get('email'),
+                    'subject': profile.get('sub'),
+                })
+            except urllib.error.HTTPError as ex:
+                detail = ex.read().decode('utf-8', errors='replace')
+                json_response(self, ex.code, {'error': detail or 'LinkedIn rejected the access token.'})
+            except Exception as ex:
+                json_response(self, 502, {'error': f'LinkedIn connection failed: {ex}'})
             return
 
         if self.path == '/api/state':

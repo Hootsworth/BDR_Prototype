@@ -364,7 +364,17 @@ function switchDrawerChannel(channel) {
   }
 
   if (channel === 'email') {
+    const savedInstructions = String(contact.emailPrompt || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
     container.innerHTML = `
+      <div class="form-group">
+        <label for="email-ai-instructions">Instructions for AI <span style="font-size:11px; color:var(--color-text-secondary); font-weight:400;">(optional)</span></label>
+        <textarea class="input-control" id="email-ai-instructions" rows="3" placeholder="For example: Mention their recent expansion, keep the tone warm, and invite them to a 15-minute demo.">${savedInstructions}</textarea>
+        <div style="font-size:11px; color:var(--color-text-secondary); margin-top:5px; line-height:1.4;">The AI will use these instructions alongside the prospect details and existing campaign context.</div>
+      </div>
+
       <div class="form-group">
         <label>Email Subject</label>
         <input type="text" class="input-control" id="email-draft-subject" value="${contact.emailDraft.subject}">
@@ -390,9 +400,9 @@ function switchDrawerChannel(channel) {
       <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
         <button class="btn btn-primary" onclick="sendOutboundEmail()" style="width:100%;">Send Campaign Email</button>
         <button class="btn btn-secondary" onclick="suppressSelectedContact()" style="width:100%; color:var(--color-error);">Suppress contact</button>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:12px; height:40px; padding:0 6px;">Insert Calendly</button>
-          <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="font-size:12px; height:40px; padding:0 6px;">AI Re-draft</button>
+          <button class="btn btn-secondary" onclick="generateLLMEmailDraft(event)" style="font-size:12px; height:40px; padding:0 6px;">Draft with AI</button>
         </div>
       </div>
     `;
@@ -408,7 +418,7 @@ function switchDrawerChannel(channel) {
       </div>
 
       <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Send Invite Note</button>
+        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Open LinkedIn to Send Invite</button>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <button class="btn btn-secondary" onclick="insertCalendlyLink('linkedin-draft-text')" style="font-size:13px; height:44px;">Insert Calendly</button>
           <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
@@ -510,28 +520,31 @@ async function sendOutboundEmail() {
   // A real send does not imply a reply; engagement arrives only from Gmail sync.
 }
 
-function sendOutboundLinkedin() {
+async function sendOutboundLinkedin() {
   const contact = database.selectedContact;
   if (!contact) return;
 
-  if (database.simulationMode) {
-    addLogConsole("campaign-outbound", `[SIMULATION] LinkedIn was not contacted for ${contact.fullName}. Connect an approved LinkedIn provider before enabling live actions.`, "warning");
-    alert("LinkedIn is currently simulation-only. No invitation was sent.");
+  const draft = document.getElementById("linkedin-draft-text")?.value ?? contact.linkedinDraft;
+  const note = typeof draft === "string" ? draft.trim() : String(draft?.body || "").trim();
+  if (!note) return alert("Add a connection note before continuing to LinkedIn.");
+  if (contact.suppressed || contact.unsubscribed) return alert("This contact is suppressed or unsubscribed.");
+  if (!database.linkedinAccessToken) {
+    switchTab("settings-keys");
+    setTimeout(() => document.getElementById("settings-linkedin-access-token")?.focus(), 0);
+    alert("Connect LinkedIn in Settings with an approved OAuth access token before preparing an invite.");
     return;
   }
-
-  const note = document.getElementById("linkedin-draft-text").value;
   contact.linkedinDraft = note;
-  contact.linkedinSent = true;
-  database.stats.linkedinSent++;
+  contact.linkedinInvitePreparedAt = new Date().toISOString();
 
   saveDatabaseCache();
-  addLogConsole("enrich", `[OUTBOUND] Sent LinkedIn Connection Invitation with note to ${contact.fullName}`, "success");
-
-  filterOutboundTable();
-  loadOutboundDrawer(contact, 'linkedin');
-
-  // Do not fabricate a LinkedIn response after an outbound action.
+  const profileUrl = /^https:\/\/(www\.)?linkedin\.com\//i.test(contact.linkedinUrl || "")
+    ? contact.linkedinUrl
+    : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${contact.fullName} ${contact.company || ""}`.trim())}`;
+  try { await navigator.clipboard?.writeText(note); } catch (_) { /* Clipboard access is optional. */ }
+  window.open(profileUrl, "_blank", "noopener,noreferrer");
+  addLogConsole("enrich", `[LINKEDIN] Opened LinkedIn for ${contact.fullName}; connection note copied for review and sending.`, "success");
+  alert("LinkedIn is open in a new tab. Your note was copied when the browser allowed it—review it and send the invite in LinkedIn.");
 }
 
 function animateTextWordByWord(element, text, duration = 30) {
@@ -555,11 +568,16 @@ function animateTextWordByWord(element, text, duration = 30) {
   addNext();
 }
 
-async function generateLLMEmailDraft() {
+async function generateLLMEmailDraft(triggerEvent) {
   const contact = database.selectedContact;
   if (!contact) return;
 
-  const btn = event.target;
+  const instructionsInput = document.getElementById("email-ai-instructions");
+  const customInstructions = instructionsInput ? instructionsInput.value.trim() : "";
+  contact.emailPrompt = customInstructions;
+
+  const btn = triggerEvent?.currentTarget || triggerEvent?.target;
+  if (!btn) return;
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Drafting...";
@@ -576,7 +594,7 @@ async function generateLLMEmailDraft() {
     try {
       const prompt = `Draft a short, highly personalized B2B cold email from SDR Campaign Agent to ${contact.fullName}, working as ${contact.jobTitle} at ${contact.company}.
 Our value proposition: Secure query validation guardrails for credit unions adopting database LLMs.
-Include subject line and email body in simple text format. Keep it under 4 sentences, polite, and direct.`;
+${customInstructions ? `Additional instructions from the sender: ${customInstructions}\n` : ""}Use the recipient's details and the additional instructions where relevant. Include a single subject line prefixed with "Subject:" followed by the email body in simple text format. Keep it under 4 sentences, polite, and direct. Do not invent facts not supplied in the recipient details or instructions.`;
 
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -614,7 +632,7 @@ Include subject line and email body in simple text format. Keep it under 4 sente
     await new Promise(resolve => setTimeout(resolve, 1200));
 
     finalSubject = `Safe compliance LLM queries for ${contact.company}`;
-    finalBody = `Hi ${contact.firstName},\n\nI noticed you are leading tech processes as ${contact.jobTitle} at ${contact.company}. Safe operations with LLMs are a major concern for credit union boards today.\n\nWe build query verification gateways ensuring zero compliance leaks for financial databases.\n\nLet's get a 10 min overview chat next week?\n\nBest,\nSDR Campaign Agent`;
+    finalBody = `Hi ${contact.firstName},\n\nI noticed you are leading tech processes as ${contact.jobTitle} at ${contact.company}. Safe operations with LLMs are a major concern for credit union boards today.${customInstructions ? `\n\n${customInstructions}` : ""}\n\nWe build query verification gateways ensuring zero compliance leaks for financial databases.\n\nLet's get a 10 min overview chat next week?\n\nBest,\nSDR Campaign Agent`;
   }
 
   btn.disabled = false;
@@ -1103,7 +1121,7 @@ function switchOutboundModalChannel(channel) {
     if (callPanel) callPanel.style.display = "none";
     if (subjGroup) subjGroup.style.display = "none";
     if (secTitle) secTitle.textContent = "LinkedIn Connection Note";
-    if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Send LinkedIn Invite"; }
+    if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Open LinkedIn to Send Invite"; }
     if (aiHookBtn) aiHookBtn.style.display = "inline-flex";
     if (bodyInput) bodyInput.value = contact.linkedinDraft ? contact.linkedinDraft.body : "";
   } else if (channel === 'call') {
@@ -1185,10 +1203,15 @@ async function executeOutboundSendAction() {
       if (actionButton) { actionButton.disabled = false; actionButton.textContent = "Dispatch Email Outreach"; }
     }
   } else if (currentModalChannel === 'linkedin') {
-    contact.linkedinSent = true;
-    database.stats.linkedinSent = (database.stats.linkedinSent || 0) + 1;
-    addLogConsole("enrich", `[LINKEDIN] Dispatched connection invite to ${contact.fullName}`, "success");
-    alert(`LinkedIn connection note sent to ${contact.fullName}!`);
+    const note = document.getElementById("outbound-email-body-input")?.value.trim();
+    if (!note) {
+      alert("Add a connection note before continuing to LinkedIn.");
+      return;
+    }
+    contact.linkedinDraft = note;
+    await sendOutboundLinkedin();
+    closeOutboundModal();
+    return;
   } else if (currentModalChannel === 'call') {
     if (!contact.callsMade) contact.callsMade = [];
     contact.callsMade.push({ date: new Date().toISOString(), outcome: "Completed Briefing Call" });

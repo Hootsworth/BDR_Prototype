@@ -623,13 +623,44 @@ function saveLinkedInCredentials() {
   database.linkedinClientId = (document.getElementById("settings-linkedin-client-id")?.value || "").trim();
   database.linkedinClientSecret = (document.getElementById("settings-linkedin-client-secret")?.value || "").trim();
   database.linkedinAccessToken = (document.getElementById("settings-linkedin-access-token")?.value || "").trim();
-  const configured = Boolean(database.linkedinClientId && (database.linkedinClientSecret || database.linkedinAccessToken));
+  database.linkedinConnection = null;
+  const configured = Boolean(database.linkedinAccessToken);
   const status = document.getElementById("linkedin-credentials-status");
   if (status) {
-    status.textContent = configured ? "Session ready" : "Incomplete";
+    status.textContent = configured ? "Token saved — verify" : "Access token required";
     status.className = configured ? "badge badge-success" : "badge";
   }
-  addLogConsole("enrich", configured ? "[LINKEDIN] Credentials loaded for this browser session; API approval is still required." : "[LINKEDIN] Client ID plus Client Secret or Access Token are required.", configured ? "success" : "warning");
+  addLogConsole("enrich", configured ? "[LINKEDIN] OAuth access token loaded for this browser session." : "[LINKEDIN] An approved OAuth access token is required.", configured ? "success" : "warning");
+}
+
+async function verifyLinkedInConnection() {
+  saveLinkedInCredentials();
+  if (!database.linkedinAccessToken) {
+    alert("Add an approved LinkedIn OAuth access token, then verify the connection.");
+    document.getElementById("settings-linkedin-access-token")?.focus();
+    return false;
+  }
+
+  const status = document.getElementById("linkedin-credentials-status");
+  if (status) { status.textContent = "Verifying…"; status.className = "badge"; }
+  try {
+    const response = await fetch("/api/linkedin/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken: database.linkedinAccessToken })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "LinkedIn rejected the access token.");
+    database.linkedinConnection = result;
+    if (status) { status.textContent = `Connected: ${result.name}`; status.className = "badge badge-success"; }
+    addLogConsole("enrich", `[LINKEDIN] Verified OAuth connection for ${result.name}.`, "success");
+    return true;
+  } catch (error) {
+    if (status) { status.textContent = "Verification failed"; status.className = "badge"; }
+    addLogConsole("enrich", `[LINKEDIN] Connection verification failed: ${error.message}`, "error");
+    alert(`LinkedIn connection could not be verified. ${error.message}`);
+    return false;
+  }
 }
 
 function saveSlackWebhookUrl() {
@@ -786,6 +817,7 @@ window.saveSlackWebhookUrl = saveSlackWebhookUrl;
 window.testSlackWebhookNotification = testSlackWebhookNotification;
 window.saveTwilioCredentials = saveTwilioCredentials;
 window.saveLinkedInCredentials = saveLinkedInCredentials;
+window.verifyLinkedInConnection = verifyLinkedInConnection;
 window.switchSettingsNav = switchSettingsNav;
 window.saveCrmSyncSettings = saveCrmSyncSettings;
 window.openLemlistOnboardingModal = openLemlistOnboardingModal;
