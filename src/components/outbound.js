@@ -1887,6 +1887,306 @@ async function executeBulkOutboundSend() {
   }, 900);
 }
 
+// --- AI CUSTOM PROMPT EMAIL DRAFTING ENGINE (SINGLE & BULK) ---
+
+function parseSubjectAndBody(content, fallbackSubject) {
+  if (!content) return { subject: fallbackSubject, body: "" };
+  let subject = fallbackSubject;
+  let body = content;
+
+  const subjectMatch = content.match(/Subject:\s*([^\n\r]+)/i);
+  if (subjectMatch) {
+    subject = subjectMatch[1].trim();
+    body = content.replace(/Subject:\s*[^\n\r]+/i, "").trim();
+  }
+
+  // Clean up any extraneous leading/trailing markdown or quotes
+  body = body.replace(/^["'`]|["'`]$/g, "").trim();
+  return { subject, body };
+}
+
+function generateIntelligentFallbackDraft(instructions, contact, isBulk) {
+  const norm = (instructions || "").toLowerCase();
+  const nameVar = isBulk ? "{{firstName}}" : (contact?.firstName || (contact?.fullName ? contact.fullName.split(" ")[0] : "there"));
+  const companyVar = isBulk ? "{{company}}" : (contact?.company || "your organization");
+  const jobTitleVar = isBulk ? "{{jobTitle}}" : (contact?.jobTitle || "leadership team");
+
+  let subject = `Quick question re: ${companyVar}`;
+  let body = "";
+
+  if (norm.includes("soc2") || norm.includes("compliance") || norm.includes("security") || norm.includes("guardrail")) {
+    subject = `Compliance & Query Guardrails for ${companyVar}`;
+    body = `Hi ${nameVar},\n\nGiven your focus on ${jobTitleVar} at ${companyVar}, I wanted to reach out regarding query security guardrails and automated compliance.\n\nWe help data-driven teams enforce real-time audit guardrails without slowing down analytics velocity.\n\nWould next Tuesday afternoon work for a concise 10-minute briefing?\n\nBest regards,\nBDR Outreach Agent`;
+  } else if (norm.includes("50 words") || norm.includes("short") || norm.includes("punchy") || norm.includes("concise")) {
+    subject = `10-min intro re: ${companyVar}`;
+    body = `Hi ${nameVar},\n\nSaw your team at ${companyVar} expanding and thought our automated BDR pipeline could help streamline outreach.\n\nWould 10 minutes next Tuesday work for a quick demo?\n\nBest,\nBDR Outreach Agent`;
+  } else if (norm.includes("roi") || norm.includes("hour") || norm.includes("cost") || norm.includes("reduction")) {
+    subject = `Saving 15+ engineering hours weekly for ${companyVar}`;
+    body = `Hi ${nameVar},\n\nOur automated pipeline helps organizations like ${companyVar} reduce manual intake workflows by 40% while preserving strict security standards.\n\nCould we share a 3-minute executive breakdown next Tuesday?\n\nBest regards,\nBDR Outreach Agent`;
+  } else if (norm.includes("casual") || norm.includes("coffee") || norm.includes("mutual")) {
+    subject = `Quick intro / coffee chat?`;
+    body = `Hi ${nameVar},\n\nHope your week is off to a great start! Following your work with ${companyVar}, I'd love to connect and share notes on automated workflow orchestration.\n\nOpen to a casual 10-minute virtual chat next Tuesday?\n\nWarm regards,\nBDR Outreach Agent`;
+  } else {
+    subject = instructions && instructions.length < 50 ? `${instructions.slice(0, 45)}` : `Accelerating workflows for ${companyVar}`;
+    body = `Hi ${nameVar},\n\nI am reaching out regarding ${companyVar}'s growth.\n\n${instructions ? `Based on your focus: ${instructions}.\n\n` : ""}Our autonomous BDR pipeline equips leadership teams with real-time prospect intelligence and compliant outreach.\n\nWould you be open to a brief 10-minute conversation next week?\n\nBest regards,\nBDR Outreach Agent`;
+  }
+
+  return { subject, body };
+}
+
+async function callGeminiOrLlmDraft({ instructions, contact, isBulk, existingSubject, existingBody }) {
+  const contactCtx = isBulk
+    ? "Bulk campaign template. Use template variable placeholders: {{firstName}}, {{company}}, {{jobTitle}}, {{industry}}."
+    : `Target Lead: ${contact?.fullName || 'Contact'}, Job Title: ${contact?.jobTitle || 'Lead'}, Company: ${contact?.company || 'Organization'}, Industry: ${contact?.industry || 'B2B'}.`;
+
+  const prompt = `You are an elite B2B SDR copywriter. Draft a high-converting, personalized cold email following these specific user instructions.
+
+SPECIFIC USER INSTRUCTIONS:
+"${instructions || "Draft a compelling, professional B2B outreach email"}"
+
+TARGET CONTEXT:
+${contactCtx}
+
+CURRENT SUBJECT (if updating): ${existingSubject || "None"}
+CURRENT BODY (if updating): ${existingBody || "None"}
+
+RULES:
+1. Include a single "Subject: [Your Subject Line]" on the very first line.
+2. Followed by the email body.
+3. Keep the email concise, persuasive, and under 120 words unless explicitly asked otherwise.
+4. Adhere closely to the user's instructions (e.g. specific CTA dates, tone, value props).
+5. ${isBulk ? "Use {{firstName}}, {{company}}, {{jobTitle}} variable tags in place of hardcoded recipient details." : "Use recipient's real details where relevant."}
+6. No conversational preamble or markdown code fences like \`\`\`. Output raw email text directly.`;
+
+  // 1. Primary: Gemini API
+  if (database.geminiApiKey) {
+    try {
+      const model = database.geminiModel || "gemini-3.5-flash";
+      const apiKey = database.geminiApiKey;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 500
+          }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText && rawText.trim().length > 0) {
+          return parseSubjectAndBody(rawText.trim(), `Outreach for ${isBulk ? '{{company}}' : (contact?.company || 'Partnership')}`);
+        }
+      }
+    } catch (err) {
+      console.warn("Gemini draft error, falling back:", err);
+    }
+  }
+
+  // 2. Secondary: OpenAI Helper Key
+  if (database.llmHelperKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${database.llmHelperKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data?.choices?.[0]?.message?.content;
+        if (rawText && rawText.trim().length > 0) {
+          return parseSubjectAndBody(rawText.trim(), `Outreach for ${isBulk ? '{{company}}' : (contact?.company || 'Partnership')}`);
+        }
+      }
+    } catch (err) {
+      console.warn("OpenAI draft error, falling back:", err);
+    }
+  }
+
+  // 3. Intelligent fallback generator
+  await new Promise(resolve => setTimeout(resolve, 350));
+  return generateIntelligentFallbackDraft(instructions, contact, isBulk);
+}
+
+async function generateAIOutboundWithPrompt() {
+  const contact = database.selectedContact;
+  const promptInput = document.getElementById("outbound-ai-prompt-input");
+  const subjInput = document.getElementById("outbound-email-subject-input");
+  const bodyInput = document.getElementById("outbound-email-body-input");
+  const runBtn = document.getElementById("btn-run-ai-prompt");
+  const prevBox = document.getElementById("outbound-email-preview-box");
+
+  const instructions = promptInput ? promptInput.value.trim() : "";
+  if (!instructions && !confirm("No specific instructions entered. Generate a tailored draft using default smart BDR angle?")) {
+    if (promptInput) promptInput.focus();
+    return;
+  }
+
+  const origBtnHtml = runBtn ? runBtn.innerHTML : "";
+  if (runBtn) {
+    runBtn.disabled = true;
+    runBtn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>
+      <span>Drafting...</span>
+    `;
+  }
+
+  if (bodyInput) bodyInput.classList.add("text-blur-out", "rainbow-active");
+  if (prevBox) prevBox.classList.add("rainbow-active");
+
+  try {
+    const draft = await callGeminiOrLlmDraft({
+      instructions,
+      contact,
+      isBulk: false,
+      existingSubject: subjInput?.value || "",
+      existingBody: bodyInput?.value || ""
+    });
+
+    if (subjInput && draft.subject) {
+      subjInput.value = draft.subject;
+    }
+
+    if (bodyInput && draft.body) {
+      bodyInput.value = "";
+      bodyInput.classList.remove("text-blur-out");
+      bodyInput.classList.add("text-swoosh-in");
+
+      const words = draft.body.split(" ");
+      let idx = 0;
+      const interval = setInterval(() => {
+        if (idx < words.length) {
+          bodyInput.value += (idx === 0 ? "" : " ") + words[idx];
+          updateOutboundLivePreview();
+          idx++;
+        } else {
+          clearInterval(interval);
+          bodyInput.classList.remove("rainbow-active", "text-swoosh-in");
+          if (prevBox) prevBox.classList.remove("rainbow-active");
+        }
+      }, 16);
+    } else {
+      updateOutboundLivePreview();
+      if (bodyInput) bodyInput.classList.remove("rainbow-active", "text-blur-out");
+      if (prevBox) prevBox.classList.remove("rainbow-active");
+    }
+
+    addLogConsole("campaign-outbound", `[AI DRAFT] Generated customized single outreach draft with prompt: "${instructions || 'Default BDR'}"`, "success");
+  } catch (err) {
+    console.error("AI Outbound Draft generation error:", err);
+    alert(`Could not draft email: ${err.message}`);
+    if (bodyInput) bodyInput.classList.remove("rainbow-active", "text-blur-out");
+    if (prevBox) prevBox.classList.remove("rainbow-active");
+  } finally {
+    if (runBtn) {
+      runBtn.disabled = false;
+      runBtn.innerHTML = origBtnHtml;
+    }
+  }
+}
+
+function setOutboundPromptSuggestion(text) {
+  const input = document.getElementById("outbound-ai-prompt-input");
+  if (input) {
+    input.value = text;
+    input.focus();
+  }
+  generateAIOutboundWithPrompt();
+}
+
+async function generateBulkWithCustomPrompt() {
+  const promptInput = document.getElementById("bulk-ai-prompt-input");
+  const subjInput = document.getElementById("bulk-email-subject-input");
+  const bodyInput = document.getElementById("bulk-email-body-input");
+  const runBtn = document.getElementById("btn-bulk-run-prompt");
+
+  const instructions = promptInput ? promptInput.value.trim() : "";
+  if (!instructions && !confirm("No specific instructions entered. Generate a batch outreach template using default smart BDR angle?")) {
+    if (promptInput) promptInput.focus();
+    return;
+  }
+
+  const origBtnHtml = runBtn ? runBtn.innerHTML : "";
+  if (runBtn) {
+    runBtn.disabled = true;
+    runBtn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg>
+      <span>Drafting...</span>
+    `;
+  }
+
+  if (bodyInput) bodyInput.classList.add("text-blur-out");
+
+  try {
+    const draft = await callGeminiOrLlmDraft({
+      instructions,
+      contact: bulkSelectedContactsCache[0] || null,
+      isBulk: true,
+      existingSubject: subjInput?.value || "",
+      existingBody: bodyInput?.value || ""
+    });
+
+    if (subjInput && draft.subject) {
+      subjInput.value = draft.subject;
+    }
+
+    if (bodyInput && draft.body) {
+      bodyInput.value = "";
+      bodyInput.classList.remove("text-blur-out");
+      bodyInput.classList.add("text-swoosh-in");
+
+      const words = draft.body.split(" ");
+      let idx = 0;
+      const interval = setInterval(() => {
+        if (idx < words.length) {
+          bodyInput.value += (idx === 0 ? "" : " ") + words[idx];
+          updateBulkLivePreview();
+          idx++;
+        } else {
+          clearInterval(interval);
+          bodyInput.classList.remove("text-swoosh-in");
+        }
+      }, 16);
+    } else {
+      if (bodyInput) bodyInput.classList.remove("text-blur-out");
+      updateBulkLivePreview();
+    }
+
+    addLogConsole("campaign-outbound", `[AI BATCH DRAFT] Generated customized bulk outreach draft with prompt: "${instructions || 'Default BDR'}"`, "success");
+  } catch (err) {
+    console.error("Bulk AI Draft generation error:", err);
+    alert(`Could not draft bulk email: ${err.message}`);
+    if (bodyInput) bodyInput.classList.remove("text-blur-out");
+  } finally {
+    if (runBtn) {
+      runBtn.disabled = false;
+      runBtn.innerHTML = origBtnHtml;
+    }
+  }
+}
+
+function setBulkPromptSuggestion(text) {
+  const input = document.getElementById("bulk-ai-prompt-input");
+  if (input) {
+    input.value = text;
+    input.focus();
+  }
+  generateBulkWithCustomPrompt();
+}
+
 window.toggleSelectAllOutbound = toggleSelectAllOutbound;
 window.toggleSelectOutboundRow = toggleSelectOutboundRow;
 window.openBulkOutboundModal = openBulkOutboundModal;
@@ -1896,4 +2196,9 @@ window.insertVariableTag = insertVariableTag;
 window.updateBulkLivePreview = updateBulkLivePreview;
 window.renderBulkPreviewForContact = renderBulkPreviewForContact;
 window.executeBulkOutboundSend = executeBulkOutboundSend;
+window.generateAIOutboundWithPrompt = generateAIOutboundWithPrompt;
+window.setOutboundPromptSuggestion = setOutboundPromptSuggestion;
+window.generateBulkWithCustomPrompt = generateBulkWithCustomPrompt;
+window.setBulkPromptSuggestion = setBulkPromptSuggestion;
+
 
