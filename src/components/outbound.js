@@ -98,7 +98,7 @@ function changeOutboundPage(page) {
 
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align: center; padding: 3rem 1.5rem; color: var(--color-text-secondary);">
+        <td colspan="8" style="text-align: center; padding: 3rem 1.5rem; color: var(--color-text-secondary);">
           ${emptyIcon}
           <div style="font-size: var(--font-size-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 0.25rem;">${emptyTitle}</div>
           <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 1.25rem 0;">${emptyDesc}</p>
@@ -112,6 +112,7 @@ function changeOutboundPage(page) {
 
   pageData.forEach(c => {
     const tr = document.createElement("tr");
+    const isChecked = database.selectedOutboundRows && database.selectedOutboundRows.includes(c.id) ? "checked" : "";
 
     const badgeClass = c.leadTemp === "Hot Lead" ? "badge-success" : "badge";
     const emailStatus = c.emailsSent 
@@ -134,6 +135,7 @@ function changeOutboundPage(page) {
 
     if (isInfluencersTab) {
       tr.innerHTML = `
+        <td style="text-align: center;"><input type="checkbox" class="row-check-outbound" data-id="${c.id}" ${isChecked} onchange="toggleSelectOutboundRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
         <td>
           <div style="display: flex; align-items: center; gap: 0.625rem;">
             ${avatarHtml}
@@ -178,9 +180,12 @@ function changeOutboundPage(page) {
       if (affiliated.length === 0) {
         affiliatedContent = `
           <div style="background: var(--color-background-surface); border: 1px dashed var(--color-border); border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
-            <div style="display: flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              No prospects affiliated with <strong>${c.fullName}</strong> yet. Use "+ Add Prospect" above to attach referrals.
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong style="font-size: 12px; color: var(--color-text-primary);">No Affiliated Prospects Yet</strong>
+                <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-secondary);">Add prospects referred by ${c.fullName} to coordinate intro outreach and award partner credits.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})" style="font-size: 11px;">+ Add Referred Prospect</button>
             </div>
           </div>
         `;
@@ -242,7 +247,7 @@ function changeOutboundPage(page) {
       }
 
       subTr.innerHTML = `
-        <td colspan="7" style="padding: 0.375rem 1rem 1rem 2rem; background: var(--color-background-subtle, rgba(0,0,0,0.015));">
+        <td colspan="8" style="padding: 0.375rem 1rem 1rem 2rem; background: var(--color-background-subtle, rgba(0,0,0,0.015));">
           ${affiliatedContent}
         </td>
       `;
@@ -256,6 +261,7 @@ function changeOutboundPage(page) {
           Referred by: ${c.referredBy}
         </div>` : '';
       tr.innerHTML = `
+        <td style="text-align: center;"><input type="checkbox" class="row-check-outbound" data-id="${c.id}" ${isChecked} onchange="toggleSelectOutboundRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
         <td>
           <div style="display: flex; align-items: center; gap: 0.625rem;">
             ${avatarHtml}
@@ -1555,3 +1561,339 @@ window.openAddProspectForInfluencer = function(influencerId) {
     if (influencer) return openAddReferralModal(influencer.email);
   }
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// BULK OUTREACH CONTROLLER & BATCH EMAIL DISPATCH
+// ══════════════════════════════════════════════════════════════════════════
+
+database.selectedOutboundRows = database.selectedOutboundRows || [];
+let bulkSelectedContactsCache = [];
+let bulkActivePreviewContactId = null;
+
+const BULK_TEMPLATES = {
+  compliance_guardrails: {
+    subject: "Query validation guardrails & compliance for {{company}}",
+    body: `Hi {{firstName}},
+
+I saw your profile as {{jobTitle}} at {{company}}. Many credit union and financial technology leaders we consult are evaluating LLM query pipelines, but are concerned about compliance verification.
+
+We provide real-time query validation guardrails designed specifically for {{industry}} organizations.
+
+Would 15 minutes next Tuesday work for a brief intro?
+
+Best regards,
+Autonomous BDR Agent`
+  },
+  scaling_ops: {
+    subject: "Automating outbound & partner referrals for {{company}}",
+    body: `Hi {{firstName}},
+
+Notice {{company}} is scaling operations. Our autonomous BDR orchestrator helps teams streamline prospect research, dossier generation, and compliant outbound sequences.
+
+Would you be open to a 10-minute briefing next week to see how we save 15+ engineering hours?
+
+Best regards,
+Autonomous BDR Agent`
+  },
+  warm_referral: {
+    subject: "Introduction re: automated GTM intelligence for {{company}}",
+    body: `Hi {{firstName}},
+
+Connecting regarding your leadership as {{jobTitle}} at {{company}}.
+
+Our platform coordinates executive partner networks and automated lead intelligence for {{industry}} teams.
+
+Would next Tuesday at 2 PM work for a brief intro?
+
+Best regards,
+Autonomous BDR Agent`
+  }
+};
+
+function toggleSelectAllOutbound(elem) {
+  database.selectedOutboundRows = [];
+  const checkboxes = document.querySelectorAll(".row-check-outbound");
+  checkboxes.forEach(cb => {
+    cb.checked = elem.checked;
+    if (elem.checked) {
+      const id = parseInt(cb.getAttribute("data-id"));
+      if (!isNaN(id)) database.selectedOutboundRows.push(id);
+    }
+  });
+  if (typeof updateGlobalSelectionBar === "function") updateGlobalSelectionBar();
+}
+
+function toggleSelectOutboundRow(elem, id) {
+  database.selectedOutboundRows = database.selectedOutboundRows || [];
+  if (elem.checked) {
+    if (!database.selectedOutboundRows.includes(id)) {
+      database.selectedOutboundRows.push(id);
+    }
+  } else {
+    database.selectedOutboundRows = database.selectedOutboundRows.filter(rowId => rowId !== id);
+  }
+
+  const checkAll = document.getElementById("check-all-outbound");
+  if (checkAll) {
+    const checkboxes = document.querySelectorAll(".row-check-outbound");
+    const checkedBoxes = document.querySelectorAll(".row-check-outbound:checked");
+    checkAll.checked = checkboxes.length > 0 && checkboxes.length === checkedBoxes.length;
+  }
+
+  if (typeof updateGlobalSelectionBar === "function") updateGlobalSelectionBar();
+}
+
+function getSelectedContactsForOutreach() {
+  const ids = new Set([
+    ...(database.selectedUploadRows || []),
+    ...(database.selectedOutboundRows || [])
+  ]);
+  if (ids.size === 0) return [];
+  return (database.contacts || []).filter(c => ids.has(c.id));
+}
+
+function openBulkOutboundModal(source) {
+  const selectedContacts = getSelectedContactsForOutreach();
+  if (selectedContacts.length === 0) {
+    alert("Please select one or more contacts using the checkboxes first.");
+    return;
+  }
+
+  bulkSelectedContactsCache = selectedContacts;
+  bulkActivePreviewContactId = selectedContacts[0].id;
+
+  // Render recipient chips
+  const chipsContainer = document.getElementById("bulk-recipients-chips-container");
+  const countEl = document.getElementById("bulk-modal-recipient-count");
+  const validCountEl = document.getElementById("bulk-modal-email-valid-count");
+  const previewSelect = document.getElementById("bulk-preview-recipient-select");
+  const sendBtnLabel = document.getElementById("bulk-send-btn-label");
+  const senderStatus = document.getElementById("bulk-sender-status-label");
+
+  if (countEl) countEl.textContent = selectedContacts.length;
+  if (sendBtnLabel) sendBtnLabel.textContent = `Dispatch ${selectedContacts.length} Emails`;
+
+  const validEmails = selectedContacts.filter(c => c.email && c.email.includes("@"));
+  if (validCountEl) {
+    if (validEmails.length === selectedContacts.length) {
+      validCountEl.textContent = `All ${selectedContacts.length} contacts have valid email addresses`;
+      validCountEl.style.color = "var(--color-success)";
+    } else {
+      validCountEl.textContent = `${validEmails.length} of ${selectedContacts.length} have valid emails (${selectedContacts.length - validEmails.length} missing)`;
+      validCountEl.style.color = "var(--color-warning, #eab308)";
+    }
+  }
+
+  if (senderStatus) {
+    senderStatus.textContent = database.googleAccessToken ? "Google Workspace (Connected)" : "Google Workspace (Browser OAuth/Demo Mode)";
+  }
+
+  if (chipsContainer) {
+    chipsContainer.innerHTML = selectedContacts.map(c => {
+      const hasEmail = c.email && c.email.includes("@");
+      const chipClass = hasEmail ? "bulk-recipient-chip" : "bulk-recipient-chip missing-email";
+      return `
+        <span class="${chipClass}">
+          <strong>${c.fullName}</strong>
+          <span style="opacity: 0.75; font-size: 10.5px;">(${c.email || 'No email'})</span>
+        </span>
+      `;
+    }).join('');
+  }
+
+  if (previewSelect) {
+    previewSelect.innerHTML = selectedContacts.map(c => {
+      return `<option value="${c.id}">${c.fullName} (${c.company || 'Org'})</option>`;
+    }).join('');
+    previewSelect.value = String(bulkActivePreviewContactId);
+  }
+
+  // Prepopulate default template
+  applyBulkTemplate("compliance_guardrails");
+
+  // Reset progress bar
+  const progressContainer = document.getElementById("bulk-dispatch-progress-container");
+  if (progressContainer) progressContainer.style.display = "none";
+  const sendBtn = document.getElementById("btn-bulk-outbound-send");
+  if (sendBtn) {
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      <span id="bulk-send-btn-label">Dispatch ${selectedContacts.length} Emails</span>
+    `;
+  }
+
+  const dlg = document.getElementById("bulk-outbound-modal");
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "flex";
+  }
+}
+
+function closeBulkOutboundModal() {
+  const dlg = document.getElementById("bulk-outbound-modal");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
+
+function applyBulkTemplate(templateKey) {
+  const tpl = BULK_TEMPLATES[templateKey] || BULK_TEMPLATES.compliance_guardrails;
+  const subjInput = document.getElementById("bulk-email-subject-input");
+  const bodyInput = document.getElementById("bulk-email-body-input");
+  if (subjInput) subjInput.value = tpl.subject;
+  if (bodyInput) bodyInput.value = tpl.body;
+  updateBulkLivePreview();
+}
+
+function insertVariableTag(tag) {
+  const subjInput = document.getElementById("bulk-email-subject-input");
+  const bodyInput = document.getElementById("bulk-email-body-input");
+  const activeEl = document.activeElement;
+
+  const target = (activeEl === subjInput) ? subjInput : bodyInput;
+  if (!target) return;
+
+  const start = target.selectionStart || 0;
+  const end = target.selectionEnd || 0;
+  const val = target.value;
+  target.value = val.substring(0, start) + tag + val.substring(end);
+  target.focus();
+  target.selectionStart = target.selectionEnd = start + tag.length;
+  updateBulkLivePreview();
+}
+
+function renderTextWithVariables(text, contact) {
+  if (!text || !contact) return "";
+  const firstName = contact.firstName || (contact.fullName ? contact.fullName.split(" ")[0] : "there");
+  const lastName = contact.lastName || (contact.fullName ? contact.fullName.split(" ").slice(1).join(" ") : "");
+  return text
+    .replace(/\{\{firstName\}\}/gi, firstName)
+    .replace(/\{\{lastName\}\}/gi, lastName)
+    .replace(/\{\{fullName\}\}/gi, contact.fullName || "Valued Leader")
+    .replace(/\{\{company\}\}/gi, contact.company || "your organization")
+    .replace(/\{\{jobTitle\}\}/gi, contact.jobTitle || "Executive")
+    .replace(/\{\{industry\}\}/gi, contact.industry || "credit union");
+}
+
+function updateBulkLivePreview() {
+  const contact = bulkSelectedContactsCache.find(c => String(c.id) === String(bulkActivePreviewContactId)) || bulkSelectedContactsCache[0];
+  if (!contact) return;
+
+  const rawSubj = document.getElementById("bulk-email-subject-input")?.value || "";
+  const rawBody = document.getElementById("bulk-email-body-input")?.value || "";
+
+  const renderedSubj = renderTextWithVariables(rawSubj, contact);
+  const renderedBody = renderTextWithVariables(rawBody, contact);
+
+  const prevEmail = document.getElementById("bulk-preview-recipient-email");
+  const prevSubj = document.getElementById("bulk-preview-rendered-subject");
+  const prevBody = document.getElementById("bulk-preview-rendered-body");
+
+  if (prevEmail) prevEmail.textContent = contact.email || "No email available";
+  if (prevSubj) prevSubj.textContent = `Subject: ${renderedSubj}`;
+  if (prevBody) prevBody.textContent = renderedBody;
+}
+
+function renderBulkPreviewForContact(contactId) {
+  bulkActivePreviewContactId = contactId;
+  updateBulkLivePreview();
+}
+
+async function executeBulkOutboundSend() {
+  const selectedContacts = bulkSelectedContactsCache.filter(c => c.email && c.email.includes("@"));
+  if (selectedContacts.length === 0) {
+    alert("None of the selected contacts have a valid email address.");
+    return;
+  }
+
+  const rawSubject = document.getElementById("bulk-email-subject-input")?.value.trim();
+  const rawBody = document.getElementById("bulk-email-body-input")?.value.trim();
+
+  if (!rawSubject || !rawBody) {
+    alert("Please provide both a subject line and message body before dispatching.");
+    return;
+  }
+
+  if (!confirm(`Dispatch personalized emails to ${selectedContacts.length} selected recipients via Google Workspace?`)) {
+    return;
+  }
+
+  const sendBtn = document.getElementById("btn-bulk-outbound-send");
+  const progressContainer = document.getElementById("bulk-dispatch-progress-container");
+  const progressText = document.getElementById("bulk-progress-status-text");
+  const progressPct = document.getElementById("bulk-progress-percentage");
+  const progressFill = document.getElementById("bulk-progress-fill");
+
+  if (sendBtn) sendBtn.disabled = true;
+  if (progressContainer) progressContainer.style.display = "block";
+
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (let i = 0; i < selectedContacts.length; i++) {
+    const contact = selectedContacts[i];
+    const personalizedSubject = renderTextWithVariables(rawSubject, contact);
+    const personalizedBody = renderTextWithVariables(rawBody, contact);
+
+    const currentNum = i + 1;
+    const pct = Math.round((currentNum / selectedContacts.length) * 100);
+
+    if (progressText) progressText.textContent = `Sending ${currentNum} of ${selectedContacts.length}: ${contact.fullName}...`;
+    if (progressPct) progressPct.textContent = `${pct}%`;
+    if (progressFill) progressFill.style.width = `${pct}%`;
+
+    try {
+      const result = await sendGoogleGmail({ to: contact.email, subject: personalizedSubject, body: personalizedBody });
+      contact.emailsSent = true;
+      contact.emailSentAt = new Date().toISOString();
+      contact.emailDraft = { subject: personalizedSubject, body: personalizedBody };
+      contact.emailProviderId = result?.id || null;
+      database.stats.emailsSent = (database.stats.emailsSent || 0) + 1;
+      sentCount++;
+      addLogConsole("campaign-outbound", `[GMAIL BATCH] Sent to ${contact.fullName} (${contact.email})`, "success");
+    } catch (err) {
+      failedCount++;
+      addLogConsole("campaign-outbound", `[GMAIL BATCH ERROR] Failed for ${contact.fullName}: ${err.message}`, "error");
+    }
+
+    // Rate-limit throttle pacing: 300ms between dispatches
+    if (i < selectedContacts.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  saveDatabaseCache();
+  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
+
+  if (progressText) progressText.textContent = `Batch complete! Dispatched: ${sentCount}, Errors: ${failedCount}`;
+
+  // Clear selections
+  database.selectedUploadRows = [];
+  database.selectedOutboundRows = [];
+  const checkAllUpload = document.getElementById("check-all-upload");
+  if (checkAllUpload) checkAllUpload.checked = false;
+  const checkAllOutbound = document.getElementById("check-all-outbound");
+  if (checkAllOutbound) checkAllOutbound.checked = false;
+
+  if (typeof filterOutboundTable === "function") filterOutboundTable();
+  if (typeof filterUploadTable === "function") filterUploadTable();
+  if (typeof updateGlobalSelectionBar === "function") updateGlobalSelectionBar();
+
+  setTimeout(() => {
+    closeBulkOutboundModal();
+    alert(`Bulk Outreach Completed! Successfully dispatched ${sentCount} personalized emails via Google Workspace.`);
+  }, 900);
+}
+
+window.toggleSelectAllOutbound = toggleSelectAllOutbound;
+window.toggleSelectOutboundRow = toggleSelectOutboundRow;
+window.openBulkOutboundModal = openBulkOutboundModal;
+window.closeBulkOutboundModal = closeBulkOutboundModal;
+window.applyBulkTemplate = applyBulkTemplate;
+window.insertVariableTag = insertVariableTag;
+window.updateBulkLivePreview = updateBulkLivePreview;
+window.renderBulkPreviewForContact = renderBulkPreviewForContact;
+window.executeBulkOutboundSend = executeBulkOutboundSend;
+

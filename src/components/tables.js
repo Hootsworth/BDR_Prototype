@@ -248,20 +248,71 @@ function toggleSelectUploadRow(elem, id) {
   updateBulkActionBar();
 }
 
-function updateBulkActionBar() {
-  const bar = document.getElementById("upload-bulk-bar");
-  const countEl = document.getElementById("upload-selected-count");
-  if (!bar || !countEl) return;
+function updateGlobalSelectionBar() {
+  const bar = document.getElementById("global-selection-action-bar");
+  const countEl = document.getElementById("selection-bar-count");
+  const btnCountEl = document.getElementById("selection-bar-btn-count");
+  if (!bar) return;
 
-  const count = database.selectedUploadRows.length;
-  countEl.textContent = count;
-  
-  if (count > 0) {
+  const uploadCount = database.selectedUploadRows ? database.selectedUploadRows.length : 0;
+  const outboundCount = database.selectedOutboundRows ? database.selectedOutboundRows.length : 0;
+  const totalCount = uploadCount + outboundCount;
+
+  if (countEl) countEl.textContent = totalCount;
+  if (btnCountEl) btnCountEl.textContent = totalCount;
+
+  if (totalCount > 0) {
     bar.style.display = "flex";
   } else {
     bar.style.display = "none";
   }
 }
+window.updateGlobalSelectionBar = updateGlobalSelectionBar;
+
+function updateBulkActionBar() {
+  const bar = document.getElementById("upload-bulk-bar");
+  const countEl = document.getElementById("upload-selected-count");
+  if (bar && countEl) {
+    const count = database.selectedUploadRows ? database.selectedUploadRows.length : 0;
+    countEl.textContent = count;
+    bar.style.display = count > 0 ? "flex" : "none";
+  }
+  updateGlobalSelectionBar();
+}
+
+function clearGlobalSelection() {
+  database.selectedUploadRows = [];
+  database.selectedOutboundRows = [];
+  const checkAllUpload = document.getElementById("check-all-upload");
+  if (checkAllUpload) checkAllUpload.checked = false;
+  const checkAllOutbound = document.getElementById("check-all-outbound");
+  if (checkAllOutbound) checkAllOutbound.checked = false;
+  document.querySelectorAll(".row-check-upload").forEach(cb => { cb.checked = false; });
+  document.querySelectorAll(".row-check-outbound").forEach(cb => { cb.checked = false; });
+  updateBulkActionBar();
+  if (typeof updateOutboundBulkActionBar === "function") updateOutboundBulkActionBar();
+  updateGlobalSelectionBar();
+}
+window.clearGlobalSelection = clearGlobalSelection;
+
+function bulkOutreachSelected() {
+  if (typeof openBulkOutboundModal === "function") {
+    openBulkOutboundModal('upload');
+  }
+}
+window.bulkOutreachSelected = bulkOutreachSelected;
+
+function launchBulkOutreachFromSelection() {
+  if (typeof openBulkOutboundModal === "function") {
+    openBulkOutboundModal();
+  }
+}
+window.launchBulkOutreachFromSelection = launchBulkOutreachFromSelection;
+
+function bulkEnrichFromSelection() {
+  bulkEnrichSelected();
+}
+window.bulkEnrichFromSelection = bulkEnrichFromSelection;
 
 function bulkEnrichSelected() {
   if (database.selectedUploadRows.length === 0) return;

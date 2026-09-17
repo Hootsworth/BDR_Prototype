@@ -530,3 +530,170 @@ Autonomous GTM Copilot</div>
 
   </div>
 </div>
+
+<!-- ═══ GLOBAL CONTEXTUAL FLOATING SELECTION ACTION BAR ═══ -->
+<div id="global-selection-action-bar" class="floating-selection-bar" style="display: none;">
+  <div class="floating-selection-inner">
+    <div class="selection-pill-badge">
+      <span class="selection-check-icon">✓</span>
+      <span style="font-weight: 700; color: var(--color-text-primary);"><span id="selection-bar-count">0</span> selected</span>
+    </div>
+    <div class="selection-actions-group">
+      <button class="btn btn-primary btn-sm selection-outreach-btn" id="btn-floating-bulk-outreach" onclick="launchBulkOutreachFromSelection()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        <span>Outreach to Selected (<span id="selection-bar-btn-count">0</span>)</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="bulkEnrichFromSelection()" title="Enrich selected contacts">
+        <span>⚡ Bulk Enrich</span>
+      </button>
+      <button class="btn btn-secondary btn-sm selection-clear-btn" onclick="clearGlobalSelection()" title="Clear all selections">
+        ✕
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BULK OUTREACH PERSONALIZATION & DISPATCH MODAL ═══ -->
+<dialog id="bulk-outbound-modal" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 920px; max-height: 90vh; display: flex; flex-direction: column;">
+    
+    <!-- Modal Header -->
+    <div class="modal-header" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-soft);">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-xs); background: rgba(13, 148, 136, 0.15); color: #0d9488; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Personalized Batch Outreach</h3>
+          <span style="font-size: 12px; color: var(--color-text-secondary);">Send personalized individual emails to multiple contacts in one action</span>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="closeBulkOutboundModal()" style="font-weight: 700;">✕</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body" style="padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;">
+      
+      <!-- Selected Audience Strip -->
+      <div style="margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <label class="form-label" style="margin: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; color: var(--color-text-secondary);">
+            Target Audience (<span id="bulk-modal-recipient-count">0</span> contacts)
+          </label>
+          <span style="font-size: 11.5px; color: var(--color-success); font-weight: 600;" id="bulk-modal-email-valid-count">All contacts have valid emails</span>
+        </div>
+        <div id="bulk-recipients-chips-container" style="display: flex; gap: 0.5rem; flex-wrap: wrap; max-height: 90px; overflow-y: auto; padding: 0.5rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Main Editor & Live Preview Grid -->
+      <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.25rem; align-items: start;">
+        
+        <!-- Left Column: Template & Composer -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          
+          <!-- Template Selection -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="form-label" for="bulk-template-select" style="margin: 0; font-size: 12px; font-weight: 700;">AI Pitch Template</label>
+            </div>
+            <select id="bulk-template-select" class="form-select" onchange="applyBulkTemplate(this.value)" style="width: 100%; font-size: 12.5px;">
+              <option value="compliance_guardrails">Credit Union Compliance &amp; Query Guardrails</option>
+              <option value="scaling_ops">Executive Briefing: Automated BDR Operations</option>
+              <option value="warm_referral">Warm Referral &amp; Mutual Executive Connection</option>
+            </select>
+          </div>
+
+          <!-- Variable Tags Bar -->
+          <div>
+            <span style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); display: block; margin-bottom: 0.35rem;">Click to Insert Personalization Tag:</span>
+            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="insertVariableTag('{{firstName}}')">+ {{firstName}}</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="insertVariableTag('{{lastName}}')">+ {{lastName}}</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="insertVariableTag('{{company}}')">+ {{company}}</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="insertVariableTag('{{jobTitle}}')">+ {{jobTitle}}</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="insertVariableTag('{{industry}}')">+ {{industry}}</button>
+            </div>
+          </div>
+
+          <!-- Subject Field -->
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="bulk-email-subject-input" style="font-size: 12px; font-weight: 700;">Subject Line</label>
+            <input type="text" id="bulk-email-subject-input" class="form-input" placeholder="Quick question regarding {{company}} automation..." oninput="updateBulkLivePreview()" style="width: 100%; font-size: 13px;" />
+          </div>
+
+          <!-- Email Body Field -->
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="bulk-email-body-input" style="font-size: 12px; font-weight: 700;">Message Body</label>
+            <textarea id="bulk-email-body-input" class="form-input" rows="8" placeholder="Hi {{firstName}},..." oninput="updateBulkLivePreview()" style="width: 100%; font-size: 13px; line-height: 1.5; resize: vertical;"></textarea>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Live Per-Contact Preview -->
+        <div style="display: flex; flex-direction: column; gap: 0.875rem;">
+          
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label" style="margin: 0; font-size: 12px; font-weight: 700;">Individual Live Preview</label>
+            <select id="bulk-preview-recipient-select" class="form-select" onchange="renderBulkPreviewForContact(this.value)" style="font-size: 11.5px; padding: 0.25rem 0.5rem; max-width: 180px;">
+              <!-- Populated with selected contacts -->
+            </select>
+          </div>
+
+          <!-- Rendered Preview Card -->
+          <div style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 1rem; min-height: 220px; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--color-border); font-size: 11.5px; color: var(--color-text-secondary);">
+              <span>To: <strong id="bulk-preview-recipient-email" style="color: var(--color-text-primary);">sarah@company.com</strong></span>
+              <span class="badge badge-success" style="font-size: 9px;">Ready</span>
+            </div>
+            <div id="bulk-preview-rendered-subject" style="font-weight: 700; font-size: 12.5px; color: var(--color-text-primary); margin-bottom: 0.75rem;">
+              Subject: ...
+            </div>
+            <div id="bulk-preview-rendered-body" style="font-size: 12.5px; color: var(--color-text-primary); white-space: pre-wrap; line-height: 1.5; flex: 1;">
+              Preview will appear here...
+            </div>
+          </div>
+
+          <!-- Deliverability & Safety Stats Box -->
+          <div style="background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem 1rem; font-size: 11.5px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: var(--color-text-secondary);">Dispatch Mechanism:</span>
+              <strong style="color: var(--color-text-primary);" id="bulk-sender-status-label">Google Workspace Gmail API</strong>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="color: var(--color-text-secondary);">Rate-Limit Protection:</span>
+              <span style="color: var(--color-success); font-weight: 600;">300ms paced throttle</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Progress Bar (Visible during dispatch) -->
+          <div id="bulk-dispatch-progress-container" style="display: none; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11.5px;">
+              <strong id="bulk-progress-status-text" style="color: var(--color-text-primary);">Sending emails...</strong>
+              <span id="bulk-progress-percentage" style="font-weight: 700; color: var(--color-primary);">0%</span>
+            </div>
+            <div style="width: 100%; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden;">
+              <div id="bulk-progress-fill" style="width: 0%; height: 100%; background: #0d9488; transition: width 0.2s ease;"></div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; background: var(--surface-soft);">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeBulkOutboundModal()">Cancel</button>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button type="button" class="btn btn-primary" id="btn-bulk-outbound-send" onclick="executeBulkOutboundSend()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 0.5rem 1.25rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          <span id="bulk-send-btn-label">Dispatch 0 Emails</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</dialog>

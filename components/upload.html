@@ -218,7 +218,11 @@
       Selected <span id="upload-selected-count" style="color: #3b82f6; font-size: 14px;">0</span> prospects
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <button class="btn btn-primary btn-sm" onclick="bulkEnrichSelected()">
+      <button class="btn btn-primary btn-sm" onclick="bulkOutreachSelected()" style="background: #0d9488; border-color: #0d9488; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        <span>Bulk Outreach</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="bulkEnrichSelected()">
         ⚡ Bulk Enrich via Explorium
       </button>
       <button class="btn btn-secondary btn-sm" onclick="bulkAssignSequenceSelected()">
