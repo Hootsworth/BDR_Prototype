@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Partner referral report</title>
+  <style>
+    :root { color-scheme:light; --paper:#f5f5f5; --ink:#292524; --muted:#777169; --line:#e7e5e4; --surface:#fff; --track:#e9e6e2; --primary:#292524; --secondary:#657d74; --tertiary:#b09a83; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); }
+    main { max-width:1120px; margin:0 auto; padding:50px 28px 72px; }
+    header { display:flex; align-items:end; justify-content:space-between; gap:24px; padding-bottom:28px; border-bottom:1px solid var(--line); }
+    .eyebrow { margin:0 0 10px; color:var(--muted); font-size:10px; font-weight:650; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { margin:0; font-family:"Waldenburg",Georgia,serif; font-size:clamp(36px,5vw,58px); font-weight:300; letter-spacing:-.04em; line-height:1.05; }
+    .lede { margin:11px 0 0; color:var(--muted); font-size:13px; line-height:1.6; }
+    .load { display:inline-flex; align-items:center; min-height:42px; padding:0 16px; border-radius:3px; background:var(--primary); color:#fff; font-size:12px; cursor:pointer; white-space:nowrap; }
+    .load input { display:none; }
+    .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:30px; padding:23px 0; border-bottom:1px solid var(--line); }
+    .metrics article { min-width:0; }
+    .metric-label { color:var(--muted); font-size:11px; }
+    .metric-value { display:block; margin-top:6px; font-family:"Waldenburg",Georgia,serif; font-size:32px; font-weight:300; }
+    .viz-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:42px; padding:32px 0 20px; }
+    section { min-width:0; }
+    h2 { margin:0; font-family:"Waldenburg",Georgia,serif; font-size:26px; font-weight:300; }
+    .caption { margin:6px 0 16px; color:var(--muted); font-size:11px; line-height:1.5; }
+    svg { display:block; width:100%; overflow:visible; }
+    .table-wrap { overflow-x:auto; border-top:1px solid var(--line); margin-top:28px; }
+    table { width:100%; border-collapse:collapse; text-align:left; }
+    th { padding:12px 10px; color:var(--muted); font-size:10px; font-weight:650; letter-spacing:.09em; text-transform:uppercase; }
+    td { padding:12px 10px; border-top:1px solid var(--line); font-size:12px; }
+    td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .empty { padding:58px 20px; color:var(--muted); text-align:center; font-size:13px; }
+    .drop { margin-top:26px; padding:16px 0; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
+    .drop.drag { color:var(--ink); }
+    #generated { color:var(--muted); font-size:10px; }
+    @media(max-width:760px) { main { padding:32px 18px 54px; } header { align-items:start; flex-direction:column; } .metrics { gap:14px; } .viz-grid { grid-template-columns:1fr; gap:30px; } .metric-value { font-size:27px; } }
+    @media(max-width:430px) { .metrics { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <section><p class="eyebrow">Partner network · Reporting</p><h1>Referral performance</h1><p class="lede">A private, offline view of referral volume, progress, and follow-through.</p></section>
+      <label class="load">Load report data<input id="file" type="file" accept="application/json,.json"></label>
+    </header>
+    <section class="metrics" aria-label="Referral totals">
+      <article><span class="metric-label">Referrals</span><strong class="metric-value" id="metric-total">—</strong></article>
+      <article><span class="metric-label">Calls scheduled</span><strong class="metric-value" id="metric-scheduled">—</strong></article>
+      <article><span class="metric-label">Calls completed</span><strong class="metric-value" id="metric-completed">—</strong></article>
+    </section>
+    <p id="empty" class="empty">Export chart data from the app, then load the JSON file here. Your data is read in this browser and is not uploaded.</p>
+    <section id="report" hidden>
+      <section class="viz-grid">
+        <section><p class="eyebrow">Volume</p><h2>Referrals by month</h2><p class="caption">Introductions grouped by referral date.</p><svg id="month-chart" role="img" aria-label="Referrals by month"></svg></section>
+        <section><p class="eyebrow">Progress</p><h2>Call outcomes</h2><p class="caption">Share of referrals at each call stage.</p><svg id="status-chart" role="img" aria-label="Call status distribution"></svg></section>
+      </section>
+      <section><p class="eyebrow">Partner comparison</p><h2>Referrals by influencer</h2><p class="caption">Counts and call outcomes by partner.</p><svg id="influencer-chart" role="img" aria-label="Referrals by influencer"></svg>
+        <section class="table-wrap"><table><thead><tr><th>Influencer</th><th class="num">Referrals</th><th class="num">Scheduled</th><th class="num">Completed</th><th class="num">Pending</th></tr></thead><tbody id="partner-rows"></tbody></table></section>
+      </section>
+      <p id="generated"></p>
+    </section>
+    <p class="drop" id="drop">Drop an influencer-referral-report.json file here to load it.</p>
+  </main>
+  <script>
+    const palette = { ink: '#292524', muted: '#777169', line: '#e7e5e4', track: '#e9e6e2', primary: '#292524', secondary: '#657d74', tertiary: '#b09a83' };
+    const numberFormat = new Intl.NumberFormat();
+    const svgNS = 'http://www.w3.org/2000/svg';
+    function node(name, attrs = {}, text = '') { const el = document.createElementNS(svgNS, name); Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value)); if (text) el.textContent = text; return el; }
+    function drawMonths(rows) {
+      const svg = document.getElementById('month-chart'); svg.replaceChildren();
+      const data = (rows || []).filter(row => row.month !== 'Undated').slice(-12);
+      const width = 640, height = 230, left = 38, right = 14, top = 14, bottom = 44;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      if (!data.length) { svg.append(node('text', { x: 12, y: 35, fill: palette.muted, 'font-size': 12 }, 'No dated referral records')); return; }
+      const max = Math.max(1, ...data.map(item => Number(item.referrals) || 0));
+      const plotHeight = height - top - bottom, plotWidth = width - left - right, slot = plotWidth / data.length;
+      [0, .5, 1].forEach(fraction => { const y = top + plotHeight * fraction; svg.append(node('line', { x1: left, x2: width - right, y1: y, y2: y, stroke: palette.line, 'stroke-width': 1 })); svg.append(node('text', { x: left - 7, y: y + 4, fill: palette.muted, 'font-size': 10, 'text-anchor': 'end' }, numberFormat.format(Math.round(max * (1 - fraction))))); });
+      data.forEach((item, index) => { const value = Number(item.referrals) || 0; const barHeight = Math.max(value ? 2 : 0, value / max * plotHeight); const x = left + index * slot + slot * .22; const y = top + plotHeight - barHeight; svg.append(node('rect', { x, y, width: slot * .56, height: barHeight, fill: palette.secondary, rx: 1 })); svg.append(node('text', { x: left + index * slot + slot / 2, y: height - 22, fill: palette.muted, 'font-size': 9, 'text-anchor': 'middle' }, String(item.month).slice(2))); svg.append(node('title', {}, `${item.month}: ${value} referrals`)); });
+    }
+    function drawStatus(data) {
+      const svg = document.getElementById('status-chart'); svg.replaceChildren(); svg.setAttribute('viewBox', '0 0 420 230');
+      const totals = ['completed', 'scheduled', 'pending'].map(key => ({ key, label: key[0].toUpperCase() + key.slice(1), value: data.reduce((sum, row) => sum + (Number(row[key]) || 0), 0), color: key === 'completed' ? palette.primary : key === 'scheduled' ? palette.secondary : palette.tertiary }));
+      const total = totals.reduce((sum, row) => sum + row.value, 0);
+      if (!total) { svg.append(node('text', { x: 12, y: 35, fill: palette.muted, 'font-size': 12 }, 'No referral status data')); return; }
+      const x = 12, y = 28, width = 396, height = 20;
+      let cursor = x;
+      totals.forEach(item => { const segmentWidth = width * item.value / total; svg.append(node('rect', { x: cursor, y, width: segmentWidth, height, fill: item.color, rx: 1 })); cursor += segmentWidth; });
+      totals.forEach((item, index) => { const cy = 91 + index * 40; svg.append(node('circle', { cx: 18, cy: cy - 4, r: 4, fill: item.color })); svg.append(node('text', { x: 32, y: cy, fill: palette.ink, 'font-size': 13 }, `${item.label} · ${numberFormat.format(item.value)}`)); svg.append(node('text', { x: 406, y: cy, fill: palette.muted, 'font-size': 12, 'text-anchor': 'end' }, `${Math.round(item.value / total * 100)}%`)); });
+      svg.append(node('text', { x: 12, y: 208, fill: palette.muted, 'font-size': 10 }, `${numberFormat.format(total)} total referrals`));
+    }
+    function drawInfluencers(data) {
+      const svg = document.getElementById('influencer-chart'); svg.replaceChildren();
+      const rows = [...(data || [])].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0)).slice(0, 14);
+      const width = 940, rowHeight = 31, height = Math.max(58, rows.length * rowHeight + 18), left = 170, right = 54;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      if (!rows.length) { svg.append(node('text', { x: 12, y: 35, fill: palette.muted, 'font-size': 12 }, 'No partner referral data')); return; }
+      const max = Math.max(1, ...rows.map(row => Number(row.total) || 0)), plotWidth = width - left - right;
+      rows.forEach((row, index) => {
+        const y = index * rowHeight + 10, total = Number(row.total) || 0, barWidth = plotWidth * total / max;
+        const label = String(row.influencer || 'Partner');
+        svg.append(node('text', { x: left - 12, y: y + 13, fill: palette.ink, 'font-size': 11, 'text-anchor': 'end' }, label.length > 23 ? `${label.slice(0, 21)}…` : label));
+        svg.append(node('rect', { x: left, y, width: plotWidth, height: 15, fill: palette.track, rx: 1 }));
+        svg.append(node('rect', { x: left, y, width: barWidth, height: 15, fill: palette.primary, rx: 1 }));
+        svg.append(node('text', { x: left + plotWidth + 9, y: y + 12, fill: palette.muted, 'font-size': 10 }, numberFormat.format(total)));
+      });
+    }
+    function applyReport(report) {
+      const partners = Array.isArray(report.byInfluencer) ? report.byInfluencer : [];
+      const months = Array.isArray(report.byMonth) ? report.byMonth : [];
+      const total = partners.reduce((sum, row) => sum + (Number(row.total) || 0), 0);
+      const scheduled = partners.reduce((sum, row) => sum + (Number(row.scheduled) || 0), 0);
+      const completed = partners.reduce((sum, row) => sum + (Number(row.completed) || 0), 0);
+      document.getElementById('metric-total').textContent = numberFormat.format(total);
+      document.getElementById('metric-scheduled').textContent = numberFormat.format(scheduled);
+      document.getElementById('metric-completed').textContent = numberFormat.format(completed);
+      drawMonths(months); drawStatus(partners); drawInfluencers(partners);
+      const body = document.getElementById('partner-rows'); body.replaceChildren();
+      [...partners].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0)).forEach(row => {
+        const tr = document.createElement('tr');
+        [row.influencer || 'Partner', row.total || 0, row.scheduled || 0, row.completed || 0, row.pending || 0].forEach((value, index) => { const td = document.createElement('td'); td.textContent = typeof value === 'number' ? numberFormat.format(value) : String(value); if (index) td.className = 'num'; tr.appendChild(td); });
+        body.appendChild(tr);
+      });
+      document.getElementById('empty').hidden = true;
+      document.getElementById('report').hidden = false;
+      document.getElementById('generated').textContent = report.generatedAt ? `Report generated ${new Date(report.generatedAt).toLocaleString()}.` : '';
+    }
+    async function readFile(file) {
+      if (!file) return;
+      try { applyReport(JSON.parse(await file.text())); }
+      catch (_) { document.getElementById('empty').hidden = false; document.getElementById('empty').textContent = 'This file is not a valid referral report. Export chart data from the app and try again.'; document.getElementById('report').hidden = true; }
+    }
+    document.getElementById('file').addEventListener('change', event => readFile(event.target.files[0]));
+    const drop = document.getElementById('drop');
+    drop.addEventListener('dragover', event => { event.preventDefault(); drop.classList.add('drag'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+    drop.addEventListener('drop', event => { event.preventDefault(); drop.classList.remove('drag'); readFile(event.dataTransfer.files[0]); });
+  </script>
+</body>
+</html>

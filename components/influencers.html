@@ -10,7 +10,10 @@
       <select id="console-portal-influencer-select" onchange="selectConsolePortalInfluencer(this.value)">
         <option value="">Select a partner</option>
       </select>
-      <button class="btn btn-secondary btn-sm" onclick="copyCurrentInfluencerWorkspaceLink()" type="button">Copy workspace link</button>
+      <button class="btn btn-secondary btn-sm" onclick="createCurrentInfluencerShareLink()" type="button">Create private link</button>
+      <button class="btn btn-secondary btn-sm" id="partner-revoke-link" onclick="revokeCurrentInfluencerShareLink()" type="button">Revoke private link</button>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="openPartnerProfileEditor()">Edit partner</button>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="openPartnerProfileEditor(true)">Add partner</button>
     </div>
   </header>
 
@@ -52,6 +55,10 @@
           <option value="pending">Pending call</option>
         </select>
         <button class="btn btn-primary btn-sm" type="button" onclick="toggleInfluencerReferralForm()" aria-expanded="false" aria-controls="partner-referral-form">Add referred contact</button>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('partner-import-file').click()">Import CSV</button>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="downloadPartnerReportData()">Export chart data</button>
+        <a class="btn btn-secondary btn-sm" href="reports/referral-analytics.html" target="_blank" rel="noopener">Open external report</a>
+        <input id="partner-import-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" hidden onchange="importContactsForCurrentInfluencer(event)">
       </div>
     </div>
 
@@ -79,9 +86,42 @@
 
     <div class="partner-table-scroll">
       <table class="partner-referrals-table">
-        <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>STATUS</th><th>CHANNELS</th><th>NEXT STEP</th></tr></thead>
+        <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>STATUS</th><th>CHANNELS</th><th>ACTIONS</th></tr></thead>
         <tbody id="console-portal-referrals-tbody"><tr><td colspan="5" class="partner-empty-state">Select a partner to load referrals.</td></tr></tbody>
       </table>
     </div>
   </section>
+  <p class="partner-share-note">Private links show only this partner’s contact details and call status. Only one link stays active per partner; creating a new one revokes the old link. Contact notes and outreach history stay internal.</p>
 </div>
+
+<dialog id="partner-contact-edit-dialog" class="partner-edit-dialog">
+  <form method="dialog" id="partner-contact-edit-form" onsubmit="event.preventDefault(); savePartnerContactEdit();">
+    <header><div><p class="partner-kicker">PARTNER CONTACT</p><h3>Edit referred contact</h3></div><button class="btn btn-secondary btn-sm" type="button" onclick="closePartnerContactEditor()">Close</button></header>
+    <input id="partner-edit-contact-id" type="hidden">
+    <label>Full name<input class="form-input" id="partner-edit-name" required></label>
+    <label>Email<input class="form-input" id="partner-edit-email" type="email" required></label>
+    <label>Company<input class="form-input" id="partner-edit-company"></label>
+    <label>Job title<input class="form-input" id="partner-edit-title"></label>
+    <label>Phone<input class="form-input" id="partner-edit-phone"></label>
+    <label>Location<input class="form-input" id="partner-edit-location"></label>
+    <label>Internal notes<textarea class="form-input" id="partner-edit-notes" rows="3"></textarea></label>
+    <p class="partner-share-note">Internal notes are never shown in Kim’s shared workspace.</p>
+    <button class="btn btn-primary" type="submit">Save contact</button>
+    <p id="partner-edit-feedback" role="status" aria-live="polite"></p>
+  </form>
+</dialog>
+
+<dialog id="partner-profile-dialog" class="partner-edit-dialog">
+  <form id="partner-profile-form" onsubmit="event.preventDefault(); savePartnerProfile();">
+    <header><div><p class="partner-kicker">PARTNER NETWORK</p><h3 id="partner-profile-dialog-title">Edit partner</h3></div><button class="btn btn-secondary btn-sm" type="button" onclick="closePartnerProfileEditor()">Close</button></header>
+    <input id="partner-profile-id" type="hidden">
+    <label>Full name<input class="form-input" id="partner-profile-name" required></label>
+    <label>Email<input class="form-input" id="partner-profile-email" type="email" required></label>
+    <label>Company<input class="form-input" id="partner-profile-company"></label>
+    <label>Job title<input class="form-input" id="partner-profile-title"></label>
+    <label>Phone<input class="form-input" id="partner-profile-phone"></label>
+    <label>Location<input class="form-input" id="partner-profile-location"></label>
+    <div class="partner-profile-actions"><button class="btn btn-primary" type="submit">Save partner</button><button class="btn btn-secondary" id="partner-profile-delete" type="button" onclick="deletePartnerProfile()">Remove partner</button></div>
+    <p id="partner-profile-feedback" role="status" aria-live="polite"></p>
+  </form>
+</dialog>

@@ -15,6 +15,8 @@ import shutil
 import threading
 import re
 import sys
+import hashlib
+import ipaddress
 import xml.etree.ElementTree as ET
 try:
     import openpyxl
@@ -122,6 +124,13 @@ def db():
     connection.execute('CREATE TABLE IF NOT EXISTS linkedin_connections (id INTEGER PRIMARY KEY CHECK (id = 1), session_id TEXT, member_id TEXT, name TEXT, email TEXT, access_token TEXT, mode TEXT, updated_at TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS sent_emails (id INTEGER PRIMARY KEY AUTOINCREMENT, fingerprint TEXT UNIQUE NOT NULL, recipient TEXT NOT NULL, subject TEXT NOT NULL, provider_id TEXT, sent_at TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS sent_linkedin (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_name TEXT, recipient_email TEXT, linkedin_url TEXT, message TEXT NOT NULL, provider_id TEXT, mode TEXT, sent_at TEXT NOT NULL)')
+    connection.execute('''CREATE TABLE IF NOT EXISTS partner_shares (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        influencer_id INTEGER NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT
+    )''')
 
     # Normalized Relational + Graph Tables for Searchable GTM Console
     connection.execute('''
@@ -411,7 +420,11 @@ def seed_synthetic_database(force=False):
     """Seeds the SQLite database with 30 Influencers x 30 Contacts (930 total) if empty or forced."""
     from scripts.seed_database import build_synthetic_dataset
     state = build_synthetic_dataset()
+    for contact in state.get('contacts') or []:
+        contact['isDemoData'] = True
     sync_relational_tables_from_state(state)
+    with db() as connection:
+        connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),))
     # Also write JSON snapshot next to workbook path so legacy readers stay synced
     json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
     try:
@@ -420,6 +433,143 @@ def seed_synthetic_database(force=False):
     except Exception:
         pass
     return state
+
+def partner_share_from_token(token):
+    if not token:
+        return None
+    token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    with db() as connection:
+        return connection.execute(
+            'SELECT id, influencer_id, revoked_at FROM partner_shares WHERE token_hash = ?',
+            (token_hash,)
+        ).fetchone()
+
+def partner_contacts_for_influencer(state, influencer):
+    influencer_id = str(influencer.get('id'))
+    influencer_name = str(influencer.get('fullName') or '').strip().lower()
+    influencer_email = str(influencer.get('email') or '').strip().lower()
+    def is_demo_seed(contact):
+        email = str(contact.get('email') or '').lower()
+        source = str(contact.get('sourceFile') or '')
+        try:
+            seed_id = int(contact.get('id') or 0)
+        except (TypeError, ValueError):
+            seed_id = 0
+        return bool(contact.get('isDemoData')) or (seed_id <= 930 and source == f"Referred by {influencer.get('fullName')}" and re.search(r'\.\d+@[^@]+$', email))
+    return [contact for contact in (state.get('contacts') or []) if not contact.get('isInfluencer') and not contact.get('archivedAt') and not is_demo_seed(contact) and (
+        str(contact.get('influencerId') or '') == influencer_id
+        or (influencer_email and str(contact.get('influencerEmail') or '').lower() == influencer_email)
+        or (influencer_name and str(contact.get('referredBy') or '').lower() == influencer_name)
+    )]
+
+def partner_safe_contact(contact):
+    if contact.get('hasTakenCall'):
+        status = 'completed'
+    elif contact.get('hasScheduledCall'):
+        status = 'scheduled'
+    else:
+        status = 'pending'
+    return {
+        'id': contact.get('id'),
+        'fullName': contact.get('fullName') or '',
+        'email': contact.get('email') or '',
+        'company': contact.get('company') or '',
+        'jobTitle': contact.get('jobTitle') or '',
+        'phone': contact.get('phone') or '',
+        'status': status,
+        'referredDate': contact.get('referredDate') or contact.get('date') or ''
+    }
+
+def create_partner_referral(state, influencer, payload, source='partner_portal'):
+    name = str(payload.get('fullName') or '').strip()
+    email = str(payload.get('email') or '').strip().lower()
+    if not name or not email:
+        raise ValueError('Full name and email are required.')
+    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+        raise ValueError('Enter a valid work email address.')
+    duplicate = next((contact for contact in (state.get('contacts') or []) if str(contact.get('email') or '').strip().lower() == email), None)
+    if duplicate:
+        raise FileExistsError('A contact with this email already exists. Ask the workspace owner to link it if appropriate.')
+    contacts = state.setdefault('contacts', [])
+    contact_id = max([int(contact.get('id') or 0) for contact in contacts] + [1000]) + 1
+    parts = name.split()
+    company = str(payload.get('company') or '').strip()
+    title = str(payload.get('jobTitle') or '').strip()
+    phone = str(payload.get('phone') or '').strip()
+    has_scheduled = bool(payload.get('hasScheduledCall'))
+    has_taken = bool(payload.get('hasTakenCall'))
+    new_contact = {
+        'id': contact_id,
+        'firstName': parts[0] if parts else name,
+        'lastName': ' '.join(parts[1:]),
+        'fullName': name,
+        'email': email,
+        'jobTitle': title,
+        'company': company,
+        'phone': phone,
+        'location': str(payload.get('location') or '').strip(),
+        'industry': str(payload.get('industry') or ''),
+        'sourceFile': f"Referred by {influencer.get('fullName')} ({source})",
+        'isInfluencer': False,
+        'influencerId': influencer.get('id'),
+        'influencerEmail': influencer.get('email'),
+        'referredBy': influencer.get('fullName'),
+        'referredByEmail': influencer.get('email'),
+        'portalNotes': str(payload.get('notes') or '').strip(),
+        'referredDate': time.strftime('%Y-%m-%d', time.gmtime()),
+        'hasScheduledCall': has_scheduled,
+        'hasTakenCall': has_taken,
+        'callsMade': ([{'date': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'outcome': 'Partner reported completed call', 'status': 'taken'}] if has_taken else ([{'date': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'outcome': 'Partner reported scheduled call', 'status': 'scheduled'}] if has_scheduled else [])),
+        'enriched': False,
+        'emailsSent': False,
+        'linkedinSent': False,
+        'leadTemp': 'Warm Lead'
+    }
+    contacts.append(new_contact)
+    credits = 25 if has_taken else (15 if has_scheduled else 10)
+    if not isinstance(influencer.get('referrals'), list):
+        influencer['referrals'] = []
+    influencer['referrals'].insert(0, {
+        'id': contact_id, 'fullName': name, 'jobTitle': title, 'company': company,
+        'email': email, 'phone': phone, 'credits': credits,
+        'hasScheduledCall': has_scheduled, 'hasTakenCall': has_taken,
+        'date': new_contact['referredDate']
+    })
+    influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
+    return new_contact
+
+def link_existing_contact_to_influencer(influencer, contact):
+    contact['influencerId'] = influencer.get('id')
+    contact['influencerEmail'] = influencer.get('email')
+    contact['referredBy'] = influencer.get('fullName')
+    contact['referredByEmail'] = influencer.get('email')
+    contact.setdefault('referredDate', time.strftime('%Y-%m-%d', time.gmtime()))
+    credits = 10
+    if not isinstance(influencer.get('referrals'), list):
+        influencer['referrals'] = []
+    influencer['referrals'].append({
+        'id': contact.get('id'), 'fullName': contact.get('fullName') or '',
+        'jobTitle': contact.get('jobTitle') or '', 'company': contact.get('company') or '',
+        'email': contact.get('email') or '', 'phone': contact.get('phone') or '',
+        'credits': credits, 'hasScheduledCall': bool(contact.get('hasScheduledCall')),
+        'hasTakenCall': bool(contact.get('hasTakenCall')), 'date': contact['referredDate']
+    })
+    influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
+
+def is_loopback_admin_request(handler):
+    if os.environ.get('VERCEL'):
+        return False
+    try:
+        peer = ipaddress.ip_address(handler.client_address[0])
+        if not peer.is_loopback:
+            return False
+        forwarded = handler.headers.get('X-Forwarded-For') or handler.headers.get('X-Real-IP')
+        if forwarded:
+            first_ip = forwarded.split(',')[0].strip()
+            return ipaddress.ip_address(first_ip).is_loopback
+        return True
+    except (ValueError, IndexError):
+        return False
 
 def add_referral_via_portal(influencer_email, prospect_data):
     """Adds a referred contact under an influencer and persists to SQLite."""
@@ -1333,6 +1483,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/db/state':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database state is available only from the local console.'})
+                return
             try:
                 state = read_workbook_state()
                 json_response(self, 200, {'state': state, 'database': 'sqlite3', 'path': DB_PATH})
@@ -1341,6 +1494,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/db/search':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database search is available only from the local console.'})
+                return
             query_params = urllib.parse.parse_qs(parsed_url.query)
             q_str = query_params.get('q', [''])[0]
             try:
@@ -1350,7 +1506,31 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Search failed: {ex}'})
             return
 
+        if clean_path == '/api/partner-share':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            if not share or share['revoked_at']:
+                json_response(self, 401, {'error': 'This partner link is invalid or has been revoked.'})
+                return
+            try:
+                state = read_workbook_state()
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Partner profile not found.'})
+                    return
+                contacts = partner_contacts_for_influencer(state, influencer)
+                json_response(self, 200, {
+                    'influencer': {key: influencer.get(key) for key in ('id', 'fullName', 'company', 'jobTitle')},
+                    'contacts': [partner_safe_contact(c) for c in contacts]
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not load partner workspace: {ex}'})
+            return
+
         if clean_path == '/api/portal/influencers':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Use a scoped partner link to view shared partner data.'})
+                return
             try:
                 state = read_workbook_state()
                 contacts = state.get('contacts') or []
@@ -1368,6 +1548,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/portal/referrals':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Use a scoped partner link to view shared referrals.'})
+                return
             try:
                 query_params = urllib.parse.parse_qs(parsed_url.query)
                 email_q = (query_params.get('email', [''])[0] or '').strip().lower()
@@ -1475,10 +1658,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/state':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database state is available only from the local console.'})
+                return
             json_response(self, 200, {'state': read_state('database') or {}})
             return
 
         if self.path == '/api/workbook/state':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database state is available only from the local console.'})
+                return
             try:
                 json_response(self, 200, {'state': read_workbook_state(), 'path': DB_PATH})
             except Exception as ex:
@@ -1511,7 +1700,290 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'System update failed: {ex}'})
             return
 
+        if self.path == '/api/partner-shares/create':
+            if os.environ.get('VERCEL'):
+                json_response(self, 503, {'error': 'Partner sharing requires a persistent database. The current serverless deployment stores data on temporary disk.'})
+                return
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
+                return
+            try:
+                state = read_workbook_state()
+                influencer_id = str(payload.get('influencerId') or '')
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == influencer_id), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Influencer profile not found.'})
+                    return
+                configured_base = os.environ.get('GTM_PUBLIC_BASE_URL', '').strip().rstrip('/')
+                if configured_base and urllib.parse.urlparse(configured_base).scheme != 'https':
+                    json_response(self, 400, {'error': 'GTM_PUBLIC_BASE_URL must use HTTPS before sharing contact details.'})
+                    return
+                token = secrets.token_urlsafe(32)
+                token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+                created_at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                with db() as connection:
+                    connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (created_at, int(influencer['id'])))
+                    connection.execute('INSERT INTO partner_shares(influencer_id, token_hash, created_at) VALUES (?, ?, ?)', (int(influencer['id']), token_hash, created_at))
+                request_origin = self.headers.get('Origin') or f"http://{self.headers.get('Host', f'localhost:{PORT}')}"
+                share_base = configured_base or request_origin
+                share_url = f"{share_base}/partner-portal.html#token={urllib.parse.quote(token)}"
+                json_response(self, 201, {'status': 'created', 'token': token, 'influencer': influencer.get('fullName'), 'shareUrl': share_url, 'publicBaseConfigured': bool(configured_base)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not create partner link: {ex}'})
+            return
+
+        if self.path == '/api/partner-shares/revoke':
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
+                return
+            token = str(payload.get('token') or '').strip()
+            share = partner_share_from_token(token)
+            if not share:
+                json_response(self, 404, {'error': 'Partner link not found.'})
+                return
+            with db() as connection:
+                connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE id = ?', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), share['id']))
+            json_response(self, 200, {'status': 'revoked'})
+            return
+
+        if self.path == '/api/partner-shares/revoke-influencer':
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
+                return
+            try:
+                influencer_id = int(payload.get('influencerId'))
+                with db() as connection:
+                    cursor = connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), influencer_id))
+                json_response(self, 200, {'status': 'revoked', 'revoked': cursor.rowcount})
+            except (TypeError, ValueError):
+                json_response(self, 400, {'error': 'A valid influencer ID is required.'})
+            return
+
+        if self.path == '/api/partner-share/referrals':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            if not share or share['revoked_at']:
+                json_response(self, 401, {'error': 'This partner link is invalid or has been revoked.'})
+                return
+            try:
+                state = read_workbook_state()
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Partner profile not found.'})
+                    return
+                contact = create_partner_referral(state, influencer, payload, source='Partner Link')
+                write_workbook_state(state)
+                json_response(self, 201, {'status': 'created', 'contact': partner_safe_contact(contact)})
+            except FileExistsError as ex:
+                json_response(self, 409, {'error': str(ex)})
+            except ValueError as ex:
+                json_response(self, 400, {'error': str(ex)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not add referral: {ex}'})
+            return
+
+        if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete'):
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Influencer management is available to the local app owner only.'})
+                return
+            try:
+                state = read_workbook_state()
+                contacts = state.setdefault('contacts', [])
+                influencer_id = str(payload.get('influencerId') or '')
+                influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == influencer_id), None)
+                if self.path.endswith('/create'):
+                    profile = payload.get('profile') or {}
+                    name = str(profile.get('fullName') or '').strip()
+                    email = str(profile.get('email') or '').strip().lower()
+                    if not name or not email:
+                        json_response(self, 400, {'error': 'Partner name and email are required.'})
+                        return
+                    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+                        json_response(self, 400, {'error': 'Enter a valid partner email address.'})
+                        return
+                    if any(str(c.get('email') or '').strip().lower() == email for c in contacts):
+                        json_response(self, 409, {'error': 'A contact already uses this email.'})
+                        return
+                    parts = name.split()
+                    new_partner = {
+                        'id': max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1,
+                        'firstName': parts[0], 'lastName': ' '.join(parts[1:]), 'fullName': name,
+                        'email': email, 'company': str(profile.get('company') or '').strip(),
+                        'jobTitle': str(profile.get('jobTitle') or '').strip(), 'phone': str(profile.get('phone') or '').strip(),
+                        'location': str(profile.get('location') or '').strip(), 'isInfluencer': True,
+                        'referralCredits': 0, 'referrals': [], 'sourceFile': 'Manual partner entry'
+                    }
+                    contacts.append(new_partner)
+                    write_workbook_state(state)
+                    json_response(self, 201, {'status': 'created', 'influencer': new_partner})
+                    return
+                if not influencer:
+                    json_response(self, 404, {'error': 'Influencer profile not found.'})
+                    return
+                if self.path.endswith('/delete'):
+                    retained_contacts = 0
+                    for contact in contacts:
+                        linked = str(contact.get('influencerId') or '') == influencer_id or str(contact.get('influencerEmail') or '').lower() == str(influencer.get('email') or '').lower() or str(contact.get('referredBy') or '').lower() == str(influencer.get('fullName') or '').lower()
+                        if linked and not contact.get('isInfluencer'):
+                            retained_contacts += 1
+                            contact['influencerId'] = None
+                            contact['influencerEmail'] = ''
+                            contact['referredBy'] = ''
+                            contact['referredByEmail'] = ''
+                            contact['sourceFile'] = 'Unassigned after partner removal'
+                    contacts.remove(influencer)
+                    with db() as connection:
+                        connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), int(influencer_id)))
+                    write_workbook_state(state)
+                    json_response(self, 200, {'status': 'deleted', 'retainedContacts': retained_contacts})
+                    return
+
+                profile = payload.get('profile') or {}
+                previous_name = str(influencer.get('fullName') or '').lower()
+                previous_email = str(influencer.get('email') or '').lower()
+                next_email = str(profile.get('email') or influencer.get('email') or '').strip().lower()
+                if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', next_email):
+                    json_response(self, 400, {'error': 'Enter a valid partner email address.'})
+                    return
+                if any(c is not influencer and str(c.get('email') or '').strip().lower() == next_email for c in contacts):
+                    json_response(self, 409, {'error': 'A contact already uses this email.'})
+                    return
+                full_name = str(profile.get('fullName') or influencer.get('fullName') or '').strip()
+                parts = full_name.split()
+                influencer.update({
+                    'fullName': full_name, 'firstName': parts[0] if parts else '', 'lastName': ' '.join(parts[1:]),
+                    'email': next_email, 'company': str(profile.get('company') or '').strip(),
+                    'jobTitle': str(profile.get('jobTitle') or '').strip(), 'phone': str(profile.get('phone') or '').strip(),
+                    'location': str(profile.get('location') or '').strip()
+                })
+                for contact in contacts:
+                    if str(contact.get('influencerId') or '') == influencer_id or str(contact.get('influencerEmail') or '').lower() == previous_email or str(contact.get('referredBy') or '').lower() == previous_name:
+                        contact['influencerId'] = influencer.get('id')
+                        contact['influencerEmail'] = next_email
+                        contact['referredBy'] = full_name
+                        contact['referredByEmail'] = next_email
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'influencer': influencer})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Influencer operation failed: {ex}'})
+            return
+
+        if self.path in ('/api/influencers/contacts/import', '/api/influencers/contacts/update', '/api/influencers/contacts/delete'):
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Contact management is available to the local app owner only.'})
+                return
+            try:
+                state = read_workbook_state()
+                influencer_id = str(payload.get('influencerId') or '')
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == influencer_id), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Influencer profile not found.'})
+                    return
+                contacts = state.setdefault('contacts', [])
+                if self.path.endswith('/import'):
+                    rows = payload.get('contacts') or []
+                    if not isinstance(rows, list) or len(rows) > 1000:
+                        json_response(self, 400, {'error': 'Import up to 1,000 contacts at a time.'})
+                        return
+                    created, linked, duplicates, invalid = [], 0, [], 0
+                    for row in rows:
+                        if not isinstance(row, dict):
+                            invalid += 1
+                            continue
+                        if not row.get('fullName'):
+                            row['fullName'] = ' '.join(str(row.get(k) or '').strip() for k in ('firstName', 'lastName')).strip()
+                        if not row.get('fullName') or not row.get('email'):
+                            invalid += 1
+                            continue
+                        email = str(row.get('email') or '').strip().lower()
+                        existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                        if existing:
+                            existing_owner_id = str(existing.get('influencerId') or '')
+                            existing_owner_email = str(existing.get('influencerEmail') or '').lower()
+                            existing_owner_name = str(existing.get('referredBy') or '').lower()
+                            already_same_partner = existing_owner_id == influencer_id or existing_owner_email == str(influencer.get('email') or '').lower() or existing_owner_name == str(influencer.get('fullName') or '').lower()
+                            has_other_owner = existing_owner_id or existing_owner_email or existing_owner_name
+                            if not existing.get('isInfluencer') and already_same_partner and not existing_owner_id:
+                                existing['influencerId'] = influencer.get('id')
+                                existing['influencerEmail'] = influencer.get('email')
+                                existing['referredBy'] = influencer.get('fullName')
+                                existing['referredByEmail'] = influencer.get('email')
+                                existing.setdefault('referredDate', time.strftime('%Y-%m-%d', time.gmtime()))
+                                linked += 1
+                            elif not existing.get('isInfluencer') and not already_same_partner and not has_other_owner:
+                                link_existing_contact_to_influencer(influencer, existing)
+                                linked += 1
+                            else:
+                                duplicates.append(email)
+                            continue
+                        try:
+                            created.append(create_partner_referral(state, influencer, row, source='CSV Import'))
+                        except FileExistsError:
+                            duplicates.append(str(row.get('email') or '').strip().lower())
+                        except ValueError:
+                            invalid += 1
+                    if created or linked:
+                        write_workbook_state(state)
+                    json_response(self, 200, {'created': len(created), 'linked': linked, 'duplicates': duplicates, 'invalid': invalid})
+                    return
+
+                contact_id = str(payload.get('contactId') or '')
+                contact = next((c for c in contacts if str(c.get('id')) == contact_id and not c.get('isInfluencer')), None)
+                linked_contact = bool(contact and (
+                    str(contact.get('influencerId') or '') == influencer_id
+                    or str(contact.get('influencerEmail') or '').lower() == str(influencer.get('email') or '').lower()
+                    or str(contact.get('referredBy') or '').lower() == str(influencer.get('fullName') or '').lower()
+                ))
+                if not linked_contact:
+                    json_response(self, 404, {'error': 'Referred contact not found under this partner.'})
+                    return
+
+                if self.path.endswith('/delete'):
+                    state['contacts'] = [c for c in contacts if str(c.get('id')) != contact_id]
+                    referrals = influencer.get('referrals') or []
+                    removed_referrals = [r for r in referrals if str(r.get('id')) == contact_id or str(r.get('contactId')) == contact_id or str(r.get('email') or '').lower() == str(contact.get('email') or '').lower()]
+                    influencer['referrals'] = [r for r in referrals if r not in removed_referrals]
+                    influencer['referralCredits'] = max(0, int(influencer.get('referralCredits') or 0) - sum(int(r.get('credits') or 0) for r in removed_referrals))
+                    write_workbook_state(state)
+                    json_response(self, 200, {'status': 'deleted'})
+                    return
+
+                changes = payload.get('contact') or {}
+                next_email = str(changes.get('email') or contact.get('email') or '').strip().lower()
+                duplicate = next((c for c in contacts if c is not contact and str(c.get('email') or '').strip().lower() == next_email), None)
+                if duplicate:
+                    json_response(self, 409, {'error': 'Another contact already uses this email.'})
+                    return
+                name = str(changes.get('fullName') or contact.get('fullName') or '').strip()
+                parts = name.split()
+                contact.update({
+                    'fullName': name,
+                    'firstName': parts[0] if parts else '',
+                    'lastName': ' '.join(parts[1:]),
+                    'email': next_email,
+                    'company': str(changes.get('company') or '').strip(),
+                    'jobTitle': str(changes.get('jobTitle') or '').strip(),
+                    'phone': str(changes.get('phone') or '').strip(),
+                    'location': str(changes.get('location') or '').strip(),
+                    'portalNotes': str(changes.get('portalNotes') or '').strip(),
+                    'influencerId': influencer.get('id'),
+                    'influencerEmail': influencer.get('email'),
+                    'referredBy': influencer.get('fullName'),
+                    'referredByEmail': influencer.get('email')
+                })
+                for referral in (influencer.get('referrals') or []):
+                    if str(referral.get('id')) == contact_id or str(referral.get('email') or '').lower() == next_email:
+                        referral.update({key: contact.get(key) for key in ('fullName', 'email', 'company', 'jobTitle', 'phone')})
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'contact': partner_safe_contact(contact)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Contact operation failed: {ex}'})
+            return
+
         if self.path == '/api/db/search':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database search is available only from the local console.'})
+                return
             try:
                 query_text = str(payload.get('query') or '')
                 filters = payload.get('filters') or {}
@@ -1522,6 +1994,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/db/seed':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database seeding is available only from the local console.'})
+                return
             try:
                 state = seed_synthetic_database(force=True)
                 json_response(self, 200, {
@@ -1536,6 +2011,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/portal/referrals':
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Use the local console to manage contacts, or a scoped partner link to submit referrals.'})
+                return
             try:
                 state = read_workbook_state()
                 contacts = state.get('contacts') or []
@@ -1554,6 +2032,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
                 if not name or not email:
                     json_response(self, 400, {'error': 'Referral Full Name and Email are required.'})
+                    return
+
+                duplicate = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                if duplicate:
+                    json_response(self, 409, {'error': f"A contact with this email already exists: {duplicate.get('fullName') or email}."})
                     return
 
                 influencer = next((c for c in contacts if (inf_id and str(c.get('id')) == str(inf_id)) or (inf_email and str(c.get('email') or '').lower() == inf_email)), None)
@@ -1769,12 +2252,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/state':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database writes are available only from the local console.'})
+                return
             state_obj = payload.get('state', {})
             sync_relational_tables_from_state(state_obj)
             json_response(self, 200, {'status': 'saved'})
             return
 
         if self.path == '/api/workbook/state' or self.path == '/api/db/state':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Database writes are available only from the local console.'})
+                return
             try:
                 state_obj = payload.get('state', {})
                 sync_relational_tables_from_state(state_obj)

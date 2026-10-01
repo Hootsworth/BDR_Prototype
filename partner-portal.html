@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Partner workspace</title>
+  <style>
+    :root { color-scheme: light; --paper:#f5f5f5; --ink:#292524; --muted:#777169; --line:#e7e5e4; --surface:#fff; --soft:#f0efed; --accent:#292524; --ok:#176b4d; --error:#a62b25; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); }
+    main { max-width:1040px; margin:0 auto; padding:56px 28px 72px; }
+    .eyebrow { margin:0 0 12px; color:var(--muted); font-size:11px; font-weight:650; letter-spacing:.13em; text-transform:uppercase; }
+    h1 { margin:0; font-family:"Waldenburg",Georgia,serif; font-size:clamp(38px,6vw,62px); font-weight:300; letter-spacing:-.04em; line-height:1.04; }
+    .intro { max-width:620px; margin:14px 0 0; color:var(--muted); font-size:15px; line-height:1.65; }
+    header { padding-bottom:30px; border-bottom:1px solid var(--line); }
+    .summary { display:flex; gap:48px; flex-wrap:wrap; padding:20px 0; border-bottom:1px solid var(--line); }
+    .summary p { margin:0; color:var(--muted); font-size:12px; }
+    .summary strong { display:block; margin-top:5px; color:var(--ink); font-size:20px; font-weight:500; }
+    .section-head { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:30px 0 14px; border:0; }
+    h2 { margin:0; font-family:"Waldenburg",Georgia,serif; font-size:29px; font-weight:300; }
+    .contact-count { color:var(--muted); font-size:12px; }
+    .table-wrap { overflow-x:auto; border-top:1px solid var(--line); }
+    table { width:100%; min-width:620px; border-collapse:collapse; text-align:left; }
+    th { padding:12px 10px; color:var(--muted); font-size:10px; font-weight:650; letter-spacing:.09em; text-transform:uppercase; }
+    td { padding:14px 10px; border-top:1px solid var(--line); font-size:13px; vertical-align:top; }
+    td small { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
+    .status { white-space:nowrap; }
+    .empty { padding:36px 10px; color:var(--muted); text-align:center; }
+    .form-section { margin-top:42px; padding-top:24px; border-top:1px solid var(--line); }
+    .form-section > p { max-width:650px; margin:7px 0 20px; color:var(--muted); font-size:13px; line-height:1.6; }
+    form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px 18px; max-width:760px; }
+    label { display:grid; gap:7px; color:var(--muted); font-size:12px; }
+    input,select { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:3px; background:var(--surface); color:var(--ink); font:inherit; }
+    input:focus,select:focus { outline:2px solid #aaa39b; outline-offset:1px; }
+    button { min-height:42px; width:max-content; padding:0 18px; border:0; border-radius:3px; background:var(--accent); color:white; font:inherit; font-size:13px; cursor:pointer; }
+    button:disabled { opacity:.55; cursor:wait; }
+    .form-actions { display:flex; align-items:center; gap:14px; grid-column:1/-1; }
+    #feedback { color:var(--muted); font-size:12px; }
+    #feedback.error { color:var(--error); }
+    #feedback.success { color:var(--ok); }
+    #page-error { display:none; margin-top:32px; padding:14px 0; border-top:1px solid var(--line); color:var(--error); font-size:13px; }
+    footer { margin-top:48px; padding-top:15px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
+    @media(max-width:620px) { main { padding:35px 18px 48px; } .summary { gap:24px; } .section-head { align-items:start; flex-direction:column; } form { grid-template-columns:1fr; } .form-actions { grid-column:auto; align-items:flex-start; flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Partner workspace</p>
+      <h1 id="partner-name">Your introductions</h1>
+      <p class="intro" id="partner-company">A shared space for your referrals and their next steps.</p>
+    </header>
+    <section class="summary" aria-label="Referral summary">
+      <p>Introductions<strong id="total-count">—</strong></p>
+      <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
+      <p>Calls completed<strong id="completed-count">—</strong></p>
+    </section>
+    <section>
+      <header class="section-head"><section><p class="eyebrow">Your network</p><h2>Referred contacts</h2></section><span class="contact-count" id="visible-count"></span></header>
+      <section class="table-wrap"><table><thead><tr><th>Contact</th><th>Company &amp; role</th><th>Call status</th></tr></thead><tbody id="contacts-body"><tr><td colspan="3" class="empty">Loading your workspace…</td></tr></tbody></table></section>
+    </section>
+    <section class="form-section">
+      <p class="eyebrow">Make an introduction</p><h2>Add a referred contact</h2>
+      <p>Your introduction will be shared with the team managing this workspace. Internal notes and outreach history are not shown here.</p>
+      <form id="referral-form">
+        <label>Full name<input name="fullName" autocomplete="name" required></label>
+        <label>Work email<input name="email" type="email" autocomplete="email" required></label>
+        <label>Company<input name="company" autocomplete="organization" required></label>
+        <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
+        <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
+        <label>Call status<select name="status"><option value="pending">Not scheduled</option><option value="scheduled">Scheduled</option><option value="completed">Completed</option></select></label>
+        <section class="form-actions"><button id="submit-button" type="submit">Save introduction</button><span id="feedback" role="status" aria-live="polite"></span></section>
+      </form>
+    </section>
+    <p id="page-error" role="alert"></p>
+    <footer>This private link grants access to this partner workspace only. Contact the workspace owner if the link should be revoked.</footer>
+  </main>
+  <script src="partner-portal.js"></script>
+</body>
+</html>

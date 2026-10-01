@@ -132,6 +132,14 @@ The web console connects to **one active local `.xlsx` workbook** (`gtm-console-
 * **Continuous Auto-Save**: Changes auto-save continuously on mutation, on a 3-second safety net timer, on tab backgrounding (`visibilitychange`), and upon tab close via `sendBeacon`.
 * **Export Snapshots**: Download a portable snapshot anytime via **Settings → Export copy**.
 
+## Influencer contacts and partner sharing
+
+Manage influencer profiles and referrals from **Influencer Portal**. Import CSV contacts under the selected influencer, edit or remove partner/contact records, and detect duplicate email addresses during import. A private link opens a separate partner page with only that influencer's contact details and call status; internal notes and outreach history remain private. Links can be revoked, and replacing a link revokes the prior link.
+
+For sharing outside the local computer, configure `GTM_PUBLIC_BASE_URL` in `.env` with an HTTPS address routed to the same persistent local server. A `localhost` link is only reachable from that machine. The current Vercel adapter uses temporary storage, so sharing and database-owner operations are disabled there until a durable shared database is configured.
+
+Referral charts are separate from the app: use **Export chart data**, then load the JSON in [`reports/referral-analytics.html`](reports/referral-analytics.html). The report runs locally and contains aggregate counts only.
+
 ---
 
 ## 🧪 Verification & Testing

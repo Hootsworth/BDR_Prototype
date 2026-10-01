@@ -19,7 +19,7 @@ function renderInfluencersTable() {
         const selected = val.toLowerCase() === (activeConsolePortalInfluencerEmail || "").toLowerCase() ? "selected" : "";
         const refs = getInfluencerReferralsList(inf);
         const calls = refs.filter(r => r.hasTakenCall || r.hasScheduledCall).length;
-        return `<option value="${val}" ${selected}>${inf.fullName} — ${inf.company || 'Advisory'} (${calls}/${refs.length} calls)</option>`;
+        return `<option value="${escapePartnerHTML(val)}" ${selected}>${escapePartnerHTML(inf.fullName)} — ${escapePartnerHTML(inf.company || 'Advisory')} (${calls}/${refs.length} calls)</option>`;
       }).join("");
     }
   }
@@ -32,12 +32,30 @@ function getInfluencerReferralsList(influencer) {
   const infNameLower = (influencer.fullName || "").toLowerCase();
   const infEmailLower = (influencer.email || "").toLowerCase();
   return (database.contacts || []).filter(c => {
-    if (c.isInfluencer) return false;
+    if (c.isInfluencer || c.archivedAt) return false;
     const refBy = (c.referredBy || "").toLowerCase();
     const refEmail = (c.referredByEmail || "").toLowerCase();
     const influencerEmail = (c.influencerEmail || "").toLowerCase();
-    return (infNameLower && refBy === infNameLower) || (infEmailLower && (refEmail === infEmailLower || influencerEmail === infEmailLower));
+    return String(c.influencerId || '') === String(influencer.id) || (infNameLower && refBy === infNameLower) || (infEmailLower && (refEmail === infEmailLower || influencerEmail === infEmailLower));
   });
+}
+
+function escapePartnerHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function currentPartner() {
+  return (database.contacts || []).find(c => c.isInfluencer && (
+    String(c.email || '').toLowerCase() === String(activeConsolePortalInfluencerEmail || '').toLowerCase()
+    || String(c.fullName || '').toLowerCase() === String(activeConsolePortalInfluencerEmail || '').toLowerCase()
+  )) || (database.contacts || []).find(c => c.isInfluencer);
+}
+
+function isSyntheticPartnerContact(contact, influencer) {
+  const source = String(contact.sourceFile || '');
+  const seedId = Number(contact.id) || 0;
+  const seedEmail = /\.\d+@[^@]+$/i.test(String(contact.email || ''));
+  return Boolean(contact.isDemoData) || (seedId > 0 && seedId <= 930 && source === `Referred by ${influencer.fullName}` && seedEmail);
 }
 
 function selectConsolePortalInfluencer(emailOrName) {
@@ -57,6 +75,8 @@ function renderConsolePortalReferrals() {
   ) || influencers[0];
 
   if (!activeInf) return;
+  const revokeButton = document.getElementById('partner-revoke-link');
+  if (revokeButton) revokeButton.hidden = false;
 
   const referrals = getInfluencerReferralsList(activeInf);
   const callsTaken = referrals.filter(r => r.hasTakenCall || r.hasScheduledCall).length;
@@ -136,14 +156,14 @@ function renderConsolePortalReferrals() {
     return `
       <tr>
         <td>
-          <div style="font-weight: 700; color: var(--color-text-primary);">${r.fullName}</div>
-          <div style="font-size: 11px; color: var(--color-text-secondary);">${r.email || ""}</div>
-          ${referredDate ? `<div style="font-size: 10px; color: var(--color-text-secondary);">Referred ${referredDate}</div>` : ""}
+          <div style="font-weight: 700; color: var(--color-text-primary);">${escapePartnerHTML(r.fullName)}</div>
+          <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.email || "")}</div>
+          ${referredDate ? `<div style="font-size: 10px; color: var(--color-text-secondary);">Referred ${escapePartnerHTML(referredDate)}</div>` : ""}
         </td>
         <td>
-          <div style="font-weight: 600; font-size: 12.5px;">${r.company || "Credit Union"}</div>
-          <div style="font-size: 11px; color: var(--color-text-secondary);">${r.jobTitle || "Executive"}</div>
-          ${r.portalNotes ? `<div style="max-width: 260px; margin-top: 4px; color: var(--color-text-secondary); font-size: 10px; line-height: 1.4;">${r.portalNotes}</div>` : ""}
+          <div style="font-weight: 600; font-size: 12.5px;">${escapePartnerHTML(r.company || "Credit Union")}</div>
+          <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.jobTitle || "Executive")}</div>
+          ${r.portalNotes ? `<div style="max-width: 260px; margin-top: 4px; color: var(--color-text-secondary); font-size: 10px; line-height: 1.4;">${escapePartnerHTML(r.portalNotes)}</div>` : ""}
         </td>
         <td>${callBadge}</td>
         <td>${ch.length ? ch.join(" ") : `<span style="font-size: 11px; color: var(--color-text-secondary);">Ready</span>`}</td>
@@ -154,6 +174,8 @@ function renderConsolePortalReferrals() {
           <button class="btn btn-sm btn-primary" onclick="switchTab('campaign-outbound'); openOutboundActionModal(${idx}, 'email')" style="font-size: 11px; padding: 3px 8px;">
             Engage
           </button>
+          <button class="btn btn-sm btn-secondary" onclick="openPartnerContactEditor('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 3px 8px;">Edit</button>
+          <button class="btn btn-sm btn-secondary" onclick="deletePartnerContact('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 3px 8px;">Remove</button>
         </td>
       </tr>
     `;
@@ -169,8 +191,7 @@ function toggleReferralCallStatus(contactIdx) {
   c.callScheduledAt = nextState ? new Date().toISOString().slice(0, 10) : "";
   c.status = nextState ? "Call Taken" : "Warm Referral";
 
-  if (typeof markWorkbookDirty === "function") markWorkbookDirty();
-  if (typeof saveLocalWorkbookState === "function") saveLocalWorkbookState();
+  if (typeof saveDatabaseCache === "function") saveDatabaseCache();
   renderConsolePortalReferrals();
   if (typeof renderDashboard === "function") renderDashboard();
 }
@@ -222,28 +243,7 @@ async function submitConsolePortalReferral() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to add referral");
 
-    // Also update local in-memory state immediately
-    if (data.contact) {
-      const existingIdx = database.contacts.findIndex(c => (c.email || "").toLowerCase() === email.toLowerCase());
-      if (existingIdx >= 0) {
-        database.contacts[existingIdx] = data.contact;
-      } else {
-        database.contacts.push(data.contact);
-      }
-    }
-    if (!Array.isArray(activeInf.referrals)) activeInf.referrals = [];
-    if (!activeInf.referrals.some(r => (r.name || "").toLowerCase() === fullName.toLowerCase())) {
-      activeInf.referrals.push({
-        name: fullName,
-        email,
-        company,
-        title: jobTitle,
-        date: new Date().toISOString().slice(0, 10),
-        hasTakenCall,
-        hasScheduledCall
-      });
-    }
-    activeInf.referralCredits = (activeInf.referralCredits || 0) + (hasTakenCall ? 25 : 10);
+    await loadWorkbookFromServer();
 
     if (feedbackEl) {
       feedbackEl.hidden = false;
@@ -279,22 +279,227 @@ function openCurrentInfluencerStandalonePortal() {
 }
 
 function copyCurrentInfluencerWorkspaceLink() {
-  const email = activeConsolePortalInfluencerEmail || "";
-  const url = new URL("/", window.location.origin);
-  url.searchParams.set("tab", "influencers");
-  if (email) url.searchParams.set("email", email);
-  const writePromise = navigator.clipboard?.writeText?.(url.toString());
-  if (!writePromise) {
-    window.prompt("Copy this partner workspace link", url.toString());
-    return;
+  return createCurrentInfluencerShareLink();
+}
+
+async function createCurrentInfluencerShareLink() {
+  const influencer = currentPartner();
+  if (!influencer) return alert('Select an influencer first.');
+  try {
+    const response = await fetch('/api/partner-shares/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ influencerId: influencer.id })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+    const shareUrl = payload.shareUrl || `${window.location.origin}/partner-portal.html#token=${encodeURIComponent(payload.token)}`;
+    try { await navigator.clipboard.writeText(shareUrl); } catch (_) { window.prompt('Copy this private partner link', shareUrl); }
+    if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) && !payload.publicBaseConfigured) {
+      alert('Private link copied. This localhost address is reachable only from this computer; publish the app behind a persistent, secure host before sharing it with someone elsewhere.');
+    } else {
+      alert('Private, revocable link copied. It grants access only to this partner’s shared workspace.');
+    }
+  } catch (error) {
+    alert(`Could not create partner link: ${error.message}`);
   }
-  writePromise.then(() => {
-    const button = document.querySelector(".partner-header-controls .btn");
-    if (!button) return;
-    const label = button.textContent;
-    button.textContent = "Link copied";
-    setTimeout(() => { button.textContent = label; }, 1800);
-  }).catch(() => window.prompt("Copy this partner workspace link", url.toString()));
+}
+
+async function revokeCurrentInfluencerShareLink() {
+  const influencer = currentPartner();
+  if (!influencer) return;
+  if (!confirm(`Revoke ${influencer.fullName}'s current share link?`)) return;
+  try {
+    const response = await fetch('/api/partner-shares/revoke-influencer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ influencerId: influencer.id })
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+    alert(payload.revoked ? 'Partner link revoked.' : 'There is no active partner link to revoke.');
+  } catch (error) { alert(`Could not revoke link: ${error.message}`); }
+}
+
+async function importContactsForCurrentInfluencer(event) {
+  const file = event.target.files?.[0];
+  const influencer = currentPartner();
+  if (!file || !influencer) return;
+  try {
+    if (!window.XLSX) throw new Error('CSV reader is unavailable. Reload the app and try again.');
+    const workbook = window.XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const rawRows = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '', raw: false });
+    const normalize = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const rows = rawRows.map(row => {
+      const normalized = Object.fromEntries(Object.entries(row).map(([key, value]) => [normalize(key), String(value || '').trim()]));
+      const pick = (...keys) => keys.map(normalize).map(key => normalized[key]).find(Boolean) || '';
+      const firstName = pick('first name', 'firstname', 'first');
+      const lastName = pick('last name', 'lastname', 'last');
+      return {
+        fullName: pick('full name', 'fullname', 'contact name', 'name') || [firstName, lastName].filter(Boolean).join(' '),
+        email: pick('email', 'work email', 'email address'),
+        company: pick('company', 'organization', 'account'),
+        jobTitle: pick('job title', 'title', 'role'),
+        phone: pick('phone', 'phone number', 'mobile'),
+        location: pick('location', 'city', 'state'),
+        industry: pick('industry')
+      };
+    });
+    const response = await fetch('/api/influencers/contacts/import', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ influencerId: influencer.id, contacts: rows })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Import failed (${response.status})`);
+    await loadWorkbookFromServer();
+    alert(`Import complete for ${influencer.fullName}: ${result.created} added, ${result.linked || 0} existing contacts linked, ${result.duplicates.length} already linked or duplicate emails skipped, ${result.invalid} incomplete rows skipped.`);
+  } catch (error) { alert(`Could not import contacts: ${error.message}`); }
+  finally { event.target.value = ''; }
+}
+
+function downloadPartnerReportData() {
+  const influencers = (database.contacts || []).filter(c => c.isInfluencer);
+  const byInfluencer = influencers.map(influencer => {
+    const referrals = getInfluencerReferralsList(influencer).filter(contact => !isSyntheticPartnerContact(contact, influencer));
+    return {
+      influencer: influencer.fullName || 'Partner',
+      total: referrals.length,
+      scheduled: referrals.filter(c => c.hasScheduledCall && !c.hasTakenCall).length,
+      completed: referrals.filter(c => c.hasTakenCall).length,
+      pending: referrals.filter(c => !c.hasScheduledCall && !c.hasTakenCall).length
+    };
+  });
+  const monthCounts = {};
+  for (const influencer of influencers) {
+    for (const contact of getInfluencerReferralsList(influencer).filter(row => !isSyntheticPartnerContact(row, influencer))) {
+      const referralMeta = (influencer.referrals || []).find(referral => String(referral.id || referral.contactId || '') === String(contact.id) || String(referral.email || '').toLowerCase() === String(contact.email || '').toLowerCase());
+      const rawDate = contact.referredDate || contact.date || referralMeta?.date;
+      const month = /^\d{4}-\d{2}/.test(String(rawDate || '')) ? String(rawDate).slice(0, 7) : 'Undated';
+      monthCounts[month] = (monthCounts[month] || 0) + 1;
+    }
+  }
+  const report = { generatedAt: new Date().toISOString(), byInfluencer, byMonth: Object.entries(monthCounts).map(([month, referrals]) => ({ month, referrals })).sort((a, b) => a.month.localeCompare(b.month)) };
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'influencer-referral-report.json';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function openPartnerContactEditor(contactId) {
+  const contact = (database.contacts || []).find(c => String(c.id) === String(contactId));
+  if (!contact) return;
+  document.getElementById('partner-edit-contact-id').value = contact.id;
+  document.getElementById('partner-edit-name').value = contact.fullName || '';
+  document.getElementById('partner-edit-email').value = contact.email || '';
+  document.getElementById('partner-edit-company').value = contact.company || '';
+  document.getElementById('partner-edit-title').value = contact.jobTitle || '';
+  document.getElementById('partner-edit-phone').value = contact.phone || '';
+  document.getElementById('partner-edit-location').value = contact.location || '';
+  document.getElementById('partner-edit-notes').value = contact.portalNotes || '';
+  const dialog = document.getElementById('partner-contact-edit-dialog');
+  if (dialog?.showModal) dialog.showModal(); else dialog?.setAttribute('open', '');
+}
+
+function closePartnerContactEditor() {
+  const dialog = document.getElementById('partner-contact-edit-dialog');
+  if (dialog?.close) dialog.close(); else dialog?.removeAttribute('open');
+}
+
+async function savePartnerContactEdit() {
+  const influencer = currentPartner();
+  const feedback = document.getElementById('partner-edit-feedback');
+  const contact = {
+    fullName: document.getElementById('partner-edit-name').value.trim(),
+    email: document.getElementById('partner-edit-email').value.trim(),
+    company: document.getElementById('partner-edit-company').value.trim(),
+    jobTitle: document.getElementById('partner-edit-title').value.trim(),
+    phone: document.getElementById('partner-edit-phone').value.trim(),
+    location: document.getElementById('partner-edit-location').value.trim(),
+    portalNotes: document.getElementById('partner-edit-notes').value.trim()
+  };
+  try {
+    const response = await fetch('/api/influencers/contacts/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ influencerId: influencer.id, contactId: document.getElementById('partner-edit-contact-id').value, contact })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Save failed (${response.status})`);
+    await loadWorkbookFromServer();
+    closePartnerContactEditor();
+  } catch (error) { if (feedback) feedback.textContent = error.message; }
+}
+
+async function deletePartnerContact(contactId) {
+  const influencer = currentPartner();
+  const contact = (database.contacts || []).find(c => String(c.id) === String(contactId));
+  if (!influencer || !contact || !confirm(`Remove ${contact.fullName} from ${influencer.fullName}'s referrals? The record will be deleted from the contact database.`)) return;
+  const response = await fetch('/api/influencers/contacts/delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ influencerId: influencer.id, contactId })
+  });
+  const result = await response.json();
+  if (!response.ok) return alert(result.error || `Delete failed (${response.status})`);
+  await loadWorkbookFromServer();
+}
+
+function openPartnerProfileEditor(isNew = false) {
+  const partner = isNew ? null : currentPartner();
+  document.getElementById('partner-profile-dialog-title').textContent = isNew ? 'Add partner' : 'Edit partner';
+  document.getElementById('partner-profile-id').value = partner?.id || '';
+  document.getElementById('partner-profile-name').value = partner?.fullName || '';
+  document.getElementById('partner-profile-email').value = partner?.email || '';
+  document.getElementById('partner-profile-company').value = partner?.company || '';
+  document.getElementById('partner-profile-title').value = partner?.jobTitle || '';
+  document.getElementById('partner-profile-phone').value = partner?.phone || '';
+  document.getElementById('partner-profile-location').value = partner?.location || '';
+  document.getElementById('partner-profile-delete').hidden = isNew;
+  document.getElementById('partner-profile-feedback').textContent = '';
+  const dialog = document.getElementById('partner-profile-dialog');
+  if (dialog?.showModal) dialog.showModal(); else dialog?.setAttribute('open', '');
+}
+
+function closePartnerProfileEditor() {
+  const dialog = document.getElementById('partner-profile-dialog');
+  if (dialog?.close) dialog.close(); else dialog?.removeAttribute('open');
+}
+
+async function savePartnerProfile() {
+  const id = document.getElementById('partner-profile-id').value;
+  const profile = {
+    fullName: document.getElementById('partner-profile-name').value.trim(),
+    email: document.getElementById('partner-profile-email').value.trim(),
+    company: document.getElementById('partner-profile-company').value.trim(),
+    jobTitle: document.getElementById('partner-profile-title').value.trim(),
+    phone: document.getElementById('partner-profile-phone').value.trim(),
+    location: document.getElementById('partner-profile-location').value.trim()
+  };
+  const feedback = document.getElementById('partner-profile-feedback');
+  try {
+    const response = await fetch(id ? '/api/influencers/update' : '/api/influencers/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ influencerId: id, profile })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Save failed (${response.status})`);
+    if (!id) activeConsolePortalInfluencerEmail = result.influencer.email;
+    else if (id === String(currentPartner()?.id)) activeConsolePortalInfluencerEmail = result.influencer.email;
+    await loadWorkbookFromServer();
+    closePartnerProfileEditor();
+  } catch (error) { feedback.textContent = error.message; }
+}
+
+async function deletePartnerProfile() {
+  const partner = currentPartner();
+  if (!partner) return;
+  if (!confirm(`Remove ${partner.fullName} from the partner list? Their contact records will remain in the database but will be unassigned, and their share links will be revoked.`)) return;
+  const response = await fetch('/api/influencers/delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ influencerId: partner.id })
+  });
+  const result = await response.json();
+  if (!response.ok) return document.getElementById('partner-profile-feedback').textContent = result.error || `Delete failed (${response.status})`;
+  activeConsolePortalInfluencerEmail = '';
+  await loadWorkbookFromServer();
+  closePartnerProfileEditor();
 }
 
 function toggleInfluencerReferralForm(forceOpen) {
@@ -333,6 +538,18 @@ window.toggleReferralCallStatus = toggleReferralCallStatus;
 window.submitConsolePortalReferral = submitConsolePortalReferral;
 window.openCurrentInfluencerStandalonePortal = openCurrentInfluencerStandalonePortal;
 window.copyCurrentInfluencerWorkspaceLink = copyCurrentInfluencerWorkspaceLink;
+window.createCurrentInfluencerShareLink = createCurrentInfluencerShareLink;
+window.revokeCurrentInfluencerShareLink = revokeCurrentInfluencerShareLink;
+window.importContactsForCurrentInfluencer = importContactsForCurrentInfluencer;
+window.downloadPartnerReportData = downloadPartnerReportData;
+window.openPartnerContactEditor = openPartnerContactEditor;
+window.closePartnerContactEditor = closePartnerContactEditor;
+window.savePartnerContactEdit = savePartnerContactEdit;
+window.deletePartnerContact = deletePartnerContact;
+window.openPartnerProfileEditor = openPartnerProfileEditor;
+window.closePartnerProfileEditor = closePartnerProfileEditor;
+window.savePartnerProfile = savePartnerProfile;
+window.deletePartnerProfile = deletePartnerProfile;
 window.toggleInfluencerReferralForm = toggleInfluencerReferralForm;
 window.toggleInfluencerStatus = toggleInfluencerStatus;
 window.openAddReferralModal = openAddReferralModal;
