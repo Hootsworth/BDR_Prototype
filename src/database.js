@@ -32,6 +32,7 @@ let database = {
     symwest_booth: [],   // Attendees for SymWest Booth
     executive_meetup: [] // Custom registered attendees
   },
+  eventsMeta: [],        // Metadata for events (title, date, location, type, description)
 
   // Agent mode state
   agentRunning: false,
@@ -59,13 +60,15 @@ let database = {
 window.database = database;
 
 function saveDatabaseCache() {
+  database._dirty = true;
   if (database.workbookMode && typeof saveWorkbookToServer === "function") {
-    saveWorkbookToServer().catch(error => addLogConsole("enrich", `[LOCAL WORKBOOK ERROR] ${error.message}`, "error"));
+    saveWorkbookToServer().catch(error => addLogConsole("enrich", `[DATABASE SYNC ERROR] ${error.message}`, "error"));
     return;
   }
   const stateSnapshot = {
     contacts: database.contacts,
     events: database.events,
+    eventsMeta: database.eventsMeta || [],
     stats: database.stats,
     meetings: database.meetings || [],
     updatedAt: new Date().toISOString()
@@ -116,9 +119,8 @@ function addLogConsole(consoleId, lineText, type = "system") {
   if (database.recentActivities.length > 25) {
     database.recentActivities.pop();
   }
-  if (window.currentTabId === 'dashboard' && typeof renderDashboard === "function") {
-    renderDashboard();
-  }
+  if (window.currentTabId === 'dashboard' && typeof renderDashboard === "function") renderDashboard();
+  else if (document.getElementById("set-panel-view-developer")?.classList.contains("active") && typeof renderDashboardActivityFeed === "function") renderDashboardActivityFeed();
 }
 window.addLogConsole = addLogConsole;
 

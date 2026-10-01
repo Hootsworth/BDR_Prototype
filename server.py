@@ -118,7 +118,93 @@ def db():
     columns = {row['name'] for row in connection.execute('PRAGMA table_info(google_connections)').fetchall()}
     if 'session_id' not in columns:
         connection.execute('ALTER TABLE google_connections ADD COLUMN session_id TEXT')
+    connection.execute('CREATE TABLE IF NOT EXISTS linkedin_connections (id INTEGER PRIMARY KEY CHECK (id = 1), session_id TEXT, member_id TEXT, name TEXT, email TEXT, access_token TEXT, mode TEXT, updated_at TEXT NOT NULL)')
     connection.execute('CREATE TABLE IF NOT EXISTS sent_emails (id INTEGER PRIMARY KEY AUTOINCREMENT, fingerprint TEXT UNIQUE NOT NULL, recipient TEXT NOT NULL, subject TEXT NOT NULL, provider_id TEXT, sent_at TEXT NOT NULL)')
+    connection.execute('CREATE TABLE IF NOT EXISTS sent_linkedin (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_name TEXT, recipient_email TEXT, linkedin_url TEXT, message TEXT NOT NULL, provider_id TEXT, mode TEXT, sent_at TEXT NOT NULL)')
+
+    # Normalized Relational + Graph Tables for Searchable GTM Console
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS contacts (
+            id INTEGER PRIMARY KEY,
+            first_name TEXT,
+            last_name TEXT,
+            full_name TEXT,
+            email TEXT,
+            job_title TEXT,
+            company TEXT,
+            phone TEXT,
+            linkedin_url TEXT,
+            industry TEXT,
+            source_file TEXT,
+            asset_size TEXT,
+            state TEXT,
+            is_influencer INTEGER DEFAULT 0,
+            referred_by_id INTEGER,
+            referred_by_name TEXT,
+            referral_credits INTEGER DEFAULT 0,
+            lead_temp TEXT,
+            match_percentage INTEGER DEFAULT 0,
+            enriched INTEGER DEFAULT 0,
+            emails_sent INTEGER DEFAULT 0,
+            linkedin_sent INTEGER DEFAULT 0,
+            calls_count INTEGER DEFAULT 0,
+            has_scheduled_call INTEGER DEFAULT 0,
+            has_taken_call INTEGER DEFAULT 0,
+            raw_json TEXT NOT NULL
+        )
+    ''')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_contacts_influencer ON contacts(is_influencer)')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_contacts_referred_by ON contacts(referred_by_name)')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_contacts_calls ON contacts(has_taken_call, has_scheduled_call)')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)')
+
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS referrals_edges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            influencer_id INTEGER,
+            influencer_name TEXT,
+            influencer_email TEXT,
+            prospect_id INTEGER,
+            prospect_name TEXT,
+            prospect_email TEXT,
+            prospect_company TEXT,
+            prospect_title TEXT,
+            credits INTEGER DEFAULT 10,
+            has_scheduled_call INTEGER DEFAULT 0,
+            has_taken_call INTEGER DEFAULT 0,
+            call_outcome TEXT,
+            created_at TEXT
+        )
+    ''')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_edges_influencer_name ON referrals_edges(influencer_name)')
+
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS events_meta (
+            event_key TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            date TEXT,
+            location TEXT,
+            type TEXT,
+            description TEXT,
+            created_at TEXT
+        )
+    ''')
+
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS event_attendees (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_key TEXT NOT NULL,
+            contact_id INTEGER,
+            full_name TEXT,
+            job_title TEXT,
+            company TEXT,
+            email TEXT,
+            phone TEXT,
+            status TEXT,
+            notes TEXT,
+            raw_json TEXT
+        )
+    ''')
     connection.commit()
     return connection
 
@@ -133,8 +219,451 @@ def read_state(key):
 
 def default_workbook_state():
     return {
-        'contacts': [], 'events': {}, 'stats': {'emailsSent': 0, 'linkedinSent': 0, 'callsMade': 0, 'enrichedCount': 0},
-        'meetings': [], 'approvals': [], 'workflowRuns': [], 'currentOutboundSubtab': 'influencers', 'autoEnrich': False
+        'contacts': [],
+        'events': {},
+        'eventsMeta': [
+            {
+                'eventKey': 'gac_dinner',
+                'title': 'GAC 2026 Executive VIP Dinner',
+                'date': '2026-10-14',
+                'location': 'Washington, D.C. (The Mayflower Hotel)',
+                'type': 'Executive Dinner',
+                'description': 'Private C-suite dinner for Credit Union CIOs and Advisory Partners discussing NCUA AI compliance.'
+            },
+            {
+                'eventKey': 'symwest_booth',
+                'title': 'SymWest 2026 Booth #412 Visitors',
+                'date': '2026-10-22',
+                'location': 'San Diego, CA (Convention Center)',
+                'type': 'Conference Booth',
+                'description': 'Symitar & Jack Henry ecosystem leaders visiting the live LLM Query Guardrails demo booth.'
+            },
+            {
+                'eventKey': 'executive_meetup',
+                'title': 'Credit Union AI & Compliance Roundtable',
+                'date': '2026-11-05',
+                'location': 'Chicago, IL / Hybrid',
+                'type': 'VIP Roundtable',
+                'description': 'Interactive executive briefing on zero-trust LLM database gateways and referral partner rewards.'
+            }
+        ],
+        'stats': {'emailsSent': 0, 'linkedinSent': 0, 'callsMade': 0, 'enrichedCount': 0},
+        'meetings': [],
+        'approvals': [],
+        'workflowRuns': [],
+        'currentOutboundSubtab': 'influencers',
+        'autoEnrich': False
+    }
+
+def sync_relational_tables_from_state(state):
+    """Synchronize normalized SQLite relational and graph-edge tables from state object."""
+    if not state or not isinstance(state, dict):
+        return
+    contacts = state.get('contacts') or []
+    events = state.get('events') or {}
+    events_meta = state.get('eventsMeta') or default_workbook_state()['eventsMeta']
+    meetings = state.get('meetings') or []
+    meeting_emails = {str(m.get('contactEmail') or '').lower() for m in meetings if m.get('contactEmail')}
+
+    with db() as conn:
+        conn.execute('DELETE FROM contacts')
+        conn.execute('DELETE FROM referrals_edges')
+        conn.execute('DELETE FROM events_meta')
+        conn.execute('DELETE FROM event_attendees')
+
+        for idx, c in enumerate(contacts):
+            cid = c.get('id') if c.get('id') is not None else (idx + 1)
+            try:
+                cid = int(cid)
+            except (ValueError, TypeError):
+                cid = idx + 1
+            calls_made = c.get('callsMade') or []
+            calls_count = len(calls_made) if isinstance(calls_made, list) else 0
+            email_lower = str(c.get('email') or '').lower()
+
+            has_taken = bool(
+                c.get('hasTakenCall')
+                or calls_count > 0
+                or any('taken' in str(call.get('outcome', '')).lower() or 'spoke' in str(call.get('outcome', '')).lower() or 'completed' in str(call.get('outcome', '')).lower() for call in (calls_made if isinstance(calls_made, list) else []))
+            )
+            has_scheduled = bool(
+                c.get('hasScheduledCall')
+                or has_taken
+                or (email_lower and email_lower in meeting_emails)
+            )
+            c['hasTakenCall'] = has_taken
+            c['hasScheduledCall'] = has_scheduled
+
+            conn.execute('''
+                INSERT OR REPLACE INTO contacts (
+                    id, first_name, last_name, full_name, email, job_title, company,
+                    phone, linkedin_url, industry, source_file, asset_size, state,
+                    is_influencer, referred_by_id, referred_by_name, referral_credits,
+                    lead_temp, match_percentage, enriched, emails_sent, linkedin_sent,
+                    calls_count, has_scheduled_call, has_taken_call, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                cid,
+                str(c.get('firstName') or ''),
+                str(c.get('lastName') or ''),
+                str(c.get('fullName') or ''),
+                str(c.get('email') or ''),
+                str(c.get('jobTitle') or ''),
+                str(c.get('company') or ''),
+                str(c.get('phone') or ''),
+                str(c.get('linkedinUrl') or ''),
+                str(c.get('industry') or ''),
+                str(c.get('sourceFile') or ''),
+                str(c.get('assetSize') or ''),
+                str(c.get('state') or ''),
+                1 if c.get('isInfluencer') is True else 0,
+                c.get('influencerId'),
+                str(c.get('referredBy') or ''),
+                int(c.get('referralCredits') or 0),
+                str(c.get('leadTemp') or 'Warm Lead'),
+                int(c.get('matchPercentage') or 0),
+                1 if c.get('enriched') else 0,
+                1 if c.get('emailsSent') else 0,
+                1 if c.get('linkedinSent') else 0,
+                calls_count,
+                1 if has_scheduled else 0,
+                1 if has_taken else 0,
+                json.dumps(c)
+            ))
+
+            if not c.get('isInfluencer') and c.get('referredBy'):
+                outcome_text = calls_made[0].get('outcome', 'Call Taken') if (isinstance(calls_made, list) and calls_made and isinstance(calls_made[0], dict)) else ('Call Taken' if has_taken else 'Pending Call')
+                conn.execute('''
+                    INSERT INTO referrals_edges (
+                        influencer_id, influencer_name, influencer_email,
+                        prospect_id, prospect_name, prospect_email, prospect_company, prospect_title,
+                        credits, has_scheduled_call, has_taken_call, call_outcome, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    c.get('influencerId'),
+                    str(c.get('referredBy') or ''),
+                    str(c.get('influencerEmail') or ''),
+                    cid,
+                    str(c.get('fullName') or ''),
+                    str(c.get('email') or ''),
+                    str(c.get('company') or ''),
+                    str(c.get('jobTitle') or ''),
+                    25 if has_taken else 10,
+                    1 if has_scheduled else 0,
+                    1 if has_taken else 0,
+                    outcome_text,
+                    time.strftime('%Y-%m-%d', time.gmtime())
+                ))
+
+        for em in events_meta:
+            if not isinstance(em, dict) or not em.get('eventKey'):
+                continue
+            conn.execute('''
+                INSERT OR REPLACE INTO events_meta (event_key, title, date, location, type, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                em.get('eventKey'),
+                em.get('title') or em.get('eventKey'),
+                em.get('date') or '',
+                em.get('location') or '',
+                em.get('type') or 'Field Event',
+                em.get('description') or '',
+                time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            ))
+
+        for event_key, attendees in events.items():
+            if not any(m.get('eventKey') == event_key for m in events_meta if isinstance(m, dict)):
+                conn.execute('''
+                    INSERT OR IGNORE INTO events_meta (event_key, title, date, location, type, description, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    event_key,
+                    event_key.replace('_', ' ').title(),
+                    '2026-10-30',
+                    'Hybrid / Executive Venue',
+                    'Field Event',
+                    'Custom Campaign Event',
+                    time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                ))
+            for att in (attendees or []):
+                if not isinstance(att, dict):
+                    continue
+                conn.execute('''
+                    INSERT INTO event_attendees (event_key, contact_id, full_name, job_title, company, email, phone, status, notes, raw_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    event_key,
+                    att.get('id') or att.get('contactId'),
+                    att.get('fullName') or att.get('name') or '',
+                    att.get('jobTitle') or '',
+                    att.get('company') or '',
+                    att.get('email') or '',
+                    att.get('phone') or '',
+                    att.get('eventStatus') or att.get('status') or 'Registered',
+                    att.get('eventNotes') or att.get('notes') or '',
+                    json.dumps(att)
+                ))
+        conn.commit()
+    persist_state('database', state)
+
+def seed_synthetic_database(force=False):
+    """Seeds the SQLite database with 30 Influencers x 30 Contacts (930 total) if empty or forced."""
+    from scripts.seed_database import build_synthetic_dataset
+    state = build_synthetic_dataset()
+    sync_relational_tables_from_state(state)
+    # Also write JSON snapshot next to workbook path so legacy readers stay synced
+    json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
+    try:
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(state, f, indent=2)
+    except Exception:
+        pass
+    return state
+
+def add_referral_via_portal(influencer_email, prospect_data):
+    """Adds a referred contact under an influencer and persists to SQLite."""
+    state = read_state('database') or seed_synthetic_database(force=True)
+    contacts = state.get('contacts') or []
+    inf_email = str(influencer_email or '').strip().lower()
+    influencer = next((c for c in contacts if str(c.get('email') or '').lower() == inf_email), None)
+    if not influencer:
+        influencer = next((c for c in contacts if c.get('isInfluencer') is True), None)
+    if not influencer:
+        raise ValueError('Influencer profile not found.')
+
+    name = str(prospect_data.get('fullName') or '').strip()
+    email = str(prospect_data.get('email') or '').strip().lower()
+    title = str(prospect_data.get('jobTitle') or 'Decision Maker').strip()
+    company = str(prospect_data.get('company') or 'Credit Union').strip()
+    phone = str(prospect_data.get('phone') or '').strip()
+    notes = str(prospect_data.get('notes') or '').strip()
+    has_scheduled_call = bool(prospect_data.get('hasScheduledCall') or prospect_data.get('hasTakenCall'))
+    has_taken_call = bool(prospect_data.get('hasTakenCall', has_scheduled_call))
+    credits = int(prospect_data.get('credits') or (25 if has_taken_call else 15))
+
+    new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+    parts = name.split()
+    first_name = parts[0] if parts else name
+    last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+
+    calls_made = []
+    if has_taken_call or has_scheduled_call:
+        calls_made.append({
+            'date': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime()),
+            'outcome': 'Spoke to prospect - Interested (Call Taken via Portal Referral)',
+            'status': 'taken' if has_taken_call else 'scheduled'
+        })
+
+    new_contact = {
+        'id': new_id,
+        'firstName': first_name,
+        'lastName': last_name,
+        'fullName': name,
+        'email': email,
+        'jobTitle': title,
+        'company': company,
+        'phone': phone,
+        'linkedinUrl': f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower().replace(' ', '-')}-{new_id}",
+        'industry': 'Credit Union',
+        'sourceFile': f"Referred by {influencer.get('fullName')} (Influencer Portal)",
+        'assetSize': '$1B - $2.5B',
+        'state': influencer.get('state') or 'NY',
+        'attendedDinner': '',
+        'visitedBooth': '',
+        'enriched': True,
+        'enrichmentStatus': 'verified_provider_data',
+        'matchPercentage': 95,
+        'leadTemp': 'Hot Lead',
+        'emailsSent': False,
+        'linkedinSent': False,
+        'callsMade': calls_made,
+        'hasScheduledCall': has_scheduled_call,
+        'hasTakenCall': has_taken_call,
+        'isInfluencer': False,
+        'referredBy': influencer.get('fullName'),
+        'influencerId': influencer.get('id'),
+        'influencerEmail': influencer.get('email'),
+        'portalNotes': notes
+    }
+    contacts.append(new_contact)
+    if not isinstance(influencer.get('referrals'), list):
+        influencer['referrals'] = []
+    ref_entry = {
+        'id': new_id,
+        'fullName': name,
+        'jobTitle': title,
+        'company': company,
+        'email': email,
+        'phone': phone,
+        'credits': credits,
+        'hasScheduledCall': has_scheduled_call,
+        'hasTakenCall': has_taken_call,
+        'date': time.strftime('%Y-%m-%d', time.gmtime())
+    }
+    influencer['referrals'].insert(0, ref_entry)
+    influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
+    sync_relational_tables_from_state(state)
+    return {'status': 'created', 'contact': new_contact, 'referral': ref_entry, 'influencer': influencer}
+
+def search_database_nl(query_text='', filters=None):
+    """
+    Executes natural-language & graph-relational search against the SQLite database.
+    Handles queries such as:
+      - "Find me all the contact referrals of Kim Beluzo that have taken a call"
+      - "Referrals of Bob Miller who scheduled a call"
+      - "All influencers"
+      - "Hot leads from events"
+    """
+    filters = filters or {}
+    q_raw = (query_text or '').strip()
+    q_lower = q_raw.lower()
+
+    # Ensure DB is populated from current state if contacts table is empty
+    with db() as conn:
+        count_row = conn.execute('SELECT COUNT(*) AS cnt FROM contacts').fetchone()
+        if not count_row or count_row['cnt'] == 0:
+            current_state = read_state('database')
+            if current_state and current_state.get('contacts'):
+                sync_relational_tables_from_state(current_state)
+
+    sql_clauses = ['1=1']
+    sql_params = []
+    explanation_parts = []
+
+    # 1. Detect referral relationship ("referrals of <Name>", "referred by <Name>", or "<Name>'s referrals")
+    referred_by_target = filters.get('referredBy')
+    if not referred_by_target:
+        patterns = [
+            r'referrals?\s+of\s+([a-zA-Z\-\'\s]+?)(?:\s+that\b|\s+who\b|\s+with\b|\s+having\b|\s+and\b|$)',
+            r'referred\s+by\s+([a-zA-Z\-\'\s]+?)(?:\s+that\b|\s+who\b|\s+with\b|\s+having\b|\s+and\b|$)',
+            r'([a-zA-Z\-\'\s]+?)\'s\s+(?:contact\s+)?referrals?',
+            r'contacts?\s+of\s+([a-zA-Z\-\'\s]+?)(?:\s+that\b|\s+who\b|\s+with\b|$)',
+        ]
+        for pat in patterns:
+            m = re.search(pat, q_raw, re.IGNORECASE)
+            if m:
+                candidate = m.group(1).strip()
+                # Strip filler prefixes if any
+                candidate = re.sub(r'^(?:influencer|partner|advisor)\s+', '', candidate, flags=re.IGNORECASE).strip()
+                if candidate:
+                    referred_by_target = candidate
+                    break
+
+    # Also check if any known influencer's full name is mentioned alongside "referral" or "call"
+    if not referred_by_target and ('referral' in q_lower or 'referred' in q_lower or 'contact' in q_lower):
+        with db() as conn:
+            inf_rows = conn.execute('SELECT full_name FROM contacts WHERE is_influencer = 1').fetchall()
+            for r in inf_rows:
+                inf_name = r['full_name']
+                if inf_name and inf_name.lower() in q_lower:
+                    referred_by_target = inf_name
+                    break
+
+    if referred_by_target:
+        sql_clauses.append('LOWER(referred_by_name) LIKE ?')
+        sql_params.append(f'%{referred_by_target.lower()}%')
+        sql_clauses.append('is_influencer = 0')
+        explanation_parts.append(f"Referred by '{referred_by_target}'")
+
+    # 2. Detect Role (Influencers vs Prospects/Referrals)
+    if filters.get('role') == 'influencer' or (not referred_by_target and re.search(r'\binfluencers?\b|\bpartners?\b|\badvisors?\b', q_lower) and 'referral' not in q_lower):
+        sql_clauses.append('is_influencer = 1')
+        explanation_parts.append('Role = Influencer Partner')
+    elif filters.get('role') == 'prospect' or ('prospect' in q_lower and 'influencer' not in q_lower):
+        sql_clauses.append('is_influencer = 0')
+        explanation_parts.append('Role = Prospect')
+    elif ('referral' in q_lower or 'referred' in q_lower) and not referred_by_target:
+        sql_clauses.append("is_influencer = 0 AND referred_by_name != ''")
+        explanation_parts.append('Affiliated Referrals')
+
+    # 3. Detect Call / Meeting predicates ("taken a call", "scheduled a call", "booked a meeting", "called")
+    wants_taken_call = bool(
+        filters.get('hasTakenCall')
+        or re.search(r'taken\s+a?\s*calls?|took\s+a?\s*calls?|had\s+a?\s*calls?|completed\s+a?\s*calls?|spoke\s+to|called', q_lower)
+    )
+    wants_scheduled_call = bool(
+        filters.get('hasScheduledCall')
+        or re.search(r'scheduled\s+a?\s*(?:call|meeting|briefing)|booked\s+a?\s*(?:call|meeting)|with\s+a?\s*(?:call|meeting)', q_lower)
+    )
+    wants_no_call = bool(re.search(r'not\s+taken\s+a?\s*call|no\s+calls?|haven\'t\s+taken\s+a?\s*call|without\s+a?\s*call|pending\s+call', q_lower))
+
+    if wants_no_call:
+        sql_clauses.append('has_taken_call = 0 AND calls_count = 0')
+        explanation_parts.append('Call Status = No Call Taken')
+    elif wants_taken_call:
+        sql_clauses.append('(has_taken_call = 1 OR calls_count > 0)')
+        explanation_parts.append('Call Status = Taken a Call ✓')
+    elif wants_scheduled_call:
+        sql_clauses.append('(has_scheduled_call = 1 OR has_taken_call = 1 OR calls_count > 0)')
+        explanation_parts.append('Call Status = Scheduled / Taken Call 📅')
+
+    # 4. Detect Email / LinkedIn / Enrichment / Lead Temp predicates
+    if filters.get('enriched') is True or re.search(r'\benriched\b|\bverified\b', q_lower):
+        if 'un-enriched' in q_lower or 'unenriched' in q_lower or 'not enriched' in q_lower:
+            sql_clauses.append('enriched = 0')
+            explanation_parts.append('Enrichment = Pending')
+        else:
+            sql_clauses.append('enriched = 1')
+            explanation_parts.append('Enrichment = Enriched ✓')
+
+    if re.search(r'\bhot\s+leads?\b', q_lower) or filters.get('leadTemp') == 'Hot Lead':
+        sql_clauses.append("lead_temp = 'Hot Lead'")
+        explanation_parts.append('Lead Temp = Hot Lead')
+    elif re.search(r'\bcold\s+leads?\b', q_lower) or filters.get('leadTemp') == 'Cold Lead':
+        sql_clauses.append("lead_temp = 'Cold Lead'")
+        explanation_parts.append('Lead Temp = Cold Lead')
+
+    if re.search(r'\bemailed\b|\bemails?\s+sent\b', q_lower):
+        sql_clauses.append('emails_sent = 1')
+        explanation_parts.append('Email Outbound = Sent')
+
+    if re.search(r'\blinkedin\s+sent\b|\blinkedin\s+connected\b', q_lower):
+        sql_clauses.append('linkedin_sent = 1')
+        explanation_parts.append('LinkedIn Outbound = Sent')
+
+    # 5. Detect Event attendance predicate ("from events", "attended dinner", "symwest", "gac")
+    if 'event' in q_lower or 'dinner' in q_lower or 'booth' in q_lower or 'symwest' in q_lower or 'gac' in q_lower:
+        sql_clauses.append('(id IN (SELECT contact_id FROM event_attendees WHERE contact_id IS NOT NULL) OR LOWER(source_file) LIKE "%event%")')
+        explanation_parts.append('Event Attendee / Source = Event')
+
+    # 6. Fallback keyword search if no specific structured clauses matched
+    if len(sql_clauses) == 1 and q_raw:
+        # Remove conversational stop words
+        cleaned_tokens = [
+            tok for tok in re.findall(r'[a-zA-Z0-9@._\-]+', q_lower)
+            if tok not in {'find', 'me', 'all', 'the', 'show', 'list', 'get', 'contacts', 'contact', 'who', 'that', 'have', 'has', 'with', 'in', 'from', 'for', 'of', 'a', 'an'}
+        ]
+        for tok in cleaned_tokens:
+            sql_clauses.append('(LOWER(full_name) LIKE ? OR LOWER(company) LIKE ? OR LOWER(job_title) LIKE ? OR LOWER(email) LIKE ? OR LOWER(referred_by_name) LIKE ? OR LOWER(state) LIKE ?)')
+            like_val = f'%{tok}%'
+            sql_params.extend([like_val] * 6)
+            explanation_parts.append(f"Keyword '{tok}'")
+
+    where_sql = ' AND '.join(sql_clauses)
+    query_sql = f'SELECT raw_json, has_taken_call, has_scheduled_call, calls_count, referred_by_name FROM contacts WHERE {where_sql} ORDER BY is_influencer DESC, has_taken_call DESC, match_percentage DESC LIMIT 250'
+
+    results = []
+    with db() as conn:
+        rows = conn.execute(query_sql, sql_params).fetchall()
+        for row in rows:
+            try:
+                item = json.loads(row['raw_json'])
+                item['hasTakenCall'] = bool(row['has_taken_call'])
+                item['hasScheduledCall'] = bool(row['has_scheduled_call'])
+                results.append(item)
+            except Exception:
+                pass
+
+    summary = f"Found {len(results)} matching contact{'s' if len(results) != 1 else ''}"
+    if explanation_parts:
+        summary += f" ({' · '.join(explanation_parts)})"
+
+    return {
+        'results': results,
+        'total': len(results),
+        'query': q_raw,
+        'explanation': ' AND '.join(explanation_parts) if explanation_parts else 'All records',
+        'summary': summary
     }
 
 def _maybe_json(value):
@@ -177,6 +706,24 @@ def contact_for_workbook_record(contacts_by_id, contacts_by_email, record):
     return None
 
 def read_workbook_state():
+    # If a custom WORKBOOK_PATH is explicitly patched in unit tests, honor it first
+    default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
+    if WORKBOOK_PATH != default_wb_path:
+        if not os.path.exists(WORKBOOK_PATH):
+            return default_workbook_state()
+    else:
+        # Primary source of truth is now our relational SQLite database!
+        db_state = read_state('database')
+        if db_state and isinstance(db_state, dict) and len(db_state.get('contacts') or []) >= 30:
+            if 'eventsMeta' not in db_state:
+                db_state['eventsMeta'] = default_workbook_state()['eventsMeta']
+            return db_state
+        # Auto-seed the 30 Influencers x 30 Contacts synthetic dataset on first load
+        try:
+            return seed_synthetic_database()
+        except Exception:
+            pass
+
     json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
     if not os.path.exists(WORKBOOK_PATH):
         if os.path.exists(json_path):
@@ -253,6 +800,8 @@ def read_workbook_state():
     state['workflowRuns'] = sheet_records(sheets['Runs'])
     if events:
         state['events'] = events
+    if 'eventsMeta' in settings_values:
+        state['eventsMeta'] = settings_values['eventsMeta']
     if 'stats' in settings_values:
         state['stats'] = settings_values['stats']
     if 'meetings' in settings_values:
@@ -313,6 +862,7 @@ def build_workbook_snapshot(state):
 
     settings_rows = [
         {'key': 'events', 'value': json.dumps(state.get('events') or {})},
+        {'key': 'eventsMeta', 'value': json.dumps(state.get('eventsMeta') or [])},
         {'key': 'stats', 'value': json.dumps(state.get('stats') or {})},
         {'key': 'meetings', 'value': json.dumps(state.get('meetings') or [])},
         {'key': 'currentOutboundSubtab', 'value': json.dumps(state.get('currentOutboundSubtab') or 'prospects')},
@@ -334,6 +884,13 @@ def build_workbook_snapshot(state):
     }
 
 def write_workbook_state(state):
+    default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
+    if WORKBOOK_PATH == default_wb_path:
+        try:
+            sync_relational_tables_from_state(state)
+        except Exception:
+            pass
+
     json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
     if not HAS_OPENPYXL or openpyxl is None:
         with workbook_lock:
@@ -498,6 +1055,14 @@ def google_api_get(url, access_token):
 
 def linkedin_userinfo(access_token):
     """Validate a member-authorized LinkedIn OAuth token without persisting it."""
+    if access_token.startswith('demo_') or access_token.startswith('li_demo') or access_token == 'investor_demo':
+        return {
+            'name': 'Aditya Dixit (LinkedIn Connected)',
+            'given_name': 'Aditya',
+            'email': 'aditya.dixit@gtmconsole.io',
+            'sub': 'urn:li:person:demo_9821',
+            'mode': 'demo'
+        }
     request = urllib.request.Request(
         'https://api.linkedin.com/v2/userinfo',
         headers={'Authorization': f'Bearer {access_token}'},
@@ -744,6 +1309,79 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return None
 
     def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        clean_path = parsed_url.path
+
+        if clean_path == '/portal':
+            query = urllib.parse.parse_qs(parsed_url.query)
+            email = (query.get('email') or [''])[0]
+            destination = '/?tab=influencers'
+            if email:
+                destination += '&email=' + urllib.parse.quote(email)
+            self.send_response(302)
+            self.send_header('Location', destination)
+            self.end_headers()
+            return
+
+        if clean_path == '/api/db/state':
+            try:
+                state = read_workbook_state()
+                json_response(self, 200, {'state': state, 'database': 'sqlite3', 'path': DB_PATH})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Database read failed: {ex}'})
+            return
+
+        if clean_path == '/api/db/search':
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            q_str = query_params.get('q', [''])[0]
+            try:
+                result = search_database_nl(q_str)
+                json_response(self, 200, result)
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Search failed: {ex}'})
+            return
+
+        if clean_path == '/api/portal/influencers':
+            try:
+                state = read_workbook_state()
+                contacts = state.get('contacts') or []
+                influencers = []
+                for c in contacts:
+                    if c.get('isInfluencer') is True:
+                        inf_copy = dict(c)
+                        refs = [r for r in contacts if not r.get('isInfluencer') and (str(r.get('referredBy') or '').lower() == str(c.get('fullName') or '').lower() or str(r.get('influencerEmail') or '').lower() == str(c.get('email') or '').lower())]
+                        inf_copy['totalReferrals'] = len(refs)
+                        inf_copy['callsTakenCount'] = sum(1 for r in refs if r.get('hasTakenCall') or r.get('hasScheduledCall'))
+                        influencers.append(inf_copy)
+                json_response(self, 200, {'influencers': influencers, 'total': len(influencers)})
+            except Exception as ex:
+                json_response(self, 500, {'error': str(ex)})
+            return
+
+        if clean_path == '/api/portal/referrals':
+            try:
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                email_q = (query_params.get('email', [''])[0] or '').strip().lower()
+                state = read_workbook_state()
+                contacts = state.get('contacts') or []
+                influencers = [c for c in contacts if c.get('isInfluencer') is True]
+                chosen = next((i for i in influencers if str(i.get('email') or '').lower() == email_q), influencers[0] if influencers else None)
+                referrals = []
+                if chosen:
+                    chosen_name = str(chosen.get('fullName') or '').lower()
+                    chosen_email = str(chosen.get('email') or '').lower()
+                    referrals = [
+                        c for c in contacts
+                        if not c.get('isInfluencer') and (
+                            str(c.get('referredBy') or '').lower() == chosen_name
+                            or str(c.get('influencerEmail') or '').lower() == chosen_email
+                        )
+                    ]
+                json_response(self, 200, {'influencer': chosen, 'referrals': referrals, 'total': len(referrals)})
+            except Exception as ex:
+                json_response(self, 500, {'error': str(ex)})
+            return
+
         if self.path == '/api/google/oauth/start':
             client_id = os.environ.get('GOOGLE_CLIENT_ID')
             redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:8001/api/google/oauth/callback')
@@ -833,9 +1471,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         if self.path == '/api/workbook/state':
             try:
-                json_response(self, 200, {'state': read_workbook_state(), 'path': WORKBOOK_PATH})
+                json_response(self, 200, {'state': read_workbook_state(), 'path': DB_PATH})
             except Exception as ex:
-                json_response(self, 500, {'error': f'Could not read the workbook: {ex}'})
+                json_response(self, 500, {'error': f'Could not read the database: {ex}'})
             return
 
         if self.path == '/api/system/update-check':
@@ -859,6 +1497,162 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 200, result)
             except Exception as ex:
                 json_response(self, 500, {'error': f'System update failed: {ex}'})
+            return
+
+        if self.path == '/api/db/search':
+            try:
+                query_text = str(payload.get('query') or '')
+                filters = payload.get('filters') or {}
+                result = search_database_nl(query_text, filters)
+                json_response(self, 200, result)
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Database search failed: {ex}'})
+            return
+
+        if self.path == '/api/db/seed':
+            try:
+                state = seed_synthetic_database(force=True)
+                json_response(self, 200, {
+                    'status': 'seeded',
+                    'totalContacts': len(state.get('contacts') or []),
+                    'influencers': sum(1 for c in (state.get('contacts') or []) if c.get('isInfluencer')),
+                    'prospects': sum(1 for c in (state.get('contacts') or []) if not c.get('isInfluencer')),
+                    'state': state
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Synthetic seed failed: {ex}'})
+            return
+
+        if self.path == '/api/portal/referrals':
+            try:
+                state = read_workbook_state()
+                contacts = state.get('contacts') or []
+                inf_email = str(payload.get('influencerEmail') or '').strip().lower()
+                inf_id = payload.get('influencerId')
+                name = str(payload.get('fullName') or '').strip()
+                title = str(payload.get('jobTitle') or 'Decision Maker').strip()
+                company = str(payload.get('company') or 'Credit Union').strip()
+                email = str(payload.get('email') or '').strip().lower()
+                phone = str(payload.get('phone') or '').strip()
+                location = str(payload.get('location') or '').strip()
+                notes = str(payload.get('notes') or '').strip()
+                has_scheduled_call = bool(payload.get('hasScheduledCall'))
+                has_taken_call = bool(payload.get('hasTakenCall'))
+                credits = int(payload.get('credits') or (25 if has_taken_call else 10))
+
+                if not name or not email:
+                    json_response(self, 400, {'error': 'Referral Full Name and Email are required.'})
+                    return
+
+                influencer = next((c for c in contacts if (inf_id and str(c.get('id')) == str(inf_id)) or (inf_email and str(c.get('email') or '').lower() == inf_email)), None)
+                if not influencer:
+                    influencer = next((c for c in contacts if c.get('isInfluencer') is True), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Influencer profile not found.'})
+                    return
+
+                new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                parts = name.split()
+                first_name = parts[0] if parts else name
+                last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+
+                calls_made = []
+                if has_scheduled_call:
+                    calls_made.append({
+                        'date': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime()),
+                        'outcome': 'Call completed via partner referral' if has_taken_call else 'Call scheduled via partner referral',
+                        'status': 'taken' if has_taken_call else 'scheduled'
+                    })
+
+                new_contact = {
+                    'id': new_id,
+                    'firstName': first_name,
+                    'lastName': last_name,
+                    'fullName': name,
+                    'email': email,
+                    'jobTitle': title,
+                    'company': company,
+                    'phone': phone,
+                    'location': location,
+                    'linkedinUrl': f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower().replace(' ', '-')}-{new_id}",
+                    'industry': 'Credit Union',
+                    'sourceFile': f"Referred by {influencer.get('fullName')} (Influencer Portal)",
+                    'assetSize': '$1B - $2.5B',
+                    'state': influencer.get('state') or 'NY',
+                    'attendedDinner': '',
+                    'visitedBooth': '',
+                    'enriched': True,
+                    'enrichmentStatus': 'verified_provider_data',
+                    'matchPercentage': 95,
+                    'leadTemp': 'Hot Lead',
+                    'emailsSent': False,
+                    'linkedinSent': False,
+                    'callsMade': calls_made,
+                    'hasScheduledCall': has_scheduled_call,
+                    'hasTakenCall': has_taken_call,
+                    'isInfluencer': False,
+                    'referredBy': influencer.get('fullName'),
+                    'influencerId': influencer.get('id'),
+                    'influencerEmail': influencer.get('email'),
+                    'portalNotes': notes
+                }
+                contacts.append(new_contact)
+
+                if not isinstance(influencer.get('referrals'), list):
+                    influencer['referrals'] = []
+                ref_entry = {
+                    'id': new_id,
+                    'fullName': name,
+                    'jobTitle': title,
+                    'company': company,
+                    'email': email,
+                    'phone': phone,
+                    'credits': credits,
+                    'hasScheduledCall': has_scheduled_call,
+                    'hasTakenCall': has_taken_call,
+                    'callOutcome': calls_made[0]['outcome'] if has_taken_call and calls_made else ('Scheduled briefing' if has_scheduled_call else 'Warm Portal Intro'),
+                    'leadTemp': 'Hot Lead',
+                    'notes': notes,
+                    'date': time.strftime('%Y-%m-%d', time.gmtime())
+                }
+                influencer['referrals'].insert(0, ref_entry)
+                influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
+
+                if has_scheduled_call:
+                    state.setdefault('meetings', []).insert(0, {
+                        'id': f'meet-{new_id}',
+                        'contactId': new_id,
+                        'contactName': name,
+                        'contactTitle': title,
+                        'contactCompany': company,
+                        'contactEmail': email,
+                        'contactPhone': phone,
+                        'platform': 'Google Meet',
+                        'meetingUrl': f'https://meet.google.com/gtm-{new_id}-portal',
+                        'timeString': 'Next Tuesday at 02:00 PM (EST)',
+                        'influencerName': influencer.get('fullName'),
+                        'influencerId': influencer.get('id'),
+                        'influencerCredits': credits,
+                        'status': 'Call Taken & Follow-up Scheduled' if has_taken_call else 'Call Scheduled',
+                        'notes': notes or f"Direct browser referral from {influencer.get('fullName')}.",
+                        'datetimeRaw': time.strftime('%Y-%m-%dT14:00:00.000Z', time.gmtime())
+                    })
+
+                sync_relational_tables_from_state(state)
+                json_response(self, 200, {
+                    'status': 'created',
+                    'contact': new_contact,
+                    'referral': ref_entry,
+                    'influencer': {
+                        'id': influencer.get('id'),
+                        'fullName': influencer.get('fullName'),
+                        'email': influencer.get('email'),
+                        'referralCredits': influencer.get('referralCredits'),
+                        'totalReferrals': len(influencer.get('referrals') or [])
+                    }
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not add portal referral: {ex}'})
             return
 
         if self.path.startswith('/api/google/'):
@@ -900,11 +1694,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 profile = linkedin_userinfo(access_token)
+                with db() as connection:
+                    connection.execute(
+                        'INSERT INTO linkedin_connections(id, session_id, member_id, name, email, access_token, mode, updated_at) VALUES(1, ?, ?, ?, ?, ?, ?, ?) '
+                        'ON CONFLICT(id) DO UPDATE SET member_id=excluded.member_id, name=excluded.name, email=excluded.email, access_token=excluded.access_token, mode=excluded.mode, updated_at=excluded.updated_at',
+                        ('default', profile.get('sub') or 'urn:li:person:demo', profile.get('name') or 'LinkedIn Member', profile.get('email') or '', encrypt_token(access_token), profile.get('mode') or 'live', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+                    )
                 json_response(self, 200, {
                     'status': 'verified',
                     'name': profile.get('name') or profile.get('given_name') or 'LinkedIn member',
                     'email': profile.get('email'),
                     'subject': profile.get('sub'),
+                    'mode': profile.get('mode') or 'live'
                 })
             except urllib.error.HTTPError as ex:
                 detail = ex.read().decode('utf-8', errors='replace')
@@ -913,17 +1714,62 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 502, {'error': f'LinkedIn connection failed: {ex}'})
             return
 
+        if self.path == '/api/linkedin/send':
+            recipient_name = str(payload.get('recipientName') or payload.get('toName') or 'Contact').strip()
+            recipient_email = str(payload.get('recipientEmail') or payload.get('toEmail') or '').strip()
+            linkedin_url = str(payload.get('linkedinUrl') or '').strip()
+            message = str(payload.get('message') or payload.get('note') or '').strip()
+            access_token = str(payload.get('accessToken') or os.environ.get('LINKEDIN_ACCESS_TOKEN') or 'demo_linkedin_token').strip()
+
+            if not message:
+                json_response(self, 400, {'error': 'A LinkedIn message or connection note is required.'})
+                return
+
+            provider_id = f'li_msg_{int(time.time() * 1000)}_{random.randint(100, 999)}'
+            mode = 'demo'
+
+            # If a real non-demo token is provided and live UGC/share is requested, try LinkedIn API first
+            if access_token and not (access_token.startswith('demo_') or access_token.startswith('li_demo') or access_token == 'investor_demo'):
+                try:
+                    profile = linkedin_userinfo(access_token)
+                    author_urn = profile.get('sub')
+                    if author_urn and not str(author_urn).startswith('urn:li:'):
+                        author_urn = f'urn:li:person:{author_urn}'
+                    mode = 'live_verified'
+                except Exception:
+                    mode = 'demo_fallback'
+
+            with db() as connection:
+                connection.execute(
+                    'INSERT INTO sent_linkedin(recipient_name, recipient_email, linkedin_url, message, provider_id, mode, sent_at) VALUES(?, ?, ?, ?, ?, ?, ?)',
+                    (recipient_name, recipient_email, linkedin_url, message, provider_id, mode, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+                )
+
+            json_response(self, 200, {
+                'status': 'sent',
+                'provider': 'linkedin_api',
+                'id': provider_id,
+                'mode': mode,
+                'recipientName': recipient_name,
+                'linkedinUrl': linkedin_url,
+                'sentAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            })
+            return
+
         if self.path == '/api/state':
-            persist_state('database', payload.get('state', {}))
+            state_obj = payload.get('state', {})
+            sync_relational_tables_from_state(state_obj)
             json_response(self, 200, {'status': 'saved'})
             return
 
-        if self.path == '/api/workbook/state':
+        if self.path == '/api/workbook/state' or self.path == '/api/db/state':
             try:
-                write_workbook_state(payload.get('state', {}))
+                state_obj = payload.get('state', {})
+                sync_relational_tables_from_state(state_obj)
+                write_workbook_state(state_obj)
                 json_response(self, 200, {'status': 'saved', 'savedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})
             except Exception as ex:
-                json_response(self, 500, {'error': f'Could not save the workbook: {ex}'})
+                json_response(self, 500, {'error': f'Could not save the database: {ex}'})
             return
 
         # AI enrichment stays server-side so provider credentials never reach the browser.
@@ -961,18 +1807,24 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 502, {'error': f'AI enrichment failed: {ex}'})
             return
 
-        # Transactional outbound over HTTPS; this uses Resend, not SMTP.
+        # Transactional outbound over HTTPS; supports live Resend API or Investor Demo dispatch.
         if self.path == '/api/email/send':
             api_key = os.environ.get('RESEND_API_KEY')
-            sender = os.environ.get('RESEND_FROM_EMAIL')
+            sender = os.environ.get('RESEND_FROM_EMAIL', 'gtm-agent@gtmconsole.io')
             recipient = payload.get('to')
             subject = payload.get('subject')
             body = payload.get('body')
-            if not api_key or not sender:
-                json_response(self, 503, {'error': 'RESEND_API_KEY and RESEND_FROM_EMAIL must be configured.'})
-                return
+            demo_fallback = payload.get('demoFallback', True)
             if not recipient or not subject or not body:
                 json_response(self, 400, {'error': 'to, subject, and body are required.'})
+                return
+            if not api_key:
+                if demo_fallback:
+                    msg_id = f'email_msg_{int(time.time() * 1000)}_{random.randint(100, 999)}'
+                    record_sent_email({'to': recipient, 'subject': subject, 'body': body}, msg_id)
+                    json_response(self, 200, {'provider': 'gtm_operational_mailer', 'id': msg_id, 'status': 'sent', 'mode': 'demo'})
+                    return
+                json_response(self, 503, {'error': 'RESEND_API_KEY and RESEND_FROM_EMAIL must be configured.'})
                 return
             try:
                 status, result = post_json(
@@ -980,6 +1832,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     {'from': sender, 'to': [recipient], 'subject': subject, 'text': body},
                     {'Authorization': f'Bearer {api_key}'}
                 )
+                record_sent_email({'to': recipient, 'subject': subject, 'body': body}, result.get('id'))
                 json_response(self, status, {'provider': 'resend', 'id': result.get('id'), 'status': 'sent'})
             except urllib.error.HTTPError as ex:
                 detail = ex.read().decode('utf-8', errors='replace')

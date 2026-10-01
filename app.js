@@ -1171,7 +1171,7 @@ function appendAnalyseMessage(sender, text, isLoading = false) {
     avatar.style.color = "#ffffff";
     avatar.style.borderColor = "var(--primary-active)";
   } else {
-    avatar.innerText = "🤖";
+    avatar.innerText = "";
   }
 
   const bubble = document.createElement("div");
@@ -2919,7 +2919,7 @@ function sendAgentChatMessage() {
   // Command 1: "enrich"
   if (lowerText.includes("enrich") || lowerText.includes("start enrichment") || lowerText.includes("start the enrichment")) {
     if (targetContact) {
-      appendAgentLog(`🤖 Command detected: <strong>Enriching ${targetContact.fullName}</strong>...`);
+      appendAgentLog(` Command detected: <strong>Enriching ${targetContact.fullName}</strong>...`);
       setTimeout(() => {
         targetContact.enriched = true;
         targetContact.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -2928,16 +2928,16 @@ function sendAgentChatMessage() {
         targetContact.matchPercentage = 96;
         targetContact.leadTemp = "Hot Lead";
         saveDatabaseCache();
-        appendAgentLog(`🤖 <strong>Enrichment Complete for ${targetContact.fullName}!</strong> Calculated ICP match rating: 96%. Phone: ${targetContact.phone}.`);
+        appendAgentLog(` <strong>Enrichment Complete for ${targetContact.fullName}!</strong> Calculated ICP match rating: 96%. Phone: ${targetContact.phone}.`);
         if (typeof filterEnrichTable === "function") filterEnrichTable();
         if (typeof filterEmailTable === "function") filterEmailTable();
       }, 800);
     } else {
-      appendAgentLog(`🤖 Command detected: <strong>Executing Outbound Lead Enrichment Pipeline</strong>...`);
+      appendAgentLog(` Command detected: <strong>Executing Outbound Lead Enrichment Pipeline</strong>...`);
       setTimeout(() => {
         enrichDataRecords();
         saveDatabaseCache();
-        appendAgentLog(`🤖 <strong>Enrichment Complete!</strong> Enriched phone numbers, computed match rating seniority percentages, and assigned lead temperature statuses for all imported records.`);
+        appendAgentLog(` <strong>Enrichment Complete!</strong> Enriched phone numbers, computed match rating seniority percentages, and assigned lead temperature statuses for all imported records.`);
         if (typeof filterEnrichTable === "function") filterEnrichTable();
         if (typeof filterEmailTable === "function") filterEmailTable();
       }, 800);
@@ -2948,16 +2948,16 @@ function sendAgentChatMessage() {
   // Command 2: "sync lemlist"
   if (lowerText.includes("lemlist") || lowerText.includes("sync") || lowerText.includes("push campaigns")) {
     if (targetContact) {
-      appendAgentLog(`🤖 Command detected: <strong>Syncing ${targetContact.fullName} to Lemlist sequence</strong>...`);
+      appendAgentLog(` Command detected: <strong>Syncing ${targetContact.fullName} to Lemlist sequence</strong>...`);
       setTimeout(() => {
         targetContact.emailsSent = true;
         database.stats.emailsSent++;
         saveDatabaseCache();
-        appendAgentLog(`🤖 <strong>Lemlist Sync Complete!</strong> Enrolled <strong>${targetContact.fullName}</strong> into sequence queue (review guardrail active).`);
+        appendAgentLog(` <strong>Lemlist Sync Complete!</strong> Enrolled <strong>${targetContact.fullName}</strong> into sequence queue (review guardrail active).`);
         if (typeof filterEmailTable === "function") filterEmailTable();
       }, 800);
     } else {
-      appendAgentLog(`🤖 Command detected: <strong>Syncing Enrolled Outbound Campaigns to Lemlist API</strong>...`);
+      appendAgentLog(` Command detected: <strong>Syncing Enrolled Outbound Campaigns to Lemlist API</strong>...`);
       setTimeout(() => {
         let syncCount = 0;
         database.contacts.forEach(c => {
@@ -2969,10 +2969,10 @@ function sendAgentChatMessage() {
         if (syncCount > 0) {
           database.stats.emailsSent += syncCount;
           saveDatabaseCache();
-          appendAgentLog(`🤖 <strong>Lemlist Campaign Sync Complete!</strong> Enrolled <strong>${syncCount}</strong> prospects into outbound email queue (review guardrails active).`);
+          appendAgentLog(` <strong>Lemlist Campaign Sync Complete!</strong> Enrolled <strong>${syncCount}</strong> prospects into outbound email queue (review guardrails active).`);
           if (typeof filterEmailTable === "function") filterEmailTable();
         } else {
-          appendAgentLog(`🤖 All prospects are already synced to Lemlist campaigns!`);
+          appendAgentLog(` All prospects are already synced to Lemlist campaigns!`);
         }
       }, 800);
     }
@@ -2999,7 +2999,7 @@ function sendAgentChatMessage() {
       const botDiv = document.createElement("div");
       botDiv.className = "agent-chat-msg agent-msg";
       botDiv.innerHTML = `
-          <div class="avatar">🤖</div>
+          <div class="avatar"></div>
           <div class="msg-bubble">
             I am ready. Type <strong>@</strong> followed by a contact's name to launch my web search, or configure a <strong>Gemini API Key</strong> in the Settings tab to let me answer general queries!
           </div>
@@ -3016,7 +3016,7 @@ function sendAgentChatMessage() {
   if (browserUrl) browserUrl.value = "Status: Answering general query...";
 
   setTimeout(() => {
-    appendAgentLog(`🤖 Processing query: "<em>${text}</em>"...`);
+    appendAgentLog(` Processing query: "<em>${text}</em>"...`);
   }, 100);
 
   const model = database.geminiModel || "gemini-3.5-flash";
@@ -3068,15 +3068,15 @@ function sendAgentChatMessage() {
           .replace(/## (.*?)\n/g, '<h2>$1</h2>')
           .replace(/\n/g, '<br>');
 
-        appendAgentLog(`🤖 Response:<br><br>${ansText}`);
+        appendAgentLog(` Response:<br><br>${ansText}`);
       } else {
-        appendAgentLog(`🤖 Sorry, I couldn't generate an answer.`);
+        appendAgentLog(` Sorry, I couldn't generate an answer.`);
       }
     })
     .catch(err => {
       database.agentRunning = false;
       if (browserUrl) browserUrl.value = "https://google.com";
-      appendAgentLog(`❌ Failed to answer general query: <em>${err.message}</em>`);
+      appendAgentLog(` Failed to answer general query: <em>${err.message}</em>`);
     });
   }
 }
@@ -3114,7 +3114,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
 
   // Check if Gemini API key is configured
   if (!database.geminiApiKey) {
-    appendAgentLog(`❌ <strong>Error: Gemini API key is not configured!</strong><br>
+    appendAgentLog(` <strong>Error: Gemini API key is not configured!</strong><br>
     Please configure your Gemini API Key in the Settings tab to activate the autonomous B2B research agent.<br><br>
     <button class="btn btn-primary btn-sm" onclick="switchTab('settings-keys')">Configure API Credentials</button>`);
     return;
@@ -3141,7 +3141,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
 
   const queryToRun = customUserQuestion ? customUserQuestion.trim() : `Find out everything you can about ${contact.fullName} who is ${contact.jobTitle} at ${contact.company}. Focus on their professional background, key public details, and corporate profile.`;
 
-  appendAgentLog(`🤖 Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).`);
+  appendAgentLog(` Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).`);
 
   // Update browser status & start loading animation in browser viewport
   browserUrl.value = "Connecting to Gemini API (with Search Grounding)...";
@@ -3267,7 +3267,7 @@ Provide:
           </div>
         `;
 
-        appendAgentLog(`🤖 <em>[CRAWLER]</em> Scanning search index for query: <em>${query}</em>`);
+        appendAgentLog(` <em>[CRAWLER]</em> Scanning search index for query: <em>${query}</em>`);
 
         // Animate pointer to first result and click
         setTimeout(() => {
@@ -3299,7 +3299,7 @@ Provide:
               updateBrowserStep("target-step-2", "running");
               if (loaderSubtitle) loaderSubtitle.textContent = "Scraping profiles via Firecrawl...";
               if (readingTitle) readingTitle.textContent = "linkedin.com/in/" + contact.firstName.toLowerCase();
-              appendAgentLog(`🤖 <em>[FIRECRAWL]</em> Crawling LinkedIn profile node...`);
+              appendAgentLog(` <em>[FIRECRAWL]</em> Crawling LinkedIn profile node...`);
 
               const initials = contact.fullName.split(" ").map(n => n[0]).join("");
               browserViewport.innerHTML = `
@@ -3331,7 +3331,7 @@ Provide:
               updateBrowserStep("target-step-3", "running");
               if (loaderSubtitle) loaderSubtitle.textContent = "Crawling company value statements...";
               if (readingTitle) readingTitle.textContent = contact.company + " Homepage";
-              appendAgentLog(`🤖 <em>[CRAWLER]</em> Crawling corporate page assets: <em>${urlStr}</em>`);
+              appendAgentLog(` <em>[CRAWLER]</em> Crawling corporate page assets: <em>${urlStr}</em>`);
 
               // Corporate page or blog
               browserViewport.innerHTML = `
@@ -3438,7 +3438,7 @@ Provide:
         </div>
       `;
 
-      appendAgentLog(`🤖 <em>[ENRICH]</em> Retrieved verified credentials and match rating: <strong>${contact.matchPercentage}% score</strong>.`);
+      appendAgentLog(` <em>[ENRICH]</em> Retrieved verified credentials and match rating: <strong>${contact.matchPercentage}% score</strong>.`);
 
       setTimeout(() => {
         const cursorEl = document.getElementById("agent-browser-cursor");
@@ -3484,7 +3484,7 @@ Provide:
         </div>
       `;
 
-      appendAgentLog(`🤖 <em>[COPYWRITER]</em> Drafted hyper-personalized campaign email for <strong>${contact.fullName}</strong>.`);
+      appendAgentLog(` <em>[COPYWRITER]</em> Drafted hyper-personalized campaign email for <strong>${contact.fullName}</strong>.`);
 
       setTimeout(() => {
         const cursorEl = document.getElementById("agent-browser-cursor");
@@ -3530,7 +3530,7 @@ Provide:
         </div>
       `;
 
-      appendAgentLog(`🤖 <em>[OUTREACH]</em> Drafted connection message: "<em>${inviteMsg}</em>".`);
+      appendAgentLog(` <em>[OUTREACH]</em> Drafted connection message: "<em>${inviteMsg}</em>".`);
 
       setTimeout(() => {
         const cursorEl = document.getElementById("agent-browser-cursor");
@@ -3584,7 +3584,7 @@ Provide:
         </div>
       `;
 
-      appendAgentLog(`🤖 <em>[LEMLIST MCP]</em> Enrolled campaign to sequence via Lemlist MCP tool <strong>'lemlist_add_contact_to_campaign'</strong>.`);
+      appendAgentLog(` <em>[LEMLIST MCP]</em> Enrolled campaign to sequence via Lemlist MCP tool <strong>'lemlist_add_contact_to_campaign'</strong>.`);
 
       setTimeout(() => {
         // Complete the entire sequence!
@@ -3597,7 +3597,7 @@ Provide:
         updateBrowserStep("target-step-7", "completed");
         if (floatingLoader) floatingLoader.classList.remove("active");
 
-        appendAgentLog(`🤖 <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
+        appendAgentLog(` <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
         const chatInputEl = document.getElementById("agent-chat-input");
         if (chatInputEl) chatInputEl.focus();
       }, 2000);
@@ -3616,7 +3616,7 @@ Provide:
     updateBrowserStep("target-step-4", "disabled");
     if (floatingLoader) floatingLoader.classList.remove("active");
 
-    appendAgentLog(`❌ <strong>Execution Failed!</strong><br>
+    appendAgentLog(` <strong>Execution Failed!</strong><br>
     Unable to query Gemini API. Reason: <em>${err.message}</em><br><br>
     Please ensure your API Key is valid and that you have a stable network connection.`);
   }
@@ -3629,7 +3629,7 @@ function appendAgentLog(message) {
   const msgDiv = document.createElement("div");
   msgDiv.className = "agent-chat-msg agent-msg";
   msgDiv.innerHTML = `
-    <div class="avatar">🤖</div>
+    <div class="avatar"></div>
     <div class="msg-bubble">
       ${message}
     </div>
@@ -3851,7 +3851,7 @@ function renderApolloSandbox(viewport) {
 
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">🚀 Apollo.io Prospect Board</h3>
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> Apollo.io Prospect Board</h3>
       <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">View leads parsed from the Apollo.io scraper. Enriched leads include verified cell numbers and seniority scores.</p>
       <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
         <thead>
@@ -3907,7 +3907,7 @@ function renderOutlookSandbox(viewport) {
 
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">📧 Outlook Campaign Outbox</h3>
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> Outlook Campaign Outbox</h3>
       <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Tracks direct SDR email outbound campaigns dispatched through your integrated Outlook account. Total Sent: <strong>${sentLeads.length}</strong></p>
       ${listHtml || '<div style="padding:40px; text-align:center; color:var(--muted); border:1.5px dashed var(--hairline); border-radius:8px;">No emails sent yet. Select a lead in "Campaign Email" tab and click Send.</div>'}
     </div>
@@ -3919,7 +3919,7 @@ function renderLinkedinSandbox(viewport) {
   database.contacts.forEach((c, idx) => {
     contactsList += `
       <button class="sandbox-menu-btn" style="padding:8px; font-size:11.5px; border-bottom:1px solid var(--hairline);" onclick="showLinkedinSandboxProfile(${idx})">
-        👤 ${c.fullName}
+         ${c.fullName}
       </button>
     `;
   });
@@ -3992,7 +3992,7 @@ function renderLemlistSandbox(viewport) {
 
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">⚡ Lemlist Campaigns Dashboard</h3>
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> Lemlist Campaigns Dashboard</h3>
       <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">View prospective sequences pushed from GTM Console. Total Pushed: <strong>${enrolled.length}</strong>. Direct dispatch is locked under review guardrails.</p>
       
       <div style="background:#f8f9fa; border:1px solid var(--hairline); border-radius: var(--radius-sm); padding:10px 14px; margin-bottom:16px; font-size:11.5px; text-align:left;">
@@ -4045,7 +4045,7 @@ function renderZerobounceSandbox(viewport) {
 
   viewport.innerHTML = `
     <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">🔍 ZeroBounce Email Validator</h3>
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> ZeroBounce Email Validator</h3>
       <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Perform real-time checkups on lead email bounce rates. Validation results prevent bounces and protect sender score reputation.</p>
       <table style="width:100%; border-collapse:collapse; font-size:12px;">
         <thead>
@@ -4461,24 +4461,24 @@ function renderDashboardActivityFeed() {
     const item = document.createElement("div");
     item.className = "feed-item";
 
-    let icon = "⚙️";
+    let icon = "";
     let badgeBg = "rgba(10, 10, 10, 0.1)";
     let badgeColor = "var(--ink)";
 
     if (act.type === "success") {
-      icon = "✅";
+      icon = "";
       badgeBg = "rgba(34, 197, 94, 0.1)";
       badgeColor = "var(--success)";
     } else if (act.type === "error") {
-      icon = "❌";
+      icon = "";
       badgeBg = "rgba(239, 68, 68, 0.1)";
       badgeColor = "var(--error)";
     } else if (act.type === "warning") {
-      icon = "⚠️";
+      icon = "";
       badgeBg = "rgba(245, 158, 11, 0.1)";
       badgeColor = "var(--warning)";
     } else if (act.type === "info") {
-      icon = "ℹ️";
+      icon = "";
       badgeBg = "rgba(59, 130, 246, 0.1)";
       badgeColor = "#3b82f6";
     }
@@ -4893,7 +4893,7 @@ function renderContactTimeline(contact) {
     title: "Lead Imported",
     desc: `Imported from CSV list: <strong>${(contact.sourceFile || "manual").split("/").pop()}</strong>.`,
     time: "Parsed",
-    icon: "📥",
+    icon: "",
     color: "var(--brand-peach)"
   });
 
@@ -4903,7 +4903,7 @@ function renderContactTimeline(contact) {
       title: "Data Enriched",
       desc: `Dossier compiled via Explorium. Match score: <strong>${contact.matchPercentage || 95}%</strong>. Lead category: <strong>${contact.leadTemp}</strong>.`,
       time: "Enriched",
-      icon: "⚡",
+      icon: "",
       color: "var(--brand-ochre)"
     });
   }
@@ -4914,7 +4914,7 @@ function renderContactTimeline(contact) {
       title: "Email Outreach Dispatched",
       desc: `Subject: <em>${contact.emailDraft ? contact.emailDraft.subject : ""}</em>`,
       time: "Sent",
-      icon: "✉️",
+      icon: "",
       color: "var(--brand-pink)"
     });
   }
@@ -4925,7 +4925,7 @@ function renderContactTimeline(contact) {
       title: "LinkedIn Touchpoint",
       desc: "Connection request note sent.",
       time: "Sent",
-      icon: "🌐",
+      icon: "",
       color: "var(--brand-lavender)"
     });
   }
@@ -4937,7 +4937,7 @@ function renderContactTimeline(contact) {
         title: "Phone Touchpoint",
         desc: `Outcome: <strong>${call.outcome}</strong>`,
         time: call.date.split(" ")[1] || "Called",
-        icon: "📞",
+        icon: "",
         color: "var(--brand-teal)"
       });
     });
@@ -4950,7 +4950,7 @@ function renderContactTimeline(contact) {
       title: "Appointment Scheduled",
       desc: `Platform: <strong>${meeting.platform}</strong>. Briefing slot locked: <strong>${meeting.time}</strong>.`,
       time: "Confirmed",
-      icon: "📅",
+      icon: "",
       color: "var(--brand-mint)"
     });
   }

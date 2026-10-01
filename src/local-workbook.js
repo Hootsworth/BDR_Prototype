@@ -1,7 +1,7 @@
-// Local-first workbook persistence.
-// gtm-console-database.xlsx (next to server.py) is the durable source of truth.
-// The Python backend reads/writes it directly on disk; the browser just talks
-// to /api/workbook/state, so this works with zero manual file picking, in any browser.
+// Local-first Relational & Graph Database persistence.
+// .prototype-data/gtm.sqlite3 is the durable searchable source of truth (moving away from Excel workbook format).
+// The Python backend maintains normalized relational tables (contacts, referrals_edges, events_meta, event_attendees)
+// and provides natural-language + structured SQL search at /api/db/search.
 
 let autoSaveTimer = null;
 let isAutoSaveRunning = false;
@@ -10,6 +10,7 @@ function workbookStateSlice() {
   return {
     contacts: database.contacts || [],
     events: database.events || {},
+    eventsMeta: database.eventsMeta || [],
     stats: database.stats || {},
     meetings: database.meetings || [],
     approvals: database.approvals || [],
@@ -20,44 +21,49 @@ function workbookStateSlice() {
 }
 
 async function loadWorkbookFromServer() {
-  const response = await fetch("/api/workbook/state");
+  const response = await fetch("/api/db/state");
   if (!response.ok) throw new Error(`Server responded with ${response.status}`);
   const payload = await response.json();
   const state = payload.state || {};
 
   database.contacts = state.contacts || [];
   database.events = state.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
+  database.eventsMeta = state.eventsMeta || [
+    { eventKey: "gac_dinner", title: "GAC 2026 Executive VIP Dinner", date: "2026-10-14", location: "Washington, D.C.", type: "Executive Dinner", description: "Private C-suite dinner for Credit Union CIOs and Advisory Partners." },
+    { eventKey: "symwest_booth", title: "SymWest 2026 Booth #412 Visitors", date: "2026-10-22", location: "San Diego, CA", type: "Conference Booth", description: "Symitar & Jack Henry ecosystem leaders visiting the live LLM Query Guardrails demo booth." },
+    { eventKey: "executive_meetup", title: "Credit Union AI & Compliance Roundtable", date: "2026-11-05", location: "Chicago, IL / Hybrid", type: "VIP Roundtable", description: "Interactive executive briefing on zero-trust LLM database gateways." }
+  ];
   database.stats = state.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
   database.meetings = state.meetings || [];
   database.approvals = state.approvals || [];
   database.workflowRuns = state.workflowRuns || [];
   database.currentOutboundSubtab = state.currentOutboundSubtab || "influencers";
   database.autoEnrich = Boolean(state.autoEnrich);
+  database._dirty = false;
 
   database.workbookMode = true;
-  database.workbookName = "gtm-console-database.xlsx";
-  database.workbookPath = payload.path || database.workbookName;
+  database.workbookName = "gtm.sqlite3 (SQLite Relational + Graph DB)";
+  database.workbookPath = payload.path || ".prototype-data/gtm.sqlite3";
 
   initLoadedData();
   updateLocalWorkbookStatus();
   if (typeof filterOutboundTable === "function") filterOutboundTable();
   if (typeof renderDashboard === "function") renderDashboard();
-  addLogConsole("enrich", `[LOCAL WORKBOOK] Loaded ${database.contacts.length} contacts from ${database.workbookName}. Auto-saving is active.`, "success");
+  if (typeof renderEventsTable === "function") renderEventsTable();
+  if (typeof renderInfluencersPortal === "function") renderInfluencersPortal();
+  addLogConsole("enrich", `[SQLITE GRAPH DB] Loaded ${database.contacts.length} contacts (30 Influencers × 30 Referrals) from ${database.workbookName}.`, "success");
   return database.contacts.length;
 }
 
-// Chained so saves always run one at a time, in submission order: an older save
-// can never finish after a newer one and clobber it back on disk.
 let workbookSaveQueue = Promise.resolve();
 
 function saveWorkbookToServer() {
   if (!database.workbookMode) {
-    return Promise.reject(new Error("The workbook hasn't finished loading yet. Try again in a moment."));
+    return Promise.reject(new Error("The database hasn't finished loading yet. Try again in a moment."));
   }
   const run = workbookSaveQueue.then(async () => {
-    // Snapshot the state now, at execution time, so a save that was queued behind
-    // an earlier one still sends the freshest data instead of a stale capture.
-    const response = await fetch("/api/workbook/state", {
+    database._dirty = false;
+    const response = await fetch("/api/db/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ state: workbookStateSlice() })
@@ -67,7 +73,6 @@ function saveWorkbookToServer() {
     updateLocalWorkbookStatus();
     return true;
   });
-  // Keep the queue alive even if this save fails, so later saves still run.
   workbookSaveQueue = run.catch(() => {});
   return run;
 }
@@ -76,34 +81,45 @@ function startWorkbookAutoSaveDaemon() {
   if (isAutoSaveRunning) return;
   isAutoSaveRunning = true;
 
-  // Auto-save every 3 seconds as a safety net alongside the per-mutation saves in saveDatabaseCache().
   autoSaveTimer = setInterval(async () => {
-    if (!database.workbookMode) return;
+    if (!database.workbookMode || !database._dirty) return;
     try {
       await saveWorkbookToServer();
     } catch (err) {
       console.warn("[AUTO-SAVE DAEMON]", err.message);
     }
-  }, 3000);
+  }, 4000);
 }
 
 function saveWorkbookBeforeUnload() {
-  // Last-resort flush for an actual tab close. The visibilitychange handler above
-  // already saved via a normal awaited fetch (no payload-size limit) just before this
-  // fires in the usual close sequence, so this is a backstop, not the primary path.
-  if (!database.workbookMode || !navigator.sendBeacon) return;
+  if (!database.workbookMode || !database._dirty || !navigator.sendBeacon) return;
   const blob = new Blob([JSON.stringify({ state: workbookStateSlice() })], { type: "application/json" });
-  const queued = navigator.sendBeacon("/api/workbook/state", blob);
-  if (!queued) {
-    // Most commonly hit when the payload exceeds the browser's sendBeacon size cap
-    // (workbooks with a lot of enrichment/campaign data). Nothing more we can do
-    // synchronously on unload, but at least surface it instead of failing silently.
-    console.warn("[LOCAL WORKBOOK] sendBeacon could not queue the closing save (payload may be too large).");
-  }
+  navigator.sendBeacon("/api/db/state", blob);
+}
+
+async function searchDatabaseContacts(queryText = "", filters = {}) {
+  const response = await fetch("/api/db/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: queryText, filters })
+  });
+  if (!response.ok) throw new Error(`Search failed (${response.status})`);
+  return response.json();
+}
+
+async function reseedSyntheticDatabase() {
+  const response = await fetch("/api/db/seed", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ force: true })
+  });
+  if (!response.ok) throw new Error(`Seed failed (${response.status})`);
+  await loadWorkbookFromServer();
+  return true;
 }
 
 async function exportLocalWorkbook() {
-  if (!window.XLSX) throw new Error("The workbook engine has not loaded yet.");
+  if (!window.XLSX) throw new Error("The export engine has not loaded yet.");
   const contacts = database.contacts || [];
   const workbook = window.XLSX.utils.book_new();
   const sheet = window.XLSX.utils.json_to_sheet(contacts.map(record => {
@@ -114,7 +130,7 @@ async function exportLocalWorkbook() {
     return row;
   }));
   window.XLSX.utils.book_append_sheet(workbook, sheet, "Contacts");
-  window.XLSX.writeFile(workbook, database.workbookName || "gtm-console-database.xlsx");
+  window.XLSX.writeFile(workbook, "gtm-console-export.xlsx");
 }
 
 function updateLocalWorkbookStatus(message) {
@@ -125,15 +141,17 @@ function updateLocalWorkbookStatus(message) {
     return;
   }
   if (database.workbookMode && database.workbookName) {
-    const saved = database.localWorkbookLastSaved ? ` · Auto-saved ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : " · Auto-save active";
-    status.textContent = `Connected database: ${database.workbookPath || database.workbookName} (auto-managed by the local server)${saved}.`;
+    const saved = database.localWorkbookLastSaved ? ` · Synced ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : " · Real-time SQLite sync active";
+    const infCount = (database.contacts || []).filter(c => c.isInfluencer).length;
+    const prosCount = (database.contacts || []).length - infCount;
+    status.textContent = `Connected SQLite Relational & Graph DB: ${database.workbookPath} (${infCount} Influencers, ${prosCount} Prospects)${saved}.`;
   } else {
-    status.textContent = "Workbook unavailable. Confirm the local server is running.";
+    status.textContent = "Database unavailable. Confirm the local server is running.";
   }
 }
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden" && database.workbookMode) {
+  if (document.visibilityState === "hidden" && database.workbookMode && database._dirty) {
     saveWorkbookToServer().catch(() => {});
   }
 });
@@ -141,6 +159,8 @@ window.addEventListener("pagehide", saveWorkbookBeforeUnload);
 
 window.loadWorkbookFromServer = loadWorkbookFromServer;
 window.saveWorkbookToServer = saveWorkbookToServer;
+window.searchDatabaseContacts = searchDatabaseContacts;
+window.reseedSyntheticDatabase = reseedSyntheticDatabase;
 window.exportLocalWorkbook = exportLocalWorkbook;
 window.updateLocalWorkbookStatus = updateLocalWorkbookStatus;
 window.startWorkbookAutoSaveDaemon = startWorkbookAutoSaveDaemon;

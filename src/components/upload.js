@@ -252,7 +252,7 @@ function confirmColumnMapping() {
   closeColumnMapper();
 
   const typeLabel = isInfluencerFile ? "influencers" : "contacts";
-  const autoEnrichMsg = database.autoEnrich ? " (Auto-Enriched ⚡)" : "";
+  const autoEnrichMsg = database.autoEnrich ? " (Auto-Enriched )" : "";
   addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} from ${tempFileName}${autoEnrichMsg}.`, "success");
 }
 

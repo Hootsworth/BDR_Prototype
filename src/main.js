@@ -6,6 +6,7 @@ const componentsList = {
   'analyse': 'components/analytics.html',
   'campaign-outbound': 'components/campaign-outbound.html',
   'events-list': 'components/events-list.html',
+  'influencers': 'components/influencers.html',
   'settings-keys': 'components/settings-keys.html',
   'agent-mode': 'components/agent-mode.html'
 };
@@ -138,10 +139,8 @@ async function bootstrapApp() {
   switchTab('dashboard');
 
   // Restore sidebar collapse state
-  if (localStorage.getItem("gtm_sidebar_collapsed") === "true") {
-    const sidebar = document.getElementById("sidebar-panel");
-    if (sidebar) sidebar.classList.add("collapsed");
-  }
+  localStorage.removeItem("gtm_sidebar_collapsed");
+  document.getElementById("sidebar-panel")?.classList.remove("collapsed");
 
   // gtm-console-database.xlsx (server-managed) is the authoritative source. Always load from it first.
   // A single failed attempt would otherwise leave auto-save permanently disabled for the whole
@@ -217,6 +216,14 @@ async function bootstrapApp() {
     } catch (error) {
       addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
     }
+  }
+
+  const entryParams = new URLSearchParams(window.location.search);
+  if (entryParams.get("tab") === "influencers" || entryParams.has("email")) {
+    if (entryParams.has("email") && typeof activeConsolePortalInfluencerEmail !== "undefined") {
+      activeConsolePortalInfluencerEmail = entryParams.get("email") || activeConsolePortalInfluencerEmail;
+    }
+    switchTab("influencers");
   }
 
   if (typeof startWorkbookAutoSaveDaemon === "function") startWorkbookAutoSaveDaemon();
@@ -306,6 +313,8 @@ function switchTab(tabId) {
     }
   } else if (tabId === 'events-list' && typeof renderEventsList === "function") {
     renderEventsList();
+  } else if (tabId === 'influencers' && typeof renderInfluencersTable === "function") {
+    renderInfluencersTable();
   } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {
     filterFunnelSegment(document.getElementById("funnel-industry-filter")?.value || "all");
   } else if (tabId === 'agent-mode' && typeof initAgentAutocomplete === "function") {
@@ -321,6 +330,7 @@ function toggleNavCategory(catId) {
     if (catId === 'contacts') switchTab('upload');
     else if (catId === 'campaign') switchTab('campaign-outbound');
     else if (catId === 'events') switchTab('events-list');
+    else if (catId === 'influencers') switchTab('influencers');
     return;
   }
   const group = document.getElementById(`cat-group-${catId}`);
@@ -350,6 +360,10 @@ function updateHeader(tabId) {
     case 'events-list':
       titleEl.textContent = "Events Lists & Attendances";
       subtitleEl.textContent = "Review registered attendees for credit union dinners and booth visits.";
+      break;
+    case 'influencers':
+      titleEl.textContent = "Partner Network";
+      subtitleEl.textContent = "Manage introductions and partner referrals in one workspace.";
       break;
     case 'events-register':
       titleEl.textContent = "Register Event Attendee";
@@ -426,12 +440,9 @@ function updateStatsSummaryText() {
 }
 
 function toggleSidebarCollapse() {
+  // Sidebar is intentionally fixed open until a compact navigation mode is redesigned.
   const sidebar = document.getElementById("sidebar-panel");
-  if (sidebar) {
-    sidebar.classList.toggle("collapsed");
-    const isCollapsed = sidebar.classList.contains("collapsed");
-    localStorage.setItem("gtm_sidebar_collapsed", isCollapsed ? "true" : "false");
-  }
+  if (sidebar) sidebar.classList.remove("collapsed");
 }
 
 function toggleNotificationDropdown() {
@@ -488,13 +499,13 @@ function handleCommandPaletteSearch(query) {
   const q = query.trim().toLowerCase();
 
   const tabCommands = [
-    { title: "Dashboard", subtitle: "Jump to main GTM metrics & campaign status", tab: "dashboard", icon: "📊" },
-    { title: "Agent Control Mode", subtitle: "Autonomous 12-node GTM orchestrator & DAG visualizer", tab: "agent-mode", icon: "🤖" },
-    { title: "Data Enrichment", subtitle: "Bulk enrich contacts via Explorium API", tab: "enrich", icon: "⚡" },
-    { title: "Outbound Sequences", subtitle: "Build and dispatch multi-channel outreach campaigns", tab: "campaign-outbound", icon: "📧" },
-    { title: "Analytics & Funnel", subtitle: "Full-funnel conversion attribution & velocity reports", tab: "analytics", icon: "📈" },
-    { title: "Influencer Portal", subtitle: "Affiliate rewards, referrals, and LinkedIn matching", tab: "influencers", icon: "🌟" },
-    { title: "Global Settings & Keys", subtitle: "Manage API keys, models, and CRM integrations", tab: "settings-keys", icon: "⚙️" }
+    { title: "Dashboard", subtitle: "Jump to main GTM metrics & campaign status", tab: "dashboard", icon: "" },
+    { title: "Agent Control Mode", subtitle: "Autonomous 12-node GTM orchestrator & DAG visualizer", tab: "agent-mode", icon: "" },
+    { title: "Data Enrichment", subtitle: "Bulk enrich contacts via Explorium API", tab: "enrich", icon: "" },
+    { title: "Outbound Sequences", subtitle: "Build and dispatch multi-channel outreach campaigns", tab: "campaign-outbound", icon: "" },
+    { title: "Analytics & Funnel", subtitle: "Full-funnel conversion attribution & velocity reports", tab: "analytics", icon: "" },
+    { title: "Influencer Portal", subtitle: "Affiliate rewards, referrals, and LinkedIn matching", tab: "influencers", icon: "" },
+    { title: "Global Settings & Keys", subtitle: "Manage API keys, models, and CRM integrations", tab: "settings-keys", icon: "" }
   ];
 
   let html = "";
@@ -528,7 +539,7 @@ function handleCommandPaletteSearch(query) {
         html += `
           <div onclick="runCommandPaletteAction('lead', '${c.fullName}')" style="padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--color-border);" onmouseover="this.style.background='var(--surface-soft, #f0efed)'" onmouseout="this.style.background='transparent'">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <span style="font-size: 16px;">👤</span>
+              <span style="font-size: 16px;"></span>
               <div>
                 <strong style="font-size: 13.5px; color: var(--color-text-primary); display: block;">${c.fullName}</strong>
                 <span style="font-size: 11.5px; color: var(--color-text-secondary);">${c.jobTitle || 'Lead'} at ${c.company || 'Credit Union'}</span>
@@ -601,7 +612,7 @@ async function triggerOneClickUpdate() {
     });
     const result = await res.json();
     if (res.ok && result.status === "success") {
-      if (btnText) btnText.textContent = "✅ Updated! Reloading...";
+      if (btnText) btnText.textContent = " Updated! Reloading...";
       setTimeout(() => {
         window.location.reload();
       }, 1200);

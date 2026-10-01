@@ -64,6 +64,7 @@ function updateSidebarUserAvatar(displayName, email, _photoURL) {
 window.updateSidebarUserAvatar = updateSidebarUserAvatar;
 
 function updateFirebaseAuthUI(user) {
+  window.gtmFirebaseUser = user || null;
   const authGate = document.getElementById("clerk-auth-gate");
   const mainApp = document.getElementById("app-layout-main");
   const nameEl = document.getElementById("clerk-user-name");
@@ -236,14 +237,14 @@ function switchFirebaseAuthTab(mode) {
     if (tabSignIn) { tabSignIn.style.background = "transparent"; tabSignIn.style.color = "var(--color-text-secondary)"; tabSignIn.style.boxShadow = "none"; }
     if (tabSignUp) { tabSignUp.style.background = "#ffffff"; tabSignUp.style.color = "var(--color-text-primary)"; tabSignUp.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)"; }
     if (nameGroup) nameGroup.style.display = "block";
-    if (submitBtn) submitBtn.textContent = "Create Account ↗";
+    if (submitBtn) submitBtn.textContent = "Create Account ";
     if (titleEl) titleEl.textContent = "Create Your Account";
     if (subtitleEl) subtitleEl.textContent = "Register with Firebase Auth to start orchestrating campaigns";
   } else {
     if (tabSignUp) { tabSignUp.style.background = "transparent"; tabSignUp.style.color = "var(--color-text-secondary)"; tabSignUp.style.boxShadow = "none"; }
     if (tabSignIn) { tabSignIn.style.background = "#ffffff"; tabSignIn.style.color = "var(--color-text-primary)"; tabSignIn.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)"; }
     if (nameGroup) nameGroup.style.display = "none";
-    if (submitBtn) submitBtn.textContent = "Sign In to Console ↗";
+    if (submitBtn) submitBtn.textContent = "Sign In to Console ";
     if (titleEl) titleEl.textContent = "Welcome to GTM Console";
     if (subtitleEl) subtitleEl.textContent = "Sign in or create an account to get started";
   }

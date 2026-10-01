@@ -562,10 +562,10 @@ The fix is to catch \`TokenExpiredError\` specifically and attempt a refresh bef
 
 | Test | Status |
 |------|--------|
-| Valid token passes through | ✅ |
-| Expired token triggers refresh | ✅ |
-| Expired token with invalid refresh returns 401 | ✅ |
-| Malformed token returns 401 immediately | ✅ |`}</Markdown>
+| Valid token passes through |  |
+| Expired token triggers refresh |  |
+| Expired token with invalid refresh returns 401 |  |
+| Malformed token returns 401 immediately |  |`}</Markdown>
                       </ChatMessageBubble>
 
                       <ChatMessageBubble variant="ghost">

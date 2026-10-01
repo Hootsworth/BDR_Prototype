@@ -145,13 +145,13 @@
     </div>
 
     <!-- Live Intelligence Console -->
-    <div style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); overflow: hidden; background: #0c0c0e;">
+    <div class="upload-log-panel" style="border: 1px solid var(--color-border); border-radius: var(--radius-inner); overflow: hidden; background: #0c0c0e;">
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.875rem; background: #18181b; border-bottom: 1px solid var(--color-border); font-size: 11px;">
         <div style="display: flex; align-items: center; gap: 6px; font-family: var(--font-family-code); color: #a1a1aa;">
           <span style="width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
           <strong>Real-Time Intelligence &amp; Ingestion Log</strong>
         </div>
-        <button class="btn btn-secondary btn-xs" onclick="document.getElementById('enrich-console-box').innerHTML = '[SYSTEM] Console cleared.';">Clear Log</button>
+        <button class="btn btn-secondary btn-xs upload-log-clear" onclick="document.getElementById('enrich-console-box').innerHTML = '[SYSTEM] Console cleared.';">Clear Log</button>
       </div>
       <div id="enrich-console-box" style="padding: 0.875rem; font-family: var(--font-family-code); font-size: 11.5px; color: #f4f4f5; height: 160px; overflow-y: auto; line-height: 1.5; background: #0c0c0e;">
         <div style="color: #71717a;">[SYSTEM] Ingestion &amp; enrichment engine online. Upload a CSV dataset or click "Execute Deep AI Web Enrichment" to deploy research pipelines.</div>
@@ -194,11 +194,11 @@
       <thead>
         <tr id="table-upload-headers">
           <th style="width: 40px; text-align: center;"><input type="checkbox" id="check-all-upload" onchange="toggleSelectAllUpload(this)" style="cursor:pointer;"></th>
-          <th onclick="sortTable('upload', 'fullName')" style="cursor: pointer;">Name &amp; Intelligence ↕</th>
-          <th onclick="sortTable('upload', 'jobTitle')" style="cursor: pointer;">Job Title ↕</th>
-          <th onclick="sortTable('upload', 'company')" style="cursor: pointer;">Company ↕</th>
-          <th onclick="sortTable('upload', 'email')" style="cursor: pointer;">Email ↕</th>
-          <th onclick="sortTable('upload', 'industry')" style="cursor: pointer;">Industry ↕</th>
+          <th onclick="sortTable('upload', 'fullName')" style="cursor: pointer;">Name &amp; Intelligence </th>
+          <th onclick="sortTable('upload', 'jobTitle')" style="cursor: pointer;">Job Title </th>
+          <th onclick="sortTable('upload', 'company')" style="cursor: pointer;">Company </th>
+          <th onclick="sortTable('upload', 'email')" style="cursor: pointer;">Email </th>
+          <th onclick="sortTable('upload', 'industry')" style="cursor: pointer;">Industry </th>
           <th>Enrichment</th>
           <th>Source File</th>
           <th style="text-align: right;">Actions</th>
@@ -223,19 +223,19 @@
         <span>Bulk Outreach</span>
       </button>
       <button class="btn btn-secondary btn-sm" onclick="bulkEnrichSelected()">
-        ⚡ Bulk Enrich via Explorium
+         Bulk Enrich via Explorium
       </button>
       <button class="btn btn-secondary btn-sm" onclick="bulkAssignSequenceSelected()">
-        📧 Assign Outbound Sequence
+         Assign Outbound Sequence
       </button>
       <button class="btn btn-secondary btn-sm" onclick="bulkPushHilReviewSelected()">
-        ⏸ Push to HIL Copilot Queue
+         Push to HIL Copilot Queue
       </button>
       <button class="btn btn-secondary btn-sm" onclick="bulkExportCsvSelected()">
-        📥 Export Selected CSV
+         Export Selected CSV
       </button>
       <button class="btn btn-danger btn-sm" onclick="bulkDeleteSelected()">
-        🗑️ Delete
+         Delete
       </button>
     </div>
   </div>

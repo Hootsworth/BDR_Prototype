@@ -47,13 +47,94 @@
 
   <div class="dashboard-kpi-card">
     <div class="kpi-header">
-      <span class="kpi-title">Meetings Booked</span>
+      <span class="kpi-title">Calls Taken &amp; Meetings</span>
       <span class="kpi-icon">
         <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
       </span>
     </div>
     <div class="kpi-value" id="dashboard-meetings-booked">0</div>
-    <div class="kpi-subtext">Briefings synced to calendar</div>
+    <div class="kpi-subtext" id="dashboard-meetings-subtext">50% referral call conversion</div>
+  </div>
+</div>
+
+<!-- RELATIONAL & GRAPH DATABASE NATURAL LANGUAGE SEARCH -->
+<div class="card" id="dashboard-nl-search-card" style="margin-bottom: 1.5rem; border: 1px solid var(--color-border-emphasized); background: var(--color-background-surface);">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.875rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0d9488;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Relational &amp; Referral Graph Database Search</h3>
+      </div>
+      <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: var(--color-text-secondary);">
+        Query across 30 Influencers, 900 Referred Prospects, Call Outcomes, Outreach Channels, and Events using natural language.
+      </p>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+    <div style="position: relative; flex: 1; min-width: 280px;">
+      <input
+        type="text"
+        id="dashboard-nl-search-input"
+        class="form-input"
+        placeholder='Try: "Find me all the contact referrals of Kim Beluzo that have taken a call"'
+        value="Find me all the contact referrals of Kim Beluzo that have taken a call"
+        onkeydown="if(event.key==='Enter') executeDashboardDatabaseSearch()"
+        style="width: 100%; padding: 0.65rem 0.9rem; font-size: 13px; border: 1px solid var(--color-border-emphasized);"
+      />
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="executeDashboardDatabaseSearch()" style="height: 38px; padding: 0 1.1rem; font-weight: 700;">
+      Search Database
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="clearDashboardDatabaseSearch()" style="height: 38px;">
+      Reset
+    </button>
+  </div>
+
+  <!-- Preset Investor Demo Query Chips -->
+  <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; align-items: center;">
+    <span style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); margin-right: 4px;">Sample Queries:</span>
+    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo that have taken a call')" style="font-size: 11px;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg> Referrals of Kim Beluzo that have taken a call (15)
+    </button>
+    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo')" style="font-size: 11px;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg> All referrals of Kim Beluzo (30)
+    </button>
+    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Bob Miller that have taken a call')" style="font-size: 11px;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72l.45 2.8a2 2 0 0 1-.57 1.67L7.1 10.08a16 16 0 0 0 6 6l1.89-1.89a2 2 0 0 1 1.67-.57l2.8.45A2 2 0 0 1 21.18 16z"></path></svg> Referrals of Bob Miller that have taken a call (15)
+    </button>
+    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('All influencers')" style="font-size: 11px;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="m12 7 1.6 3.2 3.5.5-2.5 2.4.6 3.5-3.2-1.7-3.2 1.7.6-3.5-2.5-2.4 3.5-.5z"></path></svg> All 30 Influencers
+    </button>
+    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Contacts from events')" style="font-size: 11px;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg> Event Attendees
+    </button>
+    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Hot leads that have taken a call')" style="font-size: 11px;">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.4 0 7-2.7 7-6.2 0-2.6-1.4-4.3-3.6-6.3.1 2-1 3-2.2 3.6C13.7 8.2 11 4.8 7.7 2 8.2 7 4 9.8 4 15.8 4 19.4 7 22 12 22z"></path></svg> All Prospects with Call Taken (450)
+    </button>
+  </div>
+
+  <!-- Search Results Container -->
+  <div id="dashboard-nl-search-results-panel" style="display: none; margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 0.875rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div id="dashboard-nl-search-summary" style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary);"></div>
+      <span class="badge" id="dashboard-nl-search-explanation" style="font-size: 11px; font-family: var(--font-family-mono, monospace); background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);"></span>
+    </div>
+    <div style="max-height: 360px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+      <table class="data-table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th>Contact</th>
+            <th>Title &amp; Organization</th>
+            <th>Referred By (Graph Edge)</th>
+            <th>Call Status &amp; Outcome</th>
+            <th>Email &amp; LinkedIn</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="dashboard-nl-search-tbody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -102,12 +183,4 @@
     </div>
   </div>
 
-  <!-- Recent Agent Execution Activity Feed -->
-  <div class="dashboard-feed-panel">
-    <div class="section-title">Real-Time Execution Logs</div>
-    <div class="dashboard-activity-feed" id="dashboard-activity-feed">
-      <!-- Activity Feed Items Injected Dynamically -->
-      <div class="feed-empty-state">No execution logs registered yet. Initialize campaigns to view progress.</div>
-    </div>
-  </div>
 </div>

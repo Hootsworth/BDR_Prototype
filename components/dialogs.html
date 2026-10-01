@@ -8,7 +8,7 @@
       </h3>
       <button class="btn btn-secondary btn-sm" onclick="closeSandbox()">&times;</button>
     </div>
-    
+
     <div style="display: flex; flex: 1; min-height: 0;">
       <div style="width: 200px; border-right: 1px solid var(--color-border); background-color: var(--color-background-muted); padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
         <button class="subtab-btn active" id="sb-menu-apollo" onclick="switchSandboxTab('apollo')">
@@ -27,7 +27,7 @@
           <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> ZeroBounce
         </button>
       </div>
-      
+
       <div id="sandbox-viewport" style="flex: 1; padding: 1.5rem; overflow-y: auto; background-color: var(--color-background-surface);">
         <!-- Content injected via JS -->
       </div>
@@ -217,7 +217,7 @@
           <input type="hidden" id="event-reg-contact-id" value="">
           <div id="reg-contact-autocomplete" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; background-color: var(--color-background-surface); border: 1px solid var(--color-border); border-radius: var(--radius-inner); max-height: 200px; overflow-y: auto;"></div>
         </div>
-        
+
         <div class="form-group">
           <label class="form-label" for="select-reg-event">Campaign Event</label>
           <select class="form-select" id="select-reg-event" required>
@@ -226,7 +226,7 @@
             <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label class="form-label" for="input-reg-status">Registration Status</label>
           <select class="form-select" id="input-reg-status">
@@ -236,7 +236,7 @@
             <option value="Cancelled">Cancelled</option>
           </select>
         </div>
-        
+
         <div class="form-group">
           <label class="form-label" for="input-reg-notes">Event Notes</label>
           <textarea class="form-input" id="input-reg-notes" rows="3" placeholder="Add specific notes..."></textarea>
@@ -245,6 +245,133 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeEventRegisterModal()">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Confirm Registration</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- DIALOG: Create New Event -->
+<dialog id="create-event-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 540px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Create New Field Event</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeCreateEventModal()">×</button>
+    </div>
+    <form id="create-event-form" onsubmit="handleCreateEventSubmit(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="new-event-title">Event Name *</label>
+          <input type="text" class="form-input" id="new-event-title" placeholder="e.g. Money20/20 Executive FinTech Dinner" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label" for="new-event-date">Event Date *</label>
+            <input type="date" class="form-input" id="new-event-date" value="2026-11-12" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="new-event-type">Event Type</label>
+            <select class="form-select" id="new-event-type">
+              <option value="Executive Dinner">Executive Dinner</option>
+              <option value="Conference Booth">Conference Booth</option>
+              <option value="VIP Roundtable">VIP Roundtable</option>
+              <option value="Partner Summit">Partner Summit</option>
+              <option value="Webinar / Briefing">Webinar / Briefing</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-event-location">Location / Venue *</label>
+          <input type="text" class="form-input" id="new-event-location" placeholder="e.g. Las Vegas, NV (The Venetian)" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-event-description">Event Description &amp; Campaign Goal</label>
+          <textarea class="form-input" id="new-event-description" rows="3" placeholder="Private briefing on compliant LLM query guardrails for credit union executives..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeCreateEventModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Create Event &amp; Sync DB</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- DIALOG: Add Brand-New Contact Directly from Event -->
+<dialog id="event-add-new-contact-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 560px;">
+    <div class="modal-header">
+      <h3 style="margin: 0;">Add New Contact from Event</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeAddContactFromEventModal()">×</button>
+    </div>
+    <form id="event-add-new-contact-form" onsubmit="handleAddContactFromEventSubmit(event)">
+      <div class="modal-body">
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 0.875rem 0;">
+          Captures a new lead or partner met at an event, adds them to the event roster, and indexes them into the main searchable SQLite database.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="event-new-contact-event">Target Event *</label>
+          <select class="form-select" id="event-new-contact-event" required>
+            <option value="gac_dinner">GAC 2026 Executive VIP Dinner</option>
+            <option value="symwest_booth">SymWest 2026 Booth #412 Visitors</option>
+            <option value="executive_meetup">Credit Union AI &amp; Compliance Roundtable</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-name">Full Name *</label>
+            <input type="text" class="form-input" id="event-new-contact-name" placeholder="e.g. Jordan Vance" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-title">Job Title *</label>
+            <input type="text" class="form-input" id="event-new-contact-title" placeholder="e.g. Chief Information Officer" required>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-company">Company / Credit Union *</label>
+            <input type="text" class="form-input" id="event-new-contact-company" placeholder="e.g. Pacific Crest Federal CU" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-email">Email Address *</label>
+            <input type="email" class="form-input" id="event-new-contact-email" placeholder="jvance@pacificcrestcu.org" required>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-phone">Phone Number</label>
+            <input type="text" class="form-input" id="event-new-contact-phone" placeholder="+1 (555) 234-5678">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-referred-by">Referred / Introduced By (Optional)</label>
+            <input type="text" class="form-input" id="event-new-contact-referred-by" placeholder="e.g. Kim Beluzo">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-role">Contact Category</label>
+            <select class="form-select" id="event-new-contact-role">
+              <option value="prospect">Prospect (Decision Maker)</option>
+              <option value="influencer">Influencer Partner</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="event-new-contact-status">Event Attendance Status</label>
+            <select class="form-select" id="event-new-contact-status">
+              <option value="Attended">Attended</option>
+              <option value="Visited Booth">Visited Booth</option>
+              <option value="Registered">Registered</option>
+              <option value="VIP Briefing Completed">VIP Briefing Completed (Call Taken)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="event-new-contact-notes">Conversation &amp; Briefing Notes</label>
+          <textarea class="form-input" id="event-new-contact-notes" rows="2" placeholder="Met at event; interested in NCUA LLM database compliance POC..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddContactFromEventModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Add Contact to Event &amp; Database</button>
       </div>
     </form>
   </div>
@@ -264,7 +391,7 @@
 
     <div class="modal-body" style="padding: 1.5rem; overflow-y: auto;">
       <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem;">
-        
+
         <!-- LEFT SIDE: Message Drafting & Live Preview -->
         <div style="display: flex; flex-direction: column; gap: 1rem;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -290,10 +417,10 @@
             </div>
             <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
               <span style="font-size: 10.5px; color: var(--color-text-secondary); margin-right: 2px;">Presets:</span>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Keep it under 50 words and ask for a casual 10-minute briefing')">⏱️ Short &amp; Punchy</button>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Focus on query validation guardrails and compliance for financial data')">🛡️ Security &amp; Compliance</button>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Highlight saving 15+ engineering hours and 40% reduction in manual intake')">📈 Fast ROI</button>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Mention mutual connection and invite for a quick coffee intro')">☕ Casual Intro</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Keep it under 50 words and ask for a casual 10-minute briefing')"> Short &amp; Punchy</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Focus on query validation guardrails and compliance for financial data')"> Security &amp; Compliance</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Highlight saving 15+ engineering hours and 40% reduction in manual intake')"> Fast ROI</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setOutboundPromptSuggestion('Mention mutual connection and invite for a quick coffee intro')"> Casual Intro</button>
             </div>
           </div>
 
@@ -371,7 +498,7 @@
 
         <!-- RIGHT SIDE: Controls & Contact History -->
         <div style="display: flex; flex-direction: column; gap: 1.25rem; border-left: 1px solid var(--color-border); padding-left: 1.5rem;">
-          
+
           <!-- Channel Controls -->
           <div>
             <label class="form-label" style="margin-bottom: 0.5rem;">Select Channel</label>
@@ -412,11 +539,11 @@
 <!-- ═══ LEMLIST MCP ONBOARDING & LIVE EMAIL DEMO WIZARD MODAL ═══ -->
 <div id="lemlist-onboarding-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;">
   <div class="modal-container" style="width: 100%; max-width: 640px; padding: 0; overflow: hidden; background-color: #ffffff; color: #0f172a; border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #e2e8f0;">
-    
+
     <!-- Wizard Header -->
     <div style="padding: 1.25rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;">⚡</div>
+        <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;"></div>
         <div>
           <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;" id="lem-modal-title">Lemlist MCP Connection Setup</h3>
           <span style="font-size: 11.5px; color: #64748b;" id="lem-modal-step-indicator">Step 1 of 4</span>
@@ -427,7 +554,7 @@
 
     <!-- Step 1: Welcome Screen -->
     <div id="lem-step-1" style="padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
-      <div style="font-size: 48px; margin-bottom: 0.75rem;">🎉</div>
+      <div style="font-size: 48px; margin-bottom: 0.75rem;"></div>
       <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">YAY! Well Done!</h2>
       <p style="font-size: 13.5px; color: #334155; max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
         You're initializing the <strong>Lemlist Model Context Protocol (MCP)</strong> integration. In the next steps, we'll collect your credentials, explain why each item is needed, and send a <strong>live test email to your personal inbox</strong> to prove the connection works!
@@ -435,15 +562,15 @@
 
       <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; max-width: 440px; margin: 0 auto 1.75rem auto; background: #f8fafc; padding: 1rem; border-radius: var(--radius-xs); border: 1px solid #e2e8f0; font-size: 12.5px; color: #0f172a;">
         <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-          <span>⚡</span>
+          <span></span>
           <span><strong style="color: #0f172a;">Automated Sequence Control:</strong> AI agents can enroll leads into your Lemlist campaigns automatically.</span>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-          <span>📧</span>
+          <span></span>
           <span><strong style="color: #0f172a;">Multi-Channel Dispatch:</strong> Send email sequences, track opens, and log prospect replies.</span>
         </div>
         <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-          <span>🛡️</span>
+          <span></span>
           <span><strong style="color: #0f172a;">Secure MCP Protocol:</strong> Communication uses standard JSON-RPC transport.</span>
         </div>
       </div>
@@ -463,7 +590,7 @@
         <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">1. Lemlist Account Email *</label>
         <input type="email" id="modal-lem-email" class="form-input" placeholder="user@company.com" style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
         <div style="margin-top: 5px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #0284c7; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #0369a1;">
-          💡 <strong style="color: #0369a1;">Why we need this:</strong> Your Lemlist login email identifies your sender account and ties outbound email sequences to your sending domain reputation.
+           <strong style="color: #0369a1;">Why we need this:</strong> Your Lemlist login email identifies your sender account and ties outbound email sequences to your sending domain reputation.
         </div>
       </div>
 
@@ -472,7 +599,7 @@
         <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">2. Lemlist API Key *</label>
         <input type="password" id="modal-lem-api-key" class="form-input" placeholder="apiKey_..." style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
         <div style="margin-top: 5px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #0284c7; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #0369a1;">
-          💡 <strong style="color: #0369a1;">Why we need this:</strong> The API key authorizes the Lemlist Model Context Protocol (MCP) server to query campaign templates and trigger automated sequence dispatches on your behalf.
+           <strong style="color: #0369a1;">Why we need this:</strong> The API key authorizes the Lemlist Model Context Protocol (MCP) server to query campaign templates and trigger automated sequence dispatches on your behalf.
         </div>
       </div>
 
@@ -481,7 +608,7 @@
         <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">3. MCP Server Command (Pre-configured)</label>
         <input type="text" id="modal-lem-mcp-cmd" class="form-input" value="npx mcp-remote https://app.lemlist.com/mcp" style="width: 100%; font-size: 12px; font-family: var(--font-family-mono); background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
         <div style="margin-top: 5px; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #64748b; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #334155;">
-          💡 <strong style="color: #1e293b;">Why we need this:</strong> The Model Context Protocol (MCP) endpoint is the standard JSON-RPC interface through which our autonomous AI agents execute Lemlist tools.
+           <strong style="color: #1e293b;">Why we need this:</strong> The Model Context Protocol (MCP) endpoint is the standard JSON-RPC interface through which our autonomous AI agents execute Lemlist tools.
         </div>
       </div>
 
@@ -526,13 +653,13 @@ Autonomous GTM Copilot</div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
         <button class="btn btn-secondary btn-sm" type="button" onclick="setLemlistModalStep(2)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: var(--radius-xs); font-weight: 600; cursor: pointer;">← Back</button>
-        <button class="btn btn-primary" type="button" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; background: #0f172a; color: #ffffff; border: none; padding: 0.625rem 1.25rem; border-radius: var(--radius-xs); cursor: pointer;">🚀 Send Test Demo Email Now!</button>
+        <button class="btn btn-primary" type="button" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; background: #0f172a; color: #ffffff; border: none; padding: 0.625rem 1.25rem; border-radius: var(--radius-xs); cursor: pointer;"> Send Test Demo Email Now!</button>
       </div>
     </div>
 
     <!-- Step 4: Dispatch Confirmation & Success -->
     <div id="lem-step-4" style="display: none; padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
-      <div style="font-size: 48px; margin-bottom: 0.75rem;">✅</div>
+      <div style="font-size: 48px; margin-bottom: 0.75rem;"></div>
       <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">Test Email Dispatched Successfully!</h2>
       <p style="font-size: 13px; color: #334155; max-width: 480px; margin: 0 auto 1.25rem auto; line-height: 1.5;">
         A live test email has been dispatched via Lemlist MCP to <strong id="modal-success-recipient-email" style="color: #0f172a;">your personal inbox</strong>!
@@ -546,7 +673,7 @@ Autonomous GTM Copilot</div>
       </div>
 
       <button class="btn btn-primary" type="button" onclick="closeLemlistOnboardingModal()" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: var(--radius-xs); cursor: pointer;">
-        Finish &amp; Explore Console ↗
+        Finish &amp; Explore Console
       </button>
     </div>
 
@@ -566,7 +693,7 @@ Autonomous GTM Copilot</div>
         <span>Outreach to Selected (<span id="selection-bar-btn-count">0</span>)</span>
       </button>
       <button class="btn btn-secondary btn-sm" onclick="bulkEnrichFromSelection()" title="Enrich selected contacts">
-        <span>⚡ Bulk Enrich</span>
+        <span> Bulk Enrich</span>
       </button>
       <button class="btn btn-secondary btn-sm selection-clear-btn" onclick="clearGlobalSelection()" title="Clear all selections">
         ✕
@@ -578,7 +705,7 @@ Autonomous GTM Copilot</div>
 <!-- ═══ BULK OUTREACH PERSONALIZATION & DISPATCH MODAL ═══ -->
 <dialog id="bulk-outbound-modal" style="border: none; background: transparent; padding: 0;">
   <div class="modal-container" style="max-width: 920px; max-height: 90vh; display: flex; flex-direction: column;">
-    
+
     <!-- Modal Header -->
     <div class="modal-header" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-soft);">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -595,7 +722,7 @@ Autonomous GTM Copilot</div>
 
     <!-- Modal Body -->
     <div class="modal-body" style="padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;">
-      
+
       <!-- Selected Audience Strip -->
       <div style="margin-bottom: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -611,10 +738,10 @@ Autonomous GTM Copilot</div>
 
       <!-- Main Editor & Live Preview Grid -->
       <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.25rem; align-items: start;">
-        
+
         <!-- Left Column: Template & Composer -->
         <div style="display: flex; flex-direction: column; gap: 1rem;">
-          
+
           <!-- AI Batch Prompt & Instructions Engine -->
           <div style="background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -634,10 +761,10 @@ Autonomous GTM Copilot</div>
             <!-- Quick prompt instruction suggestions -->
             <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
               <span style="font-size: 10.5px; color: var(--color-text-secondary); margin-right: 2px;">Presets:</span>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Focus on query validation guardrails and compliance for financial data')">🛡️ Security &amp; Compliance</button>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Highlight saving 15+ engineering hours on BDR workflows and 40% reduction in manual intake')">📈 Fast ROI</button>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Keep it ultra-concise under 50 words, friendly tone, ask for a quick 10-min chat')">⏱️ Short &amp; Punchy</button>
-              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Mention mutual executive network intro and partnership incentives')">🤝 Referral Network</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Focus on query validation guardrails and compliance for financial data')"> Security &amp; Compliance</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Highlight saving 15+ engineering hours on BDR workflows and 40% reduction in manual intake')"> Fast ROI</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Keep it ultra-concise under 50 words, friendly tone, ask for a quick 10-min chat')"> Short &amp; Punchy</button>
+              <button type="button" class="btn btn-secondary btn-xs variable-chip" onclick="setBulkPromptSuggestion('Mention mutual executive network intro and partnership incentives')"> Referral Network</button>
             </div>
           </div>
 
@@ -681,7 +808,7 @@ Autonomous GTM Copilot</div>
 
         <!-- Right Column: Live Per-Contact Preview -->
         <div style="display: flex; flex-direction: column; gap: 0.875rem;">
-          
+
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <label class="form-label" style="margin: 0; font-size: 12px; font-weight: 700;">Individual Live Preview</label>
             <select id="bulk-preview-recipient-select" class="form-select" onchange="renderBulkPreviewForContact(this.value)" style="font-size: 11.5px; padding: 0.25rem 0.5rem; max-width: 180px;">

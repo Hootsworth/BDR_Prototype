@@ -226,7 +226,7 @@ function sendAgentChatMessage() {
     if (browserViewport) {
       browserViewport.innerHTML = `
         <div style="text-align:center; padding:20px;">
-          <div style="font-size:36px; margin-bottom:10px;">⚡</div>
+          <div style="font-size:36px; margin-bottom:10px;"></div>
           <h3 style="font-size:16px; font-weight:700; color:var(--ink); margin:0;">B2B Data Enrichment Active</h3>
           <p style="font-size:12px; color:var(--muted);">Verifying executive email syntax, asset size, and match percentage...</p>
         </div>
@@ -235,11 +235,11 @@ function sendAgentChatMessage() {
 
     if (typeof runDataEnrichment === "function" && database.contacts.length > 0 && database.exploriumApiKey) {
       runDataEnrichment().then(() => {
-        appendAgentLog(`🤖 Enrichment requested through the configured provider and AI profile.`);
+        appendAgentLog(` Enrichment requested through the configured provider and AI profile.`);
         updateBrowserStep("target-step-1", "completed", "Enrichment Complete ✓");
       });
     } else {
-      appendAgentLog(`⚠️ Enrichment is unavailable until the enrichment controller is loaded.`);
+      appendAgentLog(` Enrichment is unavailable until the enrichment controller is loaded.`);
       updateBrowserStep("target-step-1", "blocked", "Enrichment Unavailable");
     }
     return;
@@ -248,7 +248,7 @@ function sendAgentChatMessage() {
   // ACTION 2: OUTBOUND EMAIL
   if (lowerText.includes("email") || lowerText.includes("outbound") || lowerText.includes("sequence")) {
     updateBrowserStep("target-step-2", "running", "Outbound Email Composer");
-    appendAgentLog(`⚠️ Review and send emails from the outbound workspace. Agent mode will not mark messages sent without Gmail confirmation.`);
+    appendAgentLog(` Review and send emails from the outbound workspace. Agent mode will not mark messages sent without Gmail confirmation.`);
     updateBrowserStep("target-step-2", "blocked", "Approval Required");
     return;
   }
@@ -256,7 +256,7 @@ function sendAgentChatMessage() {
   // ACTION 3: LINKEDIN INVITES
   if (lowerText.includes("linkedin") || lowerText.includes("connect")) {
     updateBrowserStep("target-step-3", "running", "LinkedIn Network Invites");
-    appendAgentLog(`⚠️ No LinkedIn action was taken. Connect an approved LinkedIn application before using this step.`);
+    appendAgentLog(` No LinkedIn action was taken. Connect an approved LinkedIn application before using this step.`);
     updateBrowserStep("target-step-3", "blocked", "Not Connected");
     return;
   }
@@ -264,7 +264,7 @@ function sendAgentChatMessage() {
   // ACTION 4: PHONE CALLING
   if (lowerText.includes("call") || lowerText.includes("phone")) {
     updateBrowserStep("target-step-4", "running", "AI Voice Cold Calling");
-    appendAgentLog(`⚠️ No call was placed. Connect a telephony provider before using this step.`);
+    appendAgentLog(` No call was placed. Connect a telephony provider before using this step.`);
     updateBrowserStep("target-step-4", "blocked", "Not Connected");
     return;
   }
@@ -273,7 +273,7 @@ function sendAgentChatMessage() {
   if (lowerText.includes("meeting") || lowerText.includes("schedule") || lowerText.includes("calendar")) {
     updateBrowserStep("target-step-5", "running", "Calendar Sync Engine");
     if (typeof switchTab === "function") switchTab("campaign-schedule");
-    appendAgentLog(`⚠️ No meeting was created. Review the calendar workflow and confirm a connected Google Calendar or export an iCal invite.`);
+    appendAgentLog(` No meeting was created. Review the calendar workflow and confirm a connected Google Calendar or export an iCal invite.`);
     updateBrowserStep("target-step-5", "blocked", "Approval Required");
     return;
   }
@@ -286,7 +286,7 @@ function sendAgentChatMessage() {
       inf.referralCredits = (inf.referralCredits || 100) + 25;
       saveDatabaseCache();
       updateBrowserStep("target-step-7", "completed", "Reward Credits Synced ✓");
-      appendAgentLog(`🤖 <strong>Influencer Action Executed!</strong> Submitted contact referral for <strong>${inf.fullName}</strong>. Awarded <strong>+25 credits</strong> (Total balance: ${inf.referralCredits} Credits). Credit enrichment activated.`);
+      appendAgentLog(` <strong>Influencer Action Executed!</strong> Submitted contact referral for <strong>${inf.fullName}</strong>. Awarded <strong>+25 credits</strong> (Total balance: ${inf.referralCredits} Credits). Credit enrichment activated.`);
     }, 900);
     return;
   }
@@ -300,7 +300,7 @@ function sendAgentChatMessage() {
       database.events.gac_dinner.push({ name: attendeeName, status: "Registered" });
       saveDatabaseCache();
       updateBrowserStep("target-step-6", "completed", "Event Pass Issued ✓");
-      appendAgentLog(`🤖 <strong>Event Pass Issued!</strong> Registered <strong>${attendeeName}</strong> for the upcoming GAC Executive Leader Dinner.`);
+      appendAgentLog(` <strong>Event Pass Issued!</strong> Registered <strong>${attendeeName}</strong> for the upcoming GAC Executive Leader Dinner.`);
     }, 900);
     return;
   }
@@ -309,9 +309,9 @@ function sendAgentChatMessage() {
   if (targetContact) {
     startAgentResearchSequence(targetContact, customQuery);
   } else {
-    appendAgentLog(`🤖 Processing directive: "<em>${text}</em>"...`);
+    appendAgentLog(` Processing directive: "<em>${text}</em>"...`);
     setTimeout(() => {
-      appendAgentLog(`🤖 Executed command successfully across GTM pipeline.`);
+      appendAgentLog(` Executed command successfully across GTM pipeline.`);
     }, 600);
   }
 }
@@ -324,7 +324,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   if (!history || !browserUrl || !browserViewport) return;
 
   if (!database.geminiApiKey) {
-    appendAgentLog(`❌ <strong>Gemini API key is not configured!</strong><br>
+    appendAgentLog(` <strong>Gemini API key is not configured!</strong><br>
     Please configure your Gemini API Key in the Settings tab to activate web-grounded research.<br><br>
     <button class="btn btn-primary btn-sm" onclick="switchTab('settings-keys')">Configure Credentials</button>`);
     return;
@@ -336,7 +336,7 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
   browserViewport.innerHTML = `
     <div style="text-align:center; padding:20px;">
-      <div style="font-size:28px; margin-bottom:8px;">🔎</div>
+      <div style="font-size:28px; margin-bottom:8px;"></div>
       <strong style="font-size:14px; color:var(--ink);">Scraping &amp; Grounding Lead Intelligence...</strong>
       <p style="font-size:12px; color:var(--muted); margin-top:4px;">Retrieving web profile for ${contact.fullName} (${contact.jobTitle} at ${contact.company})...</p>
     </div>
@@ -384,7 +384,7 @@ Provide structured HTML output (no markdown like ** or #):
         .replace(/### (.*?)\n/g, '<h4 style="margin:8px 0; color:var(--ink);">$1</h4>')
         .replace(/\n/g, '<br>');
 
-      appendAgentLog(`🤖 <strong>Research Dossier for ${contact.fullName} (${contact.company}):</strong><br><br>${reportHtml}`);
+      appendAgentLog(` <strong>Research Dossier for ${contact.fullName} (${contact.company}):</strong><br><br>${reportHtml}`);
       browserViewport.innerHTML = `
         <div style="text-align:left; font-size:12.5px; line-height:1.5; color:var(--ink); overflow-y:auto; max-height:220px; padding:10px;">
           ${reportHtml}
@@ -393,7 +393,7 @@ Provide structured HTML output (no markdown like ** or #):
       updateBrowserStep("target-step-1", "completed", "Dossier Compiled ✓");
     }
   } catch (err) {
-    appendAgentLog(`❌ Research Error: ${err.message}`);
+    appendAgentLog(` Research Error: ${err.message}`);
   } finally {
     database.agentRunning = false;
   }
@@ -409,7 +409,7 @@ function changeAgentModel(modelName) {
   localStorage.setItem("gtm_model_gemini", modelName);
   const geminiSelect = document.getElementById("select-gemini-model");
   if (geminiSelect) geminiSelect.value = modelName;
-  appendAgentLog(`⚙️ <strong>Agent Model Switched to: ${modelName}</strong>. Guardrails re-configured.`);
+  appendAgentLog(` <strong>Agent Model Switched to: ${modelName}</strong>. Guardrails re-configured.`);
 }
 
 function updateTokenGuardrails(addedTokens) {
@@ -435,18 +435,18 @@ function showNodeDetails(nodeId) {
     contact_intelligence: "02. Contact Intelligence Agent (Scrapes LinkedIn & decision-maker profiles)",
     data_quality: "03. Data Quality Agent (Validates email syntax, bounce risk, & duplicate check)",
     personalization: "04. Personalization Agent (Generates customized intro hooks & value props)",
-    campaign_launch: "05. Campaign Launch Agent (Dispatches outbound email sequence) [Breakpoint ⏸]",
+    campaign_launch: "05. Campaign Launch Agent (Dispatches outbound email sequence) [Breakpoint ]",
     deliverability: "06. Deliverability Agent (Monitors SPF/DKIM health & inbox placement)",
     engagement_monitoring: "07. Engagement Monitoring Agent (Tracks email opens, clicks, & replies)",
     intent_detection: "08. Intent Detection Agent (Scores buyer engagement signal > 80)",
-    linkedin_engagement: "09. LinkedIn Touch Agent (Sends automated connection requests) [Breakpoint ⏸]",
+    linkedin_engagement: "09. LinkedIn Touch Agent (Sends automated connection requests) [Breakpoint ]",
     qualification: "10. Qualification Agent (Evaluates BANT budget/authority parameters)",
     meeting_scheduler: "11. Meeting Scheduler Agent (Generates calendar invite links)",
-    crm_intelligence: "12. CRM Intelligence Agent (Syncs deal record & pipeline value to HubSpot/SFDC) [Breakpoint ⏸]"
+    crm_intelligence: "12. CRM Intelligence Agent (Syncs deal record & pipeline value to HubSpot/SFDC) [Breakpoint ]"
   };
 
   const name = nodeNames[nodeId] || nodeId;
-  appendAgentLog(`🔍 <strong>LangGraph Node Inspector:</strong> ${name}`);
+  appendAgentLog(` <strong>LangGraph Node Inspector:</strong> ${name}`);
 }
 
 // --- CATEGORY 1: HUMAN-IN-THE-LOOP (HIL) COPILOT REVIEW MODAL ---
@@ -508,7 +508,7 @@ function approveHilCopyDraft() {
   const leadName = document.getElementById("hil-lead-name")?.textContent || "Lead";
   
   closeHilCopilotModal();
-  appendAgentLog(`✅ <strong>Approved & Dispatched Outbound:</strong> Sent email to <strong>${leadName}</strong> with subject: <em>"${subject}"</em>.`);
+  appendAgentLog(` <strong>Approved & Dispatched Outbound:</strong> Sent email to <strong>${leadName}</strong> with subject: <em>"${subject}"</em>.`);
 }
 
 // Global exports

@@ -51,7 +51,7 @@ function appendAnalyseMessage(sender, text, isLoading = false) {
     avatar.style.color = "#ffffff";
     avatar.style.borderColor = "var(--primary-active)";
   } else {
-    avatar.innerText = "🤖";
+    avatar.innerText = "";
   }
 
   const bubble = document.createElement("div");

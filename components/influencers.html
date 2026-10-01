@@ -1,43 +1,87 @@
-<div class="table-container">
-  <div class="table-toolbar">
-    <div style="flex: 1; max-width: 360px;">
-      <input type="text" class="form-input" id="influencers-search-input" placeholder="Search influencers by name or company..." oninput="filterInfluencersTable()">
+<div class="partner-hub" id="partner-hub">
+  <header class="partner-hub-header">
+    <div>
+      <p class="partner-kicker">PARTNER NETWORK</p>
+      <h2>Introductions, followed through.</h2>
+      <p class="partner-hub-description">Manage trusted referrals, track progress, and keep every partner relationship in one place.</p>
     </div>
-    <div style="display: flex; gap: 0.75rem; align-items: center;">
-      <select class="form-select" id="filter-lead-temp" onchange="filterInfluencersTable()">
-        <option value="">All Lead Temps</option>
-        <option value="Hot Lead">Hot Leads</option>
-        <option value="Cold Lead">Cold Leads</option>
+    <div class="partner-header-controls">
+      <label for="console-portal-influencer-select">Partner</label>
+      <select id="console-portal-influencer-select" onchange="selectConsolePortalInfluencer(this.value)">
+        <option value="">Select a partner</option>
       </select>
-      <select class="form-select" id="filter-influencer-match" onchange="filterInfluencersTable()">
-        <option value="">All Match %</option>
-        <option value="high">High (&gt;90%)</option>
-        <option value="medium">Medium (80-90%)</option>
-        <option value="low">Low (&lt;80%)</option>
-      </select>
-      <button class="btn btn-primary btn-sm" onclick="openAddInfluencerModal()">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        Add Influencer
-      </button>
+      <button class="btn btn-secondary btn-sm" onclick="copyCurrentInfluencerWorkspaceLink()" type="button">Copy workspace link</button>
     </div>
-  </div>
-  <div style="overflow-x: auto;">
-    <table class="data-table" id="table-influencers">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Job Title</th>
-          <th>Company Name</th>
-          <th>Lead Status</th>
-          <th>Match Score</th>
-          <th>Referrals &amp; Credits</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="table-influencers-body">
-        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--color-text-disabled);">No influencers found. Please load CSV data or click "Add Influencer" above.</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="pagination-bar" id="influencers-pagination"></div>
+  </header>
+
+  <section class="partner-profile-strip" aria-label="Active partner">
+    <div class="partner-profile-main">
+      <div class="partner-avatar" id="inf-portal-avatar">KB</div>
+      <div>
+        <div class="partner-profile-label">ACTIVE PARTNER</div>
+        <h3 id="inf-portal-active-name">Kim Beluzo</h3>
+        <p id="inf-portal-active-company">Beluzo Credit Union Advisory</p>
+      </div>
+    </div>
+    <div class="partner-profile-contact" id="inf-portal-active-email"></div>
+    <div class="partner-profile-credit">
+      <span>Partner credits</span>
+      <strong id="inf-portal-kpi-credits">0 pts</strong>
+    </div>
+  </section>
+
+  <section class="partner-metrics" aria-label="Partner referral performance">
+    <div class="partner-metric"><span>Referred contacts</span><strong id="inf-portal-kpi-referrals">0</strong></div>
+    <div class="partner-metric"><span>Calls scheduled or taken</span><strong id="inf-portal-kpi-calls">0 / 0 (0%)</strong></div>
+    <div class="partner-metric"><span>Enriched profiles</span><strong id="inf-portal-kpi-enriched">0</strong></div>
+    <div class="partner-metric"><span>Conversion</span><strong id="inf-portal-kpi-conversion">0%</strong></div>
+  </section>
+
+  <section class="partner-ledger" aria-label="Referred contacts">
+    <div class="partner-ledger-heading">
+      <div>
+        <p class="partner-kicker">REFERRAL LEDGER</p>
+        <h3 id="inf-portal-table-title">Referred contacts</h3>
+        <p id="inf-portal-table-subtitle">Review status and take the next action.</p>
+      </div>
+      <div class="partner-ledger-tools">
+        <input type="search" id="console-portal-search" placeholder="Find a contact" oninput="renderConsolePortalReferrals()" aria-label="Search referred contacts">
+        <select id="console-portal-call-filter" onchange="renderConsolePortalReferrals()" aria-label="Filter by call status">
+          <option value="all">All statuses</option>
+          <option value="taken">Scheduled or taken</option>
+          <option value="pending">Pending call</option>
+        </select>
+        <button class="btn btn-primary btn-sm" type="button" onclick="toggleInfluencerReferralForm()" aria-expanded="false" aria-controls="partner-referral-form">Add referred contact</button>
+      </div>
+    </div>
+
+    <form id="partner-referral-form" class="partner-referral-form" onsubmit="event.preventDefault(); submitConsolePortalReferral();" hidden>
+      <div class="partner-form-intro">
+        <div>
+          <p class="partner-kicker">NEW INTRODUCTION</p>
+          <h4>Add a referred contact</h4>
+          <p>Save a warm introduction under <strong id="inf-portal-form-partner">Kim Beluzo</strong>.</p>
+        </div>
+        <button class="partner-form-close" type="button" onclick="toggleInfluencerReferralForm(false)" aria-label="Close form">Close</button>
+      </div>
+      <div class="partner-form-grid">
+        <label>Full name <span>Required</span><input type="text" id="console-portal-ref-name" required placeholder="Jordan Vance"></label>
+        <label>Work email <span>Required</span><input type="email" id="console-portal-ref-email" required placeholder="jordan@company.com"></label>
+        <label>Company <span>Required</span><input type="text" id="console-portal-ref-company" required placeholder="Pacific Crest Credit Union"></label>
+        <label>Job title <span>Required</span><input type="text" id="console-portal-ref-title" required placeholder="Chief Lending Officer"></label>
+        <label>Phone<input type="tel" id="console-portal-ref-phone" placeholder="+1 415 555 0192"></label>
+        <label>Location<input type="text" id="console-portal-ref-location" placeholder="San Diego, CA"></label>
+    <label>Introduction status<select id="console-portal-ref-call"><option value="taken" selected>Call completed</option><option value="scheduled">Call scheduled</option><option value="pending">Pending outreach</option></select></label>
+        <label class="partner-form-notes">Context for the introduction<input type="text" id="console-portal-ref-notes" placeholder="How do they know each other? What are they working on?"></label>
+      </div>
+      <div class="partner-form-footer"><div id="console-portal-feedback" role="status" aria-live="polite" hidden></div><button class="btn btn-primary" type="submit">Save referred contact</button></div>
+    </form>
+
+    <div class="partner-table-scroll">
+      <table class="partner-referrals-table">
+        <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>STATUS</th><th>CHANNELS</th><th>NEXT STEP</th></tr></thead>
+        <tbody id="console-portal-referrals-tbody"><tr><td colspan="5" class="partner-empty-state">Select a partner to load referrals.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
 </div>

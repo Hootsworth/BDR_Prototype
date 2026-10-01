@@ -6,41 +6,59 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
       </div>
       <div>
-        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary);">Field Events &amp; Briefing Room Scheduler</h2>
-        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: var(--color-text-secondary);">Manage event attendees, executive briefing sessions, and VIP calendar bookings</p>
+        <h2 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--color-text-primary);">Field Events &amp; Briefing Room Engine</h2>
+        <p style="margin: 0.25rem 0 0 0; font-size: 13px; color: var(--color-text-secondary);">Create field events, capture new contacts directly from booths/dinners, and sync attendees into the searchable database</p>
       </div>
     </div>
 
     <div style="display: flex; gap: 0.625rem; flex-wrap: wrap;">
-      <button class="btn btn-primary btn-sm" onclick="openEventRegisterModal()" style="font-weight: 700;">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        Register Contact
+      <button class="btn btn-secondary btn-sm" onclick="openCreateEventModal()" style="font-weight: 700;">
+        + Create New Event
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openAddContactFromEventModal()" style="font-weight: 700;">
+        + Add New Contact from Event
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openEventRegisterModal()" style="font-weight: 600;">
+        Register Existing Contact
       </button>
     </div>
   </div>
 
   <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; background: var(--surface-soft); padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
-    <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap; font-weight: 600; color: var(--color-text-primary);">Select Event View:</label>
+    <label class="form-label" for="select-event-view" style="margin: 0; white-space: nowrap; font-weight: 600; color: var(--color-text-primary);">Active Event:</label>
     <select class="form-select" id="select-event-view" onchange="renderEventsList()" style="flex: 1; min-width: 260px; font-weight: 600; background: var(--color-background-surface); color: var(--color-text-primary); border-color: var(--color-border);">
-      <option value="gac_dinner">GAC 2023 Dinner Attendance</option>
-      <option value="symwest_booth">SymWest 2026 Booth Visitors</option>
-      <option value="executive_meetup">Credit Union Executive Meetup (Enriched)</option>
+      <option value="gac_dinner">GAC 2026 Executive VIP Dinner</option>
+      <option value="symwest_booth">SymWest 2026 Booth #412 Visitors</option>
+      <option value="executive_meetup">Credit Union AI &amp; Compliance Roundtable</option>
     </select>
     <div style="display: flex; gap: 0.5rem; font-size: 12px; font-weight: 700;">
-      <span class="badge badge-success">Google Calendar Synced ✓</span>
-      <span class="badge badge-warning">HubSpot Deal Pipeline Active</span>
+    </div>
+  </div>
+
+  <!-- Event Metadata Banner -->
+  <div id="event-metadata-summary-bar" style="margin-top: 0.875rem; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-background-surface); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; font-size: 12.5px;">
+    <div>
+      <strong id="event-meta-title-display" style="color: var(--color-text-primary);">GAC 2026 Executive VIP Dinner</strong>
+      <span id="event-meta-desc-display" style="color: var(--color-text-secondary); margin-left: 8px;">Private C-suite dinner for Credit Union CIOs and Advisory Partners.</span>
+    </div>
+    <div style="display: flex; gap: 1rem; color: var(--color-text-secondary); font-size: 12px;">
+      <span> <strong id="event-meta-date-display">2026-10-14</strong></span>
+      <span> <strong id="event-meta-location-display">Washington, D.C.</strong></span>
     </div>
   </div>
 </div>
 
 <!-- ═══ ATTENDEES DATA TABLE CARD ═══ -->
 <div class="card" style="padding: 1.25rem 1.5rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: none;">
-  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem;">
+  <div class="table-toolbar" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
     <div>
-      <h3 id="events-list-title" style="font-family: inherit; font-size: 15px; font-weight: 700; margin: 0; color: var(--color-text-primary);">GAC 2023 Dinner Attendees</h3>
-      <span style="font-size: 12px; color: var(--color-text-secondary);">Confirmed registrations &amp; briefing schedules</span>
+      <h3 id="events-list-title" style="font-family: inherit; font-size: 15px; font-weight: 700; margin: 0; color: var(--color-text-primary);">GAC 2026 Executive VIP Dinner</h3>
+      <span style="font-size: 12px; color: var(--color-text-secondary);">All event contacts are automatically indexed in the searchable database</span>
     </div>
-    <span class="badge badge-success" id="events-list-count" style="font-size: 12px; padding: 6px 14px;">0 attendees</span>
+      <div class="events-filter-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+      <input type="text" id="events-search-input" class="form-input" placeholder="Filter event contacts..." oninput="renderEventsList()" style="width: 220px; padding: 0.4rem 0.75rem; font-size: 12px;" />
+      <span class="badge badge-success" id="events-list-count" style="font-size: 12px; padding: 6px 14px;">0 attendees</span>
+    </div>
   </div>
 
   <div style="overflow-x: auto;">
@@ -48,11 +66,11 @@
       <thead>
         <tr>
           <th>Name</th>
-          <th>Job Title</th>
-          <th>Company</th>
-          <th>Email</th>
-          <th>Status</th>
-          <th>Notes &amp; Briefing</th>
+          <th>Job Title &amp; Company</th>
+          <th>Email &amp; Phone</th>
+          <th>Attendance Status</th>
+          <th>Notes &amp; Referral Context</th>
+          <th style="text-align: right;">Actions</th>
         </tr>
       </thead>
       <tbody id="table-events-attendees-body">

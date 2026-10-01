@@ -1,7 +1,7 @@
 // --- Theme Switcher (Light / Dark Mode) ---
 function getActiveTheme() {
   return document.documentElement.getAttribute("data-theme") || 
-    (localStorage.getItem("gtm_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+    (localStorage.getItem("gtm_theme") || "light");
 }
 
 function setTheme(themeName) {
@@ -10,6 +10,8 @@ function setTheme(themeName) {
   document.documentElement.setAttribute("data-astryx-theme", "neutral");
   localStorage.setItem("gtm_theme", theme);
   updateThemeUI(theme);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#f5f5f5" : "#171614");
+  document.dispatchEvent(new CustomEvent("gtm-theme-change", { detail: { theme } }));
 }
 
 function toggleTheme() {

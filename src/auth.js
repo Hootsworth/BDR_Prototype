@@ -88,7 +88,18 @@ function updateClerkUIState() {
   const localAuthUser = localStorage.getItem("gtm_local_user_name") || "GTM Operator";
   const localAuthEmail = localStorage.getItem("gtm_local_user_email") || "demo@gtmconsole.internal";
 
-  if (window.Clerk && window.Clerk.user) {
+  if (window.gtmFirebaseUser) {
+    const firebaseUser = window.gtmFirebaseUser;
+    const firebaseName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User";
+    const firebaseEmail = firebaseUser.email || "";
+    if (authGate) authGate.style.display = "none";
+    if (mainApp) mainApp.style.display = "flex";
+    if (signInBtn) signInBtn.style.display = "none";
+    if (userProfileWrap) userProfileWrap.style.display = "flex";
+    if (nameEl) nameEl.textContent = firebaseName;
+    if (emailEl) emailEl.textContent = firebaseEmail;
+    if (typeof updateSidebarUserAvatar === "function") updateSidebarUserAvatar(firebaseName, firebaseEmail, firebaseUser.photoURL);
+  } else if (window.Clerk && window.Clerk.user) {
     // User is signed in via Clerk
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
@@ -111,8 +122,8 @@ function updateClerkUIState() {
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
 
-    if (signInBtn) signInBtn.style.display = "flex";
-    if (userProfileWrap) userProfileWrap.style.display = "flex";
+    if (signInBtn) signInBtn.style.display = "inline-flex";
+    if (userProfileWrap) userProfileWrap.style.display = "none";
     if (nameEl) nameEl.textContent = localAuthUser;
     if (emailEl) emailEl.textContent = localAuthEmail;
     if (typeof updateSidebarUserAvatar === "function") {
@@ -242,7 +253,7 @@ function openQuickAccountPickerModal() {
 
         <div style="border-top: 1px solid #e2e8f0; padding-top: 0.75rem;">
           <button class="btn btn-secondary btn-sm" onclick="closeQuickAccountPickerModal(); openLocalAuthModal();" style="width: 100%; font-size: 12px; color: #475569;">
-            ⚙ Use another account / Custom Profile
+             Use another account / Custom Profile
           </button>
         </div>
       </div>
