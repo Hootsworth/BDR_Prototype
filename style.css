@@ -371,6 +371,18 @@ body {
   display: flex;
   min-height: 100vh;
   background-color: var(--color-background-body);
+  position: relative;
+}
+
+.app-layout.sidebar-pos-right:not(.sidebar-collapsible-mode) {
+  flex-direction: row-reverse;
+}
+
+.app-layout.sidebar-pos-right .sidebar-panel {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid var(--color-border);
 }
 
 /* ─── SIDEBAR RAIL ─── */
@@ -386,11 +398,87 @@ body {
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease, box-shadow 0.28s ease;
   user-select: none;
   z-index: 10;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+/* ─── COLLAPSIBLE OVERLAY MODE (FULL SCREEN SURFACE AREA) ─── */
+.app-layout.sidebar-collapsible-mode .main-content-wrapper {
+  width: 100%;
+  max-width: 100%;
+  flex: 1 1 100%;
+}
+
+.app-layout.sidebar-collapsible-mode .sidebar-panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  height: 100vh;
+  z-index: 1600;
+}
+
+.app-layout.sidebar-collapsible-mode:not(.sidebar-pos-right) .sidebar-panel {
+  left: 0;
+  right: auto;
+  transform: translateX(-100%) translateY(10px);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.app-layout.sidebar-collapsible-mode.sidebar-pos-right .sidebar-panel {
+  right: 0;
+  left: auto;
+  border-right: none;
+  border-left: 1px solid var(--color-border-emphasized);
+  transform: translateX(100%) translateY(10px);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+.app-layout.sidebar-collapsible-mode .sidebar-panel.proximity-open {
+  transform: translateX(0) translateY(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.32);
+}
+
+/* Subtle edge handle indicator when sidebar is collapsed in overlay mode */
+.sidebar-edge-proximity-pill {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 84px;
+  background: var(--color-primary, #4f46e5);
+  opacity: 0.35;
+  z-index: 1550;
+  cursor: pointer;
+  transition: opacity 0.2s ease, width 0.2s ease;
+  display: none;
+}
+
+.sidebar-edge-proximity-pill:hover {
+  opacity: 0.85;
+  width: 9px;
+}
+
+.app-layout.sidebar-collapsible-mode:not(.sidebar-pos-right) .sidebar-edge-proximity-pill {
+  display: block;
+  left: 0;
+  right: auto;
+  border-radius: 0 6px 6px 0;
+}
+
+.app-layout.sidebar-collapsible-mode.sidebar-pos-right .sidebar-edge-proximity-pill {
+  display: block;
+  right: 0;
+  left: auto;
+  border-radius: 6px 0 0 6px;
 }
 
 .sidebar-panel.collapsed {

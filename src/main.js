@@ -138,9 +138,11 @@ async function bootstrapApp() {
   // If URL hash or default is set, open it
   switchTab('dashboard');
 
-  // Restore sidebar collapse state
-  localStorage.removeItem("gtm_sidebar_collapsed");
-  document.getElementById("sidebar-panel")?.classList.remove("collapsed");
+  // Restore sidebar layout & proximity auto-collapse preferences
+  database.sidebarPosition = localStorage.getItem("gtm_sidebar_position") || "left";
+  database.sidebarCollapsible = localStorage.getItem("gtm_sidebar_collapsible") !== "false";
+  applySidebarLayoutPreferences();
+  initSidebarProximityController();
 
   // gtm-console-database.xlsx (server-managed) is the authoritative source. Always load from it first.
   // A single failed attempt would otherwise leave auto-save permanently disabled for the whole
@@ -247,14 +249,18 @@ function switchTab(tabId) {
   window.currentTabId = tabId;
 
   const sidebar = document.getElementById("sidebar-panel");
+  const edgePill = document.getElementById("sidebar-edge-proximity-pill");
   const mainHeader = document.querySelector(".main-content-wrapper > header");
 
   if (tabId === 'settings-keys') {
     if (sidebar) sidebar.style.display = "none";
+    if (edgePill) edgePill.style.display = "none";
     if (mainHeader) mainHeader.style.display = "none";
+    syncSidebarSettingsInputs();
   } else {
     if (sidebar) sidebar.style.display = "flex";
     if (mainHeader) mainHeader.style.display = "flex";
+    applySidebarLayoutPreferences();
   }
 
   // Toggle active tab buttons in navigation
@@ -439,10 +445,108 @@ function updateStatsSummaryText() {
   if (typeof updateUploadEnrichKPIs === "function") updateUploadEnrichKPIs();
 }
 
-function toggleSidebarCollapse() {
-  // Sidebar is intentionally fixed open until a compact navigation mode is redesigned.
+let sidebarProximityTimer = null;
+let sidebarProximityBound = false;
+
+function syncSidebarSettingsInputs() {
+  const posSelect = document.getElementById("settings-sidebar-position");
+  const colSelect = document.getElementById("settings-sidebar-collapsible");
+  if (posSelect) posSelect.value = database.sidebarPosition || "left";
+  if (colSelect) colSelect.value = database.sidebarCollapsible !== false ? "true" : "false";
+}
+
+function applySidebarLayoutPreferences() {
+  const appLayout = document.getElementById("app-layout-main");
   const sidebar = document.getElementById("sidebar-panel");
-  if (sidebar) sidebar.classList.remove("collapsed");
+  const edgePill = document.getElementById("sidebar-edge-proximity-pill");
+  if (!appLayout || !sidebar) return;
+
+  const pos = database.sidebarPosition || localStorage.getItem("gtm_sidebar_position") || "left";
+  const isCollapsible = database.sidebarCollapsible !== undefined
+    ? Boolean(database.sidebarCollapsible)
+    : localStorage.getItem("gtm_sidebar_collapsible") !== "false";
+
+  database.sidebarPosition = pos;
+  database.sidebarCollapsible = isCollapsible;
+
+  appLayout.classList.toggle("sidebar-pos-right", pos === "right");
+  appLayout.classList.toggle("sidebar-collapsible-mode", isCollapsible);
+  sidebar.classList.remove("collapsed");
+
+  if (!isCollapsible) {
+    sidebar.classList.remove("proximity-open");
+    if (edgePill) edgePill.style.display = "none";
+  } else if (window.currentTabId !== "settings-keys") {
+    if (edgePill) edgePill.style.display = "block";
+  }
+
+  syncSidebarSettingsInputs();
+}
+
+function updateSidebarPreferencesFromSettings() {
+  const posSelect = document.getElementById("settings-sidebar-position");
+  const colSelect = document.getElementById("settings-sidebar-collapsible");
+  const pos = posSelect ? posSelect.value : "left";
+  const isCollapsible = colSelect ? colSelect.value === "true" : true;
+
+  database.sidebarPosition = pos;
+  database.sidebarCollapsible = isCollapsible;
+  localStorage.setItem("gtm_sidebar_position", pos);
+  localStorage.setItem("gtm_sidebar_collapsible", isCollapsible ? "true" : "false");
+
+  applySidebarLayoutPreferences();
+}
+
+function revealSidebarOverlayNow() {
+  const sidebar = document.getElementById("sidebar-panel");
+  if (sidebar) {
+    sidebar.classList.add("proximity-open");
+  }
+}
+
+function initSidebarProximityController() {
+  if (sidebarProximityBound) return;
+  sidebarProximityBound = true;
+
+  const EDGE_TRIGGER_PX = 28;
+  const KEEP_OPEN_PROXIMITY_PX = 310;
+
+  window.addEventListener("mousemove", (e) => {
+    if (!database.sidebarCollapsible || window.currentTabId === "settings-keys") return;
+    const sidebar = document.getElementById("sidebar-panel");
+    if (!sidebar) return;
+
+    const pos = database.sidebarPosition || "left";
+    const viewportW = window.innerWidth;
+    const distFromActiveEdge = pos === "right" ? (viewportW - e.clientX) : e.clientX;
+    const isOpen = sidebar.classList.contains("proximity-open");
+
+    if (!isOpen && distFromActiveEdge <= EDGE_TRIGGER_PX) {
+      if (sidebarProximityTimer) {
+        clearTimeout(sidebarProximityTimer);
+        sidebarProximityTimer = null;
+      }
+      sidebar.classList.add("proximity-open");
+    } else if (isOpen) {
+      if (distFromActiveEdge <= KEEP_OPEN_PROXIMITY_PX) {
+        if (sidebarProximityTimer) {
+          clearTimeout(sidebarProximityTimer);
+          sidebarProximityTimer = null;
+        }
+      } else if (!sidebarProximityTimer) {
+        sidebarProximityTimer = setTimeout(() => {
+          sidebar.classList.remove("proximity-open");
+          sidebarProximityTimer = null;
+        }, 160);
+      }
+    }
+  }, { passive: true });
+}
+
+function toggleSidebarCollapse() {
+  database.sidebarCollapsible = !database.sidebarCollapsible;
+  localStorage.setItem("gtm_sidebar_collapsible", database.sidebarCollapsible ? "true" : "false");
+  applySidebarLayoutPreferences();
 }
 
 function toggleNotificationDropdown() {
@@ -643,6 +747,11 @@ window.updateSystemStatusDot = updateSystemStatusDot;
 window.initLoadedData = initLoadedData;
 window.updateStatsSummaryText = updateStatsSummaryText;
 window.toggleSidebarCollapse = toggleSidebarCollapse;
+window.syncSidebarSettingsInputs = syncSidebarSettingsInputs;
+window.applySidebarLayoutPreferences = applySidebarLayoutPreferences;
+window.updateSidebarPreferencesFromSettings = updateSidebarPreferencesFromSettings;
+window.revealSidebarOverlayNow = revealSidebarOverlayNow;
+window.initSidebarProximityController = initSidebarProximityController;
 window.toggleNotificationDropdown = toggleNotificationDropdown;
 window.clearNotifications = clearNotifications;
 window.openCommandPalette = openCommandPalette;

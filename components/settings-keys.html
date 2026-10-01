@@ -94,6 +94,34 @@
 
       <!-- SECTION 1: GENERAL & AI KEYS -->
       <div class="card set-panel-view active" id="set-panel-view-credentials" style="margin: 0;">
+        <div class="section-title">Workspace Sidebar &amp; Surface Layout</div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; padding: 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="settings-sidebar-position" style="font-weight: 700;">Sidebar Screen Position</label>
+            <select class="form-select" id="settings-sidebar-position" onchange="updateSidebarPreferencesFromSettings()">
+              <option value="left">Left Edge of Screen (Default)</option>
+              <option value="right">Right Edge of Screen</option>
+            </select>
+            <small style="display: block; margin-top: 4px; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+              Choose whether the navigation rail docks to the left or right side of the workspace.
+            </small>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="settings-sidebar-collapsible" style="font-weight: 700;">Sidebar Display &amp; Auto-Collapse</label>
+            <select class="form-select" id="settings-sidebar-collapsible" onchange="updateSidebarPreferencesFromSettings()">
+              <option value="true">Collapsible Overlay (Auto-Hide when cursor leaves proximity)</option>
+              <option value="false">Pinned Dock (Always visible alongside screen)</option>
+            </select>
+            <small style="display: block; margin-top: 4px; font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+              When <strong>Collapsible Overlay</strong> is active, the main screen takes up 100% of the surface area and the sidebar floats on top only when your cursor approaches the edge.
+            </small>
+          </div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
+
         <div class="section-title">General &amp; AI Configuration</div>
 
         <div class="form-group">
