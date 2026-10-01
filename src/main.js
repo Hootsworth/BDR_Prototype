@@ -719,7 +719,7 @@ async function triggerOneClickUpdate() {
       if (btnText) btnText.textContent = " Updated! Reloading...";
       setTimeout(() => {
         window.location.reload();
-      }, 1200);
+      }, 2800);
     } else {
       alert("Update failed: " + (result.error || "Unknown error occurred"));
       if (btn) btn.disabled = false;

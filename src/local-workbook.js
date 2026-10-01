@@ -108,12 +108,28 @@ async function searchDatabaseContacts(queryText = "", filters = {}) {
 }
 
 async function reseedSyntheticDatabase() {
-  const response = await fetch("/api/db/seed", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ force: true })
-  });
-  if (!response.ok) throw new Error(`Seed failed (${response.status})`);
+  let response;
+  try {
+    response = await fetch("/api/db/seed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true })
+    });
+  } catch (error) {
+    const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    if (localHost) {
+      throw new Error("Cannot reach the local app server. Restart it with run_local.sh or run_local.bat, then reopen http://localhost:8001.");
+    }
+    throw new Error(`Cannot reach the database API: ${error.message}`);
+  }
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = await response.json();
+      detail = payload.error ? `: ${payload.error}` : "";
+    } catch (_) {}
+    throw new Error(`Seed failed (${response.status})${detail}`);
+  }
   await loadWorkbookFromServer();
   return true;
 }

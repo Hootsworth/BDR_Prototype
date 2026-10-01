@@ -14,6 +14,7 @@ import io
 import shutil
 import threading
 import re
+import sys
 import xml.etree.ElementTree as ET
 try:
     import openpyxl
@@ -1270,6 +1271,14 @@ def apply_system_update():
         
     return {"status": "success", "mode": "zipball", "new_version": latest_sha[:7]}
 
+def restart_local_server():
+    """Re-exec the local API server so updated Python routes take effect."""
+    if os.environ.get('VERCEL'):
+        return
+    app_root = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(app_root)
+    os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
+
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         # Same-origin is the normal path; restrict cross-origin calls to local development.
@@ -1495,6 +1504,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 result = apply_system_update()
                 json_response(self, 200, result)
+                if result.get('status') == 'success' and not os.environ.get('VERCEL'):
+                    # Let the success response finish before replacing the running process.
+                    threading.Timer(2.5, restart_local_server).start()
             except Exception as ex:
                 json_response(self, 500, {'error': f'System update failed: {ex}'})
             return
