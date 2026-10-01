@@ -2583,12 +2583,13 @@ html[data-theme="dark"] .auth-sso-center-wrap { background: #171614; }
 .agent-model-select { min-width: 166px; height: 38px; border-radius: 7px; }
 .agent-icon-button { width: 38px; height: 38px; border-radius: 7px; }
 .agent-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 310px);
-  gap: clamp(24px, 4vw, 58px);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   padding: 24px 0 4px;
 }
 .agent-conversation { min-height: 0; }
 .agent-history-wrap { padding: 8px 12px 20px 0; overscroll-behavior: contain; }
+.agent-conversation { width: min(100%, 980px); margin-inline: auto; }
 .agent-welcome {
   width: min(100%, 760px);
   max-width: 760px;
