@@ -67,6 +67,43 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("updateUploadEnrichKPIs", tables_js)
         self.assertIn("renderEnrichmentFieldOptions", enrich_js)
 
+    def test_campaign_outbound_navigation_and_import_contacts_restructure(self):
+        index_html = self.read("index.html")
+        outbound_html = self.read("components/campaign-outbound.html")
+        upload_html = self.read("components/upload.html")
+        main_js = self.read("src/main.js")
+        tables_js = self.read("src/components/tables.js")
+        events_js = self.read("src/components/events.js")
+        outbound_js = self.read("src/components/outbound.js")
+
+        # Sidebar & App Branding
+        self.assertIn("<span class=\"brand-name\">Campaign Outbound</span>", index_html)
+        self.assertIn("<span class=\"nav-label\">Search</span>", index_html)
+        self.assertNotIn("cat-group-contacts", index_html)
+        self.assertNotIn("cat-group-events", index_html)
+
+        # Outbound screen header & navigation buttons
+        self.assertNotIn("Omnichannel Outbound &amp; Referral Engine", outbound_html)
+        self.assertNotIn("Coordinate influencer networks, manage warm referrals", outbound_html)
+        self.assertIn("switchTab('agent-mode')", outbound_html)
+        self.assertIn("switchTab('dashboard')", outbound_html)
+        self.assertIn("openImportContactsTab('events')", outbound_html)
+        self.assertIn("openImportContactsTab('csv')", outbound_html)
+
+        # Unified Import Contacts screen (Direct Add / CSV + Events)
+        self.assertIn("import-contacts-mode-csv", upload_html)
+        self.assertIn("import-contacts-mode-events", upload_html)
+        self.assertIn("quick-direct-add-form", upload_html)
+        self.assertIn("select-event-view", upload_html)
+        self.assertIn("table-events-attendees", upload_html)
+
+        # Contact -> Influencer conversion with Influencer Portal
+        self.assertIn("openImportContactsTab", main_js)
+        self.assertIn("switchImportContactsMode", main_js)
+        self.assertIn("convertContactToInfluencer", tables_js)
+        self.assertIn("convertEventAttendeeToInfluencer", events_js)
+        self.assertIn("convertContactToInfluencer", outbound_js)
+
 
 if __name__ == "__main__":
     unittest.main()

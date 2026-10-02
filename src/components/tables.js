@@ -135,7 +135,11 @@ function changeUploadPage(page) {
       <td>${enrichBadge}</td>
       <td><span style="font-size:11px; color:var(--color-text-secondary);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
       <td style="text-align: right;">
-        <div style="display:flex; gap:8px; justify-content: flex-end;">
+        <div style="display:flex; gap:6px; justify-content: flex-end; align-items: center;">
+          <button class="btn btn-secondary btn-xs" onclick="convertContactToInfluencer(${c.id}, true)" title="Convert this contact into an Influencer Partner with their own Referral Portal" style="border-color: rgba(99, 102, 241, 0.45); color: #818cf8; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+            Convert to Influencer
+          </button>
           <button class="btn btn-secondary btn-xs" onclick="openCampaignTarget('${c.email}', 'email')">Outbound</button>
           <button class="btn btn-secondary btn-xs" style="color:var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
         </div>
@@ -436,6 +440,241 @@ function sortTable(type, field) {
   }
 }
 
+function toggleQuickDirectAddForm() {
+  const drawer = document.getElementById("quick-direct-add-drawer");
+  if (!drawer) return;
+  const isHidden = drawer.style.display === "none" || !drawer.style.display;
+  drawer.style.display = isHidden ? "block" : "none";
+  if (isHidden) {
+    const nameInput = document.getElementById("direct-add-name");
+    if (nameInput) nameInput.focus();
+  }
+}
+
+async function handleQuickDirectAddContact(e) {
+  e.preventDefault();
+  const fullName = (document.getElementById("direct-add-name")?.value || "").trim();
+  const email = (document.getElementById("direct-add-email")?.value || "").trim().toLowerCase();
+  const jobTitle = (document.getElementById("direct-add-title")?.value || "").trim();
+  const company = (document.getElementById("direct-add-company")?.value || "").trim();
+  const phone = (document.getElementById("direct-add-phone")?.value || "").trim();
+  const industry = document.getElementById("direct-add-industry")?.value || "Credit Union";
+  const role = document.getElementById("direct-add-role")?.value || "prospect";
+
+  if (!fullName || !email) {
+    alert("Full Name and Email Address are required.");
+    return;
+  }
+
+  const parts = fullName.split(/\s+/);
+  const firstName = parts[0] || fullName;
+  const lastName = parts.slice(1).join(" ") || "";
+  const isInfluencer = role === "influencer";
+
+  let contact = (database.contacts || []).find(c => (c.email || "").toLowerCase() === email);
+  if (!contact) {
+    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 0);
+    const newId = maxId + 1;
+    contact = {
+      id: newId,
+      firstName,
+      lastName,
+      fullName,
+      email,
+      jobTitle: jobTitle || (isInfluencer ? "Industry Advisor" : "Executive"),
+      company: company || "Credit Union",
+      phone: phone || "+1 (555) 234-5678",
+      linkedinUrl: `https://www.linkedin.com/in/${firstName.toLowerCase()}-${lastName.toLowerCase() || newId}`,
+      industry,
+      sourceFile: "Direct Import",
+      state: "NY",
+      enriched: Boolean(database.autoEnrich),
+      enrichmentStatus: database.autoEnrich ? "verified_provider_data" : "pending",
+      matchPercentage: 92,
+      leadTemp: isInfluencer ? "Influencer Partner" : "Hot Lead",
+      emailsSent: false,
+      linkedinSent: false,
+      callsMade: [],
+      hasScheduledCall: false,
+      hasTakenCall: false,
+      isInfluencer,
+      referredBy: "",
+      referrals: [],
+      referralCredits: isInfluencer ? 50 : 0
+    };
+    database.contacts.unshift(contact);
+  } else {
+    contact.fullName = fullName || contact.fullName;
+    contact.jobTitle = jobTitle || contact.jobTitle;
+    contact.company = company || contact.company;
+    contact.phone = phone || contact.phone;
+    contact.industry = industry || contact.industry;
+    if (isInfluencer) {
+      contact.isInfluencer = true;
+      contact.leadTemp = "Influencer Partner";
+      contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
+      contact.referralCredits = contact.referralCredits || 50;
+    }
+  }
+
+  if (isInfluencer) {
+    try {
+      await fetch("/api/influencers/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: contact.fullName,
+          email: contact.email,
+          jobTitle: contact.jobTitle,
+          company: contact.company,
+          phone: contact.phone,
+          industry: contact.industry
+        })
+      });
+    } catch (_) {
+      // Saved locally via saveDatabaseCache below
+    }
+  }
+
+  saveDatabaseCache();
+  initLoadedData();
+
+  const form = document.getElementById("quick-direct-add-form");
+  if (form) form.reset();
+  const drawer = document.getElementById("quick-direct-add-drawer");
+  if (drawer) drawer.style.display = "none";
+
+  if (isInfluencer) {
+    addLogConsole("enrich", `[IMPORT CONTACTS] Added ${contact.fullName} as an Influencer Partner with their own Referral Portal.`, "success");
+    openInfluencerPortalForContact(contact.id);
+  } else {
+    addLogConsole("enrich", `[IMPORT CONTACTS] Added ${contact.fullName} (${contact.company}) to Imported Contacts.`, "success");
+  }
+}
+
+function openInfluencerPortalForContact(contactIdOrEmail) {
+  const contact = (database.contacts || []).find(c =>
+    String(c.id) === String(contactIdOrEmail) ||
+    (c.email && String(c.email).toLowerCase() === String(contactIdOrEmail).toLowerCase()) ||
+    (c.fullName && String(c.fullName).toLowerCase() === String(contactIdOrEmail).toLowerCase())
+  );
+  const identifier = contact ? (contact.email || contact.fullName) : String(contactIdOrEmail || "");
+  if (identifier && typeof activeConsolePortalInfluencerEmail !== "undefined") {
+    activeConsolePortalInfluencerEmail = identifier;
+  }
+  switchTab("influencers");
+  if (identifier && typeof selectConsolePortalInfluencer === "function") {
+    selectConsolePortalInfluencer(identifier);
+  }
+}
+
+async function convertContactToInfluencer(contactId, openPortalImmediately = true) {
+  const contact = (database.contacts || []).find(c => String(c.id) === String(contactId));
+  if (!contact) {
+    alert("Contact record not found.");
+    return;
+  }
+
+  if (contact.isInfluencer) {
+    openInfluencerPortalForContact(contact.id);
+    return;
+  }
+
+  contact.isInfluencer = true;
+  contact.leadTemp = "Influencer Partner";
+  contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
+  contact.referralCredits = Math.max(Number(contact.referralCredits) || 0, 50);
+
+  // Remove from selected prospect rows if present
+  if (Array.isArray(database.selectedUploadRows)) {
+    database.selectedUploadRows = database.selectedUploadRows.filter(id => String(id) !== String(contact.id));
+  }
+  if (Array.isArray(database.selectedOutboundRows)) {
+    database.selectedOutboundRows = database.selectedOutboundRows.filter(id => String(id) !== String(contact.id));
+  }
+
+  // Persist to backend SQLite / Influencer endpoint
+  try {
+    await fetch("/api/influencers/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: contact.fullName,
+        email: contact.email,
+        jobTitle: contact.jobTitle,
+        company: contact.company,
+        phone: contact.phone,
+        industry: contact.industry || "Advisory"
+      })
+    });
+  } catch (_) {
+    // Also persisted via saveDatabaseCache below
+  }
+
+  saveDatabaseCache();
+  updateBulkActionBar();
+  if (typeof filterUploadTable === "function") filterUploadTable();
+  if (typeof renderEventsList === "function") renderEventsList();
+  if (typeof filterOutboundTable === "function") filterOutboundTable();
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+  if (typeof renderDashboard === "function") renderDashboard();
+
+  addLogConsole("enrich", `[INFLUENCER PORTAL] Converted ${contact.fullName} (${contact.company}) into an Influencer Partner with their own Referral Portal.`, "success");
+
+  if (openPortalImmediately) {
+    openInfluencerPortalForContact(contact.id);
+  }
+}
+
+async function bulkConvertSelectedToInfluencers() {
+  if (!database.selectedUploadRows || database.selectedUploadRows.length === 0) {
+    alert("Please select at least one contact to convert to an Influencer.");
+    return;
+  }
+
+  const idsToConvert = [...database.selectedUploadRows];
+  let lastConverted = null;
+
+  for (const id of idsToConvert) {
+    const contact = (database.contacts || []).find(c => String(c.id) === String(id));
+    if (contact) {
+      contact.isInfluencer = true;
+      contact.leadTemp = "Influencer Partner";
+      contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
+      contact.referralCredits = Math.max(Number(contact.referralCredits) || 0, 50);
+      lastConverted = contact;
+      try {
+        await fetch("/api/influencers/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: contact.fullName,
+            email: contact.email,
+            jobTitle: contact.jobTitle,
+            company: contact.company,
+            phone: contact.phone,
+            industry: contact.industry || "Advisory"
+          })
+        });
+      } catch (_) {}
+    }
+  }
+
+  database.selectedUploadRows = [];
+  const checkAll = document.getElementById("check-all-upload");
+  if (checkAll) checkAll.checked = false;
+
+  saveDatabaseCache();
+  initLoadedData();
+  updateBulkActionBar();
+
+  addLogConsole("enrich", `[INFLUENCER PORTAL] Converted ${idsToConvert.length} contact(s) into Influencer Partners with their own Referral Portals.`, "success");
+
+  if (lastConverted) {
+    openInfluencerPortalForContact(lastConverted.id);
+  }
+}
+
 window.getFilteredData = getFilteredData;
 window.paginateData = paginateData;
 window.filterUploadTable = filterUploadTable;
@@ -454,3 +693,8 @@ window.bulkAssignSequenceSelected = bulkAssignSequenceSelected;
 window.bulkPushHilReviewSelected = bulkPushHilReviewSelected;
 window.bulkExportCsvSelected = bulkExportCsvSelected;
 window.sortTable = sortTable;
+window.toggleQuickDirectAddForm = toggleQuickDirectAddForm;
+window.handleQuickDirectAddContact = handleQuickDirectAddContact;
+window.convertContactToInfluencer = convertContactToInfluencer;
+window.openInfluencerPortalForContact = openInfluencerPortalForContact;
+window.bulkConvertSelectedToInfluencers = bulkConvertSelectedToInfluencers;

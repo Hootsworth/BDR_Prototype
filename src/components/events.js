@@ -242,6 +242,25 @@ function handleAddContactFromEventSubmit(e) {
     }
   }
 
+  if (isInfluencer) {
+    contact.isInfluencer = true;
+    contact.leadTemp = "Influencer Partner";
+    contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
+    contact.referralCredits = contact.referralCredits || 50;
+    fetch("/api/influencers/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: contact.fullName,
+        email: contact.email,
+        jobTitle: contact.jobTitle,
+        company: contact.company,
+        phone: contact.phone,
+        industry: contact.industry || "Credit Union"
+      })
+    }).catch(() => {});
+  }
+
   // Add to event roster
   if (!database.events[eventKey]) database.events[eventKey] = [];
   const existingIdx = database.events[eventKey].findIndex(a => (a.email || "").toLowerCase() === email || a.id === contact.id);
@@ -269,6 +288,7 @@ function handleAddContactFromEventSubmit(e) {
   if (typeof filterOutboundTable === "function") filterOutboundTable();
   if (typeof renderDashboard === "function") renderDashboard();
   if (typeof filterUploadTable === "function") filterUploadTable();
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
 
   closeAddContactFromEventModal();
   const form = document.getElementById("event-add-new-contact-form");
@@ -393,8 +413,25 @@ function renderEventsList() {
 
   list.forEach(c => {
     const cid = c.contactId || c.id;
+    const mainContact = (database.contacts || []).find(mc =>
+      String(mc.id) === String(cid) ||
+      (mc.email && c.email && String(mc.email).toLowerCase() === String(c.email).toLowerCase())
+    );
+    const resolvedId = mainContact ? mainContact.id : cid;
+    const isInf = Boolean(mainContact && mainContact.isInfluencer);
     const status = c.eventStatus || "Attended";
     const tr = document.createElement("tr");
+
+    const influencerActionBtn = isInf
+      ? `<button class="btn btn-secondary btn-xs" onclick="openInfluencerPortalForContact('${resolvedId}')" title="Open this partner's Influencer Referral Portal" style="border-color: rgba(13, 148, 136, 0.45); color: #0d9488; display: inline-flex; align-items: center; gap: 4px;">
+           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+           Influencer Portal
+         </button>`
+      : `<button class="btn btn-secondary btn-xs" onclick="convertEventAttendeeToInfluencer('${eventKey}', '${resolvedId}')" title="Convert this event contact into an Influencer Partner with their own Referral Portal" style="border-color: rgba(99, 102, 241, 0.45); color: #818cf8; display: inline-flex; align-items: center; gap: 4px;">
+           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+           Convert to Influencer
+         </button>`;
+
     tr.innerHTML = `
       <td>
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -402,7 +439,10 @@ function renderEventsList() {
             ${getInitials(c.fullName)}
           </div>
           <div>
-            <div style="font-weight: 600; color: var(--color-text-primary);">${c.fullName}</div>
+            <div style="font-weight: 600; color: var(--color-text-primary); display: flex; align-items: center; gap: 5px;">
+              ${c.fullName}
+              ${isInf ? `<span class="badge" style="font-size: 9.5px; background: rgba(99, 102, 241, 0.14); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3);">Influencer</span>` : ""}
+            </div>
             ${c.referredBy ? `<div style="font-size: 10.5px; color: #0d9488; font-weight: 600;">Referred by ${c.referredBy}</div>` : ""}
           </div>
         </div>
@@ -416,7 +456,7 @@ function renderEventsList() {
         <div style="font-size: 11px; color: var(--color-text-secondary);">${c.phone || ""}</div>
       </td>
       <td>
-        <select class="form-select" onchange="updateEventAttendeeStatus('${eventKey}', '${cid}', this.value)" style="font-size: 11.5px; padding: 3px 8px; height: auto; width: auto; font-weight: 600;">
+        <select class="form-select" onchange="updateEventAttendeeStatus('${eventKey}', '${resolvedId}', this.value)" style="font-size: 11.5px; padding: 3px 8px; height: auto; width: auto; font-weight: 600;">
           <option value="Attended" ${status === "Attended" ? "selected" : ""}>✓ Attended</option>
           <option value="Visited Booth" ${status === "Visited Booth" ? "selected" : ""}> Visited Booth</option>
           <option value="Registered" ${status === "Registered" ? "selected" : ""}> Registered</option>
@@ -426,13 +466,48 @@ function renderEventsList() {
       <td class="event-notes-cell" style="font-size: 12px; color: var(--color-text-secondary); max-width: 260px;">${c.eventNotes || "Registered via Event Console"}</td>
       <td style="text-align: right;">
         <div class="event-row-actions" style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
-          <button class="btn btn-primary btn-xs event-outreach-btn" onclick="switchTab('campaign-outbound'); setTimeout(() => openOutboundModal(${Number(cid) || 1}, 'email'), 100);">Outreach</button>
-          <button class="btn btn-secondary btn-xs" style="color: var(--color-error);" onclick="removeEventAttendee('${eventKey}', '${cid}')" title="Remove from event">✕</button>
+          ${influencerActionBtn}
+          <button class="btn btn-primary btn-xs event-outreach-btn" onclick="switchTab('campaign-outbound'); setTimeout(() => openOutboundModal(${Number(resolvedId) || 1}, 'email'), 100);">Outreach</button>
+          <button class="btn btn-secondary btn-xs" style="color: var(--color-error);" onclick="removeEventAttendee('${eventKey}', '${resolvedId}')" title="Remove from event">✕</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+function convertEventAttendeeToInfluencer(eventKey, contactId) {
+  let contact = (database.contacts || []).find(c => String(c.id) === String(contactId));
+  if (!contact && database.events && database.events[eventKey]) {
+    const attendee = database.events[eventKey].find(a => String(a.id) === String(contactId) || String(a.contactId) === String(contactId));
+    if (attendee) {
+      const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 0);
+      const newId = Number(attendee.id) || (maxId + 1);
+      const parts = (attendee.fullName || "Partner").split(/\s+/);
+      contact = {
+        id: newId,
+        firstName: parts[0] || "Partner",
+        lastName: parts.slice(1).join(" ") || "",
+        fullName: attendee.fullName,
+        email: attendee.email || "",
+        jobTitle: attendee.jobTitle || "Executive",
+        company: attendee.company || "Credit Union",
+        phone: attendee.phone || "",
+        industry: "Credit Union",
+        sourceFile: `Event: ${eventKey}`,
+        enriched: true,
+        isInfluencer: false,
+        referrals: [],
+        referralCredits: 50
+      };
+      database.contacts.unshift(contact);
+      attendee.contactId = contact.id;
+      attendee.id = contact.id;
+    }
+  }
+  if (contact && typeof convertContactToInfluencer === "function") {
+    convertContactToInfluencer(contact.id, true);
+  }
 }
 
 function renderEventsTable() {
@@ -540,5 +615,6 @@ window.updateEventAttendeeStatus = updateEventAttendeeStatus;
 window.removeEventAttendee = removeEventAttendee;
 window.renderEventsList = renderEventsList;
 window.renderEventsTable = renderEventsTable;
+window.convertEventAttendeeToInfluencer = convertEventAttendeeToInfluencer;
 window.handleRegContactSearch = handleRegContactSearch;
 window.handleEventRegistration = handleEventRegistration;

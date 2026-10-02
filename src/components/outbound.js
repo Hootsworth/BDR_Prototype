@@ -33,8 +33,14 @@ function updateOutboundHeaderMetrics() {
 window.updateOutboundHeaderMetrics = updateOutboundHeaderMetrics;
 
 function openInfluencerPortal(email) {
-  const url = email ? `/?tab=influencers&email=${encodeURIComponent(email)}` : `/?tab=influencers`;
-  window.open(url, "_blank", "noopener,noreferrer");
+  if (typeof openInfluencerPortalForContact === "function") {
+    openInfluencerPortalForContact(email);
+    return;
+  }
+  if (email && typeof activeConsolePortalInfluencerEmail !== "undefined") {
+    activeConsolePortalInfluencerEmail = email;
+  }
+  switchTab("influencers");
 }
 window.openInfluencerPortal = openInfluencerPortal;
 
@@ -321,6 +327,10 @@ function changeOutboundPage(page) {
         <td>${callStatus}</td>
         <td style="text-align: right;">
           <div style="display: flex; gap: 0.375rem; justify-content: flex-end; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="convertContactToInfluencer(${c.id}, true)" title="Convert this contact into an Influencer Partner with their own Referral Portal" style="border-color: rgba(99, 102, 241, 0.4); color: #818cf8; display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+              Convert to Influencer
+            </button>
             <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
             <button class="btn btn-secondary btn-sm" style="color: var(--color-error); padding: 0.25rem 0.5rem;" onclick="deleteContactRecord(${c.id})" title="Delete Contact">✕</button>
           </div>

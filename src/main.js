@@ -5,7 +5,6 @@ const componentsList = {
   'upload': 'components/upload.html',
   'analyse': 'components/analytics.html',
   'campaign-outbound': 'components/campaign-outbound.html',
-  'events-list': 'components/events-list.html',
   'influencers': 'components/influencers.html',
   'settings-keys': 'components/settings-keys.html',
   'agent-mode': 'components/agent-mode.html'
@@ -49,8 +48,9 @@ async function loadComponentTemplates() {
   }
 }
 
-let currentTabId = 'upload';
+let currentTabId = 'campaign-outbound';
 window.currentTabId = currentTabId;
+window.currentImportContactsMode = 'csv';
 
 async function bootstrapApp() {
   // 1. Fetch & inject templates first
@@ -135,8 +135,8 @@ async function bootstrapApp() {
   const autoEnrichCheckbox = document.getElementById("toggle-auto-enrich");
   if (autoEnrichCheckbox) autoEnrichCheckbox.checked = database.autoEnrich;
 
-  // If URL hash or default is set, open it
-  switchTab('dashboard');
+  // Open Campaign Outbound as the primary main screen by default
+  switchTab('campaign-outbound');
 
   // Restore sidebar layout & proximity auto-collapse preferences
   database.sidebarPosition = localStorage.getItem("gtm_sidebar_position") || "left";
@@ -240,9 +240,46 @@ async function bootstrapApp() {
   checkForAppUpdates();
 }
 
-let lastActiveTabId = 'dashboard';
+let lastActiveTabId = 'campaign-outbound';
+
+function openImportContactsTab(mode = 'csv') {
+  window.currentImportContactsMode = mode === 'events' ? 'events' : 'csv';
+  switchTab('upload');
+  switchImportContactsMode(window.currentImportContactsMode);
+}
+
+function switchImportContactsMode(mode = 'csv') {
+  const activeMode = mode === 'events' ? 'events' : 'csv';
+  window.currentImportContactsMode = activeMode;
+
+  const csvPanel = document.getElementById("import-contacts-mode-csv");
+  const eventsPanel = document.getElementById("import-contacts-mode-events");
+  const btnCsv = document.getElementById("btn-import-mode-csv");
+  const btnEvents = document.getElementById("btn-import-mode-events");
+
+  if (csvPanel) csvPanel.style.display = activeMode === 'csv' ? "block" : "none";
+  if (eventsPanel) eventsPanel.style.display = activeMode === 'events' ? "block" : "none";
+
+  if (btnCsv) {
+    btnCsv.className = activeMode === 'csv' ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm";
+  }
+  if (btnEvents) {
+    btnEvents.className = activeMode === 'events' ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm";
+  }
+
+  if (activeMode === 'events' && typeof renderEventsList === "function") {
+    renderEventsList();
+  } else if (typeof filterUploadTable === "function") {
+    filterUploadTable();
+  }
+}
 
 function switchTab(tabId) {
+  if (tabId === 'events-list') {
+    openImportContactsTab('events');
+    return;
+  }
+
   if (window.currentTabId && window.currentTabId !== 'settings-keys') {
     lastActiveTabId = window.currentTabId;
   }
@@ -307,7 +344,9 @@ function switchTab(tabId) {
   if (tabId === 'dashboard' && typeof renderDashboard === "function") {
     renderDashboard();
   } else if (tabId === 'upload') {
+    switchImportContactsMode(window.currentImportContactsMode || 'csv');
     if (typeof filterUploadTable === "function") filterUploadTable();
+    if (typeof renderEventsList === "function") renderEventsList();
     if (typeof checkEnrichButtonState === "function") checkEnrichButtonState();
     if (typeof renderEnrichmentFieldOptions === "function") renderEnrichmentFieldOptions();
     if (typeof updateUploadEnrichKPIs === "function") updateUploadEnrichKPIs();
@@ -317,8 +356,6 @@ function switchTab(tabId) {
     } else if (typeof filterOutboundTable === "function") {
       filterOutboundTable();
     }
-  } else if (tabId === 'events-list' && typeof renderEventsList === "function") {
-    renderEventsList();
   } else if (tabId === 'influencers' && typeof renderInfluencersTable === "function") {
     renderInfluencersTable();
   } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {
@@ -333,9 +370,9 @@ function switchTab(tabId) {
 function toggleNavCategory(catId) {
   const sidebar = document.getElementById("sidebar-panel");
   if (sidebar && sidebar.classList.contains("collapsed")) {
-    if (catId === 'contacts') switchTab('upload');
+    if (catId === 'contacts') openImportContactsTab('csv');
     else if (catId === 'campaign') switchTab('campaign-outbound');
-    else if (catId === 'events') switchTab('events-list');
+    else if (catId === 'events') openImportContactsTab('events');
     else if (catId === 'influencers') switchTab('influencers');
     return;
   }
@@ -352,24 +389,24 @@ function updateHeader(tabId) {
 
   switch (tabId) {
     case 'dashboard':
-      titleEl.textContent = "GTM Orchestrator Dashboard";
-      subtitleEl.textContent = "Monitor campaign metrics, agent execution progress, and meeting conversion rates.";
+      titleEl.textContent = "Search";
+      subtitleEl.textContent = "Search across contacts, influencer referrals, call statuses, and event attendees in real time.";
       break;
     case 'upload':
-      titleEl.textContent = "Upload & Enrich Contacts";
-      subtitleEl.textContent = "Upload CSV data, enrich leads with verified corporate intelligence, and manage contacts.";
+      titleEl.textContent = "Import Contacts";
+      subtitleEl.textContent = "Add & enrich contacts directly or capture attendees from field events.";
       break;
     case 'campaign-outbound':
       titleEl.textContent = "Campaign Outbound";
       subtitleEl.textContent = "Engage prospects and influencers across Email, LinkedIn, and Phone — and manage scheduled briefings.";
       break;
     case 'events-list':
-      titleEl.textContent = "Events Lists & Attendances";
-      subtitleEl.textContent = "Review registered attendees for credit union dinners and booth visits.";
+      titleEl.textContent = "Import Contacts — Events";
+      subtitleEl.textContent = "Review registered attendees and capture new contacts from field events.";
       break;
     case 'influencers':
-      titleEl.textContent = "Partner Network";
-      subtitleEl.textContent = "Manage introductions and partner referrals in one workspace.";
+      titleEl.textContent = "Influencer Portal";
+      subtitleEl.textContent = "Manage partner referrals, generate shareable portal links, and track warm introductions.";
       break;
     case 'events-register':
       titleEl.textContent = "Register Event Attendee";
@@ -431,6 +468,8 @@ function initLoadedData() {
   updateStatsSummaryText();
   
   if (typeof filterImportTable === "function") filterImportTable();
+  if (typeof filterOutboundTable === "function") filterOutboundTable();
+  if (typeof renderEventsList === "function") renderEventsList();
   updateSystemStatusDot();
   if (typeof renderDashboard === "function") renderDashboard();
 }
@@ -564,7 +603,7 @@ function clearNotifications() {
 }
 
 function returnFromSettings() {
-  const targetTab = lastActiveTabId || 'dashboard';
+  const targetTab = lastActiveTabId || 'campaign-outbound';
   switchTab(targetTab);
 }
 
@@ -603,12 +642,12 @@ function handleCommandPaletteSearch(query) {
   const q = query.trim().toLowerCase();
 
   const tabCommands = [
-    { title: "Dashboard", subtitle: "Jump to main GTM metrics & campaign status", tab: "dashboard", icon: "" },
+    { title: "Campaign Outbound", subtitle: "Main workspace for prospects, influencers, and scheduled calls", tab: "campaign-outbound", icon: "" },
+    { title: "Search", subtitle: "Natural language & relational search across all contacts, referrals, and events", tab: "dashboard", icon: "" },
+    { title: "Import Contacts (Add & Enrich)", subtitle: "Add contacts directly, upload CSV datasets, and run AI enrichment", tab: "upload", icon: "" },
+    { title: "Import Contacts via Events", subtitle: "Manage field events and capture event attendees into the database", tab: "events-list", icon: "" },
+    { title: "Influencer Portal", subtitle: "Partner referral workspace, bulk add, and private shareable portal links", tab: "influencers", icon: "" },
     { title: "Agent Control Mode", subtitle: "Autonomous 12-node GTM orchestrator & DAG visualizer", tab: "agent-mode", icon: "" },
-    { title: "Data Enrichment", subtitle: "Bulk enrich contacts via Explorium API", tab: "enrich", icon: "" },
-    { title: "Outbound Sequences", subtitle: "Build and dispatch multi-channel outreach campaigns", tab: "campaign-outbound", icon: "" },
-    { title: "Analytics & Funnel", subtitle: "Full-funnel conversion attribution & velocity reports", tab: "analytics", icon: "" },
-    { title: "Influencer Portal", subtitle: "Affiliate rewards, referrals, and LinkedIn matching", tab: "influencers", icon: "" },
     { title: "Global Settings & Keys", subtitle: "Manage API keys, models, and CRM integrations", tab: "settings-keys", icon: "" }
   ];
 
@@ -741,6 +780,8 @@ window.returnFromSettings = returnFromSettings;
 window.loadComponentTemplates = loadComponentTemplates;
 window.bootstrapApp = bootstrapApp;
 window.switchTab = switchTab;
+window.openImportContactsTab = openImportContactsTab;
+window.switchImportContactsMode = switchImportContactsMode;
 window.toggleNavCategory = toggleNavCategory;
 window.updateHeader = updateHeader;
 window.updateSystemStatusDot = updateSystemStatusDot;
