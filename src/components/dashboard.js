@@ -3,6 +3,7 @@
 function renderDashboard() {
   const totalContactsEl = document.getElementById("dashboard-total-contacts");
   const prospectsCountEl = document.getElementById("dashboard-prospects-count");
+  const affiliatedCountEl = document.getElementById("dashboard-affiliated-count");
   const enrichedContactsEl = document.getElementById("dashboard-enriched-contacts");
   const outboundSentEl = document.getElementById("dashboard-outbound-sent");
   const meetingsBookedEl = document.getElementById("dashboard-meetings-booked");
@@ -17,25 +18,28 @@ function renderDashboard() {
 
   const total = database.contacts.length;
   const influencersCount = database.contacts.filter(c => c.isInfluencer === true).length;
-  const prospectsCount = database.contacts.filter(c => c.isInfluencer !== true).length;
+  const prospects = database.contacts.filter(c => c.isInfluencer !== true);
+  const prospectsCount = prospects.length;
+  const affiliatedCount = prospects.filter(p => p.referredBy || p.influencerId).length;
   const enriched = database.contacts.filter(c => c.enriched).length;
   const emailsCount = database.contacts.filter(c => c.emailsSent).length;
   const linkedinCount = database.contacts.filter(c => c.linkedinSent).length;
   const outbound = Math.max(emailsCount + linkedinCount, (database.stats.emailsSent || 0) + (database.stats.linkedinSent || 0));
 
   // Calculate calls taken & meetings booked
-  const callsTakenCount = database.contacts.filter(c => !c.isInfluencer && (c.hasTakenCall || (c.callsMade && c.callsMade.length > 0))).length;
+  const callsTakenCount = prospects.filter(c => c.hasTakenCall || (c.callsMade && c.callsMade.length > 0)).length;
   const meetings = database.meetings ? database.meetings.length : 0;
   const hotLeads = database.contacts.filter(c => c.leadTemp === "Hot Lead").length;
 
   totalContactsEl.textContent = influencersCount.toLocaleString();
   if (prospectsCountEl) prospectsCountEl.textContent = prospectsCount.toLocaleString();
-  enrichedContactsEl.textContent = enriched.toLocaleString();
-  outboundSentEl.textContent = outbound.toLocaleString();
-  meetingsBookedEl.textContent = callsTakenCount > 0 ? `${callsTakenCount} / ${meetings}` : meetings.toLocaleString();
+  if (affiliatedCountEl) affiliatedCountEl.textContent = `(${affiliatedCount.toLocaleString()} affiliated)`;
+  if (enrichedContactsEl) enrichedContactsEl.textContent = enriched.toLocaleString();
+  if (outboundSentEl) outboundSentEl.textContent = outbound.toLocaleString();
+  if (meetingsBookedEl) meetingsBookedEl.textContent = meetings.toLocaleString();
   const meetingsSub = document.getElementById("dashboard-meetings-subtext");
-  if (meetingsSub && prospectsCount > 0) {
-    meetingsSub.textContent = `${callsTakenCount} calls taken (${Math.round((callsTakenCount / prospectsCount) * 100)}%) · ${meetings} calendar slots`;
+  if (meetingsSub) {
+    meetingsSub.textContent = "demos";
   }
 
   // Progress Bar

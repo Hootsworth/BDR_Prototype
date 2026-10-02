@@ -1,59 +1,59 @@
-<!-- KPI Metrics Row -->
-
-<div class="dashboard-kpi-grid">
-  <div class="dashboard-kpi-card">
-    <div class="kpi-header">
-      <span class="kpi-title">Influencers</span>
-      <span class="kpi-icon">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-      </span>
+<!-- ═══ SEARCH HEADER & LIVE KPI STRIP (MATCHING OUTBOUND DESIGN) ═══ -->
+<div class="outbound-header-card" style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.875rem;">
+    <button class="btn btn-secondary btn-sm" onclick="switchTab('campaign-outbound')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      Back to Outbound
+    </button>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        Agent Mode
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openImportContactsTab('events')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        Events
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Import Contacts
+      </button>
     </div>
-    <div class="kpi-value" id="dashboard-total-contacts">0</div>
-    <div class="kpi-subtext">Registered influencers in system</div>
   </div>
 
-  <div class="dashboard-kpi-card">
-    <div class="kpi-header">
-      <span class="kpi-title">Prospects</span>
-      <span class="kpi-icon">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"></path></svg>
-      </span>
+  <!-- Live KPI Strip (Identical to Campaign Outbound) -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.875rem;">
+    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Influencer Partners</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span id="dashboard-total-contacts" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
+        <span style="font-size: 11px; color: var(--color-text-secondary);">advocates</span>
+      </div>
     </div>
-    <div class="kpi-value" id="dashboard-prospects-count">0</div>
-    <div class="kpi-subtext">Registered prospects in system</div>
-  </div>
-  
-  <div class="dashboard-kpi-card">
-    <div class="kpi-header">
-      <span class="kpi-title">Verified &amp; Enriched</span>
-      <span class="kpi-icon">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-      </span>
-    </div>
-    <div class="kpi-value" id="dashboard-enriched-contacts">0</div>
-    <div class="kpi-subtext">Enriched dossiers compiled</div>
-  </div>
 
-  <div class="dashboard-kpi-card">
-    <div class="kpi-header">
-      <span class="kpi-title">Outbound Dispatched</span>
-      <span class="kpi-icon">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-      </span>
+    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Target Prospects</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span id="dashboard-prospects-count" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
+        <span id="dashboard-affiliated-count" style="font-size: 11px; color: #0d9488; font-weight: 600;">(0 affiliated)</span>
+      </div>
     </div>
-    <div class="kpi-value" id="dashboard-outbound-sent">0</div>
-    <div class="kpi-subtext">Emails &amp; LinkedIn sequences</div>
-  </div>
 
-  <div class="dashboard-kpi-card">
-    <div class="kpi-header">
-      <span class="kpi-title">Calls Taken &amp; Meetings</span>
-      <span class="kpi-icon">
-        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      </span>
+    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Outbound Dispatched</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span id="dashboard-outbound-sent" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
+        <span style="font-size: 11px; color: var(--color-success); font-weight: 600;">delivered</span>
+      </div>
     </div>
-    <div class="kpi-value" id="dashboard-meetings-booked">0</div>
-    <div class="kpi-subtext" id="dashboard-meetings-subtext">50% referral call conversion</div>
+
+    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Scheduled Briefings</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span id="dashboard-meetings-booked" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
+        <span id="dashboard-meetings-subtext" style="font-size: 11px; color: var(--color-text-secondary);">demos</span>
+      </div>
+    </div>
   </div>
 </div>
 
