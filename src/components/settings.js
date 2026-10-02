@@ -634,20 +634,21 @@ function saveLinkedInCredentials() {
   database.linkedinClientId = (document.getElementById("settings-linkedin-client-id")?.value || "").trim() || "86gtm_linkedin_oauth_app";
   database.linkedinClientSecret = (document.getElementById("settings-linkedin-client-secret")?.value || "").trim();
   const inputToken = (document.getElementById("settings-linkedin-access-token")?.value || "").trim();
-  database.linkedinAccessToken = inputToken || database.linkedinAccessToken || ("linkedin_oauth_token_" + Date.now());
+  if (inputToken) database.linkedinAccessToken = inputToken;
   database.linkedinConnection = null;
   const status = document.getElementById("linkedin-credentials-status");
   if (status) {
-    status.textContent = "Token saved — ready";
-    status.className = "badge badge-success";
+    status.textContent = inputToken ? "Token saved · not verified" : "Not connected";
+    status.className = "badge";
   }
-  addLogConsole("enrich", "[LINKEDIN] OAuth access token loaded for this browser session.", "success");
+  addLogConsole("enrich", inputToken ? "[LINKEDIN] OAuth access token loaded for this browser session." : "[LINKEDIN] Enter an OAuth access token to connect.", inputToken ? "success" : "warning");
 }
 
 async function verifyLinkedInConnection() {
   saveLinkedInCredentials();
   if (!database.linkedinAccessToken) {
-    database.linkedinAccessToken = "linkedin_oauth_token_" + Date.now();
+    alert("Paste a LinkedIn OAuth access token before verifying the connection.");
+    return false;
   }
 
   const status = document.getElementById("linkedin-credentials-status");
@@ -662,7 +663,7 @@ async function verifyLinkedInConnection() {
       })
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "LinkedIn rejected the access token.");
+    if (!response.ok) throw new Error(linkedinVerificationError(result.error || "LinkedIn rejected the access token."));
     database.linkedinConnection = result;
     if (status) { status.textContent = `Connected ✓ (${result.name})`; status.className = "badge badge-success"; }
     addLogConsole("enrich", `[LINKEDIN] Verified OAuth connection for ${result.name} (${result.email || 'Active'}).`, "success");
@@ -674,6 +675,19 @@ async function verifyLinkedInConnection() {
     alert(`LinkedIn connection could not be verified. ${error.message}`);
     return false;
   }
+}
+
+function linkedinVerificationError(rawError) {
+  let detail = rawError;
+  if (typeof detail === "string") {
+    try { detail = JSON.parse(detail); } catch (_) { /* Keep LinkedIn's original message. */ }
+  }
+  const providerMessage = typeof detail === "object" && detail ? String(detail.message || "") : String(detail || "");
+  const providerCode = typeof detail === "object" && detail ? String(detail.code || "") : "";
+  if (providerCode === "ACCESS_DENIED" || providerMessage.includes("userinfo.GET")) {
+    return "LinkedIn denied the profile check because this app or token lacks OpenID Connect access. In the LinkedIn Developer Portal, add the ‘Sign in with LinkedIn using OpenID Connect’ product, then create a fresh access token with the openid and profile scopes (add email if you need the account email). Paste that new token here and verify again.";
+  }
+  return typeof detail === "object" && detail ? providerMessage || JSON.stringify(detail) : String(detail || "LinkedIn rejected the access token.");
 }
 
 function saveSlackWebhookUrl() {

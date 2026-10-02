@@ -55,6 +55,8 @@
           <option value="pending">Pending call</option>
         </select>
         <button class="btn btn-primary btn-sm" type="button" onclick="toggleInfluencerReferralForm()" aria-expanded="false" aria-controls="partner-referral-form">Add referred contact</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="btn-toggle-bulk-referral" onclick="toggleBulkReferralEditor()" aria-expanded="false" aria-controls="partner-bulk-referral-panel">Bulk add / Multi-edit</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="btn-toggle-table-multi-edit" onclick="togglePartnerTableMultiEdit()">Edit table inline</button>
         <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('partner-import-file').click()">Import CSV</button>
         <button class="btn btn-secondary btn-sm" type="button" onclick="downloadPartnerReportData()">Export chart data</button>
         <a class="btn btn-secondary btn-sm" href="reports/referral-analytics.html" target="_blank" rel="noopener">Open external report</a>
@@ -69,7 +71,13 @@
           <h4>Add a referred contact</h4>
           <p>Save a warm introduction under <strong id="inf-portal-form-partner">Kim Beluzo</strong>.</p>
         </div>
-        <button class="partner-form-close" type="button" onclick="toggleInfluencerReferralForm(false)" aria-label="Close form">Close</button>
+        <div class="partner-mode-switch-group">
+          <div class="partner-entry-mode-tabs" role="tablist" aria-label="Referral entry mode">
+            <button type="button" class="partner-mode-tab active" onclick="switchPartnerEntryMode('single')">One at a time</button>
+            <button type="button" class="partner-mode-tab" onclick="switchPartnerEntryMode('bulk')">Bulk add / Multi-record edit</button>
+          </div>
+          <button class="partner-form-close" type="button" onclick="toggleInfluencerReferralForm(false)" aria-label="Close form">Close</button>
+        </div>
       </div>
       <div class="partner-form-grid">
         <label>Full name <span>Required</span><input type="text" id="console-portal-ref-name" required placeholder="Jordan Vance"></label>
@@ -78,11 +86,90 @@
         <label>Job title <span>Required</span><input type="text" id="console-portal-ref-title" required placeholder="Chief Lending Officer"></label>
         <label>Phone<input type="tel" id="console-portal-ref-phone" placeholder="+1 415 555 0192"></label>
         <label>Location<input type="text" id="console-portal-ref-location" placeholder="San Diego, CA"></label>
-    <label>Introduction status<select id="console-portal-ref-call"><option value="taken" selected>Call completed</option><option value="scheduled">Call scheduled</option><option value="pending">Pending outreach</option></select></label>
+        <label>Introduction status<select id="console-portal-ref-call"><option value="taken" selected>Call completed</option><option value="scheduled">Call scheduled</option><option value="pending">Pending outreach</option></select></label>
         <label class="partner-form-notes">Context for the introduction<input type="text" id="console-portal-ref-notes" placeholder="How do they know each other? What are they working on?"></label>
       </div>
       <div class="partner-form-footer"><div id="console-portal-feedback" role="status" aria-live="polite" hidden></div><button class="btn btn-primary" type="submit">Save referred contact</button></div>
     </form>
+
+    <div id="partner-bulk-referral-panel" class="partner-referral-form partner-bulk-editor-panel" hidden>
+      <div class="partner-form-intro">
+        <div>
+          <p class="partner-kicker">MULTI-RECORD WORKSPACE</p>
+          <h4>Bulk add &amp; multi-record edit</h4>
+          <p>Add multiple contacts at once, paste directly from Excel/Google Sheets, or load existing referrals under <strong id="inf-portal-bulk-partner">Kim Beluzo</strong> to edit in bulk.</p>
+        </div>
+        <div class="partner-mode-switch-group">
+          <div class="partner-entry-mode-tabs" role="tablist" aria-label="Referral entry mode">
+            <button type="button" class="partner-mode-tab" onclick="switchPartnerEntryMode('single')">One at a time</button>
+            <button type="button" class="partner-mode-tab active" onclick="switchPartnerEntryMode('bulk')">Bulk add / Multi-record edit</button>
+          </div>
+          <button class="partner-form-close" type="button" onclick="toggleBulkReferralEditor(false)" aria-label="Close bulk editor">Close</button>
+        </div>
+      </div>
+
+      <div class="partner-bulk-toolbar">
+        <div class="partner-bulk-toolbar-left">
+          <button class="btn btn-secondary btn-sm" type="button" onclick="addPartnerBulkRows(1)">+ Add row</button>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="addPartnerBulkRows(5)">+ Add 5 rows</button>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="togglePartnerBulkPasteBox()">Paste from spreadsheet / CSV</button>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="loadExistingReferralsIntoBulkEditor()">Load existing referrals to edit</button>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="resetPartnerBulkEditorRows(3)">Reset blank rows</button>
+        </div>
+        <div class="partner-bulk-toolbar-right">
+          <span id="partner-bulk-row-summary" class="partner-bulk-summary-label">3 rows ready</span>
+        </div>
+      </div>
+
+      <div id="partner-bulk-paste-box" class="partner-bulk-paste-box" hidden>
+        <label for="partner-bulk-paste-input">Paste rows from Excel, Google Sheets, or CSV (Columns: Full Name, Email, Company, Job Title, Phone, Location, Status, Notes)</label>
+        <textarea id="partner-bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;San Diego, CA&#9;Call completed&#9;Met at CUNA GAC&#10;Elena Rostova&#9;elena@redwoodcu.org&#9;Redwood Credit Union&#9;VP Lending&#9;+1 415 555 0148&#9;Santa Rosa, CA&#9;Call scheduled&#9;Warm intro"></textarea>
+        <div class="partner-bulk-paste-actions">
+          <button class="btn btn-primary btn-sm" type="button" onclick="applyPartnerBulkPaste()">Parse &amp; add rows</button>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="togglePartnerBulkPasteBox(false)">Cancel</button>
+        </div>
+      </div>
+
+      <div class="partner-bulk-table-wrap">
+        <table class="partner-bulk-grid-table">
+          <thead>
+            <tr>
+              <th style="width: 34px;">#</th>
+              <th>FULL NAME *</th>
+              <th>WORK EMAIL *</th>
+              <th>COMPANY *</th>
+              <th>JOB TITLE</th>
+              <th>PHONE</th>
+              <th>LOCATION</th>
+              <th>CALL STATUS</th>
+              <th>NOTES / CONTEXT</th>
+              <th style="width: 44px;"></th>
+            </tr>
+          </thead>
+          <tbody id="partner-bulk-rows-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="partner-form-footer">
+        <div id="partner-bulk-feedback" role="status" aria-live="polite" hidden></div>
+        <div class="partner-bulk-footer-actions">
+          <button class="btn btn-secondary" type="button" onclick="addPartnerBulkRows(1)">+ Add another row</button>
+          <button class="btn btn-primary" type="button" id="btn-save-partner-bulk" onclick="submitPartnerBulkRecords()">Save all contacts</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="partner-inline-multi-edit-bar" class="partner-inline-multi-edit-bar" hidden>
+      <div>
+        <strong>Inline multi-record edit mode active</strong>
+        <span>Edit multiple contacts directly in the table below, then save all changes at once.</span>
+      </div>
+      <div class="partner-inline-multi-edit-actions">
+        <span id="partner-inline-edit-feedback" role="status" aria-live="polite"></span>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="togglePartnerTableMultiEdit(false)">Cancel</button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-save-inline-multi-edit" onclick="savePartnerTableMultiEdit()">Save all changes</button>
+      </div>
+    </div>
 
     <div class="partner-table-scroll">
       <table class="partner-referrals-table">

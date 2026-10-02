@@ -103,9 +103,11 @@ function renderConsolePortalReferrals() {
   if (credKpiEl) credKpiEl.textContent = `${credits} pts`;
   const enrichedEl = document.getElementById("inf-portal-kpi-enriched");
   const conversionEl = document.getElementById("inf-portal-kpi-conversion");
+  const bulkPartnerEl = document.getElementById("inf-portal-bulk-partner");
   if (enrichedEl) enrichedEl.textContent = referrals.filter(r => r.enriched).length;
   if (conversionEl) conversionEl.textContent = `${pct}%`;
   if (formPartnerEl) formPartnerEl.textContent = activeInf.fullName;
+  if (bulkPartnerEl) bulkPartnerEl.textContent = activeInf.fullName;
   if (tableTitleEl) tableTitleEl.textContent = `${activeInf.fullName}'s Referred Contacts (${referrals.length})`;
   const tbody = document.getElementById("console-portal-referrals-tbody");
   if (!tbody) return;
@@ -129,8 +131,59 @@ function renderConsolePortalReferrals() {
   const subtitleEl = document.getElementById("inf-portal-table-subtitle");
   if (subtitleEl) subtitleEl.textContent = `Showing ${filtered.length} of ${referrals.length} introductions. Update a status or engage a contact.`;
 
+  const inlineBar = document.getElementById("partner-inline-multi-edit-bar");
+  if (inlineBar) inlineBar.hidden = !window.isPartnerTableMultiEditMode;
+  const inlineBtn = document.getElementById("btn-toggle-table-multi-edit");
+  if (inlineBtn) {
+    inlineBtn.textContent = window.isPartnerTableMultiEditMode ? "Exit inline edit" : "Edit table inline";
+    inlineBtn.classList.toggle("btn-primary", Boolean(window.isPartnerTableMultiEditMode));
+    inlineBtn.classList.toggle("btn-secondary", !window.isPartnerTableMultiEditMode);
+  }
+
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">No referred contacts match the current filter.</td></tr>`;
+    return;
+  }
+
+  if (window.isPartnerTableMultiEditMode) {
+    tbody.innerHTML = filtered.map(r => {
+      const statusVal = r.hasTakenCall ? "completed" : r.hasScheduledCall ? "scheduled" : "pending";
+      return `
+        <tr class="partner-inline-edit-row" data-contact-id="${escapePartnerHTML(r.id)}">
+          <td>
+            <div class="partner-inline-cell-stack">
+              <input type="text" class="partner-grid-input" data-field="fullName" value="${escapePartnerHTML(r.fullName || "")}" placeholder="Full name" required>
+              <input type="email" class="partner-grid-input" data-field="email" value="${escapePartnerHTML(r.email || "")}" placeholder="Work email" required>
+            </div>
+          </td>
+          <td>
+            <div class="partner-inline-cell-stack">
+              <input type="text" class="partner-grid-input" data-field="company" value="${escapePartnerHTML(r.company || "")}" placeholder="Company" required>
+              <input type="text" class="partner-grid-input" data-field="jobTitle" value="${escapePartnerHTML(r.jobTitle || "")}" placeholder="Job title">
+            </div>
+          </td>
+          <td>
+            <div class="partner-inline-cell-stack">
+              <select class="partner-grid-select" data-field="status">
+                <option value="completed" ${statusVal === "completed" ? "selected" : ""}>Call completed</option>
+                <option value="scheduled" ${statusVal === "scheduled" ? "selected" : ""}>Call scheduled</option>
+                <option value="pending" ${statusVal === "pending" ? "selected" : ""}>Pending outreach</option>
+              </select>
+              <input type="tel" class="partner-grid-input" data-field="phone" value="${escapePartnerHTML(r.phone || "")}" placeholder="Phone">
+            </div>
+          </td>
+          <td>
+            <div class="partner-inline-cell-stack">
+              <input type="text" class="partner-grid-input" data-field="location" value="${escapePartnerHTML(r.location || "")}" placeholder="Location">
+              <input type="text" class="partner-grid-input" data-field="notes" value="${escapePartnerHTML(r.portalNotes || "")}" placeholder="Internal notes">
+            </div>
+          </td>
+          <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
+            <button class="btn btn-sm btn-secondary" type="button" onclick="deletePartnerContact('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 4px 8px;">Remove</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
     return;
   }
 
@@ -504,16 +557,379 @@ async function deletePartnerProfile() {
 
 function toggleInfluencerReferralForm(forceOpen) {
   const form = document.getElementById("partner-referral-form");
+  const bulkPanel = document.getElementById("partner-bulk-referral-panel");
   const trigger = document.querySelector(".partner-ledger-tools [aria-controls='partner-referral-form']");
   if (!form) return;
   const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : form.hidden;
   form.hidden = !shouldOpen;
+  if (shouldOpen && bulkPanel) {
+    bulkPanel.hidden = true;
+    document.getElementById("btn-toggle-bulk-referral")?.setAttribute("aria-expanded", "false");
+  }
   trigger?.setAttribute("aria-expanded", String(shouldOpen));
   if (!shouldOpen) {
     const feedback = document.getElementById("console-portal-feedback");
     if (feedback) { feedback.hidden = true; feedback.style.display = "none"; }
   }
   if (shouldOpen) document.getElementById("console-portal-ref-name")?.focus();
+}
+
+function switchPartnerEntryMode(mode) {
+  if (mode === "bulk") {
+    toggleInfluencerReferralForm(false);
+    toggleBulkReferralEditor(true);
+  } else {
+    toggleBulkReferralEditor(false);
+    toggleInfluencerReferralForm(true);
+  }
+}
+
+function toggleBulkReferralEditor(forceOpen) {
+  const panel = document.getElementById("partner-bulk-referral-panel");
+  const singleForm = document.getElementById("partner-referral-form");
+  const btn = document.getElementById("btn-toggle-bulk-referral");
+  if (!panel) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : panel.hidden;
+  panel.hidden = !shouldOpen;
+  btn?.setAttribute("aria-expanded", String(shouldOpen));
+  if (shouldOpen) {
+    if (singleForm) {
+      singleForm.hidden = true;
+      document.querySelector(".partner-ledger-tools [aria-controls='partner-referral-form']")?.setAttribute("aria-expanded", "false");
+    }
+    const tbody = document.getElementById("partner-bulk-rows-tbody");
+    if (tbody && tbody.children.length === 0) {
+      resetPartnerBulkEditorRows(3);
+    }
+    ensurePartnerBulkPasteBinding();
+    const firstInput = panel.querySelector("tbody input[data-field='fullName']");
+    firstInput?.focus();
+  } else {
+    const feedback = document.getElementById("partner-bulk-feedback");
+    if (feedback) { feedback.hidden = true; feedback.style.display = "none"; }
+  }
+}
+
+function createPartnerBulkRowHTML(row = {}, index = 1) {
+  const statusVal = row.status || (row.hasTakenCall ? "completed" : row.hasScheduledCall ? "scheduled" : "completed");
+  const idAttr = row.id ? `data-contact-id="${escapePartnerHTML(row.id)}"` : "";
+  const badgeHTML = row.id
+    ? `<span class="partner-bulk-row-badge existing" title="Editing existing contact">${index}</span>`
+    : `<span class="partner-bulk-row-badge">${index}</span>`;
+  return `
+    <tr class="partner-bulk-row" ${idAttr}>
+      <td class="partner-bulk-row-num">${badgeHTML}</td>
+      <td><input type="text" class="partner-grid-input" data-field="fullName" value="${escapePartnerHTML(row.fullName || "")}" placeholder="Jordan Vance"></td>
+      <td><input type="email" class="partner-grid-input" data-field="email" value="${escapePartnerHTML(row.email || "")}" placeholder="jordan@company.com"></td>
+      <td><input type="text" class="partner-grid-input" data-field="company" value="${escapePartnerHTML(row.company || "")}" placeholder="Pacific Crest CU"></td>
+      <td><input type="text" class="partner-grid-input" data-field="jobTitle" value="${escapePartnerHTML(row.jobTitle || "")}" placeholder="Chief Lending Officer"></td>
+      <td><input type="tel" class="partner-grid-input" data-field="phone" value="${escapePartnerHTML(row.phone || "")}" placeholder="+1 415 555 0192"></td>
+      <td><input type="text" class="partner-grid-input" data-field="location" value="${escapePartnerHTML(row.location || "")}" placeholder="San Diego, CA"></td>
+      <td>
+        <select class="partner-grid-select" data-field="status">
+          <option value="completed" ${statusVal === "completed" || statusVal === "taken" ? "selected" : ""}>Call completed</option>
+          <option value="scheduled" ${statusVal === "scheduled" ? "selected" : ""}>Call scheduled</option>
+          <option value="pending" ${statusVal === "pending" ? "selected" : ""}>Pending outreach</option>
+        </select>
+      </td>
+      <td><input type="text" class="partner-grid-input" data-field="notes" value="${escapePartnerHTML(row.notes || row.portalNotes || "")}" placeholder="Warm intro / context"></td>
+      <td style="text-align: center;">
+        <button type="button" class="partner-bulk-remove-btn" onclick="removePartnerBulkRow(this)" title="Remove row" aria-label="Remove row">&times;</button>
+      </td>
+    </tr>
+  `;
+}
+
+function updatePartnerBulkRowNumbers() {
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll("tr.partner-bulk-row"));
+  let existingCount = 0;
+  let newCount = 0;
+  rows.forEach((tr, i) => {
+    const badge = tr.querySelector(".partner-bulk-row-badge");
+    if (badge) badge.textContent = String(i + 1);
+    if (tr.dataset.contactId) existingCount += 1;
+    else newCount += 1;
+  });
+  const summaryEl = document.getElementById("partner-bulk-row-summary");
+  if (summaryEl) {
+    if (existingCount > 0 && newCount > 0) {
+      summaryEl.textContent = `${existingCount} existing + ${newCount} new row${newCount === 1 ? "" : "s"}`;
+    } else if (existingCount > 0) {
+      summaryEl.textContent = `Editing ${existingCount} existing contact${existingCount === 1 ? "" : "s"}`;
+    } else {
+      summaryEl.textContent = `${rows.length} row${rows.length === 1 ? "" : "s"} ready`;
+    }
+  }
+}
+
+function addPartnerBulkRows(count = 1, initialRows = null) {
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  if (!tbody) return;
+  const currentCount = tbody.querySelectorAll("tr.partner-bulk-row").length;
+  const items = Array.isArray(initialRows) ? initialRows : Array.from({ length: count }, () => ({}));
+  const html = items.map((item, idx) => createPartnerBulkRowHTML(item, currentCount + idx + 1)).join("");
+  tbody.insertAdjacentHTML("beforeend", html);
+  updatePartnerBulkRowNumbers();
+}
+
+function removePartnerBulkRow(btn) {
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  const tr = btn?.closest("tr.partner-bulk-row");
+  if (!tbody || !tr) return;
+  tr.remove();
+  if (tbody.querySelectorAll("tr.partner-bulk-row").length === 0) {
+    addPartnerBulkRows(1);
+  } else {
+    updatePartnerBulkRowNumbers();
+  }
+}
+
+function resetPartnerBulkEditorRows(count = 3) {
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  addPartnerBulkRows(count);
+  const feedback = document.getElementById("partner-bulk-feedback");
+  if (feedback) { feedback.hidden = true; feedback.style.display = "none"; }
+}
+
+function loadExistingReferralsIntoBulkEditor() {
+  const influencer = currentPartner();
+  if (!influencer) return;
+  const referrals = getInfluencerReferralsList(influencer);
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  if (referrals.length === 0) {
+    addPartnerBulkRows(3);
+    return;
+  }
+  addPartnerBulkRows(referrals.length, referrals);
+  addPartnerBulkRows(2);
+}
+
+function togglePartnerBulkPasteBox(forceOpen) {
+  const box = document.getElementById("partner-bulk-paste-box");
+  if (!box) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : box.hidden;
+  box.hidden = !shouldOpen;
+  if (shouldOpen) document.getElementById("partner-bulk-paste-input")?.focus();
+}
+
+function parseSpreadsheetLinesToContacts(rawText) {
+  const lines = String(rawText || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [];
+  const parsed = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cells = line.includes("\t")
+      ? line.split("\t").map(c => c.trim())
+      : line.split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+    if (cells.length === 0) continue;
+    const firstLower = (cells[0] || "").toLowerCase();
+    const secondLower = (cells[1] || "").toLowerCase();
+    if (i === 0 && (firstLower.includes("name") || secondLower.includes("email"))) {
+      continue;
+    }
+    const rawStatus = (cells[6] || "").toLowerCase();
+    let status = "completed";
+    if (rawStatus.includes("pend") || rawStatus.includes("not")) status = "pending";
+    else if (rawStatus.includes("sched")) status = "scheduled";
+    parsed.push({
+      fullName: cells[0] || "",
+      email: cells[1] || "",
+      company: cells[2] || "",
+      jobTitle: cells[3] || "",
+      phone: cells[4] || "",
+      location: cells[5] || "",
+      status,
+      notes: cells[7] || ""
+    });
+  }
+  return parsed;
+}
+
+function applyPartnerBulkPaste() {
+  const input = document.getElementById("partner-bulk-paste-input");
+  const rows = parseSpreadsheetLinesToContacts(input?.value || "");
+  if (rows.length === 0) {
+    alert("Paste at least one line with Name, Email, and Company.");
+    return;
+  }
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  if (tbody) {
+    const existingTrs = Array.from(tbody.querySelectorAll("tr.partner-bulk-row"));
+    const allBlank = existingTrs.every(tr => {
+      return !tr.dataset.contactId && Array.from(tr.querySelectorAll("input")).every(inp => !inp.value.trim());
+    });
+    if (allBlank) tbody.innerHTML = "";
+  }
+  addPartnerBulkRows(rows.length, rows);
+  if (input) input.value = "";
+  togglePartnerBulkPasteBox(false);
+}
+
+function ensurePartnerBulkPasteBinding() {
+  const tbody = document.getElementById("partner-bulk-rows-tbody");
+  if (!tbody || tbody.dataset.pasteBound === "true") return;
+  tbody.dataset.pasteBound = "true";
+  tbody.addEventListener("paste", event => {
+    const text = event.clipboardData?.getData("text/plain") || "";
+    if (!text.includes("\n") && !text.includes("\t")) return;
+    const parsed = parseSpreadsheetLinesToContacts(text);
+    if (parsed.length <= 1 && !text.includes("\t")) return;
+    event.preventDefault();
+    const existingTrs = Array.from(tbody.querySelectorAll("tr.partner-bulk-row"));
+    const allBlank = existingTrs.every(tr => !tr.dataset.contactId && Array.from(tr.querySelectorAll("input")).every(inp => !inp.value.trim()));
+    if (allBlank) tbody.innerHTML = "";
+    addPartnerBulkRows(parsed.length, parsed);
+  });
+}
+
+function collectRowsFromTableBody(tbodySelector) {
+  const tbody = document.querySelector(tbodySelector);
+  if (!tbody) return [];
+  const rows = [];
+  for (const tr of tbody.querySelectorAll("tr")) {
+    const getVal = field => (tr.querySelector(`[data-field="${field}"]`)?.value || "").trim();
+    const fullName = getVal("fullName");
+    const email = getVal("email");
+    const company = getVal("company");
+    const jobTitle = getVal("jobTitle");
+    const phone = getVal("phone");
+    const location = getVal("location");
+    const status = getVal("status") || "completed";
+    const notes = getVal("notes");
+    const contactId = tr.dataset.contactId || "";
+    if (!fullName && !email && !company && !jobTitle && !phone && !location && !notes) {
+      continue;
+    }
+    rows.push({
+      id: contactId || undefined,
+      fullName,
+      email,
+      company,
+      jobTitle,
+      phone,
+      location,
+      status,
+      hasScheduledCall: status === "scheduled" || status === "completed" || status === "taken",
+      hasTakenCall: status === "completed" || status === "taken",
+      notes,
+      portalNotes: notes
+    });
+  }
+  return rows;
+}
+
+async function submitPartnerBulkRecords() {
+  const influencer = currentPartner();
+  if (!influencer) return alert("Select a partner first.");
+  const rows = collectRowsFromTableBody("#partner-bulk-rows-tbody");
+  const feedbackEl = document.getElementById("partner-bulk-feedback");
+  const saveBtn = document.getElementById("btn-save-partner-bulk");
+
+  if (rows.length === 0) {
+    alert("Enter at least one contact row with Full Name, Work Email, and Company.");
+    return;
+  }
+
+  const incomplete = rows.find(r => !r.fullName || !r.email || (!r.id && !r.company));
+  if (incomplete) {
+    alert("Every non-empty row requires Full Name, Work Email, and Company.");
+    return;
+  }
+
+  if (saveBtn) saveBtn.disabled = true;
+  try {
+    const res = await fetch("/api/influencers/contacts/bulk-save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        influencerId: influencer.id,
+        contacts: rows
+      })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || `Bulk save failed (${res.status})`);
+
+    await loadWorkbookFromServer();
+    renderInfluencersTable();
+    if (typeof renderDashboard === "function") renderDashboard();
+
+    const parts = [];
+    if (result.created) parts.push(`${result.created} added`);
+    if (result.updated) parts.push(`${result.updated} updated`);
+    if (result.linked) parts.push(`${result.linked} existing linked`);
+    if (result.duplicates?.length) parts.push(`${result.duplicates.length} duplicate skipped`);
+    if (result.invalid) parts.push(`${result.invalid} invalid skipped`);
+
+    if (feedbackEl) {
+      feedbackEl.hidden = false;
+      feedbackEl.style.display = "block";
+      feedbackEl.style.background = "rgba(5, 150, 105, 0.12)";
+      feedbackEl.style.color = "#059669";
+      feedbackEl.textContent = `Saved multi-record batch for ${influencer.fullName}: ${parts.join(", ") || "All records up to date"}.`;
+    }
+    resetPartnerBulkEditorRows(3);
+    if (feedbackEl) {
+      feedbackEl.hidden = false;
+      feedbackEl.style.display = "block";
+    }
+  } catch (err) {
+    if (feedbackEl) {
+      feedbackEl.hidden = false;
+      feedbackEl.style.display = "block";
+      feedbackEl.style.background = "rgba(220, 38, 38, 0.1)";
+      feedbackEl.style.color = "#b42318";
+      feedbackEl.textContent = `Could not save bulk records: ${err.message}`;
+    }
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+function togglePartnerTableMultiEdit(forceState) {
+  window.isPartnerTableMultiEditMode = typeof forceState === "boolean" ? forceState : !window.isPartnerTableMultiEditMode;
+  const feedback = document.getElementById("partner-inline-edit-feedback");
+  if (feedback) feedback.textContent = "";
+  renderConsolePortalReferrals();
+}
+
+async function savePartnerTableMultiEdit() {
+  const influencer = currentPartner();
+  if (!influencer) return;
+  const rows = collectRowsFromTableBody("#console-portal-referrals-tbody");
+  const feedback = document.getElementById("partner-inline-edit-feedback");
+  const btn = document.getElementById("btn-save-inline-multi-edit");
+  if (rows.length === 0) {
+    togglePartnerTableMultiEdit(false);
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (feedback) feedback.textContent = "Saving changes…";
+  try {
+    const res = await fetch("/api/influencers/contacts/bulk-save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        influencerId: influencer.id,
+        contacts: rows
+      })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || `Save failed (${res.status})`);
+    window.isPartnerTableMultiEditMode = false;
+    await loadWorkbookFromServer();
+    renderInfluencersTable();
+    if (typeof renderDashboard === "function") renderDashboard();
+  } catch (err) {
+    if (feedback) feedback.textContent = `Error: ${err.message}`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function toggleInfluencerStatus(index, isChecked) {
@@ -551,5 +967,16 @@ window.closePartnerProfileEditor = closePartnerProfileEditor;
 window.savePartnerProfile = savePartnerProfile;
 window.deletePartnerProfile = deletePartnerProfile;
 window.toggleInfluencerReferralForm = toggleInfluencerReferralForm;
+window.switchPartnerEntryMode = switchPartnerEntryMode;
+window.toggleBulkReferralEditor = toggleBulkReferralEditor;
+window.addPartnerBulkRows = addPartnerBulkRows;
+window.removePartnerBulkRow = removePartnerBulkRow;
+window.resetPartnerBulkEditorRows = resetPartnerBulkEditorRows;
+window.loadExistingReferralsIntoBulkEditor = loadExistingReferralsIntoBulkEditor;
+window.togglePartnerBulkPasteBox = togglePartnerBulkPasteBox;
+window.applyPartnerBulkPaste = applyPartnerBulkPaste;
+window.submitPartnerBulkRecords = submitPartnerBulkRecords;
+window.togglePartnerTableMultiEdit = togglePartnerTableMultiEdit;
+window.savePartnerTableMultiEdit = savePartnerTableMultiEdit;
 window.toggleInfluencerStatus = toggleInfluencerStatus;
 window.openAddReferralModal = openAddReferralModal;

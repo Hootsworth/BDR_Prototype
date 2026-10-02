@@ -261,10 +261,10 @@
 
         <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; margin:1.5rem 0 0.5rem;">
           <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--color-text-primary);">LinkedIn API (OAuth 2.0 &amp; Outreach Dispatch)</h4>
-          <span class="badge badge-success" id="linkedin-credentials-status">Connected ✓ (Operational)</span>
+          <span class="badge" id="linkedin-credentials-status">Not connected</span>
         </div>
         <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0 0 0.75rem;">
-          Connect a live LinkedIn OAuth 2.0 access token or use the pre-configured operational LinkedIn API gateway to verify profiles and dispatch connection notes &amp; messages.
+          Paste a LinkedIn OAuth access token authorized for OpenID Connect. Profile verification requires the <code>openid</code> and <code>profile</code> scopes; request <code>email</code> too if you need the member’s email. A token cannot gain scopes after it is issued, so create a new token after enabling the product in LinkedIn Developer Portal.
         </p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
           <div class="form-group" style="margin:0;">
@@ -279,7 +279,7 @@
         <div style="display:flex; gap:0.5rem; align-items:end; margin-top:0.75rem;">
           <div class="form-group" style="margin:0; flex:1;">
             <label class="form-label" for="settings-linkedin-access-token">OAuth Access Token *</label>
-            <input type="password" class="form-input" id="settings-linkedin-access-token" placeholder="Approved OAuth access token (or leave blank for Demo OAuth)" autocomplete="off">
+            <input type="password" class="form-input" id="settings-linkedin-access-token" placeholder="LinkedIn OAuth access token" autocomplete="off">
           </div>
           <button class="btn btn-secondary btn-sm" onclick="saveLinkedInCredentials()">Save for session</button>
           <button class="btn btn-primary btn-sm" onclick="verifyLinkedInConnection()">Verify &amp; Connect LinkedIn API</button>

@@ -35,12 +35,31 @@
     input,select { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:3px; background:var(--surface); color:var(--ink); font:inherit; }
     input:focus,select:focus { outline:2px solid #aaa39b; outline-offset:1px; }
     button { min-height:42px; width:max-content; padding:0 18px; border:0; border-radius:3px; background:var(--accent); color:white; font:inherit; font-size:13px; cursor:pointer; }
+    button.btn-outline { background:var(--surface); color:var(--ink); border:1px solid var(--line); }
+    button.btn-outline:hover { background:var(--soft); }
+    button.btn-sm { min-height:34px; padding:0 12px; font-size:12px; }
     button:disabled { opacity:.55; cursor:wait; }
-    .form-actions { display:flex; align-items:center; gap:14px; grid-column:1/-1; }
-    #feedback { color:var(--muted); font-size:12px; }
-    #feedback.error { color:var(--error); }
-    #feedback.success { color:var(--ok); }
+    .form-actions { display:flex; align-items:center; gap:14px; grid-column:1/-1; flex-wrap:wrap; }
+    #feedback, #bulk-feedback, #multi-edit-feedback { color:var(--muted); font-size:12px; }
+    #feedback.error, #bulk-feedback.error, #multi-edit-feedback.error { color:var(--error); }
+    #feedback.success, #bulk-feedback.success, #multi-edit-feedback.success { color:var(--ok); }
     #page-error { display:none; margin-top:32px; padding:14px 0; border-top:1px solid var(--line); color:var(--error); font-size:13px; }
+    .section-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .mode-switcher { display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; background:var(--soft); margin:8px 0 20px; }
+    .mode-switcher button { min-height:36px; padding:0 14px; border:0; border-radius:0; background:transparent; color:var(--muted); font-size:12px; font-weight:500; }
+    .mode-switcher button.active { background:var(--accent); color:#fff; }
+    .bulk-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .bulk-toolbar-buttons { display:flex; gap:8px; flex-wrap:wrap; }
+    .bulk-paste-box { margin-bottom:14px; padding:14px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
+    .bulk-paste-box textarea { width:100%; margin:8px 0 10px; padding:10px; border:1px solid var(--line); border-radius:3px; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .bulk-table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:4px; background:var(--surface); margin-bottom:16px; }
+    .bulk-table { width:100%; min-width:780px; border-collapse:collapse; }
+    .bulk-table th { background:var(--soft); padding:10px 8px; font-size:10px; border-bottom:1px solid var(--line); }
+    .bulk-table td { padding:6px 6px; border-top:1px solid var(--line); vertical-align:middle; }
+    .bulk-table input, .bulk-table select, .inline-edit-input, .inline-edit-select { min-height:36px; padding:6px 9px; font-size:12.5px; }
+    .bulk-remove-btn { min-height:30px; width:30px; padding:0; background:transparent; color:var(--muted); border:1px solid transparent; font-size:16px; line-height:1; }
+    .bulk-remove-btn:hover { color:var(--error); border-color:var(--line); background:var(--soft); }
+    .multi-edit-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 14px; margin-bottom:10px; border:1px solid var(--line); border-radius:4px; background:var(--surface); font-size:12.5px; }
     footer { margin-top:48px; padding-top:15px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
     @media(max-width:620px) { main { padding:35px 18px 48px; } .summary { gap:24px; } .section-head { align-items:start; flex-direction:column; } form { grid-template-columns:1fr; } .form-actions { grid-column:auto; align-items:flex-start; flex-direction:column; } }
   </style>
@@ -58,12 +77,31 @@
       <p>Calls completed<strong id="completed-count">—</strong></p>
     </section>
     <section>
-      <header class="section-head"><section><p class="eyebrow">Your network</p><h2>Referred contacts</h2></section><span class="contact-count" id="visible-count"></span></header>
+      <header class="section-head">
+        <section><p class="eyebrow">Your network</p><h2>Referred contacts</h2></section>
+        <div class="section-actions">
+          <span class="contact-count" id="visible-count"></span>
+          <button type="button" class="btn-outline btn-sm" id="toggle-multi-edit-btn">Multi-record edit</button>
+        </div>
+      </header>
+      <div id="multi-edit-bar" class="multi-edit-bar" hidden>
+        <span><strong>Multi-record edit mode:</strong> Update any fields below or add rows, then save all changes at once.</span>
+        <div class="section-actions">
+          <span id="multi-edit-feedback" role="status" aria-live="polite"></span>
+          <button type="button" class="btn-outline btn-sm" id="multi-edit-add-row-btn">+ Add row</button>
+          <button type="button" class="btn-outline btn-sm" id="multi-edit-cancel-btn">Cancel</button>
+          <button type="button" class="btn-sm" id="multi-edit-save-btn">Save all changes</button>
+        </div>
+      </div>
       <section class="table-wrap"><table><thead><tr><th>Contact</th><th>Company &amp; role</th><th>Call status</th></tr></thead><tbody id="contacts-body"><tr><td colspan="3" class="empty">Loading your workspace…</td></tr></tbody></table></section>
     </section>
-    <section class="form-section">
-      <p class="eyebrow">Make an introduction</p><h2>Add a referred contact</h2>
-      <p>Your introduction will be shared with the team managing this workspace. Internal notes and outreach history are not shown here.</p>
+    <section class="form-section" id="introduction-section">
+      <p class="eyebrow">Make an introduction</p><h2>Add referred contacts</h2>
+      <p>Your introductions will be shared with the team managing this workspace. Add contacts one at a time or switch to bulk entry to add multiple records at once.</p>
+      <div class="mode-switcher" role="tablist" aria-label="Introduction entry mode">
+        <button type="button" id="mode-single-btn" class="active" role="tab" aria-selected="true">One at a time</button>
+        <button type="button" id="mode-bulk-btn" role="tab" aria-selected="false">Bulk add (multiple contacts)</button>
+      </div>
       <form id="referral-form">
         <label>Full name<input name="fullName" autocomplete="name" required></label>
         <label>Work email<input name="email" type="email" autocomplete="email" required></label>
@@ -73,6 +111,47 @@
         <label>Call status<select name="status"><option value="pending">Not scheduled</option><option value="scheduled">Scheduled</option><option value="completed">Completed</option></select></label>
         <section class="form-actions"><button id="submit-button" type="submit">Save introduction</button><span id="feedback" role="status" aria-live="polite"></span></section>
       </form>
+
+      <div id="bulk-referral-panel" hidden>
+        <div class="bulk-toolbar">
+          <div class="bulk-toolbar-buttons">
+            <button type="button" class="btn-outline btn-sm" id="bulk-add-row-btn">+ Add row</button>
+            <button type="button" class="btn-outline btn-sm" id="bulk-add-5-btn">+ Add 5 rows</button>
+            <button type="button" class="btn-outline btn-sm" id="bulk-paste-toggle-btn">Paste from Excel / CSV</button>
+            <button type="button" class="btn-outline btn-sm" id="bulk-clear-btn">Reset rows</button>
+          </div>
+          <span class="contact-count" id="bulk-row-count">3 rows</span>
+        </div>
+        <div id="bulk-paste-box" class="bulk-paste-box" hidden>
+          <label for="bulk-paste-input">Paste spreadsheet or CSV lines (Full Name, Work Email, Company, Job Title, Phone, Call Status)</label>
+          <textarea id="bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;Scheduled&#10;Elena Rostova&#9;elena@redwoodcu.org&#9;Redwood Credit Union&#9;VP Lending&#9;+1 415 555 0148&#9;Completed"></textarea>
+          <div class="bulk-toolbar-buttons">
+            <button type="button" class="btn-sm" id="bulk-parse-paste-btn">Add pasted rows</button>
+            <button type="button" class="btn-outline btn-sm" id="bulk-cancel-paste-btn">Cancel</button>
+          </div>
+        </div>
+        <div class="bulk-table-wrap">
+          <table class="bulk-table">
+            <thead>
+              <tr>
+                <th style="width:32px;">#</th>
+                <th>Full name *</th>
+                <th>Work email *</th>
+                <th>Company *</th>
+                <th>Job title</th>
+                <th>Phone</th>
+                <th>Call status</th>
+                <th style="width:38px;"></th>
+              </tr>
+            </thead>
+            <tbody id="bulk-rows-body"></tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="bulk-submit-button">Save all introductions</button>
+          <span id="bulk-feedback" role="status" aria-live="polite"></span>
+        </div>
+      </div>
     </section>
     <p id="page-error" role="alert"></p>
     <footer>This private link grants access to this partner workspace only. Contact the workspace owner if the link should be revoked.</footer>

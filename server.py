@@ -293,12 +293,19 @@ def sync_relational_tables_from_state(state):
 
             has_taken = bool(
                 c.get('hasTakenCall')
-                or calls_count > 0
-                or any('taken' in str(call.get('outcome', '')).lower() or 'spoke' in str(call.get('outcome', '')).lower() or 'completed' in str(call.get('outcome', '')).lower() for call in (calls_made if isinstance(calls_made, list) else []))
+                or any(
+                    str(call.get('status', '')).lower() in ('taken', 'completed')
+                    or 'taken' in str(call.get('outcome', '')).lower()
+                    or 'spoke' in str(call.get('outcome', '')).lower()
+                    or 'completed' in str(call.get('outcome', '')).lower()
+                    for call in (calls_made if isinstance(calls_made, list) else [])
+                    if isinstance(call, dict)
+                )
             )
             has_scheduled = bool(
                 c.get('hasScheduledCall')
                 or has_taken
+                or calls_count > 0
                 or (email_lower and email_lower in meeting_emails)
             )
             c['hasTakenCall'] = has_taken
@@ -556,6 +563,129 @@ def link_existing_contact_to_influencer(influencer, contact):
     })
     influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
 
+def apply_partner_bulk_records(state, influencer, rows, source='Bulk Entry', allow_internal_notes=False):
+    if not isinstance(rows, list) or len(rows) == 0:
+        raise ValueError('Provide at least one contact row to save.')
+    if len(rows) > 1000:
+        raise ValueError('Save up to 1,000 contacts at a time.')
+
+    contacts = state.setdefault('contacts', [])
+    influencer_id = str(influencer.get('id') or '')
+    influencer_email = str(influencer.get('email') or '').lower()
+    influencer_name = str(influencer.get('fullName') or '').lower()
+
+    created = []
+    updated = []
+    linked = 0
+    duplicates = []
+    invalid = 0
+
+    for row in rows:
+        if not isinstance(row, dict):
+            invalid += 1
+            continue
+        name = str(row.get('fullName') or '').strip()
+        if not name:
+            name = ' '.join(str(row.get(k) or '').strip() for k in ('firstName', 'lastName')).strip()
+        email = str(row.get('email') or '').strip().lower()
+        if not name and not email and not str(row.get('company') or '').strip():
+            # Completely blank row in multi-row editor: ignore silently
+            continue
+        if not name or not email or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+            invalid += 1
+            continue
+
+        status_val = str(row.get('status') or '').strip().lower()
+        has_taken = bool(row.get('hasTakenCall')) or status_val in ('completed', 'taken')
+        has_scheduled = bool(row.get('hasScheduledCall')) or has_taken or status_val == 'scheduled'
+
+        row_id = str(row.get('id') or row.get('contactId') or '').strip()
+        if row_id:
+            target = next((c for c in contacts if str(c.get('id')) == row_id and not c.get('isInfluencer')), None)
+            is_owned = bool(target and (
+                str(target.get('influencerId') or '') == influencer_id
+                or str(target.get('influencerEmail') or '').lower() == influencer_email
+                or str(target.get('referredBy') or '').lower() == influencer_name
+            ))
+            if not is_owned:
+                invalid += 1
+                continue
+            email_conflict = next((c for c in contacts if c is not target and str(c.get('email') or '').strip().lower() == email), None)
+            if email_conflict:
+                duplicates.append(email)
+                continue
+            parts = name.split()
+            target.update({
+                'fullName': name,
+                'firstName': parts[0] if parts else '',
+                'lastName': ' '.join(parts[1:]),
+                'email': email,
+                'company': str(row.get('company') if 'company' in row else target.get('company') or '').strip(),
+                'jobTitle': str(row.get('jobTitle') if 'jobTitle' in row else target.get('jobTitle') or '').strip(),
+                'phone': str(row.get('phone') if 'phone' in row else target.get('phone') or '').strip(),
+                'hasScheduledCall': has_scheduled,
+                'hasTakenCall': has_taken,
+                'influencerId': influencer.get('id'),
+                'influencerEmail': influencer.get('email'),
+                'referredBy': influencer.get('fullName'),
+                'referredByEmail': influencer.get('email')
+            })
+            if 'location' in row:
+                target['location'] = str(row.get('location') or '').strip()
+            if allow_internal_notes and ('portalNotes' in row or 'notes' in row):
+                target['portalNotes'] = str(row.get('portalNotes') if 'portalNotes' in row else row.get('notes') or '').strip()
+            for referral in (influencer.get('referrals') or []):
+                if str(referral.get('id')) == row_id or str(referral.get('email') or '').lower() == email:
+                    referral.update({
+                        'fullName': target.get('fullName'),
+                        'email': target.get('email'),
+                        'company': target.get('company'),
+                        'jobTitle': target.get('jobTitle'),
+                        'phone': target.get('phone'),
+                        'hasScheduledCall': has_scheduled,
+                        'hasTakenCall': has_taken
+                    })
+            updated.append(target)
+        else:
+            existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+            if existing:
+                existing_owner_id = str(existing.get('influencerId') or '')
+                existing_owner_email = str(existing.get('influencerEmail') or '').lower()
+                existing_owner_name = str(existing.get('referredBy') or '').lower()
+                already_same = existing_owner_id == influencer_id or existing_owner_email == influencer_email or existing_owner_name == influencer_name
+                has_other_owner = existing_owner_id or existing_owner_email or existing_owner_name
+                if not existing.get('isInfluencer') and not already_same and not has_other_owner:
+                    link_existing_contact_to_influencer(influencer, existing)
+                    existing['hasScheduledCall'] = has_scheduled or bool(existing.get('hasScheduledCall'))
+                    existing['hasTakenCall'] = has_taken or bool(existing.get('hasTakenCall'))
+                    linked += 1
+                else:
+                    duplicates.append(email)
+                continue
+            row_payload = dict(row)
+            row_payload['fullName'] = name
+            row_payload['email'] = email
+            row_payload['hasScheduledCall'] = has_scheduled
+            row_payload['hasTakenCall'] = has_taken
+            if not allow_internal_notes:
+                row_payload.pop('notes', None)
+                row_payload.pop('portalNotes', None)
+            try:
+                created.append(create_partner_referral(state, influencer, row_payload, source=source))
+            except FileExistsError:
+                duplicates.append(email)
+            except ValueError:
+                invalid += 1
+
+    return {
+        'created': len(created),
+        'updated': len(updated),
+        'linked': linked,
+        'duplicates': duplicates,
+        'invalid': invalid,
+        'contacts': [partner_safe_contact(c) for c in (created + updated)]
+    }
+
 def is_loopback_admin_request(handler):
     if os.environ.get('VERCEL'):
         return False
@@ -739,13 +869,13 @@ def search_database_nl(query_text='', filters=None):
     wants_no_call = bool(re.search(r'not\s+taken\s+a?\s*call|no\s+calls?|haven\'t\s+taken\s+a?\s*call|without\s+a?\s*call|pending\s+call', q_lower))
 
     if wants_no_call:
-        sql_clauses.append('has_taken_call = 0 AND calls_count = 0')
+        sql_clauses.append('has_taken_call = 0 AND has_scheduled_call = 0')
         explanation_parts.append('Call Status = No Call Taken')
     elif wants_taken_call:
-        sql_clauses.append('(has_taken_call = 1 OR calls_count > 0)')
+        sql_clauses.append('has_taken_call = 1')
         explanation_parts.append('Call Status = Taken a Call ✓')
     elif wants_scheduled_call:
-        sql_clauses.append('(has_scheduled_call = 1 OR has_taken_call = 1 OR calls_count > 0)')
+        sql_clauses.append('(has_scheduled_call = 1 OR has_taken_call = 1)')
         explanation_parts.append('Call Status = Scheduled / Taken Call 📅')
 
     # 4. Detect Email / LinkedIn / Enrichment / Lead Temp predicates
@@ -1771,6 +1901,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not influencer:
                     json_response(self, 404, {'error': 'Partner profile not found.'})
                     return
+                if isinstance(payload.get('contacts'), list):
+                    rows = payload.get('contacts') or []
+                    if len(rows) > 1000:
+                        json_response(self, 400, {'error': 'Submit up to 1,000 contacts at a time.'})
+                        return
+                    summary = apply_partner_bulk_records(state, influencer, rows, source='Partner Link', allow_internal_notes=False)
+                    if summary['created'] or summary['updated'] or summary['linked']:
+                        write_workbook_state(state)
+                    json_response(self, 200, {'status': 'bulk_saved', **summary})
+                    return
                 contact = create_partner_referral(state, influencer, payload, source='Partner Link')
                 write_workbook_state(state)
                 json_response(self, 201, {'status': 'created', 'contact': partner_safe_contact(contact)})
@@ -1868,7 +2008,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Influencer operation failed: {ex}'})
             return
 
-        if self.path in ('/api/influencers/contacts/import', '/api/influencers/contacts/update', '/api/influencers/contacts/delete'):
+        if self.path in ('/api/influencers/contacts/import', '/api/influencers/contacts/bulk-save', '/api/influencers/contacts/update', '/api/influencers/contacts/delete'):
             if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
                 json_response(self, 403, {'error': 'Contact management is available to the local app owner only.'})
                 return
@@ -1880,51 +2020,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 404, {'error': 'Influencer profile not found.'})
                     return
                 contacts = state.setdefault('contacts', [])
-                if self.path.endswith('/import'):
+                if self.path.endswith('/import') or self.path.endswith('/bulk-save'):
                     rows = payload.get('contacts') or []
                     if not isinstance(rows, list) or len(rows) > 1000:
-                        json_response(self, 400, {'error': 'Import up to 1,000 contacts at a time.'})
+                        json_response(self, 400, {'error': 'Import or save up to 1,000 contacts at a time.'})
                         return
-                    created, linked, duplicates, invalid = [], 0, [], 0
-                    for row in rows:
-                        if not isinstance(row, dict):
-                            invalid += 1
-                            continue
-                        if not row.get('fullName'):
-                            row['fullName'] = ' '.join(str(row.get(k) or '').strip() for k in ('firstName', 'lastName')).strip()
-                        if not row.get('fullName') or not row.get('email'):
-                            invalid += 1
-                            continue
-                        email = str(row.get('email') or '').strip().lower()
-                        existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
-                        if existing:
-                            existing_owner_id = str(existing.get('influencerId') or '')
-                            existing_owner_email = str(existing.get('influencerEmail') or '').lower()
-                            existing_owner_name = str(existing.get('referredBy') or '').lower()
-                            already_same_partner = existing_owner_id == influencer_id or existing_owner_email == str(influencer.get('email') or '').lower() or existing_owner_name == str(influencer.get('fullName') or '').lower()
-                            has_other_owner = existing_owner_id or existing_owner_email or existing_owner_name
-                            if not existing.get('isInfluencer') and already_same_partner and not existing_owner_id:
-                                existing['influencerId'] = influencer.get('id')
-                                existing['influencerEmail'] = influencer.get('email')
-                                existing['referredBy'] = influencer.get('fullName')
-                                existing['referredByEmail'] = influencer.get('email')
-                                existing.setdefault('referredDate', time.strftime('%Y-%m-%d', time.gmtime()))
-                                linked += 1
-                            elif not existing.get('isInfluencer') and not already_same_partner and not has_other_owner:
-                                link_existing_contact_to_influencer(influencer, existing)
-                                linked += 1
-                            else:
-                                duplicates.append(email)
-                            continue
-                        try:
-                            created.append(create_partner_referral(state, influencer, row, source='CSV Import'))
-                        except FileExistsError:
-                            duplicates.append(str(row.get('email') or '').strip().lower())
-                        except ValueError:
-                            invalid += 1
-                    if created or linked:
+                    source_label = 'Bulk Editor' if self.path.endswith('/bulk-save') else 'CSV Import'
+                    summary = apply_partner_bulk_records(state, influencer, rows, source=source_label, allow_internal_notes=True)
+                    if summary['created'] or summary['updated'] or summary['linked']:
                         write_workbook_state(state)
-                    json_response(self, 200, {'created': len(created), 'linked': linked, 'duplicates': duplicates, 'invalid': invalid})
+                    json_response(self, 200, summary)
                     return
 
                 contact_id = str(payload.get('contactId') or '')
@@ -1971,6 +2076,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'referredBy': influencer.get('fullName'),
                     'referredByEmail': influencer.get('email')
                 })
+                if 'hasScheduledCall' in changes:
+                    contact['hasScheduledCall'] = bool(changes.get('hasScheduledCall'))
+                if 'hasTakenCall' in changes:
+                    contact['hasTakenCall'] = bool(changes.get('hasTakenCall'))
+                    if contact['hasTakenCall']:
+                        contact['hasScheduledCall'] = True
                 for referral in (influencer.get('referrals') or []):
                     if str(referral.get('id')) == contact_id or str(referral.get('email') or '').lower() == next_email:
                         referral.update({key: contact.get(key) for key in ('fullName', 'email', 'company', 'jobTitle', 'phone')})

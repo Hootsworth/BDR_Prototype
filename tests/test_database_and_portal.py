@@ -9,11 +9,14 @@ class TestDatabaseSearchAndPortal(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.orig_db_file = server.DB_PATH
+        self.orig_wb_path = server.WORKBOOK_PATH
         server.DB_PATH = str(Path(self.temp_dir.name) / "test_gtm.sqlite3")
+        server.WORKBOOK_PATH = str(Path(self.temp_dir.name) / "gtm-console-database.xlsx")
         server.seed_synthetic_database(force=True)
 
     def tearDown(self):
         server.DB_PATH = self.orig_db_file
+        server.WORKBOOK_PATH = self.orig_wb_path
         self.temp_dir.cleanup()
 
     def test_synthetic_30x30_dataset_structure(self):
@@ -65,6 +68,52 @@ class TestDatabaseSearchAndPortal(unittest.TestCase):
             "Find me all the contact referrals of Kim Beluzo that have taken a call"
         )
         self.assertEqual(after_search["total"], 16)
+
+    def test_bulk_add_and_multi_record_edit_referrals(self):
+        state = server.read_state("database")
+        kim = next(c for c in state["contacts"] if c.get("isInfluencer") and c["fullName"] == "Kim Beluzo")
+        existing_ref = next(c for c in state["contacts"] if not c.get("isInfluencer") and c.get("referredBy") == "Kim Beluzo" and not c.get("hasTakenCall"))
+
+        summary = server.apply_partner_bulk_records(
+            state,
+            kim,
+            [
+                {
+                    "id": existing_ref["id"],
+                    "fullName": existing_ref["fullName"],
+                    "email": existing_ref["email"],
+                    "company": "Updated Credit Union",
+                    "jobTitle": "EVP Strategy",
+                    "status": "completed",
+                },
+                {
+                    "fullName": "Bulk Prospect One",
+                    "email": "bulk.one@pacificcu.org",
+                    "company": "Pacific Crest CU",
+                    "jobTitle": "Chief Lending Officer",
+                    "status": "completed",
+                },
+                {
+                    "fullName": "Bulk Prospect Two",
+                    "email": "bulk.two@redwoodcu.org",
+                    "company": "Redwood Credit Union",
+                    "jobTitle": "VP Operations",
+                    "status": "scheduled",
+                },
+            ],
+            source="Bulk Editor",
+            allow_internal_notes=True,
+        )
+        server.sync_relational_tables_from_state(state)
+
+        self.assertEqual(summary["updated"], 1)
+        self.assertEqual(summary["created"], 2)
+
+        after_search = server.search_database_nl(
+            "Find me all the contact referrals of Kim Beluzo that have taken a call"
+        )
+        # 15 original + 1 updated existing_ref + 1 Bulk Prospect One = 17
+        self.assertEqual(after_search["total"], 17)
 
 
 if __name__ == "__main__":
