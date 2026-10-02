@@ -59,7 +59,14 @@
       <button class="btn btn-secondary btn-sm" onclick="closeColumnMapper()">×</button>
     </div>
     <div class="modal-body">
-      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Map your CSV columns to standard BDR attributes.</p>
+      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 0.75rem;">Map your CSV columns to standard BDR attributes.</p>
+      <div class="form-group" style="margin-bottom: 0.875rem;">
+        <label class="form-label" for="mapper-import-role-select" style="font-size: 11.5px; font-weight: 700;">Import Records As</label>
+        <select class="form-select" id="mapper-import-role-select" style="font-size: 12.5px; font-weight: 600;">
+          <option value="prospect">Target Prospects (Decision Makers)</option>
+          <option value="influencer">Influencers (Partners with Referral Portal)</option>
+        </select>
+      </div>
       <div id="field-mapping-container" style="max-height: 240px; overflow-y: auto;">
         <!-- Populated Dynamically -->
       </div>
@@ -237,6 +244,13 @@
           </select>
         </div>
 
+        <div class="form-group" style="padding: 0.6rem 0.75rem; background: rgba(13, 148, 136, 0.06); border: 1px solid rgba(13, 148, 136, 0.25); border-radius: var(--radius-xs);">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 12.5px; font-weight: 600; color: var(--color-text-primary); cursor: pointer; margin: 0;">
+            <input type="checkbox" id="input-reg-as-influencer" style="accent-color: #0d9488;">
+            Also enroll contact as Influencer Partner (with Referral Portal)
+          </label>
+        </div>
+
         <div class="form-group">
           <label class="form-label" for="input-reg-notes">Event Notes</label>
           <textarea class="form-input" id="input-reg-notes" rows="3" placeholder="Add specific notes..."></textarea>
@@ -300,7 +314,7 @@
 <dialog id="event-add-new-contact-dialog" style="border: none; background: transparent; padding: 0;">
   <div class="modal-container" style="max-width: 560px;">
     <div class="modal-header">
-      <h3 style="margin: 0;">Add New Contact from Event</h3>
+      <h3 id="event-add-contact-modal-title" style="margin: 0;">Add New Contact from Event</h3>
       <button class="btn btn-secondary btn-sm" onclick="closeAddContactFromEventModal()">×</button>
     </div>
     <form id="event-add-new-contact-form" onsubmit="handleAddContactFromEventSubmit(event)">
@@ -349,9 +363,9 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div class="form-group">
             <label class="form-label" for="event-new-contact-role">Contact Category</label>
-            <select class="form-select" id="event-new-contact-role">
+            <select class="form-select" id="event-new-contact-role" onchange="updateEventAddContactRoleUI(this.value)">
               <option value="prospect">Prospect (Decision Maker)</option>
-              <option value="influencer">Influencer Partner</option>
+              <option value="influencer">Influencer Partner (with Referral Portal)</option>
             </select>
           </div>
           <div class="form-group">
@@ -371,26 +385,29 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddContactFromEventModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Add Contact to Event &amp; Database</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="event-add-contact-submit-btn">Add Contact to Event &amp; Database</button>
       </div>
     </form>
   </div>
 </dialog>
 
-<!-- DIALOG: Outbound Campaign Action Modal -->
-<dialog id="outbound-action-dialog" style="border: none; background: transparent; padding: 0;">
-  <div class="modal-container" style="max-width: 960px; width: 92vw; max-height: 90vh;">
-    <div class="modal-header">
-      <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <h3 id="outbound-modal-contact-name" style="margin: 0;">Outbound Campaign</h3>
+<!-- DIALOG: Outbound Campaign Action Modal (Full-Screen Workspace) -->
+<dialog id="outbound-action-dialog" class="outbound-fullscreen-dialog" style="border: none; background: #ffffff; padding: 0; margin: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; inset: 0;">
+  <div class="modal-container outbound-fullscreen-container" style="width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: none; display: flex; flex-direction: column; margin: 0;">
+    <div class="modal-header outbound-fullscreen-header" style="padding: 1rem 2rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+      <div style="display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeOutboundModal()" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">← Back</button>
+        <h3 id="outbound-modal-contact-name" style="margin: 0; font-size: 1.15rem;">Outbound Campaign</h3>
         <span class="badge" id="outbound-modal-contact-badge">Hot Lead</span>
         <span class="badge" id="outbound-modal-referred-tag" style="display: none; background: rgba(13, 148, 136, 0.15); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.3); font-weight: 600;">Referred by: -</span>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="closeOutboundModal()">×</button>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <button class="btn btn-secondary btn-sm" onclick="closeOutboundModal()">Close Esc</button>
+      </div>
     </div>
 
-    <div class="modal-body" style="padding: 1.5rem; overflow-y: auto;">
-      <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem;">
+    <div class="modal-body outbound-fullscreen-body" style="padding: 1.75rem 2.25rem; overflow-y: auto; flex: 1;">
+      <div class="outbound-fullscreen-grid" style="display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr); gap: 2rem; max-width: 1600px; margin: 0 auto; height: 100%;">
 
         <!-- LEFT SIDE: Message Drafting & Live Preview -->
         <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -702,13 +719,14 @@ Autonomous GTM Copilot</div>
   </div>
 </div>
 
-<!-- ═══ BULK OUTREACH PERSONALIZATION & DISPATCH MODAL ═══ -->
-<dialog id="bulk-outbound-modal" style="border: none; background: transparent; padding: 0;">
-  <div class="modal-container" style="max-width: 920px; max-height: 90vh; display: flex; flex-direction: column;">
+<!-- ═══ BULK OUTREACH PERSONALIZATION & DISPATCH MODAL (Full-Screen Workspace) ═══ -->
+<dialog id="bulk-outbound-modal" class="outbound-fullscreen-dialog" style="border: none; background: #ffffff; padding: 0; margin: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; inset: 0;">
+  <div class="modal-container outbound-fullscreen-container" style="width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: none; display: flex; flex-direction: column; margin: 0;">
 
     <!-- Modal Header -->
-    <div class="modal-header" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-soft);">
+    <div class="modal-header outbound-fullscreen-header" style="padding: 1rem 2rem; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; background: var(--surface-soft);">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeBulkOutboundModal()" style="font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">← Back</button>
         <div style="width: 36px; height: 36px; border-radius: var(--radius-xs); background: rgba(13, 148, 136, 0.15); color: #0d9488; display: flex; align-items: center; justify-content: center;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
         </div>
@@ -717,11 +735,11 @@ Autonomous GTM Copilot</div>
           <span style="font-size: 12px; color: var(--color-text-secondary);">Send personalized individual emails to multiple contacts in one action</span>
         </div>
       </div>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="closeBulkOutboundModal()" style="font-weight: 700;">✕</button>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="closeBulkOutboundModal()" style="font-weight: 700;">Close Esc</button>
     </div>
 
     <!-- Modal Body -->
-    <div class="modal-body" style="padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1;">
+    <div class="modal-body outbound-fullscreen-body" style="padding: 1.5rem 2.25rem; overflow-y: auto; flex: 1;">
 
       <!-- Selected Audience Strip -->
       <div style="margin-bottom: 1.25rem;">

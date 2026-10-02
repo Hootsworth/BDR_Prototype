@@ -171,11 +171,37 @@
       </div>
     </div>
 
-    <div class="partner-table-scroll">
-      <table class="partner-referrals-table">
-        <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>STATUS</th><th>CHANNELS</th><th>ACTIONS</th></tr></thead>
-        <tbody id="console-portal-referrals-tbody"><tr><td colspan="5" class="partner-empty-state">Select a partner to load referrals.</td></tr></tbody>
-      </table>
+    <div class="partner-split-workspace">
+      <!-- LEFT PANE: All Contacts Given by Influencer -->
+      <div class="partner-split-left">
+        <div class="partner-split-pane-header">
+          <div>
+            <p class="partner-kicker">REFERRED ROSTER</p>
+            <h4>Contacts Given by Influencer</h4>
+          </div>
+          <span class="partner-split-hint">Click any contact name to show outreach options</span>
+        </div>
+        <div class="partner-table-scroll">
+          <table class="partner-referrals-table">
+            <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>REFERRED</th></tr></thead>
+            <tbody id="console-portal-referrals-tbody"><tr><td colspan="3" class="partner-empty-state">Select a partner to load referrals.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RIGHT PANE: Contacted Status & Outreach Activity -->
+      <aside class="partner-split-right" id="partner-contact-status-panel" aria-label="Contacted status and outreach options">
+        <div class="partner-split-pane-header">
+          <div>
+            <p class="partner-kicker">OUTREACH &amp; ENGAGEMENT</p>
+            <h4>Contacted Status &amp; Outreach</h4>
+          </div>
+          <span class="partner-split-hint" id="partner-contacted-summary-pill">0 / 0 contacted</span>
+        </div>
+        <div id="partner-contact-status-body" class="partner-contact-status-body">
+          <div class="partner-empty-state">Select a contact on the left to view contacted status and outreach options (Email, LinkedIn, Call).</div>
+        </div>
+      </aside>
     </div>
   </section>
   <p class="partner-share-note">Private links show only this partner’s contact details and call status. Only one link stays active per partner; creating a new one revokes the old link. Contact notes and outreach history stay internal.</p>

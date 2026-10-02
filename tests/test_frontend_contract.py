@@ -71,9 +71,12 @@ class FrontendContractTests(unittest.TestCase):
         index_html = self.read("index.html")
         outbound_html = self.read("components/campaign-outbound.html")
         upload_html = self.read("components/upload.html")
+        events_list_html = self.read("components/events-list.html")
+        dialogs_html = self.read("components/dialogs.html")
         main_js = self.read("src/main.js")
         tables_js = self.read("src/components/tables.js")
         events_js = self.read("src/components/events.js")
+        upload_js = self.read("src/components/upload.js")
         outbound_js = self.read("src/components/outbound.js")
 
         # Sidebar & App Branding
@@ -82,28 +85,75 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("cat-group-contacts", index_html)
         self.assertNotIn("cat-group-events", index_html)
 
-        # Outbound screen header & navigation buttons
+        # Outbound screen header & navigation buttons (called "Import" not "Events")
         self.assertNotIn("Omnichannel Outbound &amp; Referral Engine", outbound_html)
         self.assertNotIn("Coordinate influencer networks, manage warm referrals", outbound_html)
         self.assertIn("switchTab('agent-mode')", outbound_html)
         self.assertIn("switchTab('dashboard')", outbound_html)
-        self.assertIn("openImportContactsTab('events')", outbound_html)
+        self.assertNotIn("outbound-btn-events", outbound_html)
+        self.assertNotIn("openImportContactsTab('events')", outbound_html)
         self.assertIn("openImportContactsTab('csv')", outbound_html)
+        self.assertIn("Import\n", outbound_html)
 
-        # Unified Import Contacts screen (Direct Add / CSV + Events)
+        # Unified Import screen (Direct Add / CSV + Events) & Add Influencer options
         self.assertIn("import-contacts-mode-csv", upload_html)
         self.assertIn("import-contacts-mode-events", upload_html)
         self.assertIn("quick-direct-add-form", upload_html)
+        self.assertIn("openAddInfluencerFromImport()", upload_html)
+        self.assertIn("toggleQuickDirectAddForm(true, 'influencer')", upload_html)
+        self.assertIn("csv-import-role-select", upload_html)
+        self.assertIn("filter-upload-role", upload_html)
+        self.assertIn("openAddContactFromEventModal('influencer')", upload_html)
+        self.assertIn("openAddContactFromEventModal('influencer')", events_list_html)
+        self.assertIn("mapper-import-role-select", dialogs_html)
+        self.assertIn("input-reg-as-influencer", dialogs_html)
         self.assertIn("select-event-view", upload_html)
         self.assertIn("table-events-attendees", upload_html)
 
-        # Contact -> Influencer conversion with Influencer Portal
+        # Contact -> Influencer conversion & Add Influencer handlers
         self.assertIn("openImportContactsTab", main_js)
         self.assertIn("switchImportContactsMode", main_js)
         self.assertIn("convertContactToInfluencer", tables_js)
+        self.assertIn("openAddInfluencerFromImport", tables_js)
+        self.assertIn("updateQuickDirectAddRoleUI", tables_js)
         self.assertIn("convertEventAttendeeToInfluencer", events_js)
+        self.assertIn("updateEventAddContactRoleUI", events_js)
+        self.assertIn("mapper-import-role-select", upload_js)
         self.assertIn("convertContactToInfluencer", outbound_js)
+
+    def test_fullscreen_outreach_and_influencer_portal_split_layout(self):
+        dialogs_html = self.read("components/dialogs.html")
+        influencers_html = self.read("components/influencers.html")
+        influencers_js = self.read("src/components/influencers.js")
+        outbound_js = self.read("src/components/outbound.js")
+        style_css = self.read("style.css")
+
+        # Full-screen outreach workspace instead of small popup
+        self.assertIn("outbound-fullscreen-dialog", dialogs_html)
+        self.assertIn("outbound-fullscreen-container", dialogs_html)
+        self.assertIn("← Back", dialogs_html)
+        self.assertIn("dialog.outbound-fullscreen-dialog", style_css)
+        self.assertIn("100vw !important", style_css)
+        self.assertIn("100dvh !important", style_css)
+
+        # Influencer portal separate left (contacts given by influencer) & right (contacted status & outreach)
+        self.assertIn("partner-split-workspace", influencers_html)
+        self.assertIn("partner-split-left", influencers_html)
+        self.assertIn("partner-split-right", influencers_html)
+        self.assertIn("Contacts Given by Influencer", influencers_html)
+        self.assertIn("Contacted Status &amp; Outreach", influencers_html)
+        self.assertIn("partner-contact-status-panel", influencers_html)
+        self.assertIn("partner-contact-status-body", influencers_html)
+
+        # Click on any contact name to show outreach options (email, linkedin, call, etc.)
+        self.assertIn("selectPortalReferralContact", influencers_js)
+        self.assertIn("openPortalContactOutreach", influencers_js)
+        self.assertIn("renderPortalContactStatusPanel", influencers_js)
+        self.assertIn("portal-contact-name-btn", influencers_js)
+        self.assertIn("portal-inline-outreach-drawer", influencers_js)
+        self.assertIn("toggleOutboundQuickOutreach", outbound_js)
 
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,6 +1,53 @@
 // ─── INFLUENCERS & REFERRAL PORTAL CONTROLLER ────────────────────────────────
 
 let activeConsolePortalInfluencerEmail = new URLSearchParams(window.location.search).get("email") || "kim.beluzo@beluzoadvisory.com";
+let activePortalSelectedContactId = null;
+let expandedPortalContactId = null;
+
+function isReferralContacted(contact) {
+  if (!contact) return false;
+  return Boolean(
+    contact.emailsSent ||
+    contact.emailSent ||
+    contact.linkedinSent ||
+    contact.callsMade ||
+    contact.hasTakenCall ||
+    contact.hasScheduledCall ||
+    (Array.isArray(contact.outboundHistory) && contact.outboundHistory.length > 0)
+  );
+}
+
+function resolvePortalContact(contactIdOrIdx) {
+  const list = database.contacts || [];
+  let c = list.find(item => String(item.id) === String(contactIdOrIdx));
+  if (!c && typeof contactIdOrIdx === "number" && list[contactIdOrIdx]) {
+    c = list[contactIdOrIdx];
+  }
+  if (!c && typeof contactIdOrIdx === "string" && contactIdOrIdx.includes("@")) {
+    c = list.find(item => String(item.email || "").toLowerCase() === contactIdOrIdx.toLowerCase());
+  }
+  return c || null;
+}
+
+function selectPortalReferralContact(contactId, toggleInlineOptions = true) {
+  const contact = resolvePortalContact(contactId);
+  if (!contact) return;
+  activePortalSelectedContactId = String(contact.id);
+  if (toggleInlineOptions) {
+    expandedPortalContactId = expandedPortalContactId === String(contact.id) ? null : String(contact.id);
+  }
+  renderConsolePortalReferrals();
+}
+
+function openPortalContactOutreach(contactIdOrIdx, channel = "email") {
+  const contact = resolvePortalContact(contactIdOrIdx);
+  if (!contact) return;
+  activePortalSelectedContactId = String(contact.id);
+  if (typeof openOutboundModal === "function") {
+    openOutboundModal(contact.id, channel);
+  }
+  renderConsolePortalReferrals();
+}
 
 function renderInfluencersTable() {
   const influencers = (database.contacts || []).filter(c => c.isInfluencer);
@@ -60,6 +107,8 @@ function isSyntheticPartnerContact(contact, influencer) {
 
 function selectConsolePortalInfluencer(emailOrName) {
   activeConsolePortalInfluencerEmail = emailOrName;
+  activePortalSelectedContactId = null;
+  expandedPortalContactId = null;
   const pageUrl = new URL(window.location.href);
   if (emailOrName) pageUrl.searchParams.set("email", emailOrName);
   else pageUrl.searchParams.delete("email");
@@ -128,8 +177,12 @@ function renderConsolePortalReferrals() {
     );
   });
 
+  if (filtered.length > 0 && (!activePortalSelectedContactId || !filtered.some(r => String(r.id) === String(activePortalSelectedContactId)))) {
+    activePortalSelectedContactId = String(filtered[0].id);
+  }
+
   const subtitleEl = document.getElementById("inf-portal-table-subtitle");
-  if (subtitleEl) subtitleEl.textContent = `Showing ${filtered.length} of ${referrals.length} introductions. Update a status or engage a contact.`;
+  if (subtitleEl) subtitleEl.textContent = `Showing ${filtered.length} of ${referrals.length} introductions. Click any contact name on the left to view outreach options and contacted status on the right.`;
 
   const inlineBar = document.getElementById("partner-inline-multi-edit-bar");
   if (inlineBar) inlineBar.hidden = !window.isPartnerTableMultiEditMode;
@@ -140,8 +193,10 @@ function renderConsolePortalReferrals() {
     inlineBtn.classList.toggle("btn-secondary", !window.isPartnerTableMultiEditMode);
   }
 
+  renderPortalContactStatusPanel(activeInf, filtered, referrals);
+
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">No referred contacts match the current filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">No referred contacts match the current filter.</td></tr>`;
     return;
   }
 
@@ -154,12 +209,15 @@ function renderConsolePortalReferrals() {
             <div class="partner-inline-cell-stack">
               <input type="text" class="partner-grid-input" data-field="fullName" value="${escapePartnerHTML(r.fullName || "")}" placeholder="Full name" required>
               <input type="email" class="partner-grid-input" data-field="email" value="${escapePartnerHTML(r.email || "")}" placeholder="Work email" required>
+              <input type="tel" class="partner-grid-input" data-field="phone" value="${escapePartnerHTML(r.phone || "")}" placeholder="Phone">
             </div>
           </td>
           <td>
             <div class="partner-inline-cell-stack">
               <input type="text" class="partner-grid-input" data-field="company" value="${escapePartnerHTML(r.company || "")}" placeholder="Company" required>
               <input type="text" class="partner-grid-input" data-field="jobTitle" value="${escapePartnerHTML(r.jobTitle || "")}" placeholder="Job title">
+              <input type="text" class="partner-grid-input" data-field="location" value="${escapePartnerHTML(r.location || "")}" placeholder="Location">
+              <input type="text" class="partner-grid-input" data-field="notes" value="${escapePartnerHTML(r.portalNotes || "")}" placeholder="Internal notes">
             </div>
           </td>
           <td>
@@ -169,17 +227,8 @@ function renderConsolePortalReferrals() {
                 <option value="scheduled" ${statusVal === "scheduled" ? "selected" : ""}>Call scheduled</option>
                 <option value="pending" ${statusVal === "pending" ? "selected" : ""}>Pending outreach</option>
               </select>
-              <input type="tel" class="partner-grid-input" data-field="phone" value="${escapePartnerHTML(r.phone || "")}" placeholder="Phone">
+              <button class="btn btn-sm btn-secondary" type="button" onclick="deletePartnerContact('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 4px 8px;">Remove</button>
             </div>
-          </td>
-          <td>
-            <div class="partner-inline-cell-stack">
-              <input type="text" class="partner-grid-input" data-field="location" value="${escapePartnerHTML(r.location || "")}" placeholder="Location">
-              <input type="text" class="partner-grid-input" data-field="notes" value="${escapePartnerHTML(r.portalNotes || "")}" placeholder="Internal notes">
-            </div>
-          </td>
-          <td style="text-align: right; white-space: nowrap; vertical-align: middle;">
-            <button class="btn btn-sm btn-secondary" type="button" onclick="deletePartnerContact('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 4px 8px;">Remove</button>
           </td>
         </tr>
       `;
@@ -193,46 +242,201 @@ function renderConsolePortalReferrals() {
       ((ref.email || "").toLowerCase() && (ref.email || "").toLowerCase() === (r.email || "").toLowerCase()) ||
       ((ref.fullName || ref.name || "").toLowerCase() && (ref.fullName || ref.name || "").toLowerCase() === (r.fullName || "").toLowerCase())
     );
-    const referredDate = r.referredDate || r.date || referralEntry?.date || "";
+    const referredDate = r.referredDate || r.date || referralEntry?.date || "Warm intro";
+    const isSelected = String(r.id) === String(activePortalSelectedContactId);
+    const isExpanded = String(r.id) === String(expandedPortalContactId);
     const hasCall = Boolean(r.hasTakenCall || r.hasScheduledCall);
-    const callBadge = r.hasTakenCall
-      ? `<span class="badge badge-success">Call completed</span>`
-      : r.hasScheduledCall
-        ? `<span class="badge badge-primary">Call scheduled</span>`
-        : `<span class="badge badge-neutral">Pending outreach</span>`;
-
-    const ch = [];
-    if (r.emailsSent || r.emailSent) ch.push(`<span class="badge badge-primary" style="font-size: 10px;">Email</span>`);
-    if (r.linkedinSent) ch.push(`<span class="badge badge-secondary" style="font-size: 10px;">LinkedIn</span>`);
-    if (r.enriched) ch.push(`<span class="badge badge-success" style="font-size: 10px;">Enriched</span>`);
 
     return `
-      <tr>
+      <tr class="portal-contact-row ${isSelected ? "is-selected" : ""}" onclick="selectPortalReferralContact('${escapePartnerHTML(r.id)}', false)">
         <td>
-          <div style="font-weight: 700; color: var(--color-text-primary);">${escapePartnerHTML(r.fullName)}</div>
-          <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.email || "")}</div>
-          ${referredDate ? `<div style="font-size: 10px; color: var(--color-text-secondary);">Referred ${escapePartnerHTML(referredDate)}</div>` : ""}
+          <button type="button" class="portal-contact-name-btn" onclick="event.stopPropagation(); selectPortalReferralContact('${escapePartnerHTML(r.id)}', true)">
+            <span>${escapePartnerHTML(r.fullName)}</span>
+            <span class="portal-contact-name-caret">${isExpanded ? "▴" : "▾"}</span>
+          </button>
+          <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">${escapePartnerHTML(r.email || "")}</div>
+          ${r.phone ? `<div style="font-size: 10.5px; color: var(--color-text-secondary);">${escapePartnerHTML(r.phone)}</div>` : ""}
+          <div class="portal-inline-outreach-drawer" ${isExpanded ? "" : "hidden"} onclick="event.stopPropagation();">
+            <span class="portal-inline-outreach-label">Outreach options:</span>
+            <button type="button" class="btn btn-xs btn-primary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'email')">Email</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'linkedin')">LinkedIn</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'call')">Call</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="toggleReferralCallStatus(${idx})">${hasCall ? "Mark Pending" : "Mark Call Taken"}</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="openPartnerContactEditor('${escapePartnerHTML(r.id)}')">Edit</button>
+          </div>
         </td>
         <td>
           <div style="font-weight: 600; font-size: 12.5px;">${escapePartnerHTML(r.company || "Credit Union")}</div>
           <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.jobTitle || "Executive")}</div>
           ${r.portalNotes ? `<div style="max-width: 260px; margin-top: 4px; color: var(--color-text-secondary); font-size: 10px; line-height: 1.4;">${escapePartnerHTML(r.portalNotes)}</div>` : ""}
         </td>
-        <td>${callBadge}</td>
-        <td>${ch.length ? ch.join(" ") : `<span style="font-size: 11px; color: var(--color-text-secondary);">Ready</span>`}</td>
-    <td style="text-align: right; white-space: nowrap;">
-        <button class="btn btn-sm btn-secondary" onclick="toggleReferralCallStatus(${idx})" style="font-size: 11px; padding: 3px 8px;">
-            ${hasCall ? "Mark Pending" : "Mark Call Taken"}
-          </button>
-          <button class="btn btn-sm btn-primary" onclick="switchTab('campaign-outbound'); openOutboundActionModal(${idx}, 'email')" style="font-size: 11px; padding: 3px 8px;">
-            Engage
-          </button>
-          <button class="btn btn-sm btn-secondary" onclick="openPartnerContactEditor('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 3px 8px;">Edit</button>
-          <button class="btn btn-sm btn-secondary" onclick="deletePartnerContact('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 3px 8px;">Remove</button>
+        <td style="white-space: nowrap; font-size: 11px; color: var(--color-text-secondary);">
+          <div>${escapePartnerHTML(referredDate)}</div>
+          ${r.location ? `<div style="font-size: 10px; margin-top: 2px;">${escapePartnerHTML(r.location)}</div>` : ""}
         </td>
       </tr>
     `;
   }).join("");
+}
+
+function renderPortalContactStatusPanel(activeInf, filtered, allReferrals) {
+  const bodyEl = document.getElementById("partner-contact-status-body");
+  const summaryPill = document.getElementById("partner-contacted-summary-pill");
+  if (!bodyEl) return;
+
+  const totalCount = allReferrals.length;
+  const contactedCount = allReferrals.filter(r => isReferralContacted(r)).length;
+  const emailsCount = allReferrals.filter(r => r.emailsSent || r.emailSent).length;
+  const linkedinCount = allReferrals.filter(r => r.linkedinSent).length;
+  const callsCount = allReferrals.filter(r => r.hasTakenCall || r.hasScheduledCall || r.callsMade).length;
+  const pendingCount = Math.max(0, totalCount - contactedCount);
+
+  if (summaryPill) {
+    summaryPill.textContent = `${contactedCount} / ${totalCount} contacted`;
+  }
+
+  if (filtered.length === 0) {
+    bodyEl.innerHTML = `<div class="partner-empty-state">No contacts available to display outreach status.</div>`;
+    return;
+  }
+
+  const selected = filtered.find(r => String(r.id) === String(activePortalSelectedContactId)) || filtered[0];
+  const selectedIdx = database.contacts.indexOf(selected);
+  const selectedContacted = isReferralContacted(selected);
+  const hasCall = Boolean(selected.hasTakenCall || selected.hasScheduledCall);
+  const historyList = Array.isArray(selected.outboundHistory) ? selected.outboundHistory : [];
+
+  const statusRowsHtml = filtered.map(r => {
+    const idx = database.contacts.indexOf(r);
+    const contacted = isReferralContacted(r);
+    const rHasCall = Boolean(r.hasTakenCall || r.hasScheduledCall);
+    const isSel = String(r.id) === String(selected.id);
+    const channels = [];
+    if (r.emailsSent || r.emailSent) channels.push(`<span class="badge badge-primary" style="font-size: 10px;">Email Sent</span>`);
+    if (r.linkedinSent) channels.push(`<span class="badge badge-secondary" style="font-size: 10px;">LinkedIn Sent</span>`);
+    if (r.hasTakenCall) channels.push(`<span class="badge badge-success" style="font-size: 10px;">Call Taken</span>`);
+    else if (r.hasScheduledCall) channels.push(`<span class="badge badge-primary" style="font-size: 10px;">Call Scheduled</span>`);
+    if (!channels.length) channels.push(`<span class="badge badge-neutral" style="font-size: 10px;">Not Contacted</span>`);
+
+    return `
+      <div class="partner-status-row ${isSel ? "is-selected" : ""}" onclick="selectPortalReferralContact('${escapePartnerHTML(r.id)}', false)">
+        <div class="partner-status-row-main">
+          <button type="button" class="portal-contact-name-btn" onclick="event.stopPropagation(); selectPortalReferralContact('${escapePartnerHTML(r.id)}', true)">
+            ${escapePartnerHTML(r.fullName)}
+          </button>
+          <span class="partner-status-pill ${contacted ? "is-contacted" : "is-pending"}">
+            ${contacted ? "Contacted" : "Pending Outreach"}
+          </span>
+        </div>
+        <div class="partner-status-row-channels">
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">${channels.join(" ")}</div>
+          <div class="partner-status-row-actions" onclick="event.stopPropagation();">
+            <button type="button" class="btn btn-xs btn-primary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'email')">Email</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'linkedin')">LinkedIn</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'call')">Call</button>
+            <button type="button" class="btn btn-xs btn-secondary" onclick="toggleReferralCallStatus(${idx})">${rHasCall ? "Pending" : "Call Taken"}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  bodyEl.innerHTML = `
+    <div class="partner-status-overview-grid">
+      <div class="partner-status-stat">
+        <span>Contacted</span>
+        <strong>${contactedCount}</strong>
+      </div>
+      <div class="partner-status-stat">
+        <span>Emails Sent</span>
+        <strong>${emailsCount}</strong>
+      </div>
+      <div class="partner-status-stat">
+        <span>LinkedIn</span>
+        <strong>${linkedinCount}</strong>
+      </div>
+      <div class="partner-status-stat">
+        <span>Calls Taken</span>
+        <strong>${callsCount}</strong>
+      </div>
+      <div class="partner-status-stat">
+        <span>Uncontacted</span>
+        <strong>${pendingCount}</strong>
+      </div>
+    </div>
+
+    <div class="partner-selected-contact-card">
+      <div class="partner-selected-contact-top">
+        <div>
+          <p class="partner-kicker">SELECTED CONTACT OUTREACH</p>
+          <h5>${escapePartnerHTML(selected.fullName)}</h5>
+          <p>${escapePartnerHTML(selected.jobTitle || "Executive")} · ${escapePartnerHTML(selected.company || "Credit Union")}</p>
+          <p style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">${escapePartnerHTML(selected.email || "")}${selected.phone ? ` · ${escapePartnerHTML(selected.phone)}` : ""}</p>
+        </div>
+        <span class="partner-status-pill ${selectedContacted ? "is-contacted" : "is-pending"}">
+          ${selectedContacted ? "Contacted" : "Not Contacted Yet"}
+        </span>
+      </div>
+
+      <div class="partner-outreach-action-bar">
+        <button type="button" class="btn btn-primary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'email')">
+          Email Outreach
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'linkedin')">
+          LinkedIn Message
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'call')">
+          Phone Call
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleReferralCallStatus(${selectedIdx})">
+          ${hasCall ? "Mark Pending" : "Mark Call Taken"}
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPartnerContactEditor('${escapePartnerHTML(selected.id)}')">
+          Edit
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="deletePartnerContact('${escapePartnerHTML(selected.id)}')">
+          Remove
+        </button>
+      </div>
+
+      <div class="partner-selected-channels-grid">
+        <div class="partner-channel-chip ${selected.emailsSent || selected.emailSent ? "is-done" : ""}">
+          <span>Email Status</span>
+          <strong>${selected.emailsSent || selected.emailSent ? `Sent (${selected.emailsSent || 1})` : "Not sent"}</strong>
+        </div>
+        <div class="partner-channel-chip ${selected.linkedinSent ? "is-done" : ""}">
+          <span>LinkedIn Status</span>
+          <strong>${selected.linkedinSent ? `Sent (${selected.linkedinSent})` : "Not sent"}</strong>
+        </div>
+        <div class="partner-channel-chip ${hasCall ? "is-done" : ""}">
+          <span>Call Status</span>
+          <strong>${selected.hasTakenCall ? "Call completed" : selected.hasScheduledCall ? "Call scheduled" : "Pending call"}</strong>
+        </div>
+      </div>
+
+      ${historyList.length > 0 ? `
+        <div class="partner-selected-history">
+          <span class="partner-kicker">RECENT OUTREACH LOGS</span>
+          ${historyList.slice(-3).reverse().map(item => `
+            <div class="partner-history-entry">
+              <strong>${escapePartnerHTML((item.channel || "outreach").toUpperCase())}</strong>
+              <span>${escapePartnerHTML(item.subject || item.preview || "Outreach logged")}</span>
+              <time>${escapePartnerHTML(item.date || "")}</time>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+
+    <div class="partner-status-list-section">
+      <div class="partner-status-list-header">
+        <span class="partner-kicker">ALL REFERRED CONTACTS — CONTACTED STATUS</span>
+      </div>
+      <div class="partner-status-list">
+        ${statusRowsHtml}
+      </div>
+    </div>
+  `;
 }
 
 function toggleReferralCallStatus(contactIdx) {
@@ -947,6 +1151,112 @@ function openAddReferralModal(influencerIndex) {
   }
 }
 
+function openAddInfluencerModal() {
+  const dlg = document.getElementById("add-influencer-dialog");
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "block";
+  }
+}
+
+function closeAddInfluencerModal() {
+  const dlg = document.getElementById("add-influencer-dialog");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
+
+async function handleManualInfluencerSubmit(e) {
+  e.preventDefault();
+  const fullName = (document.getElementById("manual-inf-name")?.value || "").trim();
+  const jobTitle = (document.getElementById("manual-inf-title")?.value || "Industry Advisor").trim();
+  const company = (document.getElementById("manual-inf-company")?.value || "Advisory Network").trim();
+  const email = (document.getElementById("manual-inf-email")?.value || "").trim().toLowerCase();
+  const phone = (document.getElementById("manual-inf-phone")?.value || "").trim();
+  const leadTemp = document.getElementById("manual-inf-temp")?.value || "Hot Lead";
+  const matchPercentage = Number(document.getElementById("manual-inf-match")?.value || 95);
+
+  if (!fullName || !email) {
+    alert("Full Name and Email Address are required.");
+    return;
+  }
+
+  const parts = fullName.split(/\s+/);
+  const firstName = parts[0] || fullName;
+  const lastName = parts.slice(1).join(" ") || "";
+
+  let contact = (database.contacts || []).find(c => (c.email || "").toLowerCase() === email);
+  if (!contact) {
+    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 0);
+    const newId = maxId + 1;
+    contact = {
+      id: newId,
+      firstName,
+      lastName,
+      fullName,
+      email,
+      jobTitle,
+      company,
+      phone: phone || "+1 (555) 019-2834",
+      industry: "Credit Union",
+      sourceFile: "Direct Influencer Import",
+      state: "NY",
+      enriched: true,
+      enrichmentStatus: "verified_provider_data",
+      matchPercentage,
+      leadTemp: leadTemp || "Influencer Partner",
+      emailsSent: false,
+      linkedinSent: false,
+      callsMade: [],
+      hasScheduledCall: false,
+      hasTakenCall: false,
+      isInfluencer: true,
+      referredBy: "",
+      referrals: [],
+      referralCredits: 50
+    };
+    database.contacts.unshift(contact);
+  } else {
+    contact.isInfluencer = true;
+    contact.fullName = fullName || contact.fullName;
+    contact.jobTitle = jobTitle || contact.jobTitle;
+    contact.company = company || contact.company;
+    contact.phone = phone || contact.phone;
+    contact.leadTemp = leadTemp || "Influencer Partner";
+    contact.matchPercentage = matchPercentage || contact.matchPercentage || 95;
+    contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
+    contact.referralCredits = contact.referralCredits || 50;
+  }
+
+  try {
+    await fetch("/api/influencers/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: contact.fullName,
+        email: contact.email,
+        jobTitle: contact.jobTitle,
+        company: contact.company,
+        phone: contact.phone,
+        industry: contact.industry || "Credit Union"
+      })
+    });
+  } catch (_) {}
+
+  saveDatabaseCache();
+  if (typeof initLoadedData === "function") initLoadedData();
+  renderInfluencersTable();
+
+  const form = document.getElementById("manual-influencer-form");
+  if (form) form.reset();
+  closeAddInfluencerModal();
+
+  if (typeof addLogConsole === "function") {
+    addLogConsole("enrich", `[INFLUENCER PORTAL] Added ${contact.fullName} (${contact.company}) as an Influencer Partner.`, "success");
+  }
+}
+
 window.renderInfluencersTable = renderInfluencersTable;
 window.selectConsolePortalInfluencer = selectConsolePortalInfluencer;
 window.renderConsolePortalReferrals = renderConsolePortalReferrals;
@@ -980,3 +1290,10 @@ window.togglePartnerTableMultiEdit = togglePartnerTableMultiEdit;
 window.savePartnerTableMultiEdit = savePartnerTableMultiEdit;
 window.toggleInfluencerStatus = toggleInfluencerStatus;
 window.openAddReferralModal = openAddReferralModal;
+window.openAddInfluencerModal = openAddInfluencerModal;
+window.closeAddInfluencerModal = closeAddInfluencerModal;
+window.handleManualInfluencerSubmit = handleManualInfluencerSubmit;
+window.selectPortalReferralContact = selectPortalReferralContact;
+window.openPortalContactOutreach = openPortalContactOutreach;
+window.renderPortalContactStatusPanel = renderPortalContactStatusPanel;
+window.openOutboundActionModal = openPortalContactOutreach;

@@ -126,10 +126,29 @@ function handleCreateEventSubmit(e) {
   addLogConsole("enrich", `[EVENTS ENGINE] Created new field event "${title}" (${location} · ${date})`, "success");
 }
 
-function openAddContactFromEventModal() {
+function updateEventAddContactRoleUI(role) {
+  const titleEl = document.getElementById("event-add-contact-modal-title");
+  const submitBtn = document.getElementById("event-add-contact-submit-btn");
+  const isInf = role === "influencer";
+  if (titleEl) {
+    titleEl.textContent = isInf ? "Add Influencer from Event" : "Add New Contact from Event";
+  }
+  if (submitBtn) {
+    submitBtn.textContent = isInf ? "Add Influencer to Event & Database" : "Add Contact to Event & Database";
+  }
+}
+
+function openAddContactFromEventModal(defaultRole = "prospect") {
   ensureEventsMeta();
   const activeEventKey = document.getElementById("select-event-view")?.value || database.eventsMeta[0]?.eventKey;
   syncEventSelectOptions(activeEventKey);
+
+  const roleSelect = document.getElementById("event-new-contact-role");
+  const resolvedRole = defaultRole === "influencer" ? "influencer" : "prospect";
+  if (roleSelect) {
+    roleSelect.value = resolvedRole;
+  }
+  updateEventAddContactRoleUI(resolvedRole);
 
   const dlg = document.getElementById("event-add-new-contact-dialog");
   if (dlg) {
@@ -403,8 +422,11 @@ function renderEventsList() {
       <tr>
         <td colspan="6" style="text-align: center; padding: 2.25rem; color: var(--color-text-secondary);">
           <div style="font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px;">No attendees registered for this event yet</div>
-          <div style="font-size: 12px; margin-bottom: 12px;">Add a brand-new contact met at this event or register an existing contact from the database.</div>
-          <button class="btn btn-primary btn-sm" onclick="openAddContactFromEventModal()">+ Add New Contact from Event</button>
+          <div style="font-size: 12px; margin-bottom: 12px;">Add a brand-new contact or influencer met at this event, or register an existing contact from the database.</div>
+          <div style="display: inline-flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+            <button class="btn btn-primary btn-sm" onclick="openAddContactFromEventModal('prospect')">+ Add New Contact from Event</button>
+            <button class="btn btn-secondary btn-sm" onclick="openAddContactFromEventModal('influencer')" style="color: #0d9488; border-color: rgba(13, 148, 136, 0.35); background: rgba(13, 148, 136, 0.08);">+ Add Influencer from Event</button>
+          </div>
         </td>
       </tr>
     `;
@@ -561,6 +583,7 @@ function handleEventRegistration(e) {
   const eventSelect = document.getElementById("select-reg-event");
   const statusSelect = document.getElementById("input-reg-status");
   const notesText = document.getElementById("input-reg-notes");
+  const regAsInfCheckbox = document.getElementById("input-reg-as-influencer");
 
   if (!contactId || !eventSelect) {
     alert("Please select a valid contact using the search dropdown list.");
@@ -569,6 +592,13 @@ function handleEventRegistration(e) {
 
   const contact = database.contacts.find(c => String(c.id) === String(contactId));
   if (!contact) return;
+
+  if (regAsInfCheckbox && regAsInfCheckbox.checked) {
+    contact.isInfluencer = true;
+    contact.leadTemp = "Influencer Partner";
+    contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
+    contact.referralCredits = Math.max(Number(contact.referralCredits) || 0, 50);
+  }
 
   const eventKey = eventSelect.value;
   const newReg = {
@@ -594,6 +624,7 @@ function handleEventRegistration(e) {
   searchEl.value = "";
   document.getElementById("event-reg-contact-id").value = "";
   notesText.value = "";
+  if (regAsInfCheckbox) regAsInfCheckbox.checked = false;
   closeEventRegisterModal();
 
   addLogConsole("enrich", `[EVENT REGISTRATION] Registered ${contact.fullName} for ${eventKey}`, "success");
@@ -601,12 +632,16 @@ function handleEventRegistration(e) {
   const viewSelect = document.getElementById("select-event-view");
   if (viewSelect) viewSelect.value = eventKey;
   renderEventsList();
+  if (typeof filterUploadTable === "function") filterUploadTable();
+  if (typeof filterOutboundTable === "function") filterOutboundTable();
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
 }
 
 window.openCreateEventModal = openCreateEventModal;
 window.closeCreateEventModal = closeCreateEventModal;
 window.handleCreateEventSubmit = handleCreateEventSubmit;
 window.openAddContactFromEventModal = openAddContactFromEventModal;
+window.updateEventAddContactRoleUI = updateEventAddContactRoleUI;
 window.closeAddContactFromEventModal = closeAddContactFromEventModal;
 window.handleAddContactFromEventSubmit = handleAddContactFromEventSubmit;
 window.openEventRegisterModal = openEventRegisterModal;

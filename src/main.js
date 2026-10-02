@@ -393,16 +393,16 @@ function updateHeader(tabId) {
       subtitleEl.textContent = "Search across contacts, influencer referrals, call statuses, and event attendees in real time.";
       break;
     case 'upload':
-      titleEl.textContent = "Import Contacts";
-      subtitleEl.textContent = "Add & enrich contacts directly or capture attendees from field events.";
+      titleEl.textContent = "Import";
+      subtitleEl.textContent = "Add & enrich contacts or influencers directly, or capture attendees and influencers from field events.";
       break;
     case 'campaign-outbound':
       titleEl.textContent = "Campaign Outbound";
       subtitleEl.textContent = "Engage prospects and influencers across Email, LinkedIn, and Phone — and manage scheduled briefings.";
       break;
     case 'events-list':
-      titleEl.textContent = "Import Contacts — Events";
-      subtitleEl.textContent = "Review registered attendees and capture new contacts from field events.";
+      titleEl.textContent = "Import — Events";
+      subtitleEl.textContent = "Review registered attendees and capture new contacts or influencers from field events.";
       break;
     case 'influencers':
       titleEl.textContent = "Influencer Portal";

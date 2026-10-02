@@ -107,6 +107,15 @@ function openColumnMapper(lines, fileName) {
   const container = document.getElementById("field-mapping-container");
   if (!dialog || !container) return;
 
+  const pageRoleSelect = document.getElementById("csv-import-role-select");
+  const mapperRoleSelect = document.getElementById("mapper-import-role-select");
+  const inferredRole = (fileName || "").toLowerCase().includes("influencer")
+    ? "influencer"
+    : (pageRoleSelect ? pageRoleSelect.value : "prospect");
+  if (mapperRoleSelect) {
+    mapperRoleSelect.value = inferredRole;
+  }
+
   const headers = lines[0].map(h => h.trim());
   
   // Standard fields to map
@@ -159,12 +168,16 @@ function openColumnMapper(lines, fileName) {
     container.appendChild(row);
   });
 
-  dialog.showModal();
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.style.display = "block";
 }
 
 function closeColumnMapper() {
   const dialog = document.getElementById("column-mapper-dialog");
-  if (dialog) dialog.close();
+  if (dialog) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.style.display = "none";
+  }
 }
 
 function confirmColumnMapping() {
@@ -209,7 +222,7 @@ function confirmColumnMapping() {
       jobTitle: jobTitle,
       company: company,
       phone: phone,
-      industry: industry,
+      industry: industry || "Credit Union",
       assetSize: assetSize || "$0",
       state: state || "US",
       sourceFile: tempFileName,
@@ -218,14 +231,22 @@ function confirmColumnMapping() {
     });
   }
 
-  // Save to database
-  const isInfluencerFile = tempFileName.toLowerCase().includes("influencer");
+  // Save to database (check explicit selector or filename)
+  const mapperRoleSelect = document.getElementById("mapper-import-role-select");
+  const pageRoleSelect = document.getElementById("csv-import-role-select");
+  const selectedRole = mapperRoleSelect?.value || pageRoleSelect?.value || "";
+  const isInfluencerFile = selectedRole === "influencer" || (!selectedRole && (tempFileName || "").toLowerCase().includes("influencer"));
+  if (pageRoleSelect && selectedRole) {
+    pageRoleSelect.value = selectedRole;
+  }
+
   parsed.forEach(c => {
     c.isInfluencer = isInfluencerFile;
     if (isInfluencerFile) {
       c.referrals = [];
-      c.referralCredits = 0;
+      c.referralCredits = 50;
       c.matchPercentage = 95;
+      c.leadTemp = "Influencer Partner";
     }
   });
 
@@ -233,7 +254,7 @@ function confirmColumnMapping() {
     parsed.forEach(c => {
       c.enriched = true;
       if (!c.matchPercentage) c.matchPercentage = 95;
-      c.leadTemp = "Hot Lead";
+      if (!c.isInfluencer) c.leadTemp = "Hot Lead";
       if (!c.assetSize || c.assetSize === "$0") c.assetSize = "$350M";
     });
   }

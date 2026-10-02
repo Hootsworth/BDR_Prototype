@@ -71,9 +71,9 @@ function updateUploadEnrichKPIs() {
   const rateEl = document.getElementById("upload-kpi-rate");
   if (!totalEl) return;
 
-  const prospects = (database.contacts || []).filter(c => !c.isInfluencer);
-  const total = prospects.length;
-  const enriched = prospects.filter(c => c.enriched || c.enrichmentStatus === 'verified_provider_data' || c.deepWebDossier).length;
+  const allRecords = database.contacts || [];
+  const total = allRecords.length;
+  const enriched = allRecords.filter(c => c.enriched || c.enrichmentStatus === 'verified_provider_data' || c.deepWebDossier).length;
   const rate = total > 0 ? Math.round((enriched / total) * 100) : 0;
 
   totalEl.textContent = total.toLocaleString();
@@ -84,8 +84,13 @@ window.updateUploadEnrichKPIs = updateUploadEnrichKPIs;
 
 // Subtab: Upload table renderer
 function filterUploadTable() {
-  const prospectsOnly = database.contacts.filter(c => c.isInfluencer !== true);
-  database.filteredUpload = getFilteredData(prospectsOnly, "upload-search-input", "filter-industry", "filter-source", null, null);
+  const roleFilter = document.getElementById("filter-upload-role")?.value || "all";
+  const baseRecords = (database.contacts || []).filter(c => {
+    if (roleFilter === "prospect") return !c.isInfluencer;
+    if (roleFilter === "influencer") return c.isInfluencer === true;
+    return true;
+  });
+  database.filteredUpload = getFilteredData(baseRecords, "upload-search-input", "filter-industry", "filter-source", null, null);
   changeUploadPage(1);
   updateUploadEnrichKPIs();
 }
@@ -99,7 +104,7 @@ function changeUploadPage(page) {
   tbody.innerHTML = "";
 
   if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="table-placeholder" style="text-align: center; padding: 2.5rem 1rem; color: var(--color-text-secondary);">No matching prospects found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-placeholder" style="text-align: center; padding: 2.5rem 1rem; color: var(--color-text-secondary);">No matching contacts or influencers found.</td></tr>`;
     updateUploadEnrichKPIs();
     return;
   }
@@ -109,6 +114,7 @@ function changeUploadPage(page) {
     const initials = getInitials(c.fullName);
     const color = getAvatarColor(c.fullName);
     const isChecked = database.selectedUploadRows && database.selectedUploadRows.includes(c.id) ? "checked" : "";
+    const isInf = Boolean(c.isInfluencer);
     
     let enrichBadge = `<span class="badge" style="font-size:10px; color:var(--color-text-secondary); background:var(--color-background-muted); border:1px solid var(--color-border);">Pending</span>`;
     if (c.enriched || c.enrichmentStatus === 'verified_provider_data') {
@@ -117,6 +123,16 @@ function changeUploadPage(page) {
       enrichBadge = `<span class="badge" style="font-size:10px; background:rgba(52, 211, 153, 0.15); color:#34d399; border:1px solid rgba(52, 211, 153, 0.3);">Scraped</span>`;
     }
 
+    const influencerActionBtn = isInf
+      ? `<button class="btn btn-secondary btn-xs" onclick="openInfluencerPortalForContact(${c.id})" title="Open this partner's Influencer Referral Portal" style="border-color: rgba(13, 148, 136, 0.45); color: #0d9488; display: inline-flex; align-items: center; gap: 4px;">
+           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+           Influencer Portal
+         </button>`
+      : `<button class="btn btn-secondary btn-xs" onclick="convertContactToInfluencer(${c.id}, true)" title="Convert this contact into an Influencer Partner with their own Referral Portal" style="border-color: rgba(99, 102, 241, 0.45); color: #818cf8; display: inline-flex; align-items: center; gap: 4px;">
+           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+           Convert to Influencer
+         </button>`;
+
     tr.innerHTML = `
       <td style="text-align: center;"><input type="checkbox" class="row-check-upload" data-id="${c.id}" ${isChecked} onchange="toggleSelectUploadRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
       <td>
@@ -124,6 +140,7 @@ function changeUploadPage(page) {
           <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">${initials}</div>
           <div>
             <strong>${c.fullName}</strong>
+            ${isInf ? `<span class="badge" style="font-size:9px; margin-left:4px; background: rgba(13, 148, 136, 0.14); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.35);">Influencer</span>` : ""}
             ${c.leadTemp === "Hot Lead" ? `<span class="badge badge-success" style="font-size:9px; margin-left:4px;">Hot</span>` : ""}
           </div>
         </div>
@@ -136,10 +153,7 @@ function changeUploadPage(page) {
       <td><span style="font-size:11px; color:var(--color-text-secondary);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
       <td style="text-align: right;">
         <div style="display:flex; gap:6px; justify-content: flex-end; align-items: center;">
-          <button class="btn btn-secondary btn-xs" onclick="convertContactToInfluencer(${c.id}, true)" title="Convert this contact into an Influencer Partner with their own Referral Portal" style="border-color: rgba(99, 102, 241, 0.45); color: #818cf8; display: inline-flex; align-items: center; gap: 4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
-            Convert to Influencer
-          </button>
+          ${influencerActionBtn}
           <button class="btn btn-secondary btn-xs" onclick="openCampaignTarget('${c.email}', 'email')">Outbound</button>
           <button class="btn btn-secondary btn-xs" style="color:var(--color-error);" onclick="deleteContactRecord(${c.id})">Delete</button>
         </div>
@@ -440,15 +454,46 @@ function sortTable(type, field) {
   }
 }
 
-function toggleQuickDirectAddForm() {
-  const drawer = document.getElementById("quick-direct-add-drawer");
+function updateQuickDirectAddRoleUI(role) {
+  const titleEl = document.getElementById("quick-direct-add-title");
+  const submitBtn = document.getElementById("quick-direct-add-submit-btn");
+  const isInf = role === "influencer";
+  if (titleEl) {
+    titleEl.textContent = isInf ? "Add Influencer Partner Directly" : "Add Single Contact or Influencer";
+  }
+  if (submitBtn) {
+    submitBtn.textContent = isInf ? "Add Influencer & Open Portal" : "Add to Imported List";
+  }
+}
+
+function toggleQuickDirectAddForm(forceOpen, defaultRole) {
+  const drawer = document.getElementById("quick-direct-add-form") || document.getElementById("quick-direct-add-drawer");
   if (!drawer) return;
   const isHidden = drawer.style.display === "none" || !drawer.style.display;
-  drawer.style.display = isHidden ? "block" : "none";
-  if (isHidden) {
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : isHidden;
+  drawer.style.display = shouldOpen ? "block" : "none";
+
+  const roleSelect = document.getElementById("direct-add-role");
+  if (defaultRole && roleSelect) {
+    roleSelect.value = defaultRole;
+  }
+  updateQuickDirectAddRoleUI(roleSelect ? roleSelect.value : (defaultRole || "prospect"));
+
+  if (shouldOpen) {
     const nameInput = document.getElementById("direct-add-name");
     if (nameInput) nameInput.focus();
   }
+}
+
+function openAddInfluencerFromImport() {
+  if (window.currentImportContactsMode === "events" && typeof openAddContactFromEventModal === "function") {
+    openAddContactFromEventModal("influencer");
+    return;
+  }
+  if (typeof switchImportContactsMode === "function" && window.currentImportContactsMode !== "csv") {
+    switchImportContactsMode("csv");
+  }
+  toggleQuickDirectAddForm(true, "influencer");
 }
 
 async function handleQuickDirectAddContact(e) {
@@ -540,15 +585,18 @@ async function handleQuickDirectAddContact(e) {
   initLoadedData();
 
   const form = document.getElementById("quick-direct-add-form");
-  if (form) form.reset();
+  if (form) {
+    form.reset();
+    form.style.display = "none";
+  }
   const drawer = document.getElementById("quick-direct-add-drawer");
   if (drawer) drawer.style.display = "none";
 
   if (isInfluencer) {
-    addLogConsole("enrich", `[IMPORT CONTACTS] Added ${contact.fullName} as an Influencer Partner with their own Referral Portal.`, "success");
+    addLogConsole("enrich", `[IMPORT] Added ${contact.fullName} as an Influencer Partner with their own Referral Portal.`, "success");
     openInfluencerPortalForContact(contact.id);
   } else {
-    addLogConsole("enrich", `[IMPORT CONTACTS] Added ${contact.fullName} (${contact.company}) to Imported Contacts.`, "success");
+    addLogConsole("enrich", `[IMPORT] Added ${contact.fullName} (${contact.company}) to Imported Contacts.`, "success");
   }
 }
 
@@ -694,6 +742,8 @@ window.bulkPushHilReviewSelected = bulkPushHilReviewSelected;
 window.bulkExportCsvSelected = bulkExportCsvSelected;
 window.sortTable = sortTable;
 window.toggleQuickDirectAddForm = toggleQuickDirectAddForm;
+window.updateQuickDirectAddRoleUI = updateQuickDirectAddRoleUI;
+window.openAddInfluencerFromImport = openAddInfluencerFromImport;
 window.handleQuickDirectAddContact = handleQuickDirectAddContact;
 window.convertContactToInfluencer = convertContactToInfluencer;
 window.openInfluencerPortalForContact = openInfluencerPortalForContact;

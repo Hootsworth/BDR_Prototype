@@ -121,7 +121,7 @@ function changeOutboundPage(page) {
           ${emptyIcon}
           <div style="font-size: var(--font-size-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 0.25rem;">${emptyTitle}</div>
           <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 1.25rem 0;">${emptyDesc}</p>
-          <button class="btn btn-primary btn-sm" onclick="switchTab('upload')">Import Contacts</button>
+          <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')">Import</button>
         </td>
       </tr>
     `;
@@ -162,16 +162,27 @@ function changeOutboundPage(page) {
         (p.influencerId && String(p.influencerId) === String(c.id)) ||
         (c.referrals && c.referrals.some(r => (r.email && p.email && r.email.trim().toLowerCase() === p.email.trim().toLowerCase()) || (r.fullName && p.fullName && r.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase())))
       ));
+      const isQuickExpanded = String(window.expandedOutboundContactId || "") === String(c.id);
       tr.innerHTML = `
         <td style="text-align: center;"><input type="checkbox" class="row-check-outbound" data-id="${c.id}" ${isChecked} onchange="toggleSelectOutboundRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
         <td>
-          <div style="display: flex; align-items: center; gap: 0.625rem;">
+          <div style="display: flex; align-items: flex-start; gap: 0.625rem;">
             ${avatarHtml}
             <div>
-              <div style="font-weight: 600; color: var(--color-text-primary);">${c.fullName}</div>
+              <button type="button" class="portal-contact-name-btn" onclick="toggleOutboundQuickOutreach('${c.id}', event)">
+                <span>${c.fullName}</span>
+                <span class="portal-contact-name-caret">${isQuickExpanded ? "▴" : "▾"}</span>
+              </button>
               <div style="display: flex; gap: 0.375rem; align-items: center; margin-top: 2px;">
                 <span class="badge" style="font-size: 10px; background: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.25);">Partner</span>
                 ${c.referralCredits ? `<span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);">${c.referralCredits} Credits</span>` : ''}
+              </div>
+              <div class="portal-inline-outreach-drawer" ${isQuickExpanded ? "" : "hidden"}>
+                <span class="portal-inline-outreach-label">Outreach:</span>
+                <button type="button" class="btn btn-xs btn-primary" onclick="openOutboundModal(${c.id}, 'email')">Email</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${c.id}, 'linkedin')">LinkedIn</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${c.id}, 'call')">Call</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openInfluencerPortal('${c.email}')">Portal</button>
               </div>
             </div>
           </div>
@@ -229,6 +240,7 @@ function changeOutboundPage(page) {
           const pCallBadge = pCallTaken
             ? `<span class="badge badge-success" style="font-size: 10px;">✓ Call Taken</span>`
             : `<span style="color:var(--color-text-disabled); font-size: 11px;">Pending Call</span>`;
+          const pQuickExpanded = String(window.expandedOutboundContactId || "") === String(p.id);
           return `
             <tr style="border-bottom: 1px solid var(--color-border); background: var(--color-background-surface);">
               <td style="padding: 0.45rem 0.875rem;">
@@ -236,8 +248,17 @@ function changeOutboundPage(page) {
                   <div style="width: 24px; height: 24px; border-radius: 50%; background: ${getAvatarColor(p.fullName)}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0;">
                     ${getInitials(p.fullName)}
                   </div>
-                  <strong>${p.fullName}</strong>
-          <span class="badge" style="font-size: 10px;">Affiliated</span>
+                  <button type="button" class="portal-contact-name-btn" onclick="toggleOutboundQuickOutreach('${p.id}', event)">
+                    <span>${p.fullName}</span>
+                    <span class="portal-contact-name-caret">${pQuickExpanded ? "▴" : "▾"}</span>
+                  </button>
+                  <span class="badge" style="font-size: 10px;">Affiliated</span>
+                </div>
+                <div class="portal-inline-outreach-drawer" ${pQuickExpanded ? "" : "hidden"}>
+                  <span class="portal-inline-outreach-label">Outreach:</span>
+                  <button type="button" class="btn btn-xs btn-primary" onclick="openOutboundModal(${p.id}, 'email')">Email</button>
+                  <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${p.id}, 'linkedin')">LinkedIn</button>
+                  <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${p.id}, 'call')">Call</button>
                 </div>
               </td>
               <td style="padding: 0.45rem 0.875rem;">
@@ -301,6 +322,7 @@ function changeOutboundPage(page) {
 
     } else {
       // Prospects Tab Row
+      const isQuickExpanded = String(window.expandedOutboundContactId || "") === String(c.id);
       const referredBadge = c.referredBy ? `
         <div style="font-size: 11px; color: var(--color-text-secondary); font-weight: 500; display: inline-flex; align-items: center; gap: 3px; margin-top: 2px;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
@@ -309,11 +331,20 @@ function changeOutboundPage(page) {
       tr.innerHTML = `
         <td style="text-align: center;"><input type="checkbox" class="row-check-outbound" data-id="${c.id}" ${isChecked} onchange="toggleSelectOutboundRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
         <td>
-          <div style="display: flex; align-items: center; gap: 0.625rem;">
+          <div style="display: flex; align-items: flex-start; gap: 0.625rem;">
             ${avatarHtml}
             <div>
-              <div style="font-weight: 600; color: var(--color-text-primary);">${c.fullName}</div>
+              <button type="button" class="portal-contact-name-btn" onclick="toggleOutboundQuickOutreach('${c.id}', event)">
+                <span>${c.fullName}</span>
+                <span class="portal-contact-name-caret">${isQuickExpanded ? "▴" : "▾"}</span>
+              </button>
               ${referredBadge}
+              <div class="portal-inline-outreach-drawer" ${isQuickExpanded ? "" : "hidden"}>
+                <span class="portal-inline-outreach-label">Outreach:</span>
+                <button type="button" class="btn btn-xs btn-primary" onclick="openOutboundModal(${c.id}, 'email')">Email</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${c.id}, 'linkedin')">LinkedIn</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${c.id}, 'call')">Call</button>
+              </div>
             </div>
           </div>
         </td>
@@ -1074,9 +1105,24 @@ function renderContactTimeline(contact) {
 }
 
 let currentModalChannel = 'email';
+window.expandedOutboundContactId = null;
+
+function toggleOutboundQuickOutreach(contactId, event) {
+  if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+  const idStr = String(contactId);
+  window.expandedOutboundContactId = String(window.expandedOutboundContactId || "") === idStr ? null : idStr;
+  filterOutboundTable();
+}
 
 function openOutboundModal(contactId, channel = 'email') {
-  const contact = database.contacts.find(c => c.id === contactId);
+  const list = database.contacts || [];
+  let contact = list.find(c => c.id === contactId || String(c.id) === String(contactId));
+  if (!contact && typeof contactId === "number" && list[contactId]) {
+    contact = list[contactId];
+  }
+  if (!contact && typeof contactId === "string" && contactId.includes("@")) {
+    contact = list.find(c => String(c.email || "").toLowerCase() === contactId.toLowerCase());
+  }
   if (!contact) return;
 
   database.selectedContact = contact;
@@ -1173,6 +1219,9 @@ function closeOutboundModal() {
   if (dlg) {
     if (typeof dlg.close === "function") dlg.close();
     else dlg.style.display = "none";
+  }
+  if (typeof renderConsolePortalReferrals === "function") {
+    renderConsolePortalReferrals();
   }
 }
 
@@ -1626,6 +1675,9 @@ window.changeOutboundPage = changeOutboundPage;
 window.loadOutboundDrawer = loadOutboundDrawer;
 window.switchDrawerChannel = switchDrawerChannel;
 window.openOutboundModal = openOutboundModal;
+window.openOutboundActionModal = openOutboundModal;
+window.openCampaignTarget = openOutboundModal;
+window.toggleOutboundQuickOutreach = toggleOutboundQuickOutreach;
 window.closeOutboundModal = closeOutboundModal;
 window.switchOutboundModalChannel = switchOutboundModalChannel;
 window.updateOutboundLivePreview = updateOutboundLivePreview;
