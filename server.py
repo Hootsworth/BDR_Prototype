@@ -2372,7 +2372,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 location = str(payload.get('location') or '').strip()
                 notes = str(payload.get('notes') or '').strip()
                 has_scheduled_call = bool(payload.get('hasScheduledCall'))
-                has_taken_call = False
+                has_taken_call = bool(payload.get('hasTakenCall'))
                 if has_taken_call:
                     has_scheduled_call = True
                 credits = compute_contact_referral_credits({'hasScheduledCall': has_scheduled_call, 'hasTakenCall': has_taken_call})

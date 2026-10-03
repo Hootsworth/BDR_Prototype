@@ -2923,6 +2923,86 @@ html[data-theme="dark"] #tab-panel-influencers .partner-metric + .partner-metric
 }
 html[data-theme="dark"] #tab-panel-influencers .influencer-referral-form-card { background: #211f1d !important; border-color: #393530 !important; }
 html[data-theme="dark"] #tab-panel-influencers .influencer-form-heading { background: #2a2724; }
+
+/* Compact partner actions and the single selected-referral workspace. */
+#tab-panel-influencers .partner-header-controls { position: relative; }
+#tab-panel-influencers .partner-management-menu,
+#tab-panel-influencers .partner-report-menu,
+#tab-panel-influencers .partner-contact-more { position: relative; }
+#tab-panel-influencers .partner-management-menu > summary,
+#tab-panel-influencers .partner-report-menu > summary,
+#tab-panel-influencers .partner-contact-more > summary { list-style: none; cursor: pointer; }
+#tab-panel-influencers .partner-management-menu > summary::-webkit-details-marker,
+#tab-panel-influencers .partner-report-menu > summary::-webkit-details-marker,
+#tab-panel-influencers .partner-contact-more > summary::-webkit-details-marker { display: none; }
+#tab-panel-influencers .partner-management-menu-items {
+  position: absolute; z-index: 50; top: calc(100% + 6px); right: 0; min-width: 190px;
+  display: none; padding: 5px; border: 1px solid var(--color-border); border-radius: 8px;
+  background: var(--color-background-surface); box-shadow: 0 12px 30px rgba(20, 18, 16, .13);
+}
+#tab-panel-influencers details[open] > .partner-management-menu-items { display: grid; }
+#tab-panel-influencers .partner-management-menu-items button,
+#tab-panel-influencers .partner-management-menu-items a {
+  display: block; width: 100%; padding: 9px 10px; border: 0; border-radius: 5px;
+  background: transparent; color: var(--color-text-primary); text-align: left; text-decoration: none;
+  font: 400 12px var(--font-family-body); cursor: pointer; white-space: nowrap;
+}
+#tab-panel-influencers .partner-management-menu-items button:hover,
+#tab-panel-influencers .partner-management-menu-items a:hover { background: var(--color-background-muted); }
+#tab-panel-influencers .partner-management-menu-items .danger { color: var(--color-error); }
+#tab-panel-influencers .partner-profile-strip { grid-template-columns: minmax(0, 1fr) minmax(180px, 280px); }
+#tab-panel-influencers .partner-profile-contact { grid-column: 2; }
+#tab-panel-influencers .partner-credit-metric { appearance: none; border: 0; border-left: 1px solid var(--color-border); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+#tab-panel-influencers .partner-credit-metric:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+#tab-panel-influencers .partner-split-workspace { grid-template-columns: minmax(0, 1.35fr) minmax(330px, .85fr); gap: 18px; }
+#tab-panel-influencers .partner-split-left,
+#tab-panel-influencers .partner-split-right { min-width: 0; border-color: var(--color-border); border-radius: 8px; }
+#tab-panel-influencers .partner-split-pane-header { padding: 14px 16px; background: var(--color-background-surface); }
+#tab-panel-influencers .partner-split-hint { border: 0; padding: 0; background: transparent; color: var(--color-text-secondary); font-weight: 400; }
+#tab-panel-influencers .partner-split-left .partner-table-scroll { max-height: 620px; }
+#tab-panel-influencers .partner-referrals-table { min-width: 620px; }
+#tab-panel-influencers .partner-referrals-table th { white-space: nowrap; }
+#tab-panel-influencers .partner-referrals-table td { padding-block: 12px; }
+#tab-panel-influencers .portal-contact-row { cursor: pointer; }
+#tab-panel-influencers .portal-contact-row:hover td { background: var(--color-background-muted); }
+#tab-panel-influencers .portal-contact-row.is-selected td { background: color-mix(in srgb, var(--color-accent) 7%, var(--color-background-surface)); }
+#tab-panel-influencers .portal-contact-name-btn { color: var(--color-text-primary); text-decoration: none; }
+#tab-panel-influencers .partner-roster-secondary { margin-top: 4px; color: var(--color-text-secondary); font-size: 11px; }
+#tab-panel-influencers .partner-referral-status-cell { white-space: nowrap; }
+#tab-panel-influencers .partner-referral-status-cell > span + span { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: 10px; }
+#tab-panel-influencers .partner-referral-status-cell small { display: block; margin-top: 3px; color: var(--color-text-secondary); }
+#tab-panel-influencers .partner-contact-status-body { max-height: 620px; }
+#tab-panel-influencers .partner-selected-contact-card { padding: 0; border: 0; border-radius: 0; background: transparent; }
+#tab-panel-influencers .partner-selected-contact-top { align-items: flex-start; }
+#tab-panel-influencers .partner-selected-contact-top h5 { font-size: 18px; letter-spacing: -.025em; }
+#tab-panel-influencers .partner-selected-contact-top p { margin-top: 5px; color: var(--color-text-secondary); line-height: 1.45; }
+#tab-panel-influencers .partner-selected-contact-top .partner-selected-contact-meta { overflow-wrap: anywhere; }
+#tab-panel-influencers .partner-status-pill { flex: 0 0 auto; font-size: 10px; font-weight: 600; }
+#tab-panel-influencers .partner-status-pill.is-contacted { background: var(--color-background-muted); color: var(--color-text-primary); border-color: var(--color-border); }
+#tab-panel-influencers .partner-selected-channels-grid { gap: 0; border-block: 1px solid var(--color-border); }
+#tab-panel-influencers .partner-channel-chip { min-width: 0; padding: 12px 8px 12px 0; border: 0; border-radius: 0; background: transparent; }
+#tab-panel-influencers .partner-channel-chip + .partner-channel-chip { padding-left: 10px; border-left: 1px solid var(--color-border); }
+#tab-panel-influencers .partner-channel-chip span { font-size: 9px; }
+#tab-panel-influencers .partner-channel-chip strong { color: var(--color-text-primary); font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
+#tab-panel-influencers .partner-outreach-action-bar { gap: 7px; }
+#tab-panel-influencers .partner-contact-more .partner-management-menu-items { top: auto; right: 0; bottom: calc(100% + 6px); }
+#tab-panel-influencers .partner-referral-notes { padding: 11px 12px; background: var(--color-background-muted); border-radius: 6px; }
+#tab-panel-influencers .partner-referral-notes span { color: var(--color-text-secondary); font-size: 10px; font-weight: 600; }
+#tab-panel-influencers .partner-referral-notes p { margin: 5px 0 0; font-size: 12px; line-height: 1.5; }
+#tab-panel-influencers .partner-history-entry { background: var(--color-background-surface); border-color: var(--color-border); }
+html[data-theme="dark"] #tab-panel-influencers .partner-management-menu-items { background: var(--color-background-surface); }
+@media (max-width: 1000px) {
+  #tab-panel-influencers .partner-split-workspace { grid-template-columns: minmax(0, 1fr); }
+  #tab-panel-influencers .partner-split-left .partner-table-scroll,
+  #tab-panel-influencers .partner-contact-status-body { max-height: none; }
+}
+@media (max-width: 620px) {
+  #tab-panel-influencers .partner-profile-strip { grid-template-columns: minmax(0, 1fr); }
+  #tab-panel-influencers .partner-profile-contact { grid-column: 1; padding-left: 62px; }
+  #tab-panel-influencers .partner-credit-metric { border-left: 0; }
+  #tab-panel-influencers .partner-selected-channels-grid { grid-template-columns: 1fr; }
+  #tab-panel-influencers .partner-channel-chip + .partner-channel-chip { padding-left: 0; border-left: 0; border-top: 1px solid var(--color-border); }
+}
 html[data-theme="dark"] #tab-panel-influencers .influencer-form-heading .badge { background: #393530 !important; color: #d8d0c7 !important; }
 html[data-theme="dark"] #tab-panel-influencers .influencer-form-fields label { color: #c8c1b8; }
 html[data-theme="dark"] #tab-panel-influencers .influencer-form-fields input,
@@ -3027,6 +3107,51 @@ html[data-theme="dark"] .sidebar-controls-section { border-color: #393530; }
   #tab-panel-influencers .influencer-main-layout { grid-template-columns: minmax(360px, .9fr) minmax(0, 1.2fr) !important; gap: 22px !important; }
   #tab-panel-influencers .influencer-form-heading, #tab-panel-influencers .influencer-form-fields { padding-inline: 22px !important; }
 }
+
+/* Keep partner rows compact; secondary management actions expand on demand. */
+#table-campaign-outbound .influencer-row-actions-cell { min-width: 250px; text-align: right; }
+#table-campaign-outbound .influencer-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+#table-campaign-outbound .influencer-row-actions > .btn,
+#table-campaign-outbound .influencer-row-more > summary { min-height: 32px; padding-inline: 10px !important; }
+#table-campaign-outbound .influencer-row-more { position: relative; text-align: left; }
+#table-campaign-outbound .influencer-row-more > summary { list-style: none; cursor: pointer; }
+#table-campaign-outbound .influencer-row-more > summary::-webkit-details-marker { display: none; }
+#table-campaign-outbound .influencer-row-more-menu {
+  display: grid;
+  min-width: 190px;
+  margin-top: 5px;
+  padding: 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-background-surface);
+  box-shadow: 0 10px 28px rgba(28, 25, 23, .16);
+}
+#table-campaign-outbound .influencer-row-more-menu button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+#table-campaign-outbound .influencer-row-more-menu button:hover { background: var(--color-background-muted); }
+#table-campaign-outbound .influencer-row-more-menu button.danger { color: var(--color-error); }
+@media (max-width: 780px) {
+  #table-campaign-outbound .influencer-row-actions-cell { min-width: 210px; }
+  #table-campaign-outbound .influencer-row-actions { gap: 4px; }
+  #table-campaign-outbound .influencer-row-actions > .btn,
+  #table-campaign-outbound .influencer-row-more > summary { padding-inline: 7px !important; font-size: 11px; }
+}
 @media (max-width: 980px) {
   #tab-panel-influencers .influencer-main-layout { grid-template-columns: 1fr !important; }
 }
@@ -3038,6 +3163,7 @@ html[data-theme="dark"] .sidebar-controls-section { border-color: #393530; }
   gap: 10px;
   flex-wrap: wrap;
 }
+#tab-panel-influencers .partner-mode-switch-group { justify-content: flex-end; }
 .partner-entry-mode-tabs {
   display: inline-flex;
   border: 1px solid var(--color-border, #e2dfda);
@@ -3619,5 +3745,3 @@ dialog.outbound-fullscreen-dialog::backdrop,
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-
-

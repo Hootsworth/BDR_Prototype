@@ -54,7 +54,7 @@ class FrontendContractTests(unittest.TestCase):
 
         self.assertIn("openAddProspectForInfluencer", outbound)
         self.assertIn("openAddProspectForInfluencer", influencers)
-        self.assertIn("+ Add Prospect", outbound)
+        self.assertIn("Add referral", outbound)
         self.assertIn("influencer-affiliated-row", outbound)
         self.assertIn("outbound-modal-referred-tag", dialogs)
         self.assertIn("modal-info-referred-by", dialogs)
@@ -143,22 +143,22 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("100vw !important", style_css)
         self.assertIn("100dvh !important", style_css)
 
-        # Influencer portal separate left (contacts given by influencer) & right (contacted status & outreach)
+        # Influencer portal has one referral roster and one selected-contact activity panel.
         self.assertIn("partner-split-workspace", influencers_html)
         self.assertIn("partner-split-left", influencers_html)
         self.assertIn("partner-split-right", influencers_html)
-        self.assertIn("Contacts Given by Influencer", influencers_html)
-        self.assertIn("Contacted Status &amp; Outreach", influencers_html)
+        self.assertIn("Referred contacts", influencers_html)
+        self.assertIn("Contact &amp; activity", influencers_html)
         self.assertIn("partner-contact-status-panel", influencers_html)
         self.assertIn("partner-contact-status-body", influencers_html)
 
-        # Click on any contact name to show outreach options (email, linkedin, call, etc.)
+        # Selecting a referral shows its detail and outreach actions in one panel.
         self.assertIn("selectPortalReferralContact", influencers_js)
         self.assertIn("openPortalContactOutreach", influencers_js)
         self.assertIn("renderPortalContactStatusPanel", influencers_js)
         self.assertIn("portal-contact-name-btn", influencers_js)
-        self.assertIn("portal-inline-outreach-drawer", influencers_js)
-        self.assertIn("toggleOutboundQuickOutreach", outbound_js)
+        self.assertNotIn("portal-inline-outreach-drawer", influencers_js)
+        self.assertNotIn("portal-inline-outreach-drawer", outbound_js)
 
     def test_gtm_operational_workflow_features(self):
         dashboard_html = self.read("components/dashboard.html")
@@ -205,4 +205,3 @@ class FrontendContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

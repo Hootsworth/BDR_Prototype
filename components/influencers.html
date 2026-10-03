@@ -10,14 +10,18 @@
       <select id="console-portal-influencer-select" onchange="selectConsolePortalInfluencer(this.value)">
         <option value="">Select a partner</option>
       </select>
-      <button class="btn btn-secondary btn-sm" onclick="createCurrentInfluencerShareLink()" type="button">Create private link</button>
-      <button class="btn btn-secondary btn-sm" id="partner-revoke-link" onclick="revokeCurrentInfluencerShareLink()" type="button">Revoke private link</button>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="openInfluencerEarningsModal()">Earnings</button>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="openInfluencerAgreementsModal()">Agreements</button>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="openPartnerProfileEditor()">Edit partner</button>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="openPartnerProfileEditor(true)">Add partner</button>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="openBulkAddInfluencerModal()">Bulk add partners</button>
-      <button class="btn btn-secondary btn-sm" type="button" onclick="openRelationshipGraphModal()">Visualize</button>
+      <button class="btn btn-primary btn-sm" onclick="createCurrentInfluencerShareLink()" type="button">Create private link</button>
+      <details class="partner-management-menu">
+        <summary class="btn btn-secondary btn-sm">Manage <span aria-hidden="true">⌄</span></summary>
+        <div class="partner-management-menu-items">
+          <button type="button" id="partner-revoke-link" onclick="revokeCurrentInfluencerShareLink()">Revoke private link</button>
+          <button type="button" onclick="openPartnerProfileEditor()">Edit partner</button>
+          <button type="button" onclick="openPartnerProfileEditor(true)">Add partner</button>
+          <button type="button" onclick="openBulkAddInfluencerModal()">Bulk add partners</button>
+          <button type="button" onclick="openInfluencerAgreementsModal()">Agreements</button>
+          <button type="button" onclick="openRelationshipGraphModal()">Referral network</button>
+        </div>
+      </details>
     </div>
   </header>
 
@@ -31,21 +35,13 @@
       </div>
     </div>
     <div class="partner-profile-contact" id="inf-portal-active-email"></div>
-    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-      <div class="partner-profile-credit" style="cursor: pointer;" onclick="openInfluencerEarningsModal()" title="Click to open Partner Earnings &amp; Credits ledger">
-        <span>Partner credits</span>
-        <strong id="inf-portal-kpi-credits">0 pts</strong>
-      </div>
-      <button class="btn btn-secondary btn-xs" type="button" onclick="openInfluencerAgreementsModal()" id="inf-portal-agreements-pill">Agreements (0)</button>
-      <button class="btn btn-secondary btn-xs" type="button" onclick="openInfluencerEarningsModal()">View Earnings</button>
-    </div>
   </section>
 
   <section class="partner-metrics" aria-label="Partner referral performance">
-    <div class="partner-metric"><span>Referred contacts</span><strong id="inf-portal-kpi-referrals">0</strong></div>
-    <div class="partner-metric"><span>Calls scheduled or taken</span><strong id="inf-portal-kpi-calls">0 / 0 (0%)</strong></div>
-    <div class="partner-metric"><span>Enriched profiles</span><strong id="inf-portal-kpi-enriched">0</strong></div>
-    <div class="partner-metric"><span>Conversion</span><strong id="inf-portal-kpi-conversion">0%</strong></div>
+    <div class="partner-metric"><span>Referrals</span><strong id="inf-portal-kpi-referrals">0</strong></div>
+    <div class="partner-metric"><span>Calls scheduled</span><strong id="inf-portal-kpi-calls">0</strong></div>
+    <div class="partner-metric"><span>Completed calls</span><strong id="inf-portal-kpi-enriched">0</strong></div>
+    <button class="partner-metric partner-credit-metric" type="button" onclick="openInfluencerEarningsModal()"><span>Partner credits</span><strong id="inf-portal-kpi-credits">0 pts</strong></button>
   </section>
 
   <section class="partner-ledger" aria-label="Referred contacts">
@@ -53,21 +49,25 @@
       <div>
         <p class="partner-kicker">REFERRAL LEDGER</p>
         <h3 id="inf-portal-table-title">Referred contacts</h3>
-        <p id="inf-portal-table-subtitle">Review status and take the next action.</p>
+        <p id="inf-portal-table-subtitle">Search referrals and open a contact to review or act.</p>
       </div>
       <div class="partner-ledger-tools">
         <input type="search" id="console-portal-search" placeholder="Find a contact" oninput="renderConsolePortalReferrals()" aria-label="Search referred contacts">
         <select id="console-portal-call-filter" onchange="renderConsolePortalReferrals()" aria-label="Filter by call status">
           <option value="all">All statuses</option>
-          <option value="taken">Scheduled or taken</option>
+          <option value="taken">Scheduled or completed</option>
           <option value="pending">Pending call</option>
         </select>
-        <button class="btn btn-primary btn-sm" type="button" onclick="toggleInfluencerReferralForm()" aria-expanded="false" aria-controls="partner-referral-form">Add referred contact</button>
-        <button class="btn btn-secondary btn-sm" type="button" id="btn-toggle-bulk-referral" onclick="toggleBulkReferralEditor()" aria-expanded="false" aria-controls="partner-bulk-referral-panel">Bulk add / Multi-edit</button>
-        <button class="btn btn-secondary btn-sm" type="button" id="btn-toggle-table-multi-edit" onclick="togglePartnerTableMultiEdit()">Edit table inline</button>
+        <button class="btn btn-primary btn-sm" type="button" onclick="toggleInfluencerReferralForm()" aria-expanded="false" aria-controls="partner-referral-form">Add contact</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="btn-toggle-bulk-referral" onclick="toggleBulkReferralEditor()" aria-expanded="false" aria-controls="partner-bulk-referral-panel">Bulk add / edit</button>
         <button class="btn btn-secondary btn-sm" type="button" onclick="document.getElementById('partner-import-file').click()">Import CSV</button>
-        <button class="btn btn-secondary btn-sm" type="button" onclick="downloadPartnerReportData()">Export chart data</button>
-        <a class="btn btn-secondary btn-sm" href="reports/referral-analytics.html" target="_blank" rel="noopener">Open external report</a>
+        <details class="partner-report-menu">
+          <summary class="btn btn-secondary btn-sm">Reports <span aria-hidden="true">⌄</span></summary>
+          <div class="partner-management-menu-items">
+            <button type="button" onclick="downloadPartnerReportData()">Export chart data</button>
+            <a href="reports/referral-analytics.html" target="_blank" rel="noopener">Open analytics report</a>
+          </div>
+        </details>
         <input id="partner-import-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" hidden onchange="importContactsForCurrentInfluencer(event)">
       </div>
     </div>
@@ -80,10 +80,6 @@
           <p>Save a warm introduction under <strong id="inf-portal-form-partner">Kim Beluzo</strong>.</p>
         </div>
         <div class="partner-mode-switch-group">
-          <div class="partner-entry-mode-tabs" role="tablist" aria-label="Referral entry mode">
-            <button type="button" class="partner-mode-tab active" onclick="switchPartnerEntryMode('single')">One at a time</button>
-            <button type="button" class="partner-mode-tab" onclick="switchPartnerEntryMode('bulk')">Bulk add / Multi-record edit</button>
-          </div>
           <button class="partner-form-close" type="button" onclick="toggleInfluencerReferralForm(false)" aria-label="Close form">Close</button>
         </div>
       </div>
@@ -95,7 +91,7 @@
         <label>Phone<input type="tel" id="console-portal-ref-phone" placeholder="+1 415 555 0192"></label>
         <label>LinkedIn Profile URL<input type="url" id="console-portal-ref-linkedin" placeholder="https://www.linkedin.com/in/jordan-vance"></label>
         <label>Location<input type="text" id="console-portal-ref-location" placeholder="San Diego, CA"></label>
-        <label>Introduction status<select id="console-portal-ref-call"><option value="taken" selected>Call completed</option><option value="scheduled">Call scheduled</option><option value="pending">Pending outreach</option></select></label>
+        <label>Call status<select id="console-portal-ref-call"><option value="pending" selected>Pending outreach</option><option value="scheduled">Call scheduled</option><option value="taken">Call completed</option></select></label>
         <label class="partner-form-notes">Context for the introduction<input type="text" id="console-portal-ref-notes" placeholder="How do they know each other? What are they working on?"></label>
       </div>
       <div class="partner-form-footer"><div id="console-portal-feedback" role="status" aria-live="polite" hidden></div><button class="btn btn-primary" type="submit">Save referred contact</button></div>
@@ -104,15 +100,11 @@
     <div id="partner-bulk-referral-panel" class="partner-referral-form partner-bulk-editor-panel" hidden>
       <div class="partner-form-intro">
         <div>
-          <p class="partner-kicker">MULTI-RECORD WORKSPACE</p>
+            <p class="partner-kicker">BULK EDITOR</p>
           <h4>Bulk add &amp; multi-record edit</h4>
           <p>Add multiple contacts at once, paste directly from Excel/Google Sheets, or load existing referrals under <strong id="inf-portal-bulk-partner">Kim Beluzo</strong> to edit in bulk.</p>
         </div>
         <div class="partner-mode-switch-group">
-          <div class="partner-entry-mode-tabs" role="tablist" aria-label="Referral entry mode">
-            <button type="button" class="partner-mode-tab" onclick="switchPartnerEntryMode('single')">One at a time</button>
-            <button type="button" class="partner-mode-tab active" onclick="switchPartnerEntryMode('bulk')">Bulk add / Multi-record edit</button>
-          </div>
           <button class="partner-form-close" type="button" onclick="toggleBulkReferralEditor(false)" aria-label="Close bulk editor">Close</button>
         </div>
       </div>
@@ -162,21 +154,8 @@
       <div class="partner-form-footer">
         <div id="partner-bulk-feedback" role="status" aria-live="polite" hidden></div>
         <div class="partner-bulk-footer-actions">
-          <button class="btn btn-secondary" type="button" onclick="addPartnerBulkRows(1)">+ Add another row</button>
           <button class="btn btn-primary" type="button" id="btn-save-partner-bulk" onclick="submitPartnerBulkRecords()">Save all contacts</button>
         </div>
-      </div>
-    </div>
-
-    <div id="partner-inline-multi-edit-bar" class="partner-inline-multi-edit-bar" hidden>
-      <div>
-        <strong>Inline multi-record edit mode active</strong>
-        <span>Edit multiple contacts directly in the table below, then save all changes at once.</span>
-      </div>
-      <div class="partner-inline-multi-edit-actions">
-        <span id="partner-inline-edit-feedback" role="status" aria-live="polite"></span>
-        <button class="btn btn-secondary btn-sm" type="button" onclick="togglePartnerTableMultiEdit(false)">Cancel</button>
-        <button class="btn btn-primary btn-sm" type="button" id="btn-save-inline-multi-edit" onclick="savePartnerTableMultiEdit()">Save all changes</button>
       </div>
     </div>
 
@@ -186,34 +165,33 @@
         <div class="partner-split-pane-header">
           <div>
             <p class="partner-kicker">REFERRED ROSTER</p>
-            <h4>Contacts Given by Influencer</h4>
+            <h4>Referred contacts</h4>
           </div>
-          <span class="partner-split-hint">Click any contact name to show outreach options</span>
+          <span class="partner-split-hint">Select a referral to view details</span>
         </div>
         <div class="partner-table-scroll">
           <table class="partner-referrals-table">
-            <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>REFERRED</th></tr></thead>
+            <thead><tr><th>CONTACT</th><th>COMPANY &amp; ROLE</th><th>CALL STATUS</th></tr></thead>
             <tbody id="console-portal-referrals-tbody"><tr><td colspan="3" class="partner-empty-state">Select a partner to load referrals.</td></tr></tbody>
           </table>
         </div>
       </div>
 
       <!-- RIGHT PANE: Contacted Status & Outreach Activity -->
-      <aside class="partner-split-right" id="partner-contact-status-panel" aria-label="Contacted status and outreach options">
+      <aside class="partner-split-right" id="partner-contact-status-panel" aria-label="Selected referral details and outreach options">
         <div class="partner-split-pane-header">
           <div>
-            <p class="partner-kicker">OUTREACH &amp; ENGAGEMENT</p>
-            <h4>Contacted Status &amp; Outreach</h4>
+            <p class="partner-kicker">SELECTED REFERRAL</p>
+            <h4>Contact &amp; activity</h4>
           </div>
-          <span class="partner-split-hint" id="partner-contacted-summary-pill">0 / 0 contacted</span>
         </div>
         <div id="partner-contact-status-body" class="partner-contact-status-body">
-          <div class="partner-empty-state">Select a contact on the left to view contacted status and outreach options (Email, LinkedIn, Call).</div>
+          <div class="partner-empty-state">Select a contact to see details and available outreach actions.</div>
         </div>
       </aside>
     </div>
   </section>
-  <p class="partner-share-note">Private links show only this partner’s contact details and call status. Only one link stays active per partner; creating a new one revokes the old link. Contact notes and outreach history stay internal.</p>
+  <p class="partner-share-note">Shared links show referral details and call status. Internal notes and outreach history stay private.</p>
 </div>
 
 <dialog id="partner-contact-edit-dialog" class="partner-edit-dialog">
@@ -228,7 +206,7 @@
     <label>LinkedIn Profile URL<input class="form-input" id="partner-edit-linkedin" type="url" placeholder="https://www.linkedin.com/in/profile-slug"></label>
     <label>Location<input class="form-input" id="partner-edit-location"></label>
     <label>Internal notes<textarea class="form-input" id="partner-edit-notes" rows="3"></textarea></label>
-    <p class="partner-share-note">Internal notes are never shown in Kim’s shared workspace.</p>
+    <p class="partner-share-note">Internal notes are only visible to your team.</p>
     <button class="btn btn-primary" type="submit">Save contact</button>
     <p id="partner-edit-feedback" role="status" aria-live="polite"></p>
   </form>

@@ -2,7 +2,6 @@
 
 let activeConsolePortalInfluencerEmail = new URLSearchParams(window.location.search).get("email") || "kim.beluzo@beluzoadvisory.com";
 let activePortalSelectedContactId = null;
-let expandedPortalContactId = null;
 
 function isReferralContacted(contact) {
   if (!contact) return false;
@@ -10,7 +9,7 @@ function isReferralContacted(contact) {
     contact.emailsSent ||
     contact.emailSent ||
     contact.linkedinSent ||
-    contact.callsMade ||
+    (Array.isArray(contact.callsMade) ? contact.callsMade.length > 0 : contact.callsMade) ||
     contact.hasTakenCall ||
     contact.hasScheduledCall ||
     (Array.isArray(contact.outboundHistory) && contact.outboundHistory.length > 0)
@@ -29,13 +28,10 @@ function resolvePortalContact(contactIdOrIdx) {
   return c || null;
 }
 
-function selectPortalReferralContact(contactId, toggleInlineOptions = true) {
+function selectPortalReferralContact(contactId) {
   const contact = resolvePortalContact(contactId);
   if (!contact) return;
   activePortalSelectedContactId = String(contact.id);
-  if (toggleInlineOptions) {
-    expandedPortalContactId = expandedPortalContactId === String(contact.id) ? null : String(contact.id);
-  }
   renderConsolePortalReferrals();
 }
 
@@ -108,7 +104,6 @@ function isSyntheticPartnerContact(contact, influencer) {
 function selectConsolePortalInfluencer(emailOrName) {
   activeConsolePortalInfluencerEmail = emailOrName;
   activePortalSelectedContactId = null;
-  expandedPortalContactId = null;
   const pageUrl = new URL(window.location.href);
   if (emailOrName) pageUrl.searchParams.set("email", emailOrName);
   else pageUrl.searchParams.delete("email");
@@ -123,323 +118,127 @@ function renderConsolePortalReferrals() {
     (i.fullName || "").toLowerCase() === (activeConsolePortalInfluencerEmail || "").toLowerCase()
   ) || influencers[0];
 
-  if (!activeInf) return;
+  const tbody = document.getElementById("console-portal-referrals-tbody");
+  if (!activeInf) {
+    const empty = document.getElementById("partner-contact-status-body");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="partner-empty-state">Add or select a partner to view referrals.</td></tr>`;
+    if (empty) empty.innerHTML = `<div class="partner-empty-state">Select a partner to start managing referrals.</div>`;
+    return;
+  }
+
   const revokeButton = document.getElementById('partner-revoke-link');
   if (revokeButton) revokeButton.hidden = false;
-
   const referrals = getInfluencerReferralsList(activeInf);
-  const callsTaken = referrals.filter(r => r.hasTakenCall).length;
-  const pct = referrals.length > 0 ? Math.round((callsTaken / referrals.length) * 100) : 0;
+  const callsScheduled = referrals.filter(r => r.hasScheduledCall && !r.hasTakenCall).length;
+  const callsCompleted = referrals.filter(r => r.hasTakenCall).length;
   const earningsSummary = typeof getInfluencerEarningsSummary === "function" ? getInfluencerEarningsSummary(activeInf) : null;
   const credits = earningsSummary ? earningsSummary.totalCredits : (activeInf.referralCredits || 0);
-  const agreementsCount = Array.isArray(activeInf.agreements) ? activeInf.agreements.length : 0;
 
-  const nameEl = document.getElementById("inf-portal-active-name");
-  const companyEl = document.getElementById("inf-portal-active-company");
-  const refKpiEl = document.getElementById("inf-portal-kpi-referrals");
-  const callKpiEl = document.getElementById("inf-portal-kpi-calls");
-  const credKpiEl = document.getElementById("inf-portal-kpi-credits");
-  const agreementsPillEl = document.getElementById("inf-portal-agreements-pill");
-  const formPartnerEl = document.getElementById("inf-portal-form-partner");
-  const tableTitleEl = document.getElementById("inf-portal-table-title");
-
-  if (nameEl) nameEl.textContent = activeInf.fullName;
-  if (companyEl) companyEl.textContent = `${activeInf.jobTitle || "Partner"} · ${activeInf.company || "Advisory"}`;
-  const emailEl = document.getElementById("inf-portal-active-email");
-  const avatarEl = document.getElementById("inf-portal-avatar");
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
   const initials = (activeInf.fullName || "Partner").split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
-  if (emailEl) emailEl.textContent = activeInf.email || "";
-  if (avatarEl) avatarEl.textContent = initials;
-  if (refKpiEl) refKpiEl.textContent = referrals.length;
-  if (callKpiEl) callKpiEl.textContent = `${callsTaken} / ${referrals.length} (${pct}%)`;
-  if (credKpiEl) credKpiEl.textContent = `${credits} pts`;
-  if (agreementsPillEl) agreementsPillEl.textContent = `Agreements (${agreementsCount})`;
-  const enrichedEl = document.getElementById("inf-portal-kpi-enriched");
-  const conversionEl = document.getElementById("inf-portal-kpi-conversion");
-  const bulkPartnerEl = document.getElementById("inf-portal-bulk-partner");
-  if (enrichedEl) enrichedEl.textContent = referrals.filter(r => r.enriched).length;
-  if (conversionEl) conversionEl.textContent = `${pct}%`;
-  if (formPartnerEl) formPartnerEl.textContent = activeInf.fullName;
-  if (bulkPartnerEl) bulkPartnerEl.textContent = activeInf.fullName;
-  if (tableTitleEl) tableTitleEl.textContent = `${activeInf.fullName}'s Referred Contacts (${referrals.length})`;
-  const tbody = document.getElementById("console-portal-referrals-tbody");
-  if (!tbody) return;
+  setText("inf-portal-active-name", activeInf.fullName || "Partner");
+  setText("inf-portal-active-company", `${activeInf.jobTitle || "Partner"} · ${activeInf.company || "Advisory"}`);
+  setText("inf-portal-active-email", activeInf.email || "");
+  setText("inf-portal-avatar", initials);
+  setText("inf-portal-kpi-referrals", referrals.length);
+  setText("inf-portal-kpi-calls", callsScheduled);
+  setText("inf-portal-kpi-enriched", callsCompleted);
+  setText("inf-portal-kpi-credits", `${credits} pts`);
+  setText("inf-portal-form-partner", activeInf.fullName || "this partner");
+  setText("inf-portal-bulk-partner", activeInf.fullName || "this partner");
+  setText("inf-portal-table-title", "Referred contacts");
 
-  const q = (document.getElementById("console-portal-search")?.value || "").trim().toLowerCase();
-  const callFilter = document.getElementById("console-portal-call-filter")?.value || "all";
-
+  const query = (document.getElementById("console-portal-search")?.value || "").trim().toLowerCase();
+  const filter = document.getElementById("console-portal-call-filter")?.value || "all";
   const filtered = referrals.filter(r => {
     const hasCall = Boolean(r.hasTakenCall || r.hasScheduledCall);
-    if (callFilter === "taken" && !hasCall) return false;
-    if (callFilter === "pending" && hasCall) return false;
-    if (!q) return true;
-    return (
-      (r.fullName || "").toLowerCase().includes(q) ||
-      (r.company || "").toLowerCase().includes(q) ||
-      (r.jobTitle || "").toLowerCase().includes(q) ||
-      (r.email || "").toLowerCase().includes(q)
-    );
+    if (filter === "taken" && !hasCall) return false;
+    if (filter === "pending" && hasCall) return false;
+    return !query || [r.fullName, r.company, r.jobTitle, r.email].some(value => String(value || "").toLowerCase().includes(query));
   });
 
-  if (filtered.length > 0 && (!activePortalSelectedContactId || !filtered.some(r => String(r.id) === String(activePortalSelectedContactId)))) {
+  if (filtered.length && !filtered.some(r => String(r.id) === String(activePortalSelectedContactId))) {
     activePortalSelectedContactId = String(filtered[0].id);
   }
-
-  const subtitleEl = document.getElementById("inf-portal-table-subtitle");
-  if (subtitleEl) subtitleEl.textContent = `Showing ${filtered.length} of ${referrals.length} introductions. Click any contact name on the left to view outreach options and contacted status on the right.`;
-
-  const inlineBar = document.getElementById("partner-inline-multi-edit-bar");
-  if (inlineBar) inlineBar.hidden = !window.isPartnerTableMultiEditMode;
-  const inlineBtn = document.getElementById("btn-toggle-table-multi-edit");
-  if (inlineBtn) {
-    inlineBtn.textContent = window.isPartnerTableMultiEditMode ? "Exit inline edit" : "Edit table inline";
-    inlineBtn.classList.toggle("btn-primary", Boolean(window.isPartnerTableMultiEditMode));
-    inlineBtn.classList.toggle("btn-secondary", !window.isPartnerTableMultiEditMode);
-  }
-
+  const subtitle = document.getElementById("inf-portal-table-subtitle");
+  if (subtitle) subtitle.textContent = `Showing ${filtered.length} of ${referrals.length} referrals. Select one to see details and outreach actions.`;
   renderPortalContactStatusPanel(activeInf, filtered, referrals);
 
-  if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 2rem; color: var(--color-text-secondary);">No referred contacts match the current filter.</td></tr>`;
+  if (!tbody) return;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="3" class="partner-empty-state">No referrals match these filters.</td></tr>`;
     return;
   }
-
-  if (window.isPartnerTableMultiEditMode) {
-    tbody.innerHTML = filtered.map(r => {
-      const statusVal = r.hasTakenCall ? "completed" : r.hasScheduledCall ? "scheduled" : "pending";
-      return `
-        <tr class="partner-inline-edit-row" data-contact-id="${escapePartnerHTML(r.id)}">
-          <td>
-            <div class="partner-inline-cell-stack">
-              <input type="text" class="partner-grid-input" data-field="fullName" value="${escapePartnerHTML(r.fullName || "")}" placeholder="Full name" required>
-              <input type="email" class="partner-grid-input" data-field="email" value="${escapePartnerHTML(r.email || "")}" placeholder="Work email" required>
-              <input type="tel" class="partner-grid-input" data-field="phone" value="${escapePartnerHTML(r.phone || "")}" placeholder="Phone">
-            </div>
-          </td>
-          <td>
-            <div class="partner-inline-cell-stack">
-              <input type="text" class="partner-grid-input" data-field="company" value="${escapePartnerHTML(r.company || "")}" placeholder="Company" required>
-              <input type="text" class="partner-grid-input" data-field="jobTitle" value="${escapePartnerHTML(r.jobTitle || "")}" placeholder="Job title">
-              <input type="text" class="partner-grid-input" data-field="location" value="${escapePartnerHTML(r.location || "")}" placeholder="Location">
-              <input type="text" class="partner-grid-input" data-field="notes" value="${escapePartnerHTML(r.portalNotes || "")}" placeholder="Internal notes">
-            </div>
-          </td>
-          <td>
-            <div class="partner-inline-cell-stack">
-              <select class="partner-grid-select" data-field="status">
-                <option value="completed" ${statusVal === "completed" ? "selected" : ""}>Call completed</option>
-                <option value="scheduled" ${statusVal === "scheduled" ? "selected" : ""}>Call scheduled</option>
-                <option value="pending" ${statusVal === "pending" ? "selected" : ""}>Pending outreach</option>
-              </select>
-              <button class="btn btn-sm btn-secondary" type="button" onclick="deletePartnerContact('${escapePartnerHTML(r.id)}')" style="font-size: 11px; padding: 4px 8px;">Remove</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
-    return;
-  }
-
   tbody.innerHTML = filtered.map(r => {
-    const idx = database.contacts.indexOf(r);
     const referralEntry = (activeInf.referrals || []).find(ref =>
-      ((ref.email || "").toLowerCase() && (ref.email || "").toLowerCase() === (r.email || "").toLowerCase()) ||
-      ((ref.fullName || ref.name || "").toLowerCase() && (ref.fullName || ref.name || "").toLowerCase() === (r.fullName || "").toLowerCase())
+      (ref.email && String(ref.email).toLowerCase() === String(r.email || "").toLowerCase()) ||
+      (ref.fullName && String(ref.fullName).toLowerCase() === String(r.fullName || "").toLowerCase())
     );
     const referredDate = r.referredDate || r.date || referralEntry?.date || "Warm intro";
     const isSelected = String(r.id) === String(activePortalSelectedContactId);
-    const isExpanded = String(r.id) === String(expandedPortalContactId);
-    const hasCall = Boolean(r.hasTakenCall || r.hasScheduledCall);
-
+    const status = r.hasTakenCall ? "Completed" : r.hasScheduledCall ? "Scheduled" : "Pending";
     return `
-      <tr class="portal-contact-row ${isSelected ? "is-selected" : ""}" onclick="selectPortalReferralContact('${escapePartnerHTML(r.id)}', false)">
-        <td>
-          <button type="button" class="portal-contact-name-btn" onclick="event.stopPropagation(); selectPortalReferralContact('${escapePartnerHTML(r.id)}', true)">
-            <span>${escapePartnerHTML(r.fullName)}</span>
-            <span class="portal-contact-name-caret">${isExpanded ? "▴" : "▾"}</span>
-          </button>
-          <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">${escapePartnerHTML(r.email || "")}</div>
-          ${r.phone ? `<div style="font-size: 10.5px; color: var(--color-text-secondary);">${escapePartnerHTML(r.phone)}</div>` : ""}
-          <div class="portal-inline-outreach-drawer" ${isExpanded ? "" : "hidden"} onclick="event.stopPropagation();">
-            <span class="portal-inline-outreach-label">Outreach options:</span>
-            <button type="button" class="btn btn-xs btn-primary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'email')">Email</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'linkedin')">LinkedIn</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'call')">Call</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="toggleReferralCallStatus(${idx})">${hasCall ? "Mark Pending" : "Mark Call Taken"}</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="openPartnerContactEditor('${escapePartnerHTML(r.id)}')">Edit</button>
-          </div>
-        </td>
-        <td>
-          <div style="font-weight: 600; font-size: 12.5px;">${escapePartnerHTML(r.company || "Credit Union")}</div>
-          <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.jobTitle || "Executive")}</div>
-          ${r.portalNotes ? `<div style="max-width: 260px; margin-top: 4px; color: var(--color-text-secondary); font-size: 10px; line-height: 1.4;">${escapePartnerHTML(r.portalNotes)}</div>` : ""}
-        </td>
-        <td style="white-space: nowrap; font-size: 11px; color: var(--color-text-secondary);">
-          <div>${escapePartnerHTML(referredDate)}</div>
-          ${r.location ? `<div style="font-size: 10px; margin-top: 2px;">${escapePartnerHTML(r.location)}</div>` : ""}
-        </td>
-      </tr>
-    `;
+      <tr class="portal-contact-row ${isSelected ? "is-selected" : ""}" data-contact-id="${escapePartnerHTML(r.id)}" onclick="selectPortalReferralContact('${escapePartnerHTML(r.id)}')">
+        <td><button type="button" class="portal-contact-name-btn" aria-pressed="${isSelected}" onclick="event.stopPropagation(); selectPortalReferralContact('${escapePartnerHTML(r.id)}')">${escapePartnerHTML(r.fullName || "Unnamed contact")}</button><div class="partner-roster-secondary">${escapePartnerHTML(r.email || "")}</div></td>
+        <td><strong>${escapePartnerHTML(r.company || "Credit Union")}</strong><div class="partner-roster-secondary">${escapePartnerHTML(r.jobTitle || "Executive")}</div></td>
+        <td class="partner-referral-status-cell"><span class="partner-status-pill ${status === "Pending" ? "is-pending" : "is-contacted"}">${status}</span><span>${escapePartnerHTML(referredDate)}</span>${r.location ? `<small>${escapePartnerHTML(r.location)}</small>` : ""}</td>
+      </tr>`;
   }).join("");
 }
 
 function renderPortalContactStatusPanel(activeInf, filtered, allReferrals) {
   const bodyEl = document.getElementById("partner-contact-status-body");
-  const summaryPill = document.getElementById("partner-contacted-summary-pill");
   if (!bodyEl) return;
 
-  const totalCount = allReferrals.length;
-  const contactedCount = allReferrals.filter(r => isReferralContacted(r)).length;
-  const emailsCount = allReferrals.filter(r => r.emailsSent || r.emailSent).length;
-  const linkedinCount = allReferrals.filter(r => r.linkedinSent).length;
-  const callsCount = allReferrals.filter(r => r.hasTakenCall || r.hasScheduledCall || r.callsMade).length;
-  const pendingCount = Math.max(0, totalCount - contactedCount);
-
-  if (summaryPill) {
-    summaryPill.textContent = `${contactedCount} / ${totalCount} contacted`;
-  }
-
   if (filtered.length === 0) {
-    bodyEl.innerHTML = `<div class="partner-empty-state">No contacts available to display outreach status.</div>`;
+    bodyEl.innerHTML = `<div class="partner-empty-state">Choose a referral to see details and outreach actions.</div>`;
     return;
   }
 
   const selected = filtered.find(r => String(r.id) === String(activePortalSelectedContactId)) || filtered[0];
-  const selectedIdx = database.contacts.indexOf(selected);
-  const selectedContacted = isReferralContacted(selected);
+  const selectedIdx = database.contacts.findIndex(contact => String(contact.id) === String(selected.id));
   const hasCall = Boolean(selected.hasTakenCall || selected.hasScheduledCall);
+  const status = selected.hasTakenCall ? "Call completed" : selected.hasScheduledCall ? "Call scheduled" : "Pending outreach";
   const historyList = Array.isArray(selected.outboundHistory) ? selected.outboundHistory : [];
-
-  const statusRowsHtml = filtered.map(r => {
-    const idx = database.contacts.indexOf(r);
-    const contacted = isReferralContacted(r);
-    const rHasCall = Boolean(r.hasTakenCall || r.hasScheduledCall);
-    const isSel = String(r.id) === String(selected.id);
-    const channels = [];
-    if (r.emailsSent || r.emailSent) channels.push(`<span class="badge badge-primary" style="font-size: 10px;">Email Sent</span>`);
-    if (r.linkedinSent) channels.push(`<span class="badge badge-secondary" style="font-size: 10px;">LinkedIn Sent</span>`);
-    if (r.hasTakenCall) channels.push(`<span class="badge badge-success" style="font-size: 10px;">Call Taken</span>`);
-    else if (r.hasScheduledCall) channels.push(`<span class="badge badge-primary" style="font-size: 10px;">Call Scheduled</span>`);
-    if (!channels.length) channels.push(`<span class="badge badge-neutral" style="font-size: 10px;">Not Contacted</span>`);
-
-    return `
-      <div class="partner-status-row ${isSel ? "is-selected" : ""}" onclick="selectPortalReferralContact('${escapePartnerHTML(r.id)}', false)">
-        <div class="partner-status-row-main">
-          <button type="button" class="portal-contact-name-btn" onclick="event.stopPropagation(); selectPortalReferralContact('${escapePartnerHTML(r.id)}', true)">
-            ${escapePartnerHTML(r.fullName)}
-          </button>
-          <span class="partner-status-pill ${contacted ? "is-contacted" : "is-pending"}">
-            ${contacted ? "Contacted" : "Pending Outreach"}
-          </span>
-        </div>
-        <div class="partner-status-row-channels">
-          <div style="display: flex; gap: 4px; flex-wrap: wrap;">${channels.join(" ")}</div>
-          <div class="partner-status-row-actions" onclick="event.stopPropagation();">
-            <button type="button" class="btn btn-xs btn-primary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'email')">Email</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'linkedin')">LinkedIn</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="openPortalContactOutreach('${escapePartnerHTML(r.id)}', 'call')">Call</button>
-            <button type="button" class="btn btn-xs btn-secondary" onclick="toggleReferralCallStatus(${idx})">${rHasCall ? "Pending" : "Call Taken"}</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join("");
+  const channelStatus = [
+    ["Email", selected.emailsSent || selected.emailSent ? `Sent (${selected.emailsSent || 1})` : "Not sent"],
+    ["LinkedIn", selected.linkedinSent ? `Sent (${selected.linkedinSent})` : "Not sent"],
+    ["Call", status]
+  ];
 
   bodyEl.innerHTML = `
-    <div class="partner-status-overview-grid">
-      <div class="partner-status-stat">
-        <span>Contacted</span>
-        <strong>${contactedCount}</strong>
-      </div>
-      <div class="partner-status-stat">
-        <span>Emails Sent</span>
-        <strong>${emailsCount}</strong>
-      </div>
-      <div class="partner-status-stat">
-        <span>LinkedIn</span>
-        <strong>${linkedinCount}</strong>
-      </div>
-      <div class="partner-status-stat">
-        <span>Calls Taken</span>
-        <strong>${callsCount}</strong>
-      </div>
-      <div class="partner-status-stat">
-        <span>Uncontacted</span>
-        <strong>${pendingCount}</strong>
-      </div>
-    </div>
-
-    <div class="partner-selected-contact-card">
+    <article class="partner-selected-contact-card">
       <div class="partner-selected-contact-top">
         <div>
-          <p class="partner-kicker">SELECTED CONTACT OUTREACH</p>
+          <p class="partner-kicker">REFERRAL DETAILS</p>
           <h5>${escapePartnerHTML(selected.fullName)}</h5>
           <p>${escapePartnerHTML(selected.jobTitle || "Executive")} · ${escapePartnerHTML(selected.company || "Credit Union")}</p>
-          <p style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">${escapePartnerHTML(selected.email || "")}${selected.phone ? ` · ${escapePartnerHTML(selected.phone)}` : ""}</p>
+          <p class="partner-selected-contact-meta">${escapePartnerHTML(selected.email || "")}${selected.phone ? ` · ${escapePartnerHTML(selected.phone)}` : ""}</p>
         </div>
-        <span class="partner-status-pill ${selectedContacted ? "is-contacted" : "is-pending"}">
-          ${selectedContacted ? "Contacted" : "Not Contacted Yet"}
-        </span>
+        <span class="partner-status-pill ${hasCall ? "is-contacted" : "is-pending"}">${status}</span>
       </div>
-
-      <div class="partner-outreach-action-bar">
-        <button type="button" class="btn btn-primary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'email')">
-          Email Outreach
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'linkedin')">
-          LinkedIn Message
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'call')">
-          Phone Call
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleReferralCallStatus(${selectedIdx})">
-          ${hasCall ? "Mark Pending" : "Mark Call Taken"}
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openPartnerContactEditor('${escapePartnerHTML(selected.id)}')">
-          Edit
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="deletePartnerContact('${escapePartnerHTML(selected.id)}')">
-          Remove
-        </button>
-      </div>
-
       <div class="partner-selected-channels-grid">
-        <div class="partner-channel-chip ${selected.emailsSent || selected.emailSent ? "is-done" : ""}">
-          <span>Email Status</span>
-          <strong>${selected.emailsSent || selected.emailSent ? `Sent (${selected.emailsSent || 1})` : "Not sent"}</strong>
-        </div>
-        <div class="partner-channel-chip ${selected.linkedinSent ? "is-done" : ""}">
-          <span>LinkedIn Status</span>
-          <strong>${selected.linkedinSent ? `Sent (${selected.linkedinSent})` : "Not sent"}</strong>
-        </div>
-        <div class="partner-channel-chip ${hasCall ? "is-done" : ""}">
-          <span>Call Status</span>
-          <strong>${selected.hasTakenCall ? "Call completed" : selected.hasScheduledCall ? "Call scheduled" : "Pending call"}</strong>
-        </div>
+        ${channelStatus.map(([label, value]) => `<div class="partner-channel-chip"><span>${label}</span><strong>${escapePartnerHTML(value)}</strong></div>`).join("")}
       </div>
-
-      ${historyList.length > 0 ? `
-        <div class="partner-selected-history">
-          <span class="partner-kicker">RECENT OUTREACH LOGS</span>
-          ${historyList.slice(-3).reverse().map(item => `
-            <div class="partner-history-entry">
-              <strong>${escapePartnerHTML((item.channel || "outreach").toUpperCase())}</strong>
-              <span>${escapePartnerHTML(item.subject || item.preview || "Outreach logged")}</span>
-              <time>${escapePartnerHTML(item.date || "")}</time>
-            </div>
-          `).join("")}
-        </div>
-      ` : ""}
-    </div>
-
-    <div class="partner-status-list-section">
-      <div class="partner-status-list-header">
-        <span class="partner-kicker">ALL REFERRED CONTACTS — CONTACTED STATUS</span>
+      <div class="partner-outreach-action-bar">
+        <button type="button" class="btn btn-primary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'email')">Email</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'linkedin')">LinkedIn</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'call')">Call</button>
+        <details class="partner-contact-more">
+          <summary class="btn btn-secondary btn-sm">More</summary>
+          <div class="partner-management-menu-items">
+            <button type="button" onclick="toggleReferralCallStatus(${selectedIdx})">${selected.hasTakenCall ? "Mark call pending" : "Mark call completed"}</button>
+            <button type="button" onclick="openPartnerContactEditor('${escapePartnerHTML(selected.id)}')">Edit referral</button>
+            <button type="button" class="danger" onclick="deletePartnerContact('${escapePartnerHTML(selected.id)}')">Remove referral</button>
+          </div>
+        </details>
       </div>
-      <div class="partner-status-list">
-        ${statusRowsHtml}
-      </div>
-    </div>
+      ${selected.portalNotes ? `<div class="partner-referral-notes"><span>Introduction notes</span><p>${escapePartnerHTML(selected.portalNotes)}</p></div>` : ""}
+      ${historyList.length ? `<div class="partner-selected-history"><span class="partner-kicker">RECENT OUTREACH</span>${historyList.slice(-3).reverse().map(item => `<div class="partner-history-entry"><strong>${escapePartnerHTML((item.channel || "outreach").toUpperCase())}</strong><span>${escapePartnerHTML(item.subject || item.preview || "Outreach logged")}</span><time>${escapePartnerHTML(item.date || "")}</time></div>`).join("")}</div>` : ""}
+    </article>
   `;
 }
 
@@ -473,7 +272,7 @@ async function submitConsolePortalReferral() {
   const phone = document.getElementById("console-portal-ref-phone")?.value.trim();
   const rawLinkedin = document.getElementById("console-portal-ref-linkedin")?.value.trim() || "";
   const linkedinUrl = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(rawLinkedin) : rawLinkedin;
-  const callState = document.getElementById("console-portal-ref-call")?.value || "taken";
+  const callState = document.getElementById("console-portal-ref-call")?.value || "pending";
   const notes = document.getElementById("console-portal-ref-notes")?.value.trim();
   const feedbackEl = document.getElementById("console-portal-feedback");
 
@@ -805,16 +604,6 @@ function toggleInfluencerReferralForm(forceOpen) {
   if (shouldOpen) document.getElementById("console-portal-ref-name")?.focus();
 }
 
-function switchPartnerEntryMode(mode) {
-  if (mode === "bulk") {
-    toggleInfluencerReferralForm(false);
-    toggleBulkReferralEditor(true);
-  } else {
-    toggleBulkReferralEditor(false);
-    toggleInfluencerReferralForm(true);
-  }
-}
-
 function toggleBulkReferralEditor(forceOpen) {
   const panel = document.getElementById("partner-bulk-referral-panel");
   const singleForm = document.getElementById("partner-referral-form");
@@ -842,7 +631,7 @@ function toggleBulkReferralEditor(forceOpen) {
 }
 
 function createPartnerBulkRowHTML(row = {}, index = 1) {
-  const statusVal = row.status || (row.hasTakenCall ? "completed" : row.hasScheduledCall ? "scheduled" : "completed");
+  const statusVal = row.status || (row.hasTakenCall ? "completed" : row.hasScheduledCall ? "scheduled" : "pending");
   const idAttr = row.id ? `data-contact-id="${escapePartnerHTML(row.id)}"` : "";
   const badgeHTML = row.id
     ? `<span class="partner-bulk-row-badge existing" title="Editing existing contact">${index}</span>`
@@ -1119,47 +908,6 @@ async function submitPartnerBulkRecords() {
     }
   } finally {
     if (saveBtn) saveBtn.disabled = false;
-  }
-}
-
-function togglePartnerTableMultiEdit(forceState) {
-  window.isPartnerTableMultiEditMode = typeof forceState === "boolean" ? forceState : !window.isPartnerTableMultiEditMode;
-  const feedback = document.getElementById("partner-inline-edit-feedback");
-  if (feedback) feedback.textContent = "";
-  renderConsolePortalReferrals();
-}
-
-async function savePartnerTableMultiEdit() {
-  const influencer = currentPartner();
-  if (!influencer) return;
-  const rows = collectRowsFromTableBody("#console-portal-referrals-tbody");
-  const feedback = document.getElementById("partner-inline-edit-feedback");
-  const btn = document.getElementById("btn-save-inline-multi-edit");
-  if (rows.length === 0) {
-    togglePartnerTableMultiEdit(false);
-    return;
-  }
-  if (btn) btn.disabled = true;
-  if (feedback) feedback.textContent = "Saving changes…";
-  try {
-    const res = await fetch("/api/influencers/contacts/bulk-save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        influencerId: influencer.id,
-        contacts: rows
-      })
-    });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.error || `Save failed (${res.status})`);
-    window.isPartnerTableMultiEditMode = false;
-    await loadWorkbookFromServer();
-    renderInfluencersTable();
-    if (typeof renderDashboard === "function") renderDashboard();
-  } catch (err) {
-    if (feedback) feedback.textContent = `Error: ${err.message}`;
-  } finally {
-    if (btn) btn.disabled = false;
   }
 }
 
@@ -2061,7 +1809,6 @@ window.closePartnerProfileEditor = closePartnerProfileEditor;
 window.savePartnerProfile = savePartnerProfile;
 window.deletePartnerProfile = deletePartnerProfile;
 window.toggleInfluencerReferralForm = toggleInfluencerReferralForm;
-window.switchPartnerEntryMode = switchPartnerEntryMode;
 window.toggleBulkReferralEditor = toggleBulkReferralEditor;
 window.addPartnerBulkRows = addPartnerBulkRows;
 window.removePartnerBulkRow = removePartnerBulkRow;
@@ -2070,8 +1817,6 @@ window.loadExistingReferralsIntoBulkEditor = loadExistingReferralsIntoBulkEditor
 window.togglePartnerBulkPasteBox = togglePartnerBulkPasteBox;
 window.applyPartnerBulkPaste = applyPartnerBulkPaste;
 window.submitPartnerBulkRecords = submitPartnerBulkRecords;
-window.togglePartnerTableMultiEdit = togglePartnerTableMultiEdit;
-window.savePartnerTableMultiEdit = savePartnerTableMultiEdit;
 window.toggleInfluencerStatus = toggleInfluencerStatus;
 window.openAddReferralModal = openAddReferralModal;
 window.openAddInfluencerModal = openAddInfluencerModal;
