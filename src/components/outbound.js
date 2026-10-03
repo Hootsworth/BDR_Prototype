@@ -163,6 +163,9 @@ function changeOutboundPage(page) {
         (c.referrals && c.referrals.some(r => (r.email && p.email && r.email.trim().toLowerCase() === p.email.trim().toLowerCase()) || (r.fullName && p.fullName && r.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase())))
       ));
       const isQuickExpanded = String(window.expandedOutboundContactId || "") === String(c.id);
+      const earningsSummary = typeof getInfluencerEarningsSummary === "function" ? getInfluencerEarningsSummary(c) : null;
+      const totalCredits = earningsSummary ? earningsSummary.totalCredits : (c.referralCredits || 0);
+      const agreementsCount = Array.isArray(c.agreements) ? c.agreements.length : 0;
       tr.innerHTML = `
         <td style="text-align: center;"><input type="checkbox" class="row-check-outbound" data-id="${c.id}" ${isChecked} onchange="toggleSelectOutboundRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
         <td>
@@ -173,9 +176,10 @@ function changeOutboundPage(page) {
                 <span>${c.fullName}</span>
                 <span class="portal-contact-name-caret">${isQuickExpanded ? "▴" : "▾"}</span>
               </button>
-              <div style="display: flex; gap: 0.375rem; align-items: center; margin-top: 2px;">
+              <div style="display: flex; gap: 0.375rem; align-items: center; margin-top: 2px; flex-wrap: wrap;">
                 <span class="badge" style="font-size: 10px; background: rgba(99, 102, 241, 0.12); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.25);">Partner</span>
-                ${c.referralCredits ? `<span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);">${c.referralCredits} Credits</span>` : ''}
+                <span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25); cursor: pointer;" onclick="openInfluencerEarningsModal(${c.id})" title="View Partner Earnings &amp; Credits">${totalCredits} Credits</span>
+                <span class="badge" style="font-size: 10px; background: var(--surface-soft); color: var(--color-text-secondary); border: 1px solid var(--color-border); cursor: pointer;" onclick="openInfluencerAgreementsModal(${c.id})" title="Manage Signed Agreements &amp; Attachments">${agreementsCount} Agreement${agreementsCount === 1 ? "" : "s"}</span>
               </div>
               <div class="portal-inline-outreach-drawer" ${isQuickExpanded ? "" : "hidden"}>
                 <span class="portal-inline-outreach-label">Outreach:</span>
@@ -183,6 +187,8 @@ function changeOutboundPage(page) {
                 <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${c.id}, 'linkedin')">LinkedIn</button>
                 <button type="button" class="btn btn-xs btn-secondary" onclick="openOutboundModal(${c.id}, 'call')">Call</button>
                 <button type="button" class="btn btn-xs btn-secondary" onclick="openInfluencerPortal('${c.email}')">Portal</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openInfluencerEarningsModal(${c.id})">Earnings</button>
+                <button type="button" class="btn btn-xs btn-secondary" onclick="openInfluencerAgreementsModal(${c.id})">Agreements</button>
               </div>
             </div>
           </div>
@@ -196,10 +202,13 @@ function changeOutboundPage(page) {
         <td>${linkedinStatus}</td>
         <td>${callStatus}</td>
         <td style="text-align: right;">
-          <div style="display: flex; gap: 0.375rem; justify-content: flex-end; align-items: center;">
+          <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
             <button class="btn btn-secondary btn-sm" onclick="openInfluencerPortal('${c.email}')" title="Open Influencer Referral Portal">Portal </button>
+            <button class="btn btn-secondary btn-sm" onclick="openInfluencerEarningsModal(${c.id})" title="View Partner Credits &amp; Earnings">Earnings</button>
+            <button class="btn btn-secondary btn-sm" onclick="openInfluencerAgreementsModal(${c.id})" title="Attach or View Signed Agreements">Agreements</button>
             ${affiliated.length ? `<button class="btn btn-secondary btn-sm" onclick="toggleExpandInfluencerReferrals(${c.id})">${isExpanded ? 'Hide Referrals' : `Show ${affiliated.length} Referrals`}</button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})">+ Add Prospect</button>
+            <button class="btn btn-secondary btn-sm" onclick="openPartnerProfileEditorById(${c.id})" title="Edit Influencer Profile">Edit</button>
             <button class="btn btn-primary btn-sm" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
             <button class="btn btn-secondary btn-sm" style="color: var(--color-error); padding: 0.25rem 0.5rem;" onclick="deleteContactRecord(${c.id})" title="Delete Partner">✕</button>
           </div>
@@ -494,18 +503,20 @@ function switchDrawerChannel(channel) {
       </div>
     `;
   } else if (channel === 'linkedin') {
+    const rawLiDraft = typeof contact.linkedinDraft === "string" ? contact.linkedinDraft : (contact.linkedinDraft?.body || "");
     container.innerHTML = `
       <div class="form-group">
-        <label>LinkedIn handle: <span style="font-size:12px;color:var(--primary); font-weight:normal;">${contact.linkedinUrl || "linkedin.com/in/" + contact.firstName.toLowerCase()}</span></label>
+        <label>Recipient LinkedIn Profile URL *</label>
+        <input type="url" class="input-control" id="drawer-linkedin-url-input" value="${contact.linkedinUrl || ""}" placeholder="https://www.linkedin.com/in/recipient-slug">
       </div>
 
       <div class="form-group" style="margin-top:12px;">
         <label>Connection Invitation Note (Max 300 chars)</label>
-        <textarea class="input-control" id="linkedin-draft-text" style="height: 120px; font-size:13px;" maxlength="300">${contact.linkedinDraft}</textarea>
+        <textarea class="input-control" id="linkedin-draft-text" style="height: 120px; font-size:13px;" maxlength="300">${rawLiDraft}</textarea>
       </div>
 
       <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Open LinkedIn to Send Invite</button>
+        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Open LinkedIn Profile &amp; Copy Note</button>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <button class="btn btn-secondary" onclick="insertCalendlyLink('linkedin-draft-text')" style="font-size:13px; height:44px;">Insert Calendly</button>
           <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
@@ -609,18 +620,39 @@ async function sendOutboundEmail() {
 
 async function sendOutboundLinkedin() {
   const contact = database.selectedContact;
-  if (!contact) return;
+  if (!contact) return false;
 
   const draft = document.getElementById("linkedin-draft-text")?.value
     ?? document.getElementById("outbound-email-body-input")?.value
     ?? contact.linkedinDraft;
   const note = typeof draft === "string" ? draft.trim() : String(draft?.body || "").trim();
-  if (!note) return alert("Add a connection note before dispatching LinkedIn outreach.");
-  if (contact.suppressed || contact.unsubscribed) return alert("This contact is suppressed or unsubscribed.");
-
-  if (!database.linkedinAccessToken) {
-    database.linkedinAccessToken = "linkedin_oauth_token_" + Date.now();
+  if (!note) {
+    alert("Add a connection note before dispatching LinkedIn outreach.");
+    return false;
   }
+  if (contact.suppressed || contact.unsubscribed) {
+    alert("This contact is suppressed or unsubscribed.");
+    return false;
+  }
+
+  const modalLiInput = document.getElementById("outbound-modal-linkedin-url-input");
+  const drawerLiInput = document.getElementById("drawer-linkedin-url-input");
+  const candidateUrl = (modalLiInput?.value || drawerLiInput?.value || contact.linkedinUrl || "").trim();
+  const normalizedUrl = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(candidateUrl) : candidateUrl;
+  const isValidUrl = typeof isValidLinkedinProfileUrl === "function"
+    ? isValidLinkedinProfileUrl(normalizedUrl)
+    : /^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\/(in|pub|company)\/[A-Za-z0-9_%-]+\/?/i.test(normalizedUrl);
+
+  if (!isValidUrl) {
+    alert("Recipient LinkedIn Profile URL is required (e.g. https://www.linkedin.com/in/username). Please enter the recipient's LinkedIn profile URL before dispatching LinkedIn outreach.");
+    if (modalLiInput) modalLiInput.focus();
+    else if (drawerLiInput) drawerLiInput.focus();
+    return false;
+  }
+
+  contact.linkedinUrl = normalizedUrl;
+  const infoLi = document.getElementById("modal-info-linkedin");
+  if (infoLi) infoLi.textContent = normalizedUrl;
 
   try {
     const response = await fetch("/api/linkedin/send", {
@@ -629,31 +661,48 @@ async function sendOutboundLinkedin() {
       body: JSON.stringify({
         to: contact.fullName,
         email: contact.email,
-        linkedinUrl: contact.linkedinUrl || "",
+        linkedinUrl: normalizedUrl,
         message: note,
         contactId: contact.id,
-        token: database.linkedinAccessToken
+        token: database.linkedinAccessToken || ""
       })
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.error || `LinkedIn API returned ${response.status}`);
+      throw new Error(payload.error || `LinkedIn outreach returned ${response.status}`);
+    }
+
+    try {
+      await navigator.clipboard.writeText(note);
+    } catch (_) {}
+
+    if (typeof window !== "undefined" && typeof window.open === "function") {
+      window.open(normalizedUrl, "_blank", "noopener,noreferrer");
     }
 
     contact.linkedinDraft = { body: note };
     contact.linkedinSent = true;
     contact.linkedinSentAt = new Date().toISOString();
-    contact.linkedinProviderId = payload.id || `urn:li:share:${Date.now()}`;
+    contact.linkedinProviderId = payload.id || `urn:li:outreach:${Date.now()}`;
+    if (!Array.isArray(contact.outboundHistory)) contact.outboundHistory = [];
+    contact.outboundHistory.push({
+      channel: "linkedin",
+      subject: `LinkedIn Outreach (${normalizedUrl})`,
+      preview: note.slice(0, 120),
+      date: new Date().toISOString().slice(0, 10)
+    });
     database.stats.linkedinSent = (database.stats.linkedinSent || 0) + 1;
     saveDatabaseCache();
 
-    addLogConsole("enrich", `[LINKEDIN API] Dispatched connection & message to ${contact.fullName} (${contact.linkedinProviderId})`, "success");
+    addLogConsole("enrich", `[LINKEDIN OUTREACH] Copied note & opened ${normalizedUrl} for ${contact.fullName}`, "success");
     filterOutboundTable();
     renderOutboundModalHistory(contact);
-    alert(`LinkedIn outreach dispatched to ${contact.fullName}!\nAPI Reference: ${contact.linkedinProviderId}`);
+    alert(`LinkedIn connection note copied to clipboard and ${contact.fullName}'s LinkedIn profile opened (${normalizedUrl}).`);
+    return true;
   } catch (err) {
-    addLogConsole("enrich", `[LINKEDIN API ERROR] ${err.message}`, "error");
+    addLogConsole("enrich", `[LINKEDIN OUTREACH ERROR] ${err.message}`, "error");
     alert(`LinkedIn outreach failed: ${err.message}`);
+    return false;
   }
 }
 
@@ -1186,17 +1235,28 @@ function openOutboundModal(contactId, channel = 'email') {
   const infoTitle = document.getElementById("modal-info-title");
   const infoEmail = document.getElementById("modal-info-email");
   const infoPhone = document.getElementById("modal-info-phone");
+  const infoLinkedin = document.getElementById("modal-info-linkedin");
   const infoReferredRow = document.getElementById("modal-info-referred-row");
   const infoReferredBy = document.getElementById("modal-info-referred-by");
   if (infoCompany) infoCompany.textContent = contact.company || "N/A";
   if (infoTitle) infoTitle.textContent = contact.jobTitle || "Decision Maker";
   if (infoEmail) infoEmail.textContent = contact.email || "N/A";
   if (infoPhone) infoPhone.textContent = contact.phone || "+1 (555) 019-2834";
+  if (infoLinkedin) infoLinkedin.textContent = contact.linkedinUrl || "Not configured";
   if (infoReferredBy) {
     infoReferredBy.textContent = contact.referredBy || (contact.isInfluencer ? "None (Influencer Partner)" : "Direct / None");
   }
   if (infoReferredRow) {
     infoReferredRow.style.display = "block";
+  }
+
+  const modalLiInput = document.getElementById("outbound-modal-linkedin-url-input");
+  const modalLiStatus = document.getElementById("outbound-modal-linkedin-url-status");
+  if (modalLiInput) modalLiInput.value = contact.linkedinUrl || "";
+  if (modalLiStatus) {
+    const valid = typeof isValidLinkedinProfileUrl === "function" ? isValidLinkedinProfileUrl(contact.linkedinUrl || "") : Boolean(contact.linkedinUrl);
+    modalLiStatus.textContent = valid ? "✓ Valid recipient LinkedIn profile URL" : "Required to message or connect on LinkedIn";
+    modalLiStatus.style.color = valid ? "var(--color-success)" : "var(--color-text-secondary)";
   }
 
   renderOutboundModalHistory(contact);
@@ -1223,6 +1283,140 @@ function closeOutboundModal() {
   if (typeof renderConsolePortalReferrals === "function") {
     renderConsolePortalReferrals();
   }
+  if (typeof renderDashboard === "function") {
+    renderDashboard();
+  }
+}
+
+function saveOutboundModalLinkedinUrl() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+  const modalLiInput = document.getElementById("outbound-modal-linkedin-url-input");
+  const modalLiStatus = document.getElementById("outbound-modal-linkedin-url-status");
+  const raw = (modalLiInput?.value || "").trim();
+  const normalized = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(raw) : raw;
+  const valid = typeof isValidLinkedinProfileUrl === "function"
+    ? isValidLinkedinProfileUrl(normalized)
+    : /^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\/(in|pub|company)\/[A-Za-z0-9_%-]+\/?/i.test(normalized);
+  if (!valid) {
+    alert("Please enter a valid LinkedIn profile URL (e.g. https://www.linkedin.com/in/username).");
+    if (modalLiInput) modalLiInput.focus();
+    return;
+  }
+  contact.linkedinUrl = normalized;
+  if (modalLiInput) modalLiInput.value = normalized;
+  const infoLinkedin = document.getElementById("modal-info-linkedin");
+  if (infoLinkedin) infoLinkedin.textContent = normalized;
+  if (modalLiStatus) {
+    modalLiStatus.textContent = "✓ Saved recipient LinkedIn profile URL";
+    modalLiStatus.style.color = "var(--color-success)";
+  }
+  saveDatabaseCache();
+  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
+}
+
+function openOutboundRecipientLinkedinProfile() {
+  const contact = database.selectedContact;
+  const modalLiInput = document.getElementById("outbound-modal-linkedin-url-input");
+  const raw = (modalLiInput?.value || contact?.linkedinUrl || "").trim();
+  const normalized = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(raw) : raw;
+  const valid = typeof isValidLinkedinProfileUrl === "function"
+    ? isValidLinkedinProfileUrl(normalized)
+    : /^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\/(in|pub|company)\/[A-Za-z0-9_%-]+\/?/i.test(normalized);
+  if (!valid) {
+    alert("Enter a valid LinkedIn profile URL first (e.g. https://www.linkedin.com/in/username).");
+    if (modalLiInput) modalLiInput.focus();
+    return;
+  }
+  if (contact) contact.linkedinUrl = normalized;
+  window.open(normalized, "_blank", "noopener,noreferrer");
+}
+
+function insertOutboundModalCalendlyLink() {
+  const bodyInput = document.getElementById("outbound-email-body-input");
+  if (!bodyInput) return;
+  const calUrl = typeof getCustomerCalendlyUrl === "function"
+    ? getCustomerCalendlyUrl()
+    : (database.calendlyUrl || "https://calendly.com/bdr-ai-demo/15min");
+  const snippet = `\n\nBook a 15-min GTM briefing directly on my calendar here: ${calUrl}`;
+  if (!bodyInput.value.includes(calUrl)) {
+    bodyInput.value = (bodyInput.value || "").trimEnd() + snippet;
+    updateOutboundLivePreview();
+  }
+}
+
+function scheduleCallFromOutboundModal() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+  const calUrl = typeof getCustomerCalendlyUrl === "function"
+    ? getCustomerCalendlyUrl()
+    : (database.calendlyUrl || "https://calendly.com/bdr-ai-demo/15min");
+  contact.hasScheduledCall = true;
+  contact.callScheduledAt = new Date().toISOString().slice(0, 10);
+  if (!contact.hasTakenCall) {
+    contact.status = "Call Scheduled";
+  }
+  if (!Array.isArray(contact.callsMade)) contact.callsMade = [];
+  contact.callsMade.push({
+    date: new Date().toISOString().slice(0, 10),
+    outcome: `GTM Call Scheduled via Calendly (${calUrl})`,
+    status: "scheduled"
+  });
+  if (!Array.isArray(database.meetings)) database.meetings = [];
+  const nextSlot = new Date(Date.now() + 86400000 * 2);
+  nextSlot.setHours(14, 0, 0, 0);
+  if (!database.meetings.some(m => m.contactEmail === contact.email)) {
+    database.meetings.push({
+      id: `meet-${Date.now()}`,
+      contactName: contact.fullName,
+      contactTitle: contact.jobTitle || "Executive",
+      contactCompany: contact.company || "Organization",
+      contactEmail: contact.email,
+      contactPhone: contact.phone || "",
+      platform: "Calendly / Google Meet",
+      meetingUrl: calUrl,
+      timeString: `${nextSlot.toLocaleDateString()} at 02:00 PM`,
+      influencerName: contact.referredBy || "Direct",
+      influencerCredits: contact.referredBy ? 25 : 0,
+      status: "Scheduled",
+      notes: `Scheduled via Outbound GTM Console (${calUrl})`,
+      datetimeRaw: nextSlot.toISOString()
+    });
+  }
+  if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
+  saveDatabaseCache();
+  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
+  insertOutboundModalCalendlyLink();
+  renderOutboundModalHistory(contact);
+  filterOutboundTable();
+  if (typeof renderCalendar === "function") renderCalendar();
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+  if (typeof renderDashboard === "function") renderDashboard();
+  alert(`Scheduled GTM call for ${contact.fullName} and inserted booking link (${calUrl}).${contact.referredBy ? ` Partner credits updated for ${contact.referredBy}.` : ""}`);
+}
+
+function markCallCompletedFromOutboundModal() {
+  const contact = database.selectedContact;
+  if (!contact) return;
+  contact.hasScheduledCall = true;
+  contact.hasTakenCall = true;
+  contact.callScheduledAt = contact.callScheduledAt || new Date().toISOString().slice(0, 10);
+  contact.status = "Call Taken";
+  if (!Array.isArray(contact.callsMade)) contact.callsMade = [];
+  contact.callsMade.push({
+    date: new Date().toISOString().slice(0, 10),
+    outcome: "Completed GTM Call (Call Taken)",
+    status: "taken"
+  });
+  database.stats.callsMade = (database.stats.callsMade || 0) + 1;
+  if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
+  saveDatabaseCache();
+  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
+  renderOutboundModalHistory(contact);
+  filterOutboundTable();
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+  if (typeof renderDashboard === "function") renderDashboard();
+  alert(`Marked GTM call completed for ${contact.fullName}.${contact.referredBy ? ` Full referral bonus (+50 pts total) credited to ${contact.referredBy}!` : ""}`);
 }
 
 function switchOutboundModalChannel(channel) {
@@ -1237,6 +1431,7 @@ function switchOutboundModalChannel(channel) {
   const draftInputsGroup = document.getElementById("outbound-draft-inputs-group");
   const callPanel = document.getElementById("outbound-call-panel");
   const subjGroup = document.getElementById("outbound-subject-group");
+  const liUrlGroup = document.getElementById("outbound-linkedin-url-group");
   const secTitle = document.getElementById("outbound-modal-section-title");
   const actionBtn = document.getElementById("btn-outbound-send-action");
   const aiHookBtn = document.getElementById("btn-generate-ai-hook");
@@ -1254,6 +1449,7 @@ function switchOutboundModalChannel(channel) {
     if (draftInputsGroup) draftInputsGroup.style.display = "flex";
     if (callPanel) callPanel.style.display = "none";
     if (subjGroup) subjGroup.style.display = "block";
+    if (liUrlGroup) liUrlGroup.style.display = "none";
     if (secTitle) secTitle.textContent = "Email Outreach Message";
     if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Dispatch Email Outreach"; }
     if (aiHookBtn) aiHookBtn.style.display = "inline-flex";
@@ -1263,9 +1459,12 @@ function switchOutboundModalChannel(channel) {
     if (draftInputsGroup) draftInputsGroup.style.display = "flex";
     if (callPanel) callPanel.style.display = "none";
     if (subjGroup) subjGroup.style.display = "none";
-    if (secTitle) secTitle.textContent = "LinkedIn Connection & Outreach API";
-    if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Dispatch LinkedIn Outreach"; }
+    if (liUrlGroup) liUrlGroup.style.display = "block";
+    if (secTitle) secTitle.textContent = "LinkedIn Profile Outreach & Note Handoff";
+    if (actionBtn) { actionBtn.style.display = "inline-flex"; actionBtn.textContent = "Copy Note & Open LinkedIn Profile"; }
     if (aiHookBtn) aiHookBtn.style.display = "inline-flex";
+    const modalLiInput = document.getElementById("outbound-modal-linkedin-url-input");
+    if (modalLiInput) modalLiInput.value = contact.linkedinUrl || "";
     if (bodyInput) {
       const liBody = typeof contact.linkedinDraft === "string" ? contact.linkedinDraft : (contact.linkedinDraft?.body || "");
       bodyInput.value = liBody;
@@ -1273,6 +1472,7 @@ function switchOutboundModalChannel(channel) {
   } else if (channel === 'call') {
     if (draftInputsGroup) draftInputsGroup.style.display = "none";
     if (callPanel) callPanel.style.display = "flex";
+    if (liUrlGroup) liUrlGroup.style.display = "none";
     if (secTitle) secTitle.textContent = "AI Voice Calling & Transcription";
     if (actionBtn) actionBtn.style.display = "none";
     if (aiHookBtn) aiHookBtn.style.display = "none";
@@ -1359,8 +1559,10 @@ async function executeOutboundSendAction() {
       return;
     }
     contact.linkedinDraft = { body: note };
-    await sendOutboundLinkedin();
-    closeOutboundModal();
+    const ok = await sendOutboundLinkedin();
+    if (ok) {
+      closeOutboundModal();
+    }
     return;
   } else if (currentModalChannel === 'call') {
     if (!contact.callsMade) contact.callsMade = [];
@@ -1368,6 +1570,7 @@ async function executeOutboundSendAction() {
     contact.hasTakenCall = true;
     contact.hasScheduledCall = true;
     database.stats.callsMade = (database.stats.callsMade || 0) + 1;
+    if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
     addLogConsole("enrich", `[VOICE CALL] Logged briefing call with ${contact.fullName}`, "success");
     alert(`Call logged for ${contact.fullName}!`);
   }
@@ -1705,12 +1908,182 @@ window.stopBeepSound = stopBeepSound;
 window.renderContactTimeline = renderContactTimeline;
 window.runSpamAuditorCheck = runSpamAuditorCheck;
 window.runInlineSpamCheck = runInlineSpamCheck;
-window.openAddProspectForInfluencer = function(influencerId) {
-  if (typeof openAddReferralModal === "function") {
-    const influencer = database.contacts.find(c => c.id === influencerId || String(c.id) === String(influencerId) || c.email === influencerId);
-    if (influencer) return openAddReferralModal(influencer.email);
+window.saveOutboundModalLinkedinUrl = saveOutboundModalLinkedinUrl;
+window.openOutboundRecipientLinkedinProfile = openOutboundRecipientLinkedinProfile;
+window.insertOutboundModalCalendlyLink = insertOutboundModalCalendlyLink;
+window.scheduleCallFromOutboundModal = scheduleCallFromOutboundModal;
+window.markCallCompletedFromOutboundModal = markCallCompletedFromOutboundModal;
+
+function openAddProspectForInfluencer(influencerIdOrEmail) {
+  const list = database.contacts || [];
+  let influencer = list.find(c =>
+    c.id === influencerIdOrEmail ||
+    String(c.id) === String(influencerIdOrEmail) ||
+    (c.email && String(c.email).toLowerCase() === String(influencerIdOrEmail || "").toLowerCase()) ||
+    (c.fullName && String(c.fullName).toLowerCase() === String(influencerIdOrEmail || "").toLowerCase())
+  );
+  if (!influencer && typeof influencerIdOrEmail === "number" && list[influencerIdOrEmail]) {
+    influencer = list[influencerIdOrEmail];
   }
-};
+  if (!influencer) {
+    influencer = list.find(c => c.isInfluencer);
+  }
+  if (!influencer) {
+    alert("No influencer found. Please add or convert an influencer first.");
+    return;
+  }
+
+  const emailHidden = document.getElementById("referral-influencer-email");
+  const idHidden = document.getElementById("referral-influencer-id");
+  const targetNameEl = document.getElementById("reward-target-name");
+  const form = document.getElementById("referral-form");
+  if (form) form.reset();
+  if (emailHidden) emailHidden.value = influencer.email || "";
+  if (idHidden) idHidden.value = String(influencer.id || "");
+  if (targetNameEl) targetNameEl.textContent = influencer.fullName || "Influencer";
+  const creditsInput = document.getElementById("ref-credits");
+  if (creditsInput) creditsInput.value = "10";
+
+  const dlg = document.getElementById("referral-dialog");
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "block";
+  }
+}
+
+function closeReferralDialog() {
+  const dlg = document.getElementById("referral-dialog");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
+
+async function handleReferralSubmit(event) {
+  if (event && typeof event.preventDefault === "function") event.preventDefault();
+  const infId = document.getElementById("referral-influencer-id")?.value || "";
+  const infEmail = document.getElementById("referral-influencer-email")?.value || "";
+  const influencer = (database.contacts || []).find(c =>
+    (infId && String(c.id) === String(infId)) ||
+    (infEmail && String(c.email || "").toLowerCase() === String(infEmail).toLowerCase())
+  ) || (database.contacts || []).find(c => c.isInfluencer);
+
+  if (!influencer) {
+    alert("Could not locate the referring influencer.");
+    return;
+  }
+
+  const fullName = (document.getElementById("ref-name")?.value || "").trim();
+  const jobTitle = (document.getElementById("ref-title")?.value || "").trim();
+  const company = (document.getElementById("ref-company")?.value || "").trim();
+  const email = (document.getElementById("ref-email")?.value || "").trim().toLowerCase();
+  const phone = (document.getElementById("ref-phone")?.value || "").trim();
+  const rawLinkedin = (document.getElementById("ref-linkedin")?.value || "").trim();
+  const linkedinUrl = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(rawLinkedin) : rawLinkedin;
+  const credits = Number(document.getElementById("ref-credits")?.value || 10) || 10;
+
+  if (!fullName || !email || !company) {
+    alert("Full Name, Company, and Email Address are required.");
+    return;
+  }
+
+  const parts = fullName.split(/\s+/);
+  const firstName = parts[0] || fullName;
+  const lastName = parts.slice(1).join(" ") || "";
+
+  let prospect = (database.contacts || []).find(c => !c.isInfluencer && String(c.email || "").toLowerCase() === email);
+  const today = new Date().toISOString().slice(0, 10);
+  if (!prospect) {
+    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 0);
+    prospect = {
+      id: maxId + 1,
+      firstName,
+      lastName,
+      fullName,
+      email,
+      jobTitle: jobTitle || "Decision Maker",
+      company,
+      phone,
+      linkedinUrl,
+      industry: "Credit Union",
+      sourceFile: `Referred by ${influencer.fullName}`,
+      referredBy: influencer.fullName,
+      referredByEmail: influencer.email,
+      influencerId: influencer.id,
+      referredDate: today,
+      isInfluencer: false,
+      enriched: true,
+      matchPercentage: 95,
+      leadTemp: "Hot Lead",
+      status: "Warm Referral",
+      emailsSent: false,
+      linkedinSent: false,
+      callsMade: [],
+      hasScheduledCall: false,
+      hasTakenCall: false
+    };
+    database.contacts.unshift(prospect);
+  } else {
+    prospect.fullName = fullName || prospect.fullName;
+    prospect.jobTitle = jobTitle || prospect.jobTitle;
+    prospect.company = company || prospect.company;
+    prospect.phone = phone || prospect.phone;
+    if (linkedinUrl) prospect.linkedinUrl = linkedinUrl;
+    prospect.referredBy = influencer.fullName;
+    prospect.referredByEmail = influencer.email;
+    prospect.influencerId = influencer.id;
+    prospect.referredDate = prospect.referredDate || today;
+  }
+
+  if (!Array.isArray(influencer.referrals)) influencer.referrals = [];
+  if (!influencer.referrals.some(r => String(r.email || "").toLowerCase() === email)) {
+    influencer.referrals.push({
+      id: prospect.id,
+      fullName,
+      jobTitle,
+      company,
+      email,
+      phone,
+      linkedinUrl,
+      creditsGranted: credits,
+      date: today,
+      hasScheduledCall: false,
+      hasTakenCall: false
+    });
+  }
+
+  try {
+    await fetch("/api/portal/referrals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        influencerEmail: influencer.email,
+        fullName,
+        email,
+        company,
+        jobTitle,
+        phone,
+        linkedinUrl,
+        credits,
+        hasScheduledCall: false,
+        hasTakenCall: false
+      })
+    });
+  } catch (_) {}
+
+  if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
+  saveDatabaseCache();
+  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
+
+  closeReferralDialog();
+  filterOutboundTable();
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+  if (typeof renderDashboard === "function") renderDashboard();
+}
+
+window.openAddProspectForInfluencer = openAddProspectForInfluencer;
+window.closeReferralDialog = closeReferralDialog;
+window.handleReferralSubmit = handleReferralSubmit;
 
 // ══════════════════════════════════════════════════════════════════════════
 // BULK OUTREACH CONTROLLER & BATCH EMAIL DISPATCH

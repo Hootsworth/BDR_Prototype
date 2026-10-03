@@ -70,13 +70,165 @@ function renderDashboard() {
 
   // Activity Feed
   renderDashboardActivityFeed();
+
+  // Render default Contacts directory in Search / Home
+  const searchInput = document.getElementById("dashboard-nl-search-input");
+  if (searchInput && searchInput.value.trim()) {
+    executeDashboardDatabaseSearch();
+  } else {
+    filterDashboardDirectoryByRole(window.currentDashboardRoleFilter || "contacts");
+  }
+}
+
+window.currentDashboardRoleFilter = "contacts";
+
+function filterDashboardDirectoryByRole(roleFilter) {
+  window.currentDashboardRoleFilter = roleFilter || "all";
+  const allContacts = database.contacts || [];
+  let filtered = [];
+  let summaryLabel = "";
+  let explainLabel = "";
+
+  ["contacts", "all", "influencers", "referrals", "calls"].forEach(key => {
+    const btn = document.getElementById(`dash-filter-btn-${key}`);
+    if (btn) {
+      btn.style.fontWeight = key === window.currentDashboardRoleFilter ? "700" : "500";
+      btn.style.borderColor = key === window.currentDashboardRoleFilter ? "var(--color-primary)" : "";
+    }
+  });
+
+  if (roleFilter === "contacts") {
+    // Show generic Contacts / Prospects (putting direct imports first so newly uploaded CSV/event contacts are at the top)
+    filtered = allContacts
+      .filter(c => !c.isInfluencer)
+      .sort((a, b) => {
+        const aDirect = a.referredBy ? 1 : 0;
+        const bDirect = b.referredBy ? 1 : 0;
+        if (aDirect !== bDirect) return aDirect - bDirect;
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+      });
+    summaryLabel = `Showing ${filtered.length.toLocaleString()} Contacts (Generic & Referred Prospects)`;
+    explainLabel = "Role = Contact / Prospect · Convert to Influencer or Outreach";
+  } else if (roleFilter === "influencers") {
+    filtered = allContacts.filter(c => c.isInfluencer === true);
+    summaryLabel = `Showing ${filtered.length.toLocaleString()} Influencer Partners`;
+    explainLabel = "Role = Influencer Partner";
+  } else if (roleFilter === "referrals") {
+    filtered = allContacts.filter(c => !c.isInfluencer && (c.referredBy || c.influencerId));
+    summaryLabel = `Showing ${filtered.length.toLocaleString()} Referred Prospects`;
+    explainLabel = "Graph Edge = Referred by Influencer";
+  } else if (roleFilter === "calls") {
+    filtered = allContacts.filter(c => !c.isInfluencer && (c.hasTakenCall || c.hasScheduledCall || (c.callsMade && c.callsMade.length > 0)));
+    summaryLabel = `Showing ${filtered.length.toLocaleString()} Prospects with Scheduled / Completed Calls`;
+    explainLabel = "Call Status = Scheduled or Completed";
+  } else {
+    filtered = [...allContacts];
+    summaryLabel = `Showing All ${filtered.length.toLocaleString()} Workspace Records`;
+    explainLabel = "All Contacts & Influencers";
+  }
+
+  renderDashboardDirectoryRows(filtered.slice(0, 250), summaryLabel, explainLabel);
+}
+
+function renderDashboardDirectoryRows(results, summaryText, explainText) {
+  const panel = document.getElementById("dashboard-nl-search-results-panel");
+  const summaryEl = document.getElementById("dashboard-nl-search-summary");
+  const explainEl = document.getElementById("dashboard-nl-search-explanation");
+  const tbody = document.getElementById("dashboard-nl-search-tbody");
+  if (!panel || !tbody) return;
+
+  panel.style.display = "block";
+  if (summaryEl) summaryEl.textContent = summaryText || `Found ${results.length} matching records`;
+  if (explainEl) explainEl.textContent = explainText || "All records";
+
+  if (!results || results.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--color-text-secondary);">No matching records found. Import a CSV or add contacts to get started.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = results.map(c => {
+    const earnings = c.isInfluencer && typeof getInfluencerEarningsSummary === "function"
+      ? getInfluencerEarningsSummary(c)
+      : null;
+    const refCount = earnings ? earnings.totalReferrals : ((c.referrals || []).length || 0);
+    const creditsCount = earnings ? earnings.totalCredits : (c.referralCredits || 0);
+    const agreementsCount = Array.isArray(c.agreements) ? c.agreements.length : 0;
+
+    const roleTag = c.isInfluencer
+      ? `<span class="badge" style="font-size:10px; background:rgba(99,102,241,0.12); color:#4f46e5;">Influencer (${refCount} refs · ${creditsCount} cr)</span>`
+      : `<span class="badge" style="font-size:10px; background:rgba(13,148,136,0.12); color:#0d9488;">Contact</span>`;
+
+    const refEdge = c.referredBy
+      ? `<span style="font-weight:600; color:#0d9488;">← ${c.referredBy}</span>`
+      : (c.isInfluencer
+          ? `<span style="color:var(--color-text-secondary); font-size:11px;">Partner (${agreementsCount} agreement${agreementsCount === 1 ? "" : "s"})</span>`
+          : `<span style="color:var(--color-text-secondary); font-size:11px;">${c.sourceFile || "Direct Contact"}</span>`);
+
+    const hasTaken = Boolean(c.hasTakenCall || (c.callsMade && c.callsMade.some(cm => cm.status === "taken")));
+    const hasScheduled = Boolean(c.hasScheduledCall || hasTaken || (c.callsMade && c.callsMade.length > 0));
+    const lastCallOutcome = (c.callsMade && c.callsMade.length > 0) ? c.callsMade[0].outcome : (hasTaken ? "Briefing Call Completed" : "Call Scheduled");
+    const callHtml = hasTaken
+      ? `<div><span class="badge badge-success" style="font-size:10px;">✓ Call Taken</span><div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
+      : (hasScheduled
+          ? `<div><span class="badge" style="font-size:10px; background:rgba(2,132,199,0.12); color:#0284c7;">📅 Call Scheduled</span><div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
+          : `<span style="color:var(--color-text-disabled); font-size:11px;">Not Scheduled</span>`);
+
+    const emailBadge = c.emailsSent
+      ? `<span class="badge badge-success" style="font-size:10px;">Email Sent</span>`
+      : `<span class="badge" style="font-size:10px;">Email Ready</span>`;
+    const hasRealLi = typeof isValidLinkedinProfileUrl === "function" ? isValidLinkedinProfileUrl(c.linkedinUrl) : Boolean(c.linkedinUrl);
+    const liBadge = c.linkedinSent
+      ? `<span class="badge badge-success" style="font-size:10px; margin-left:4px;">LinkedIn Sent</span>`
+      : (hasRealLi
+          ? `<span class="badge" style="font-size:10px; margin-left:4px; color:#0a66c2;">LinkedIn Linked</span>`
+          : `<span class="badge" style="font-size:10px; margin-left:4px; color:var(--color-text-secondary);">No LinkedIn URL</span>`);
+
+    const safeEmail = String(c.email || "").replace(/'/g, "\\'");
+
+    return `
+      <tr>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:28px; height:28px; border-radius:50%; background:${getAvatarColor(c.fullName)}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">
+              ${getInitials(c.fullName)}
+            </div>
+            <div>
+              <div style="font-weight:600; color:var(--color-text-primary);">${c.fullName}</div>
+              <div style="margin-top:2px;">${roleTag}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div style="font-weight:500; color:var(--color-text-primary);">${c.jobTitle || "Executive"}</div>
+          <div style="font-size:11px; color:var(--color-text-secondary);">${c.company || "Organization"} · ${c.email || ""}</div>
+        </td>
+        <td>${refEdge}</td>
+        <td>${callHtml}</td>
+        <td>${emailBadge}${liBadge}</td>
+        <td style="text-align:right;">
+          <div style="display:flex; gap:4px; justify-content:flex-end; flex-wrap:wrap;">
+            ${c.isInfluencer
+              ? `
+                <button class="btn btn-secondary btn-xs" onclick="openInfluencerPortal('${safeEmail}')">Portal</button>
+                <button class="btn btn-secondary btn-xs" onclick="openInfluencerEarningsModal(${c.id})">Earnings (${creditsCount} cr)</button>
+                <button class="btn btn-secondary btn-xs" onclick="openInfluencerAgreementsModal(${c.id})">Agreements</button>
+              `
+              : `
+                <button class="btn btn-secondary btn-xs" onclick="convertContactToInfluencer(${c.id}, false)" title="Convert this Contact to an Influencer Partner" style="border-color:#6366f1; color:#4f46e5; font-weight:600;">Convert to Influencer</button>
+              `
+            }
+            <button class="btn btn-primary btn-xs" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
 }
 
 async function executeDashboardDatabaseSearch(presetQuery) {
   const input = document.getElementById("dashboard-nl-search-input");
   const panel = document.getElementById("dashboard-nl-search-results-panel");
   const summaryEl = document.getElementById("dashboard-nl-search-summary");
-  const explainEl = document.getElementById("dashboard-nl-search-explanation");
   const tbody = document.getElementById("dashboard-nl-search-tbody");
 
   if (!input || !panel || !tbody) return;
@@ -84,6 +236,10 @@ async function executeDashboardDatabaseSearch(presetQuery) {
     input.value = presetQuery;
   }
   const query = input.value.trim();
+  if (!query) {
+    filterDashboardDirectoryByRole(window.currentDashboardRoleFilter || "contacts");
+    return;
+  }
 
   panel.style.display = "block";
   if (summaryEl) summaryEl.textContent = "Searching SQLite Relational & Graph Database...";
@@ -99,65 +255,11 @@ async function executeDashboardDatabaseSearch(presetQuery) {
     }
 
     const results = payload.results || [];
-    if (summaryEl) summaryEl.textContent = payload.summary || `Found ${results.length} matching contacts`;
-    if (explainEl) explainEl.textContent = `SQL Graph Filter: ${payload.explanation || "All records"}`;
-
-    if (results.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--color-text-secondary);">No matching contacts found for "${query}". Try another natural language query.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = results.map(c => {
-      const roleTag = c.isInfluencer
-        ? `<span class="badge" style="font-size:10px; background:rgba(99,102,241,0.12); color:#818cf8;">Influencer Partner (${(c.referrals || []).length || 30} refs)</span>`
-        : `<span class="badge" style="font-size:10px; background:rgba(13,148,136,0.12); color:#0d9488;">Prospect</span>`;
-
-      const refEdge = c.referredBy
-        ? `<span style="font-weight:600; color:#0d9488;">← ${c.referredBy}</span>`
-        : (c.isInfluencer ? `<span style="color:var(--color-text-secondary); font-size:11px;">Root Influencer Node</span>` : `<span style="color:var(--color-text-disabled); font-size:11px;">Direct</span>`);
-
-      const hasCall = Boolean(c.hasTakenCall || (c.callsMade && c.callsMade.length > 0));
-      const lastCallOutcome = (c.callsMade && c.callsMade.length > 0) ? c.callsMade[0].outcome : "Briefing Call Completed";
-      const callHtml = hasCall
-        ? `<div><span class="badge badge-success" style="font-size:10px;">✓ Call Taken</span><div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
-        : `<span style="color:var(--color-text-disabled); font-size:11px;">Pending Call</span>`;
-
-      const emailBadge = c.emailsSent
-        ? `<span class="badge badge-success" style="font-size:10px;"> Email Sent</span>`
-        : `<span class="badge" style="font-size:10px;">Email Pending</span>`;
-      const liBadge = c.linkedinSent
-        ? `<span class="badge badge-success" style="font-size:10px; margin-left:4px;"> LinkedIn Sent</span>`
-        : `<span class="badge" style="font-size:10px; margin-left:4px;">LinkedIn Ready</span>`;
-
-      return `
-        <tr>
-          <td>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <div style="width:28px; height:28px; border-radius:50%; background:${getAvatarColor(c.fullName)}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">
-                ${getInitials(c.fullName)}
-              </div>
-              <div>
-                <div style="font-weight:600; color:var(--color-text-primary);">${c.fullName}</div>
-                <div style="margin-top:2px;">${roleTag}</div>
-              </div>
-            </div>
-          </td>
-          <td>
-            <div style="font-weight:500; color:var(--color-text-primary);">${c.jobTitle || "Executive"}</div>
-            <div style="font-size:11px; color:var(--color-text-secondary);">${c.company || "Credit Union"} · ${c.email || ""}</div>
-          </td>
-          <td>${refEdge}</td>
-          <td>${callHtml}</td>
-          <td>${emailBadge}${liBadge}</td>
-          <td style="text-align:right;">
-            <div style="display:flex; gap:4px; justify-content:flex-end;">
-              ${c.isInfluencer ? `<button class="btn btn-secondary btn-xs" onclick="openInfluencerPortal('${c.email}')">Portal </button>` : ""}
-              <button class="btn btn-primary btn-xs" onclick="switchTab('campaign-outbound'); setTimeout(() => openOutboundModal(${c.id}, 'email'), 100);">Outreach</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
+    renderDashboardDirectoryRows(
+      results,
+      payload.summary || `Found ${results.length} matching contacts`,
+      `SQL Graph Filter: ${payload.explanation || "All records"}`
+    );
   } catch (err) {
     if (summaryEl) summaryEl.textContent = `Search error: ${err.message}`;
   }
@@ -165,9 +267,8 @@ async function executeDashboardDatabaseSearch(presetQuery) {
 
 function clearDashboardDatabaseSearch() {
   const input = document.getElementById("dashboard-nl-search-input");
-  const panel = document.getElementById("dashboard-nl-search-results-panel");
   if (input) input.value = "";
-  if (panel) panel.style.display = "none";
+  filterDashboardDirectoryByRole("contacts");
 }
 
 function renderDashboardActivityFeed() {
@@ -178,7 +279,7 @@ function renderDashboardActivityFeed() {
     database.recentActivities = [
       { type: "success", text: "SQLite Relational & Referral Graph Database online: 30 Influencers × 30 Referred Prospects (930 total contacts).", time: "Ready" },
       { type: "success", text: "Kim Beluzo partner referral graph synced: 30 referrals, 15 calls taken (50% conversion).", time: "Synced" },
-      { type: "info", text: "Email (Google Workspace / Resend) and LinkedIn OAuth 2.0 APIs operational.", time: "Active" }
+      { type: "info", text: "Email (Google Workspace / Resend) and LinkedIn Outreach workflows operational.", time: "Active" }
     ];
   }
 
@@ -225,3 +326,6 @@ window.renderDashboard = renderDashboard;
 window.renderDashboardActivityFeed = renderDashboardActivityFeed;
 window.executeDashboardDatabaseSearch = executeDashboardDatabaseSearch;
 window.clearDashboardDatabaseSearch = clearDashboardDatabaseSearch;
+window.filterDashboardDirectoryByRole = filterDashboardDirectoryByRole;
+window.renderDashboardDirectoryRows = renderDashboardDirectoryRows;
+

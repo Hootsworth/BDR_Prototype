@@ -16,11 +16,16 @@ function workbookStateSlice() {
     approvals: database.approvals || [],
     workflowRuns: database.workflowRuns || database.runs || [],
     currentOutboundSubtab: database.currentOutboundSubtab || "influencers",
-    autoEnrich: Boolean(database.autoEnrich)
+    autoEnrich: Boolean(database.autoEnrich),
+    calendlyUrl: database.calendlyUrl || localStorage.getItem("gtm_calendly_url") || ""
   };
 }
 
 async function loadWorkbookFromServer() {
+  if (!localPersistenceAvailable()) {
+    updateLocalWorkbookStatus("Remote database storage is unavailable in this deployment.");
+    throw new Error("Durable database storage is available only from the local app server.");
+  }
   const response = await fetch("/api/db/state");
   if (!response.ok) throw new Error(`Server responded with ${response.status}`);
   const payload = await response.json();
@@ -39,6 +44,10 @@ async function loadWorkbookFromServer() {
   database.workflowRuns = state.workflowRuns || [];
   database.currentOutboundSubtab = state.currentOutboundSubtab || "influencers";
   database.autoEnrich = Boolean(state.autoEnrich);
+  if (state.calendlyUrl) {
+    database.calendlyUrl = state.calendlyUrl;
+    localStorage.setItem("gtm_calendly_url", state.calendlyUrl);
+  }
   database._dirty = false;
 
   database.workbookMode = true;
@@ -61,17 +70,29 @@ function saveWorkbookToServer() {
   if (!database.workbookMode) {
     return Promise.reject(new Error("The database hasn't finished loading yet. Try again in a moment."));
   }
+  if (!localPersistenceAvailable()) {
+    return Promise.reject(new Error("Durable database storage is available only from the local app server."));
+  }
   const run = workbookSaveQueue.then(async () => {
-    database._dirty = false;
+    const snapshot = workbookStateSlice();
+    const savedDirtyState = database._dirty;
     const response = await fetch("/api/db/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state: workbookStateSlice() })
+      body: JSON.stringify({ state: snapshot })
     });
     if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+    // Mutations can happen while the request is in flight. Only clear the dirty
+    // flag if the current state still matches the snapshot we just persisted.
+    if (savedDirtyState && JSON.stringify(workbookStateSlice()) === JSON.stringify(snapshot)) {
+      database._dirty = false;
+    }
     database.localWorkbookLastSaved = new Date().toISOString();
     updateLocalWorkbookStatus();
     return true;
+  }).catch(error => {
+    database._dirty = true;
+    throw error;
   });
   workbookSaveQueue = run.catch(() => {});
   return run;
@@ -93,6 +114,7 @@ function startWorkbookAutoSaveDaemon() {
 
 function saveWorkbookBeforeUnload() {
   if (!database.workbookMode || !database._dirty || !navigator.sendBeacon) return;
+  if (!localPersistenceAvailable()) return;
   const blob = new Blob([JSON.stringify({ state: workbookStateSlice() })], { type: "application/json" });
   navigator.sendBeacon("/api/db/state", blob);
 }
@@ -105,6 +127,10 @@ async function searchDatabaseContacts(queryText = "", filters = {}) {
   });
   if (!response.ok) throw new Error(`Search failed (${response.status})`);
   return response.json();
+}
+
+function localPersistenceAvailable() {
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
 }
 
 async function reseedSyntheticDatabase() {
@@ -180,3 +206,4 @@ window.reseedSyntheticDatabase = reseedSyntheticDatabase;
 window.exportLocalWorkbook = exportLocalWorkbook;
 window.updateLocalWorkbookStatus = updateLocalWorkbookStatus;
 window.startWorkbookAutoSaveDaemon = startWorkbookAutoSaveDaemon;
+window.localPersistenceAvailable = localPersistenceAvailable;

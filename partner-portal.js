@@ -22,6 +22,7 @@
   let partner = null;
   let currentContacts = [];
   let isMultiEditMode = false;
+  let workspaceCalendlyUrl = 'https://calendly.com/company-gtm/intro-call';
 
   function escapeHTML(val) {
     return String(val ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -65,13 +66,13 @@
             <input class="inline-edit-input" data-field="jobTitle" value="${escapeHTML(contact.jobTitle || '')}" placeholder="Job title">
             <input class="inline-edit-input" type="tel" data-field="phone" value="${escapeHTML(contact.phone || '')}" placeholder="Phone">
           </div>
+          <input class="inline-edit-input" type="url" data-field="linkedinUrl" value="${escapeHTML(contact.linkedinUrl || '')}" placeholder="https://www.linkedin.com/in/username">
         </div>
       </td>
       <td>
         <select class="inline-edit-select" data-field="status">
-          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled</option>
-          <option value="scheduled" ${statusVal === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-          <option value="completed" ${statusVal === 'completed' ? 'selected' : ''}>Completed</option>
+          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled (+10 pts)</option>
+          <option value="scheduled" ${statusVal === 'scheduled' || statusVal === 'completed' ? 'selected' : ''}>Scheduled (+5 pts)</option>
         </select>
       </td>
     `;
@@ -108,25 +109,68 @@
     }
     currentContacts.forEach(contact => {
       const row = document.createElement('tr');
-      row.appendChild(createCell(contact.fullName, contact.email));
+      const contactTd = createCell(contact.fullName, contact.email);
+      if (contact.linkedinUrl) {
+        const liLink = document.createElement('a');
+        liLink.href = contact.linkedinUrl;
+        liLink.target = '_blank';
+        liLink.rel = 'noopener noreferrer';
+        liLink.textContent = 'LinkedIn Profile ↗';
+        liLink.style.cssText = 'display:inline-block;margin-top:4px;font-size:11px;color:var(--ink);';
+        contactTd.appendChild(liLink);
+      }
+      row.appendChild(contactTd);
       row.appendChild(createCell(contact.company, [contact.jobTitle, contact.phone].filter(Boolean).join(' · ')));
-      const status = contact.status === 'completed' ? 'Call completed' : contact.status === 'scheduled' ? 'Call scheduled' : 'Not scheduled';
-      row.appendChild(createCell(status));
+
+      const status = contact.status === 'completed' ? 'Call completed (+10 pts bonus)' : contact.status === 'scheduled' ? 'Call scheduled (+5 pts bonus)' : 'Contact shared (+10 pts)';
+      const statusTd = createCell(status);
+      if (contact.status !== 'completed' && workspaceCalendlyUrl) {
+        const bookLink = document.createElement('a');
+        const sep = workspaceCalendlyUrl.includes('?') ? '&' : '?';
+        bookLink.href = `${workspaceCalendlyUrl}${sep}name=${encodeURIComponent(contact.fullName || '')}&email=${encodeURIComponent(contact.email || '')}`;
+        bookLink.target = '_blank';
+        bookLink.rel = 'noopener noreferrer';
+        bookLink.textContent = 'Schedule GTM Call ↗';
+        bookLink.style.cssText = 'display:inline-block;margin-top:5px;font-size:11px;color:var(--ok);font-weight:500;';
+        statusTd.appendChild(bookLink);
+      }
+      row.appendChild(statusTd);
       body.appendChild(row);
     });
   }
 
   function render(data) {
-    partner = data.influencer;
+    partner = data.influencer || {};
     currentContacts = data.contacts || [];
+    if (data.calendlyUrl) workspaceCalendlyUrl = data.calendlyUrl;
     document.getElementById('partner-name').textContent = partner.fullName || 'Partner workspace';
     document.getElementById('partner-company').textContent = [partner.jobTitle, partner.company].filter(Boolean).join(' · ') || 'Your introductions and their next steps.';
     document.getElementById('total-count').textContent = currentContacts.length;
-    document.getElementById('scheduled-count').textContent = currentContacts.filter(contact => contact.status === 'scheduled').length;
-    document.getElementById('completed-count').textContent = currentContacts.filter(contact => contact.status === 'completed').length;
+    const scheduledCount = currentContacts.filter(contact => contact.status === 'scheduled' || contact.status === 'completed').length;
+    const completedCount = currentContacts.filter(contact => contact.status === 'completed').length;
+    document.getElementById('scheduled-count').textContent = scheduledCount;
+    document.getElementById('completed-count').textContent = completedCount;
+    const totalCredits = typeof partner.referralCredits === 'number'
+      ? partner.referralCredits
+      : currentContacts.reduce((acc, c) => acc + (c.status === 'completed' ? 25 : c.status === 'scheduled' ? 15 : 10), 0);
+    const creditsEl = document.getElementById('partner-credits');
+    if (creditsEl) creditsEl.textContent = `${totalCredits} pts`;
+    const payoutEl = document.getElementById('partner-payout');
+    if (payoutEl) payoutEl.textContent = `$${totalCredits * 10}`;
+    const openCalendlyEl = document.getElementById('partner-calendly-open-link');
+    if (openCalendlyEl && workspaceCalendlyUrl) openCalendlyEl.href = workspaceCalendlyUrl;
     document.getElementById('visible-count').textContent = `${currentContacts.length} contact${currentContacts.length === 1 ? '' : 's'}`;
     renderContactsTable();
   }
+
+  document.getElementById('partner-calendly-copy-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(workspaceCalendlyUrl);
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy Booking Link'; }, 1600);
+    } catch (_) {}
+  });
 
   async function request(path, options = {}) {
     const response = await fetch(path, {
@@ -185,6 +229,7 @@
         <td><input data-field="company" value="${escapeHTML(item.company || '')}" placeholder="Pacific Crest CU"></td>
         <td><input data-field="jobTitle" value="${escapeHTML(item.jobTitle || '')}" placeholder="CLO"></td>
         <td><input type="tel" data-field="phone" value="${escapeHTML(item.phone || '')}" placeholder="+1 415 555 0192"></td>
+        <td><input type="url" data-field="linkedinUrl" value="${escapeHTML(item.linkedinUrl || '')}" placeholder="https://www.linkedin.com/in/..."></td>
         <td>
           <select data-field="status">
             <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled</option>
@@ -205,12 +250,27 @@
   }
 
   function parseSpreadsheetText(rawText) {
-    const lines = String(rawText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const lines = String(rawText || '').split(/\r?\n/).filter(l => l.trim());
     const results = [];
+    function parseDelimitedLine(line, delimiter) {
+      const cells = [];
+      let cell = '';
+      let quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (quoted && line[i + 1] === '"') { cell += '"'; i++; }
+          else quoted = !quoted;
+        } else if (ch === delimiter && !quoted) {
+          cells.push(cell.trim()); cell = '';
+        } else cell += ch;
+      }
+      if (quoted) throw new Error('A pasted CSV row has an unmatched quote.');
+      cells.push(cell.trim());
+      return cells;
+    }
     lines.forEach((line, idx) => {
-      const cells = line.includes('\t')
-        ? line.split('\t').map(c => c.trim())
-        : line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const cells = parseDelimitedLine(line, line.includes('\t') ? '\t' : ',');
       if (!cells.length) return;
       if (idx === 0 && ((cells[0] || '').toLowerCase().includes('name') || (cells[1] || '').toLowerCase().includes('email'))) {
         return;
@@ -225,7 +285,8 @@
         company: cells[2] || '',
         jobTitle: cells[3] || '',
         phone: cells[4] || '',
-        status
+        status,
+        linkedinUrl: cells[6] || ''
       });
     });
     return results;
@@ -283,8 +344,9 @@
       const company = val('company');
       const jobTitle = val('jobTitle');
       const phone = val('phone');
+      const linkedinUrl = val('linkedinUrl');
       const status = val('status') || 'pending';
-      if (!fullName && !email && !company && !jobTitle && !phone) continue;
+      if (!fullName && !email && !company && !jobTitle && !phone && !linkedinUrl) continue;
       contacts.push({
         id: tr.dataset.contactId || undefined,
         fullName,
@@ -292,6 +354,7 @@
         company,
         jobTitle,
         phone,
+        linkedinUrl,
         status,
         hasScheduledCall: status === 'scheduled' || status === 'completed',
         hasTakenCall: status === 'completed'
@@ -322,15 +385,19 @@
         method: 'POST',
         body: JSON.stringify({ contacts })
       });
-      if (bulkRowsBody) bulkRowsBody.replaceChildren();
-      addBulkRows(3);
-      feedback.className = 'success';
+      const hasRejected = Boolean(res.invalid || res.duplicates?.length);
+      if (!hasRejected) {
+        if (bulkRowsBody) bulkRowsBody.replaceChildren();
+        addBulkRows(3);
+      }
+      feedback.className = hasRejected ? 'error' : 'success';
       const parts = [];
       if (res.created) parts.push(`${res.created} added`);
       if (res.updated) parts.push(`${res.updated} updated`);
       if (res.linked) parts.push(`${res.linked} linked`);
       if (res.duplicates?.length) parts.push(`${res.duplicates.length} duplicate skipped`);
-      feedback.textContent = `Saved (${parts.join(', ') || 'completed'}).`;
+      if (res.invalid) parts.push(`${res.invalid} invalid row${res.invalid === 1 ? '' : 's'}`);
+      feedback.textContent = `${hasRejected ? 'Partially saved' : 'Saved'} (${parts.join(', ') || 'completed'}). ${hasRejected ? 'Correct rejected rows and submit again.' : ''}`;
       render(await request('/api/partner-share'));
     } catch (error) {
       feedback.className = 'error';
@@ -397,6 +464,7 @@
       company: String(formData.get('company') || '').trim(),
       jobTitle: String(formData.get('jobTitle') || '').trim(),
       phone: String(formData.get('phone') || '').trim(),
+      linkedinUrl: String(formData.get('linkedinUrl') || '').trim(),
       hasScheduledCall: status === 'scheduled' || status === 'completed',
       hasTakenCall: status === 'completed'
     };

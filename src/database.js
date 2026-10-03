@@ -92,7 +92,15 @@ function saveDatabaseCache() {
     }
   }
   // Durable local prototype storage. Browser cache remains a fast fallback only.
-  fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: stateSnapshot }) }).catch(() => {});
+  fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: stateSnapshot }) })
+    .then(response => {
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+    })
+    .catch(error => {
+      console.error("[DATABASE SYNC ERROR]", error.message);
+      const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+      if (!localHost) updateLocalWorkbookStatus?.("Remote persistence is unavailable in this deployment. Changes may not survive a reload.");
+    });
 }
 window.saveDatabaseCache = saveDatabaseCache;
 
@@ -142,3 +150,131 @@ function getAvatarColor(name) {
   return `hsl(${h}, 50%, 40%)`;
 }
 window.getAvatarColor = getAvatarColor;
+
+function normalizeLinkedinUrl(rawUrl) {
+  const val = String(rawUrl || "").trim();
+  if (!val) return "";
+  if (/^linkedin\.com\//i.test(val)) return "https://www." + val;
+  if (/^www\.linkedin\.com\//i.test(val)) return "https://" + val;
+  return val;
+}
+window.normalizeLinkedinUrl = normalizeLinkedinUrl;
+
+function isValidLinkedinProfileUrl(rawUrl) {
+  const val = normalizeLinkedinUrl(rawUrl);
+  if (!val) return false;
+  return /^https?:\/\/(www\.)?linkedin\.com\/(in|sales|pub)\/[a-zA-Z0-9\-_%]+\/?/i.test(val);
+}
+window.isValidLinkedinProfileUrl = isValidLinkedinProfileUrl;
+
+function getCustomerCalendlyUrl() {
+  return (
+    database.calendlyUrl ||
+    localStorage.getItem("gtm_calendly_url") ||
+    "https://calendly.com/gtm-console/executive-briefing"
+  ).trim();
+}
+window.getCustomerCalendlyUrl = getCustomerCalendlyUrl;
+
+function computeContactReferralCredits(contact) {
+  if (!contact) return 10;
+  const hasTaken = Boolean(
+    contact.hasTakenCall ||
+    (Array.isArray(contact.callsMade) && contact.callsMade.some(cm => cm && (cm.status === "taken" || /interested|taken|spoke/i.test(cm.outcome || ""))))
+  );
+  if (hasTaken) return 25;
+  const hasScheduled = Boolean(
+    contact.hasScheduledCall ||
+    (Array.isArray(contact.callsMade) && contact.callsMade.length > 0) ||
+    (Array.isArray(database.meetings) && database.meetings.some(m => m.contactEmail === contact.email || String(m.contactId) === String(contact.id)))
+  );
+  if (hasScheduled) return 15;
+  return 10;
+}
+window.computeContactReferralCredits = computeContactReferralCredits;
+
+function getInfluencerEarningsSummary(influencer) {
+  if (!influencer) {
+    return {
+      totalReferrals: 0,
+      contactsOnlyCount: 0,
+      callsScheduledCount: 0,
+      callsCompletedCount: 0,
+      totalCredits: 0,
+      pendingCredits: 0,
+      approvedCredits: 0,
+      creditDollarRate: 10,
+      estimatedPayoutUsd: 0,
+      ledger: []
+    };
+  }
+  const infId = String(influencer.id || "");
+  const infEmail = String(influencer.email || "").toLowerCase();
+  const infName = String(influencer.fullName || "").toLowerCase();
+  const referrals = (database.contacts || []).filter(c =>
+    !c.isInfluencer && !c.archivedAt && (
+      (infId && String(c.influencerId || "") === infId) ||
+      (infEmail && String(c.influencerEmail || "").toLowerCase() === infEmail) ||
+      (infName && String(c.referredBy || "").toLowerCase() === infName)
+    )
+  );
+
+  let contactsOnlyCount = 0;
+  let callsScheduledCount = 0;
+  let callsCompletedCount = 0;
+  let totalCredits = 0;
+  let approvedCredits = 0;
+  let pendingCredits = 0;
+
+  const ledger = referrals.map(ref => {
+    const credits = computeContactReferralCredits(ref);
+    let stage = "Contact Shared (+10 cr)";
+    let stageCode = "contact_shared";
+    if (credits === 25) {
+      stage = "GTM Call Completed (+10 cr bonus)";
+      stageCode = "call_completed";
+      callsCompletedCount++;
+      callsScheduledCount++;
+      approvedCredits += credits;
+    } else if (credits === 15) {
+      stage = "GTM Call Scheduled (+5 cr bonus)";
+      stageCode = "call_scheduled";
+      callsScheduledCount++;
+      approvedCredits += 10;
+      pendingCredits += 5;
+    } else if (credits === 10) {
+      contactsOnlyCount++;
+      approvedCredits += 10;
+    } else {
+      contactsOnlyCount++;
+      approvedCredits += credits;
+    }
+    totalCredits += credits;
+    return {
+      id: ref.id,
+      fullName: ref.fullName || "Contact",
+      email: ref.email || "",
+      company: ref.company || "Organization",
+      jobTitle: ref.jobTitle || "",
+      date: ref.referredDate || ref.date || "Active",
+      stage,
+      stageCode,
+      credits
+    };
+  });
+
+  const creditDollarRate = 10; // $10 per partner credit placeholder
+  return {
+    totalReferrals: referrals.length,
+    contactsOnlyCount,
+    callsScheduledCount,
+    callsCompletedCount,
+    totalCredits,
+    approvedCredits,
+    pendingCredits,
+    creditDollarRate,
+    estimatedPayoutUsd: totalCredits * creditDollarRate,
+    ledger
+  };
+}
+window.getInfluencerEarningsSummary = getInfluencerEarningsSummary;

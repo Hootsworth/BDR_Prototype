@@ -4,7 +4,7 @@ function ensureMeetingsState() {
   if (!database.meetings) database.meetings = [];
 }
 
-let currentCalDate = new Date(2026, 6, 1);
+let currentCalDate = new Date();
 
 function renderCalendar() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -206,26 +206,24 @@ function saveManualMeeting() {
     ? `https://meet.google.com/${meetingId.slice(0,3)}-${meetingId.slice(3,7)}-${meetingId.slice(7,10)}`
     : `https://teams.microsoft.com/l/meetup-join/${meetingId}`;
 
+  contact.hasScheduledCall = true;
+  contact.leadTemp = "Hot Lead";
+
   let influencerName = "Direct Outreach";
   let influencerCredits = 0;
   
-  if (contact.referredBy) {
-    const influencer = database.contacts.find(c => c.isInfluencer === true && c.fullName === contact.referredBy);
+  if (contact.referredBy || contact.referredById) {
+    const influencer = database.contacts.find(c =>
+      c.isInfluencer === true &&
+      ((contact.referredById && String(c.id) === String(contact.referredById)) || c.fullName === contact.referredBy)
+    );
     if (influencer) {
       influencerName = influencer.fullName;
-      influencerCredits = 20;
-      if (!influencer.referrals) influencer.referrals = [];
-      const isDuplicate = influencer.referrals.some(r => r.email === contact.email);
-      if (!isDuplicate) {
-        influencer.referrals.push({
-          fullName: contact.fullName,
-          jobTitle: contact.jobTitle,
-          company: contact.company,
-          email: contact.email,
-          credits: 20,
-          date: new Date().toLocaleDateString()
-        });
-        influencer.referralCredits = (influencer.referralCredits || 0) + 20;
+      influencerCredits = typeof computeContactReferralCredits === "function"
+        ? computeContactReferralCredits(contact)
+        : 25;
+      if (typeof recalculateAllInfluencerMetrics === "function") {
+        recalculateAllInfluencerMetrics();
       }
     }
   }
@@ -248,9 +246,9 @@ function saveManualMeeting() {
 
   if (!database.meetings) database.meetings = [];
   database.meetings.push(newMeet);
-  contact.leadTemp = "Hot Lead";
 
   saveDatabaseCache();
+  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
   addLogConsole("enrich", `[CALENDAR SYNC] Booked meeting with ${contact.fullName} on ${platform} (${timeString}).`, "success");
   
   // Dispatch live API syncs to Google Calendar & Slack
@@ -430,9 +428,11 @@ function exportICSFile(email) {
 function saveCalendlySettings() {
   const el = document.getElementById("settings-calendly-url");
   if (el) {
-    database.calendlyUrl = el.value;
-    localStorage.setItem("gtm_calendly_url", el.value);
-    addLogConsole("enrich", `[SYSTEM] Saved Calendly booking page URL to settings.`, "info");
+    database.calendlyUrl = el.value.trim();
+    localStorage.setItem("gtm_calendly_url", database.calendlyUrl);
+    saveDatabaseCache();
+    if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
+    addLogConsole("enrich", `[SYSTEM] Saved Calendly booking page URL to settings: ${database.calendlyUrl}`, "info");
   }
 }
 
@@ -449,11 +449,11 @@ function insertCalendlyLink(textareaId) {
   const textarea = document.getElementById(textareaId);
   if (!textarea) return;
 
-  const calendlyUrl = database.calendlyUrl || "https://calendly.com/aditya-dixit/30min";
-  const insertionText = `\n\nHere is my booking link to schedule a brief call: ${calendlyUrl}`;
+  const calendlyUrl = (typeof getCustomerCalendlyUrl === "function" ? getCustomerCalendlyUrl() : database.calendlyUrl) || "https://calendly.com/company-gtm/intro-call";
+  const insertionText = `\n\nHere is my booking link to schedule a brief GTM call: ${calendlyUrl}`;
   
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
+  const start = textarea.selectionStart || textarea.value.length;
+  const end = textarea.selectionEnd || textarea.value.length;
   const val = textarea.value;
 
   textarea.value = val.substring(0, start) + insertionText + val.substring(end);

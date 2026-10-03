@@ -19,6 +19,13 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("Demo Mode Auto-Unlock", auth)
         self.assertIn("A configured Clerk instance must authenticate", auth)
 
+    def test_partner_portal_credit_schedule_and_bulk_csv_parser(self):
+        portal = self.read("partner-portal.js")
+        self.assertIn("Scheduled (+5 pts)", portal)
+        self.assertIn("Call completed (+10 pts bonus)", portal)
+        self.assertIn("parseDelimitedLine", portal)
+        self.assertIn("Correct rejected rows and submit again.", portal)
+
     def test_provider_secrets_are_not_restored_from_browser_storage(self):
         main = self.read("src/main.js")
         settings = self.read("src/components/settings.js")
@@ -152,6 +159,48 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("portal-contact-name-btn", influencers_js)
         self.assertIn("portal-inline-outreach-drawer", influencers_js)
         self.assertIn("toggleOutboundQuickOutreach", outbound_js)
+
+    def test_gtm_operational_workflow_features(self):
+        dashboard_html = self.read("components/dashboard.html")
+        dashboard_js = self.read("src/components/dashboard.js")
+        dialogs_html = self.read("components/dialogs.html")
+        outbound_html = self.read("components/campaign-outbound.html")
+        outbound_js = self.read("src/components/outbound.js")
+        influencers_html = self.read("components/influencers.html")
+        influencers_js = self.read("src/components/influencers.js")
+        database_js = self.read("src/database.js")
+        partner_portal_html = self.read("partner-portal.html")
+
+        # 1. Search/Home generic Contacts view & Convert to Influencer
+        self.assertIn("dash-filter-btn-contacts", dashboard_html)
+        self.assertIn("renderDashboardDirectoryRows", dashboard_js)
+        self.assertIn("convertContactToInfluencer", dashboard_js)
+
+        # 2. Classification / Onboarding: Bulk Add Influencers, Agreements, Earnings View
+        self.assertIn("openBulkAddInfluencerModal", outbound_html)
+        self.assertIn("openBulkAddInfluencerModal", influencers_html)
+        self.assertIn("bulk-add-influencer-modal", dialogs_html)
+        self.assertIn("influencer-agreements-modal", dialogs_html)
+        self.assertIn("influencer-earnings-modal", dialogs_html)
+        self.assertIn("openInfluencerEarningsModal", influencers_js)
+        self.assertIn("openInfluencerAgreementsModal", influencers_js)
+        self.assertIn("getInfluencerEarningsSummary", database_js)
+
+        # 3. Outreach & Scheduling: Real LinkedIn Profile URL validation + Calendly integration
+        self.assertIn("isValidLinkedinProfileUrl", database_js)
+        self.assertIn("outbound-modal-linkedin-url-input", dialogs_html)
+        self.assertIn("saveOutboundModalLinkedinUrl", outbound_js)
+        self.assertIn("insertOutboundModalCalendlyLink", outbound_js)
+        self.assertIn("scheduleCallFromOutboundModal", outbound_js)
+        self.assertIn("markCallCompletedFromOutboundModal", outbound_js)
+        self.assertIn("partner-calendly-bar", partner_portal_html)
+
+        # 4. Graph / Visualization: Visualize button and interactive SVG relationship graph
+        self.assertIn("openRelationshipGraphModal()", outbound_html)
+        self.assertIn("openRelationshipGraphModal()", influencers_html)
+        self.assertIn("relationship-graph-modal", dialogs_html)
+        self.assertIn("relationship-graph-svg", dialogs_html)
+        self.assertIn("renderRelationshipGraph", influencers_js)
 
 
 if __name__ == "__main__":

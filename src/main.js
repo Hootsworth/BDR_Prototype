@@ -203,6 +203,7 @@ async function bootstrapApp() {
 
     try {
       const durableResponse = await fetch("/api/state");
+      if (!durableResponse.ok) throw new Error(`Durable state unavailable (${durableResponse.status})`);
       const durable = await durableResponse.json();
       const durableState = durable.state || {};
       if (durableState.contacts && durableState.contacts.length > 0 && !isDemoSeededContactList(durableState.contacts)) {

@@ -75,6 +75,18 @@
       <p>Introductions<strong id="total-count">—</strong></p>
       <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
       <p>Calls completed<strong id="completed-count">—</strong></p>
+      <p>Earned credits<strong id="partner-credits">—</strong></p>
+      <p>Est. partner reward<strong id="partner-payout">—</strong></p>
+    </section>
+    <section id="partner-calendly-bar" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:20px; border:1px solid var(--line); border-radius:4px; background:var(--surface);">
+      <div>
+        <strong style="font-size:13px; display:block;">Schedule a GTM Meeting Directly</strong>
+        <span style="font-size:12px; color:var(--muted);">Share contact details below for future outreach, or book a direct GTM call with a referred company (+15 bonus credits when scheduled).</span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:36px; padding:0 14px; border-radius:3px; background:var(--accent); color:#fff; font-size:12px; text-decoration:none; font-weight:500;">Book GTM Call ↗</a>
+        <button type="button" class="btn-outline btn-sm" id="partner-calendly-copy-btn">Copy Booking Link</button>
+      </div>
     </section>
     <section>
       <header class="section-head">
@@ -93,11 +105,11 @@
           <button type="button" class="btn-sm" id="multi-edit-save-btn">Save all changes</button>
         </div>
       </div>
-      <section class="table-wrap"><table><thead><tr><th>Contact</th><th>Company &amp; role</th><th>Call status</th></tr></thead><tbody id="contacts-body"><tr><td colspan="3" class="empty">Loading your workspace…</td></tr></tbody></table></section>
+      <section class="table-wrap"><table><thead><tr><th>Contact</th><th>Company &amp; role</th><th>Call status &amp; GTM scheduling</th></tr></thead><tbody id="contacts-body"><tr><td colspan="3" class="empty">Loading your workspace…</td></tr></tbody></table></section>
     </section>
     <section class="form-section" id="introduction-section">
       <p class="eyebrow">Make an introduction</p><h2>Add referred contacts</h2>
-      <p>Your introductions will be shared with the team managing this workspace. Add contacts one at a time or switch to bulk entry to add multiple records at once.</p>
+      <p>Your introductions will be shared with the team managing this workspace. Provide contact details for future conversion or schedule a GTM call with their company. Add contacts one at a time or switch to bulk entry.</p>
       <div class="mode-switcher" role="tablist" aria-label="Introduction entry mode">
         <button type="button" id="mode-single-btn" class="active" role="tab" aria-selected="true">One at a time</button>
         <button type="button" id="mode-bulk-btn" role="tab" aria-selected="false">Bulk add (multiple contacts)</button>
@@ -108,7 +120,8 @@
         <label>Company<input name="company" autocomplete="organization" required></label>
         <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
         <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
-        <label>Call status<select name="status"><option value="pending">Not scheduled</option><option value="scheduled">Scheduled</option><option value="completed">Completed</option></select></label>
+        <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
+        <label>Call status<select name="status"><option value="pending">Not scheduled (+10 pts)</option><option value="scheduled">Scheduled (+25 pts)</option><option value="completed">Completed (+50 pts)</option></select></label>
         <section class="form-actions"><button id="submit-button" type="submit">Save introduction</button><span id="feedback" role="status" aria-live="polite"></span></section>
       </form>
 
@@ -123,8 +136,8 @@
           <span class="contact-count" id="bulk-row-count">3 rows</span>
         </div>
         <div id="bulk-paste-box" class="bulk-paste-box" hidden>
-          <label for="bulk-paste-input">Paste spreadsheet or CSV lines (Full Name, Work Email, Company, Job Title, Phone, Call Status)</label>
-          <textarea id="bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;Scheduled&#10;Elena Rostova&#9;elena@redwoodcu.org&#9;Redwood Credit Union&#9;VP Lending&#9;+1 415 555 0148&#9;Completed"></textarea>
+          <label for="bulk-paste-input">Paste spreadsheet or CSV lines (Full Name, Work Email, Company, Job Title, Phone, Call Status, LinkedIn URL)</label>
+          <textarea id="bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;Scheduled&#9;https://www.linkedin.com/in/jordan-vance&#10;Elena Rostova&#9;elena@redwoodcu.org&#9;Redwood Credit Union&#9;VP Lending&#9;+1 415 555 0148&#9;Completed&#9;https://www.linkedin.com/in/elena-rostova"></textarea>
           <div class="bulk-toolbar-buttons">
             <button type="button" class="btn-sm" id="bulk-parse-paste-btn">Add pasted rows</button>
             <button type="button" class="btn-outline btn-sm" id="bulk-cancel-paste-btn">Cancel</button>
@@ -140,6 +153,7 @@
                 <th>Company *</th>
                 <th>Job title</th>
                 <th>Phone</th>
+                <th>LinkedIn URL</th>
                 <th>Call status</th>
                 <th style="width:38px;"></th>
               </tr>

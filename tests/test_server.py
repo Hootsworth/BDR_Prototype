@@ -96,6 +96,35 @@ class WorkbookPersistenceTests(unittest.TestCase):
         self.assertEqual(reloaded["stats"]["emailsSent"], 3)
         self.assertTrue(reloaded["autoEnrich"])
 
+    def test_linkedin_url_validation_and_normalization(self):
+        self.assertEqual(
+            server.normalize_linkedin_url("linkedin.com/in/jordan-vance"),
+            "https://www.linkedin.com/in/jordan-vance",
+        )
+        self.assertTrue(server.is_valid_linkedin_profile_url("https://www.linkedin.com/in/jordan-vance"))
+        self.assertTrue(server.is_valid_linkedin_profile_url("linkedin.com/company/acme-corp"))
+        self.assertFalse(server.is_valid_linkedin_profile_url(""))
+        self.assertFalse(server.is_valid_linkedin_profile_url("https://example.com/in/jordan-vance"))
+        self.assertFalse(server.is_valid_linkedin_profile_url("https://www.linkedin.com/feed/"))
+
+    def test_standardized_referral_credits_and_partner_contacts_parity(self):
+        c_shared = {"fullName": "A", "hasScheduledCall": False, "hasTakenCall": False}
+        c_sched = {"fullName": "B", "hasScheduledCall": True, "hasTakenCall": False}
+        c_taken = {"fullName": "C", "hasScheduledCall": True, "hasTakenCall": True}
+        self.assertEqual(server.compute_contact_referral_credits(c_shared), 10)
+        self.assertEqual(server.compute_contact_referral_credits(c_sched), 15)
+        self.assertEqual(server.compute_contact_referral_credits(c_taken), 25)
+
+        state = {
+            "contacts": [
+                {"id": 10, "fullName": "Kim Beluzo", "email": "kim@beluzo.com", "isInfluencer": True},
+                {"id": 101, "fullName": "Ref By Name", "email": "r1@example.com", "isInfluencer": False, "referredBy": "Kim Beluzo"},
+                {"id": 102, "fullName": "Ref By Id", "email": "r2@example.com", "isInfluencer": False, "influencerId": 10},
+            ]
+        }
+        matched = server.partner_contacts_for_influencer(state, state["contacts"][0])
+        self.assertEqual(len(matched), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

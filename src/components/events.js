@@ -174,7 +174,9 @@ function handleAddContactFromEventSubmit(e) {
   const jobTitle = (document.getElementById("event-new-contact-title")?.value || "").trim();
   const company = (document.getElementById("event-new-contact-company")?.value || "").trim();
   const email = (document.getElementById("event-new-contact-email")?.value || "").trim().toLowerCase();
-  const phone = (document.getElementById("event-new-contact-phone")?.value || "+1 (555) 234-5678").trim();
+  const phone = (document.getElementById("event-new-contact-phone")?.value || "").trim();
+  const rawLinkedin = (document.getElementById("event-new-contact-linkedin")?.value || "").trim();
+  const linkedinUrl = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(rawLinkedin) : rawLinkedin;
   const referredBy = (document.getElementById("event-new-contact-referred-by")?.value || "").trim();
   const role = document.getElementById("event-new-contact-role")?.value || "prospect";
   const eventStatus = document.getElementById("event-new-contact-status")?.value || "Attended";
@@ -196,7 +198,7 @@ function handleAddContactFromEventSubmit(e) {
   // Check if contact already exists in database.contacts
   let contact = (database.contacts || []).find(c => (c.email || "").toLowerCase() === email);
   if (!contact) {
-    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 0);
+    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 1000);
     const newId = maxId + 1;
     contact = {
       id: newId,
@@ -207,17 +209,17 @@ function handleAddContactFromEventSubmit(e) {
       jobTitle: jobTitle || "Executive",
       company: company || "Credit Union",
       phone,
-      linkedinUrl: `https://www.linkedin.com/in/${firstName.toLowerCase()}-${lastName.toLowerCase() || newId}`,
+      linkedinUrl: linkedinUrl || "",
       industry: "Credit Union",
       sourceFile: `Event: ${eventTitle}`,
       state: "NY",
       attendedDinner: eventKey === "gac_dinner" ? "Yes" : "",
       visitedBooth: eventKey === "symwest_booth" ? "Yes" : "",
-      enriched: true,
-      enrichmentStatus: "verified_provider_data",
-      enrichmentSources: ["Event Capture", "Explorium"],
+      enriched: Boolean(database.autoEnrich),
+      enrichmentStatus: database.autoEnrich ? "verified_provider_data" : "pending",
+      enrichmentSources: ["Event Capture"],
       matchPercentage: 94,
-      leadTemp: "Hot Lead",
+      leadTemp: isInfluencer ? "Influencer Partner" : "Hot Lead",
       emailsSent: false,
       linkedinSent: false,
       callsMade: hasCallTaken ? [{ date: new Date().toISOString().slice(0, 16).replace("T", " "), outcome: `${eventStatus} at ${eventTitle} (Call Taken)`, status: "taken" }] : [],
@@ -226,7 +228,8 @@ function handleAddContactFromEventSubmit(e) {
       isInfluencer,
       referredBy: referredBy || "",
       referrals: isInfluencer ? [] : undefined,
-      referralCredits: isInfluencer ? 50 : undefined
+      agreements: isInfluencer ? [] : undefined,
+      referralCredits: isInfluencer ? 0 : undefined
     };
     database.contacts.unshift(contact);
 
@@ -244,7 +247,8 @@ function handleAddContactFromEventSubmit(e) {
           company: contact.company,
           email: contact.email,
           phone: contact.phone,
-          credits: 25,
+          linkedinUrl: contact.linkedinUrl,
+          credits: hasCallTaken ? 25 : 10,
           hasScheduledCall: hasCallTaken,
           hasTakenCall: hasCallTaken,
           date: new Date().toISOString().slice(0, 10)

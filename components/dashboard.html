@@ -6,6 +6,14 @@
       Back to Outbound
     </button>
     <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="openRelationshipGraphModal()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-color: #0d9488; color: #0d9488;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="15.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="15.5"></line></svg>
+        Visualize
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openBulkAddInfluencerModal()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+        + Add Influencer
+      </button>
       <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         Agent Mode
@@ -28,7 +36,7 @@
     </div>
 
     <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Target Prospects</div>
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Contacts &amp; Prospects</div>
       <div style="display: flex; align-items: baseline; gap: 0.5rem;">
         <span id="dashboard-prospects-count" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
         <span id="dashboard-affiliated-count" style="font-size: 11px; color: #0d9488; font-weight: 600;">(0 affiliated)</span>
@@ -53,17 +61,24 @@
   </div>
 </div>
 
-<!-- RELATIONAL & GRAPH DATABASE NATURAL LANGUAGE SEARCH -->
+<!-- RELATIONAL & GRAPH DATABASE NATURAL LANGUAGE SEARCH & CONTACTS DIRECTORY -->
 <div class="card" id="dashboard-nl-search-card" style="margin-bottom: 1.5rem; border: 1px solid var(--color-border-emphasized); background: var(--color-background-surface);">
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.875rem;">
     <div>
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0d9488;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Relational &amp; Referral Graph Database Search</h3>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Contacts &amp; Referral Graph Directory (Search / Home)</h3>
       </div>
       <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: var(--color-text-secondary);">
-        Query across 30 Influencers, 900 Referred Prospects, Call Outcomes, Outreach Channels, and Events using natural language.
+        View imported Contacts, convert Contacts to Influencers, track referred prospects &amp; scheduled GTM calls, or query relationships in natural language.
       </p>
+    </div>
+    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-contacts" onclick="filterDashboardDirectoryByRole('contacts')" style="font-weight: 700;">Contacts (Generic)</button>
+      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-all" onclick="filterDashboardDirectoryByRole('all')">All Records</button>
+      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-influencers" onclick="filterDashboardDirectoryByRole('influencers')">Influencers</button>
+      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-referrals" onclick="filterDashboardDirectoryByRole('referrals')">Referred Prospects</button>
+      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-calls" onclick="filterDashboardDirectoryByRole('calls')">Calls Scheduled / Taken</button>
     </div>
   </div>
 
@@ -73,8 +88,8 @@
         type="text"
         id="dashboard-nl-search-input"
         class="form-input"
-        placeholder='Try: "Find me all the contact referrals of Kim Beluzo that have taken a call"'
-        value="Find me all the contact referrals of Kim Beluzo that have taken a call"
+        placeholder='Search contacts by name, company, or natural language (e.g. "Find me all the contact referrals of Kim Beluzo that have taken a call")'
+        value=""
         onkeydown="if(event.key==='Enter') executeDashboardDatabaseSearch()"
         style="width: 100%; padding: 0.65rem 0.9rem; font-size: 13px; border: 1px solid var(--color-border-emphasized);"
       />
@@ -83,49 +98,46 @@
       Search Database
     </button>
     <button class="btn btn-secondary btn-sm" onclick="clearDashboardDatabaseSearch()" style="height: 38px;">
-      Reset
+      Show All Contacts
     </button>
   </div>
 
   <!-- Preset Investor Demo Query Chips -->
   <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; align-items: center;">
-    <span style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); margin-right: 4px;">Sample Queries:</span>
+    <span style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); margin-right: 4px;">Quick Queries:</span>
     <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo that have taken a call')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg> Referrals of Kim Beluzo that have taken a call (15)
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg> Referrals of Kim Beluzo that have taken a call
     </button>
     <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg> All referrals of Kim Beluzo (30)
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg> All referrals of Kim Beluzo
     </button>
     <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Bob Miller that have taken a call')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72l.45 2.8a2 2 0 0 1-.57 1.67L7.1 10.08a16 16 0 0 0 6 6l1.89-1.89a2 2 0 0 1 1.67-.57l2.8.45A2 2 0 0 1 21.18 16z"></path></svg> Referrals of Bob Miller that have taken a call (15)
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72l.45 2.8a2 2 0 0 1-.57 1.67L7.1 10.08a16 16 0 0 0 6 6l1.89-1.89a2 2 0 0 1 1.67-.57l2.8.45A2 2 0 0 1 21.18 16z"></path></svg> Referrals of Bob Miller that have taken a call
     </button>
     <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('All influencers')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="m12 7 1.6 3.2 3.5.5-2.5 2.4.6 3.5-3.2-1.7-3.2 1.7.6-3.5-2.5-2.4 3.5-.5z"></path></svg> All 30 Influencers
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="m12 7 1.6 3.2 3.5.5-2.5 2.4.6 3.5-3.2-1.7-3.2 1.7.6-3.5-2.5-2.4 3.5-.5z"></path></svg> All Influencers
     </button>
     <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Contacts from events')" style="font-size: 11px;">
       <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg> Event Attendees
     </button>
-    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Hot leads that have taken a call')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.4 0 7-2.7 7-6.2 0-2.6-1.4-4.3-3.6-6.3.1 2-1 3-2.2 3.6C13.7 8.2 11 4.8 7.7 2 8.2 7 4 9.8 4 15.8 4 19.4 7 22 12 22z"></path></svg> All Prospects with Call Taken (450)
-    </button>
   </div>
 
-  <!-- Search Results Container -->
-  <div id="dashboard-nl-search-results-panel" style="display: none; margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 0.875rem;">
+  <!-- Search Results & Contacts Directory Container (Visible by Default) -->
+  <div id="dashboard-nl-search-results-panel" style="display: block; margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 0.875rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem; flex-wrap: wrap; gap: 0.5rem;">
-      <div id="dashboard-nl-search-summary" style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary);"></div>
-      <span class="badge" id="dashboard-nl-search-explanation" style="font-size: 11px; font-family: var(--font-family-mono, monospace); background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);"></span>
+      <div id="dashboard-nl-search-summary" style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary);">Contacts Directory</div>
+      <span class="badge" id="dashboard-nl-search-explanation" style="font-size: 11px; font-family: var(--font-family-mono, monospace); background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);">Showing Imported &amp; Pipeline Contacts</span>
     </div>
-    <div style="max-height: 360px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+    <div style="max-height: 440px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
       <table class="data-table" style="margin: 0;">
         <thead>
           <tr>
             <th>Contact</th>
             <th>Title &amp; Organization</th>
-            <th>Referred By (Graph Edge)</th>
+            <th>Referred By / Source</th>
             <th>Call Status &amp; Outcome</th>
-            <th>Email &amp; LinkedIn</th>
-            <th style="text-align: right;">Action</th>
+            <th>Channels &amp; Credits</th>
+            <th style="text-align: right;">Actions (Convert / Outreach)</th>
           </tr>
         </thead>
         <tbody id="dashboard-nl-search-tbody"></tbody>

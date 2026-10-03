@@ -120,12 +120,14 @@ function openColumnMapper(lines, fileName) {
   
   // Standard fields to map
   const standardFields = [
+    { key: "fullName", label: "Full Name (or Single Name Col)", guesses: ["full name", "fullname", "contact name", "partner name"] },
     { key: "firstName", label: "First Name", guesses: ["first name", "first", "name", "given name"] },
     { key: "lastName", label: "Last Name", guesses: ["last name", "last", "surname", "family name"] },
     { key: "email", label: "Email Address", guesses: ["email", "email address", "email_address", "mail"] },
     { key: "jobTitle", label: "Job Title", guesses: ["job title", "title", "job_title", "role"] },
     { key: "company", label: "Company Name", guesses: ["company", "company name", "company_name", "firm", "organization"] },
     { key: "phone", label: "Phone Number", guesses: ["phone", "phone number", "phone_number", "tel", "mobile"] },
+    { key: "linkedinUrl", label: "LinkedIn Profile URL", guesses: ["linkedin", "linkedin url", "linkedin_url", "profile url", "linkedin profile"] },
     { key: "industry", label: "Industry", guesses: ["industry", "vertical"] },
     { key: "assetSize", label: "Asset Size", guesses: ["asset size", "assets", "size"] },
     { key: "state", label: "State / Region", guesses: ["state", "shipping state", "region", "province"] }
@@ -193,40 +195,55 @@ function confirmColumnMapping() {
   // Process data with custom mappings
   const parsed = [];
   const lines = tempCSVLines;
+  let maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 1000);
   
   for (let i = 1; i < lines.length; i++) {
     const row = lines[i];
-    if (row.length < 2) continue;
+    if (!row || row.length < 1 || row.every(cell => !String(cell || "").trim())) continue;
 
     const getValue = (key) => {
       const idx = fieldIndices[key];
-      return idx !== undefined && idx !== -1 && idx < row.length ? row[idx].trim() : "";
+      return idx !== undefined && idx !== -1 && idx < row.length ? String(row[idx] || "").trim() : "";
     };
 
-    const first = getValue("firstName");
-    const last = getValue("lastName");
-    const email = getValue("email");
+    const fullFromCol = getValue("fullName");
+    let first = getValue("firstName");
+    let last = getValue("lastName");
+    if (!first && !last && fullFromCol) {
+      const parts = fullFromCol.split(/\s+/);
+      first = parts[0] || "";
+      last = parts.slice(1).join(" ");
+    }
+    const fullName = `${first} ${last}`.trim() || fullFromCol || "Unknown Contact";
+    const email = getValue("email").toLowerCase();
     const jobTitle = getValue("jobTitle");
     const company = getValue("company");
     const phone = getValue("phone");
+    const rawLinkedin = getValue("linkedinUrl");
+    const linkedinUrl = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(rawLinkedin) : rawLinkedin;
     const industry = getValue("industry");
     const assetSize = getValue("assetSize");
     const state = getValue("state");
 
+    maxId += 1;
     parsed.push({
-      id: Date.now() + i,
-      firstName: first,
+      id: maxId,
+      firstName: first || fullName.split(" ")[0] || "",
       lastName: last,
-      fullName: `${first} ${last}`.trim() || "Unknown Lead",
+      fullName: fullName,
       email: email,
       jobTitle: jobTitle,
       company: company,
       phone: phone,
+      linkedinUrl: linkedinUrl,
       industry: industry || "Credit Union",
       assetSize: assetSize || "$0",
       state: state || "US",
-      sourceFile: tempFileName,
+      sourceFile: tempFileName || "CSV Import",
       enriched: false,
+      emailsSent: false,
+      linkedinSent: false,
+      callsMade: [],
       leadTemp: "Cold Lead"
     });
   }
@@ -244,7 +261,8 @@ function confirmColumnMapping() {
     c.isInfluencer = isInfluencerFile;
     if (isInfluencerFile) {
       c.referrals = [];
-      c.referralCredits = 50;
+      c.agreements = [];
+      c.referralCredits = 0;
       c.matchPercentage = 95;
       c.leadTemp = "Influencer Partner";
     }
@@ -259,22 +277,52 @@ function confirmColumnMapping() {
     });
   }
 
-  if (isInfluencerFile) {
-    const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-    database.contacts = [...prospects, ...parsed];
-  } else {
-    const influencers = database.contacts.filter(c => c.isInfluencer === true);
-    database.contacts = [...influencers, ...parsed];
-  }
+  // Upsert / merge imported records into database.contacts without wiping existing records
+  const existingContacts = Array.isArray(database.contacts) ? [...database.contacts] : [];
+  let addedCount = 0;
+  let updatedCount = 0;
+
+  parsed.forEach(newRecord => {
+    const matchIdx = newRecord.email
+      ? existingContacts.findIndex(c => String(c.email || "").toLowerCase() === newRecord.email)
+      : -1;
+    if (matchIdx !== -1) {
+      const current = existingContacts[matchIdx];
+      current.firstName = newRecord.firstName || current.firstName;
+      current.lastName = newRecord.lastName || current.lastName;
+      current.fullName = newRecord.fullName || current.fullName;
+      current.jobTitle = newRecord.jobTitle || current.jobTitle;
+      current.company = newRecord.company || current.company;
+      current.phone = newRecord.phone || current.phone;
+      if (newRecord.linkedinUrl) current.linkedinUrl = newRecord.linkedinUrl;
+      if (newRecord.industry) current.industry = newRecord.industry;
+      if (newRecord.assetSize && newRecord.assetSize !== "$0") current.assetSize = newRecord.assetSize;
+      if (newRecord.state) current.state = newRecord.state;
+      if (isInfluencerFile) {
+        current.isInfluencer = true;
+        current.referrals = current.referrals || [];
+        current.agreements = current.agreements || [];
+        current.referralCredits = current.referralCredits || 0;
+      }
+      updatedCount++;
+    } else {
+      existingContacts.unshift(newRecord);
+      addedCount++;
+    }
+  });
+
+  database.contacts = existingContacts;
 
   initLoadedData();
   saveDatabaseCache();
+  if (typeof renderDashboard === "function") renderDashboard();
+  if (typeof renderInfluencersPortal === "function") renderInfluencersPortal();
 
   closeColumnMapper();
 
   const typeLabel = isInfluencerFile ? "influencers" : "contacts";
-  const autoEnrichMsg = database.autoEnrich ? " (Auto-Enriched )" : "";
-  addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} from ${tempFileName}${autoEnrichMsg}.`, "success");
+  const autoEnrichMsg = database.autoEnrich ? " (Auto-Enriched)" : "";
+  addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} (${addedCount} new, ${updatedCount} updated) from ${tempFileName}${autoEnrichMsg}.`, "success");
 }
 
 function toggleAutoEnrichSetting(checked) {

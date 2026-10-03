@@ -115,6 +115,20 @@ class TestDatabaseSearchAndPortal(unittest.TestCase):
         # 15 original + 1 updated existing_ref + 1 Bulk Prospect One = 17
         self.assertEqual(after_search["total"], 17)
 
+    def test_bulk_edit_recomputes_referral_credits_without_double_counting(self):
+        state = server.read_state("database")
+        kim = next(c for c in state["contacts"] if c.get("isInfluencer") and c["fullName"] == "Kim Beluzo")
+        referral = next(c for c in state["contacts"] if not c.get("isInfluencer") and c.get("referredBy") == "Kim Beluzo" and not c.get("hasTakenCall"))
+        summary = server.apply_partner_bulk_records(state, kim, [{
+            "id": referral["id"], "fullName": referral["fullName"], "email": referral["email"],
+            "company": referral["company"], "status": "scheduled"
+        }])
+        self.assertEqual(summary["updated"], 1)
+        self.assertEqual(server.compute_contact_referral_credits(referral), 15)
+        row = next(r for r in kim["referrals"] if str(r.get("id")) == str(referral["id"]))
+        self.assertEqual(row["credits"], 15)
+        self.assertEqual(kim["referralCredits"], sum(r.get("credits", 0) for r in kim["referrals"]))
+
 
 if __name__ == "__main__":
     unittest.main()

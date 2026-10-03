@@ -503,6 +503,8 @@ async function handleQuickDirectAddContact(e) {
   const jobTitle = (document.getElementById("direct-add-title")?.value || "").trim();
   const company = (document.getElementById("direct-add-company")?.value || "").trim();
   const phone = (document.getElementById("direct-add-phone")?.value || "").trim();
+  const rawLinkedin = (document.getElementById("direct-add-linkedin")?.value || "").trim();
+  const linkedinUrl = typeof normalizeLinkedinUrl === "function" ? normalizeLinkedinUrl(rawLinkedin) : rawLinkedin;
   const industry = document.getElementById("direct-add-industry")?.value || "Credit Union";
   const role = document.getElementById("direct-add-role")?.value || "prospect";
 
@@ -518,7 +520,7 @@ async function handleQuickDirectAddContact(e) {
 
   let contact = (database.contacts || []).find(c => (c.email || "").toLowerCase() === email);
   if (!contact) {
-    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 0);
+    const maxId = (database.contacts || []).reduce((max, c) => Math.max(max, Number(c.id) || 0), 1000);
     const newId = maxId + 1;
     contact = {
       id: newId,
@@ -528,8 +530,8 @@ async function handleQuickDirectAddContact(e) {
       email,
       jobTitle: jobTitle || (isInfluencer ? "Industry Advisor" : "Executive"),
       company: company || "Credit Union",
-      phone: phone || "+1 (555) 234-5678",
-      linkedinUrl: `https://www.linkedin.com/in/${firstName.toLowerCase()}-${lastName.toLowerCase() || newId}`,
+      phone: phone || "",
+      linkedinUrl: linkedinUrl || "",
       industry,
       sourceFile: "Direct Import",
       state: "NY",
@@ -545,7 +547,8 @@ async function handleQuickDirectAddContact(e) {
       isInfluencer,
       referredBy: "",
       referrals: [],
-      referralCredits: isInfluencer ? 50 : 0
+      agreements: [],
+      referralCredits: 0
     };
     database.contacts.unshift(contact);
   } else {
@@ -553,12 +556,14 @@ async function handleQuickDirectAddContact(e) {
     contact.jobTitle = jobTitle || contact.jobTitle;
     contact.company = company || contact.company;
     contact.phone = phone || contact.phone;
+    if (linkedinUrl) contact.linkedinUrl = linkedinUrl;
     contact.industry = industry || contact.industry;
     if (isInfluencer) {
       contact.isInfluencer = true;
       contact.leadTemp = "Influencer Partner";
       contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
-      contact.referralCredits = contact.referralCredits || 50;
+      contact.agreements = Array.isArray(contact.agreements) ? contact.agreements : [];
+      contact.referralCredits = contact.referralCredits || 0;
     }
   }
 
@@ -568,12 +573,15 @@ async function handleQuickDirectAddContact(e) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: contact.fullName,
-          email: contact.email,
-          jobTitle: contact.jobTitle,
-          company: contact.company,
-          phone: contact.phone,
-          industry: contact.industry
+          profile: {
+            fullName: contact.fullName,
+            email: contact.email,
+            jobTitle: contact.jobTitle,
+            company: contact.company,
+            phone: contact.phone,
+            linkedinUrl: contact.linkedinUrl,
+            industry: contact.industry
+          }
         })
       });
     } catch (_) {
@@ -583,6 +591,8 @@ async function handleQuickDirectAddContact(e) {
 
   saveDatabaseCache();
   initLoadedData();
+  if (typeof renderDashboard === "function") renderDashboard();
+  if (typeof renderInfluencersPortal === "function") renderInfluencersPortal();
 
   const form = document.getElementById("quick-direct-add-form");
   if (form) {
@@ -617,7 +627,10 @@ function openInfluencerPortalForContact(contactIdOrEmail) {
 }
 
 async function convertContactToInfluencer(contactId, openPortalImmediately = true) {
-  const contact = (database.contacts || []).find(c => String(c.id) === String(contactId));
+  const contact = (database.contacts || []).find(c =>
+    String(c.id) === String(contactId) ||
+    (c.email && String(c.email).toLowerCase() === String(contactId).toLowerCase())
+  );
   if (!contact) {
     alert("Contact record not found.");
     return;
@@ -631,7 +644,8 @@ async function convertContactToInfluencer(contactId, openPortalImmediately = tru
   contact.isInfluencer = true;
   contact.leadTemp = "Influencer Partner";
   contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
-  contact.referralCredits = Math.max(Number(contact.referralCredits) || 0, 50);
+  contact.agreements = Array.isArray(contact.agreements) ? contact.agreements : [];
+  contact.referralCredits = Number(contact.referralCredits) || 0;
 
   // Remove from selected prospect rows if present
   if (Array.isArray(database.selectedUploadRows)) {
@@ -643,16 +657,13 @@ async function convertContactToInfluencer(contactId, openPortalImmediately = tru
 
   // Persist to backend SQLite / Influencer endpoint
   try {
-    await fetch("/api/influencers/create", {
+    await fetch("/api/influencers/convert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        fullName: contact.fullName,
+        contactId: contact.id,
         email: contact.email,
-        jobTitle: contact.jobTitle,
-        company: contact.company,
-        phone: contact.phone,
-        industry: contact.industry || "Advisory"
+        linkedinUrl: contact.linkedinUrl || ""
       })
     });
   } catch (_) {
@@ -665,6 +676,7 @@ async function convertContactToInfluencer(contactId, openPortalImmediately = tru
   if (typeof renderEventsList === "function") renderEventsList();
   if (typeof filterOutboundTable === "function") filterOutboundTable();
   if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+  if (typeof renderInfluencersPortal === "function") renderInfluencersPortal();
   if (typeof renderDashboard === "function") renderDashboard();
 
   addLogConsole("enrich", `[INFLUENCER PORTAL] Converted ${contact.fullName} (${contact.company}) into an Influencer Partner with their own Referral Portal.`, "success");
@@ -689,19 +701,16 @@ async function bulkConvertSelectedToInfluencers() {
       contact.isInfluencer = true;
       contact.leadTemp = "Influencer Partner";
       contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
-      contact.referralCredits = Math.max(Number(contact.referralCredits) || 0, 50);
+      contact.agreements = Array.isArray(contact.agreements) ? contact.agreements : [];
+      contact.referralCredits = Number(contact.referralCredits) || 0;
       lastConverted = contact;
       try {
-        await fetch("/api/influencers/create", {
+        await fetch("/api/influencers/convert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fullName: contact.fullName,
-            email: contact.email,
-            jobTitle: contact.jobTitle,
-            company: contact.company,
-            phone: contact.phone,
-            industry: contact.industry || "Advisory"
+            contactId: contact.id,
+            email: contact.email
           })
         });
       } catch (_) {}
@@ -715,6 +724,8 @@ async function bulkConvertSelectedToInfluencers() {
   saveDatabaseCache();
   initLoadedData();
   updateBulkActionBar();
+  if (typeof renderDashboard === "function") renderDashboard();
+  if (typeof renderInfluencersPortal === "function") renderInfluencersPortal();
 
   addLogConsole("enrich", `[INFLUENCER PORTAL] Converted ${idsToConvert.length} contact(s) into Influencer Partners with their own Referral Portals.`, "success");
 

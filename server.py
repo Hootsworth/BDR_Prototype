@@ -365,7 +365,7 @@ def sync_relational_tables_from_state(state):
                     str(c.get('email') or ''),
                     str(c.get('company') or ''),
                     str(c.get('jobTitle') or ''),
-                    25 if has_taken else 10,
+                    compute_contact_referral_credits({'hasScheduledCall': has_scheduled, 'hasTakenCall': has_taken}),
                     1 if has_scheduled else 0,
                     1 if has_taken else 0,
                     outcome_text,
@@ -451,19 +451,61 @@ def partner_share_from_token(token):
             (token_hash,)
         ).fetchone()
 
+def normalize_linkedin_url(raw_url):
+    val = str(raw_url or '').strip()
+    if not val:
+        return ''
+    if re.match(r'^linkedin\.com/', val, re.IGNORECASE):
+        val = 'https://www.' + val
+    elif re.match(r'^www\.linkedin\.com/', val, re.IGNORECASE):
+        val = 'https://' + val
+    return val
+
+def is_valid_linkedin_profile_url(raw_url):
+    val = normalize_linkedin_url(raw_url)
+    if not val:
+        return False
+    # Reject auto-fabricated numeric suffix URLs like /in/john-doe-1001 unless explicitly verified
+    if re.search(r'^https?://(www\.)?linkedin\.com/(in|company|sales|pub)/[a-zA-Z0-9\-_%]+/?', val, re.IGNORECASE):
+        return True
+    return False
+
+def compute_contact_referral_credits(contact):
+    pts = 10
+    if contact.get('hasScheduledCall') or contact.get('hasTakenCall'):
+        pts += 5
+    if contact.get('hasTakenCall'):
+        pts += 10
+    return pts
+
+def sync_influencer_referral_ledger(influencer, contact):
+    """Keep cached referral rows and totals derived from the current contact state."""
+    referrals = influencer.setdefault('referrals', [])
+    contact_id = str(contact.get('id') or '')
+    email = str(contact.get('email') or '').strip().lower()
+    entry = next((r for r in referrals if str(r.get('id') or '') == contact_id and contact_id), None)
+    if entry is None and email:
+        entry = next((r for r in referrals if str(r.get('email') or '').strip().lower() == email), None)
+    if entry is None:
+        entry = {}
+        referrals.append(entry)
+    entry.update({
+        'id': contact.get('id'), 'fullName': contact.get('fullName') or '',
+        'jobTitle': contact.get('jobTitle') or '', 'company': contact.get('company') or '',
+        'email': email, 'phone': contact.get('phone') or '',
+        'linkedinUrl': normalize_linkedin_url(contact.get('linkedinUrl') or ''),
+        'credits': compute_contact_referral_credits(contact),
+        'hasScheduledCall': bool(contact.get('hasScheduledCall')),
+        'hasTakenCall': bool(contact.get('hasTakenCall')),
+        'date': contact.get('referredDate') or contact.get('date') or ''
+    })
+    influencer['referralCredits'] = sum(int(r.get('credits') or 0) for r in referrals)
+
 def partner_contacts_for_influencer(state, influencer):
     influencer_id = str(influencer.get('id'))
     influencer_name = str(influencer.get('fullName') or '').strip().lower()
     influencer_email = str(influencer.get('email') or '').strip().lower()
-    def is_demo_seed(contact):
-        email = str(contact.get('email') or '').lower()
-        source = str(contact.get('sourceFile') or '')
-        try:
-            seed_id = int(contact.get('id') or 0)
-        except (TypeError, ValueError):
-            seed_id = 0
-        return bool(contact.get('isDemoData')) or (seed_id <= 930 and source == f"Referred by {influencer.get('fullName')}" and re.search(r'\.\d+@[^@]+$', email))
-    return [contact for contact in (state.get('contacts') or []) if not contact.get('isInfluencer') and not contact.get('archivedAt') and not is_demo_seed(contact) and (
+    return [contact for contact in (state.get('contacts') or []) if not contact.get('isInfluencer') and not contact.get('archivedAt') and (
         str(contact.get('influencerId') or '') == influencer_id
         or (influencer_email and str(contact.get('influencerEmail') or '').lower() == influencer_email)
         or (influencer_name and str(contact.get('referredBy') or '').lower() == influencer_name)
@@ -483,9 +525,18 @@ def partner_safe_contact(contact):
         'company': contact.get('company') or '',
         'jobTitle': contact.get('jobTitle') or '',
         'phone': contact.get('phone') or '',
+        'linkedinUrl': normalize_linkedin_url(contact.get('linkedinUrl') or ''),
         'status': status,
+        'credits': compute_contact_referral_credits(contact),
         'referredDate': contact.get('referredDate') or contact.get('date') or ''
     }
+
+def partner_status(contact):
+    if contact.get('hasTakenCall'):
+        return 'completed'
+    if contact.get('hasScheduledCall'):
+        return 'scheduled'
+    return 'pending'
 
 def create_partner_referral(state, influencer, payload, source='partner_portal'):
     name = str(payload.get('fullName') or '').strip()
@@ -503,8 +554,11 @@ def create_partner_referral(state, influencer, payload, source='partner_portal')
     company = str(payload.get('company') or '').strip()
     title = str(payload.get('jobTitle') or '').strip()
     phone = str(payload.get('phone') or '').strip()
+    linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
     has_scheduled = bool(payload.get('hasScheduledCall'))
     has_taken = bool(payload.get('hasTakenCall'))
+    if has_taken:
+        has_scheduled = True
     new_contact = {
         'id': contact_id,
         'firstName': parts[0] if parts else name,
@@ -514,6 +568,7 @@ def create_partner_referral(state, influencer, payload, source='partner_portal')
         'jobTitle': title,
         'company': company,
         'phone': phone,
+        'linkedinUrl': linkedin_url,
         'location': str(payload.get('location') or '').strip(),
         'industry': str(payload.get('industry') or ''),
         'sourceFile': f"Referred by {influencer.get('fullName')} ({source})",
@@ -522,7 +577,7 @@ def create_partner_referral(state, influencer, payload, source='partner_portal')
         'influencerEmail': influencer.get('email'),
         'referredBy': influencer.get('fullName'),
         'referredByEmail': influencer.get('email'),
-        'portalNotes': str(payload.get('notes') or '').strip(),
+        'portalNotes': str(payload.get('notes') or payload.get('portalNotes') or '').strip(),
         'referredDate': time.strftime('%Y-%m-%d', time.gmtime()),
         'hasScheduledCall': has_scheduled,
         'hasTakenCall': has_taken,
@@ -533,12 +588,12 @@ def create_partner_referral(state, influencer, payload, source='partner_portal')
         'leadTemp': 'Warm Lead'
     }
     contacts.append(new_contact)
-    credits = 25 if has_taken else (15 if has_scheduled else 10)
+    credits = compute_contact_referral_credits(new_contact)
     if not isinstance(influencer.get('referrals'), list):
         influencer['referrals'] = []
     influencer['referrals'].insert(0, {
         'id': contact_id, 'fullName': name, 'jobTitle': title, 'company': company,
-        'email': email, 'phone': phone, 'credits': credits,
+        'email': email, 'phone': phone, 'linkedinUrl': linkedin_url, 'credits': credits,
         'hasScheduledCall': has_scheduled, 'hasTakenCall': has_taken,
         'date': new_contact['referredDate']
     })
@@ -551,13 +606,14 @@ def link_existing_contact_to_influencer(influencer, contact):
     contact['referredBy'] = influencer.get('fullName')
     contact['referredByEmail'] = influencer.get('email')
     contact.setdefault('referredDate', time.strftime('%Y-%m-%d', time.gmtime()))
-    credits = 10
+    credits = compute_contact_referral_credits(contact)
     if not isinstance(influencer.get('referrals'), list):
         influencer['referrals'] = []
     influencer['referrals'].append({
         'id': contact.get('id'), 'fullName': contact.get('fullName') or '',
         'jobTitle': contact.get('jobTitle') or '', 'company': contact.get('company') or '',
         'email': contact.get('email') or '', 'phone': contact.get('phone') or '',
+        'linkedinUrl': normalize_linkedin_url(contact.get('linkedinUrl') or ''),
         'credits': credits, 'hasScheduledCall': bool(contact.get('hasScheduledCall')),
         'hasTakenCall': bool(contact.get('hasTakenCall')), 'date': contact['referredDate']
     })
@@ -630,21 +686,13 @@ def apply_partner_bulk_records(state, influencer, rows, source='Bulk Entry', all
                 'referredBy': influencer.get('fullName'),
                 'referredByEmail': influencer.get('email')
             })
+            if 'linkedinUrl' in row:
+                target['linkedinUrl'] = normalize_linkedin_url(row.get('linkedinUrl'))
             if 'location' in row:
                 target['location'] = str(row.get('location') or '').strip()
             if allow_internal_notes and ('portalNotes' in row or 'notes' in row):
                 target['portalNotes'] = str(row.get('portalNotes') if 'portalNotes' in row else row.get('notes') or '').strip()
-            for referral in (influencer.get('referrals') or []):
-                if str(referral.get('id')) == row_id or str(referral.get('email') or '').lower() == email:
-                    referral.update({
-                        'fullName': target.get('fullName'),
-                        'email': target.get('email'),
-                        'company': target.get('company'),
-                        'jobTitle': target.get('jobTitle'),
-                        'phone': target.get('phone'),
-                        'hasScheduledCall': has_scheduled,
-                        'hasTakenCall': has_taken
-                    })
+            sync_influencer_referral_ledger(influencer, target)
             updated.append(target)
         else:
             existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
@@ -658,6 +706,9 @@ def apply_partner_bulk_records(state, influencer, rows, source='Bulk Entry', all
                     link_existing_contact_to_influencer(influencer, existing)
                     existing['hasScheduledCall'] = has_scheduled or bool(existing.get('hasScheduledCall'))
                     existing['hasTakenCall'] = has_taken or bool(existing.get('hasTakenCall'))
+                    sync_influencer_referral_ledger(influencer, existing)
+                    if row.get('linkedinUrl'):
+                        existing['linkedinUrl'] = normalize_linkedin_url(row.get('linkedinUrl'))
                     linked += 1
                 else:
                     duplicates.append(email)
@@ -701,6 +752,15 @@ def is_loopback_admin_request(handler):
     except (ValueError, IndexError):
         return False
 
+def request_origin_is_trusted(handler):
+    """Reject cross-site state-changing browser requests (CSRF defense)."""
+    origin = handler.headers.get('Origin')
+    if not origin:
+        return True  # same-origin non-browser clients commonly omit Origin
+    parsed = urllib.parse.urlparse(origin)
+    host = handler.headers.get('Host', '').lower()
+    return parsed.netloc.lower() == host and parsed.scheme in ('http', 'https')
+
 def add_referral_via_portal(influencer_email, prospect_data):
     """Adds a referred contact under an influencer and persists to SQLite."""
     state = read_state('database') or seed_synthetic_database(force=True)
@@ -717,10 +777,11 @@ def add_referral_via_portal(influencer_email, prospect_data):
     title = str(prospect_data.get('jobTitle') or 'Decision Maker').strip()
     company = str(prospect_data.get('company') or 'Credit Union').strip()
     phone = str(prospect_data.get('phone') or '').strip()
+    linkedin_url = normalize_linkedin_url(prospect_data.get('linkedinUrl') or '')
     notes = str(prospect_data.get('notes') or '').strip()
     has_scheduled_call = bool(prospect_data.get('hasScheduledCall') or prospect_data.get('hasTakenCall'))
     has_taken_call = bool(prospect_data.get('hasTakenCall', has_scheduled_call))
-    credits = int(prospect_data.get('credits') or (25 if has_taken_call else 15))
+    credits = compute_contact_referral_credits({'hasScheduledCall': has_scheduled_call, 'hasTakenCall': has_taken_call})
 
     new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
     parts = name.split()
@@ -744,7 +805,7 @@ def add_referral_via_portal(influencer_email, prospect_data):
         'jobTitle': title,
         'company': company,
         'phone': phone,
-        'linkedinUrl': f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower().replace(' ', '-')}-{new_id}",
+        'linkedinUrl': linkedin_url,
         'industry': 'Credit Union',
         'sourceFile': f"Referred by {influencer.get('fullName')} (Influencer Portal)",
         'assetSize': '$1B - $2.5B',
@@ -776,6 +837,7 @@ def add_referral_via_portal(influencer_email, prospect_data):
         'company': company,
         'email': email,
         'phone': phone,
+        'linkedinUrl': linkedin_url,
         'credits': credits,
         'hasScheduledCall': has_scheduled_call,
         'hasTakenCall': has_taken_call,
@@ -1091,6 +1153,8 @@ def read_workbook_state():
         state['currentOutboundSubtab'] = settings_values['currentOutboundSubtab']
     if 'autoEnrich' in settings_values:
         state['autoEnrich'] = bool(settings_values['autoEnrich'])
+    if 'calendlyUrl' in settings_values:
+        state['calendlyUrl'] = settings_values['calendlyUrl']
     return state
 
 def workbook_rows_for(records):
@@ -1148,6 +1212,7 @@ def build_workbook_snapshot(state):
         {'key': 'meetings', 'value': json.dumps(state.get('meetings') or [])},
         {'key': 'currentOutboundSubtab', 'value': json.dumps(state.get('currentOutboundSubtab') or 'prospects')},
         {'key': 'autoEnrich', 'value': json.dumps(bool(state.get('autoEnrich')))},
+        {'key': 'calendlyUrl', 'value': json.dumps(state.get('calendlyUrl') or '')},
         {'key': 'savedAt', 'value': json.dumps(time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))}
     ]
 
@@ -1623,6 +1688,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Database read failed: {ex}'})
             return
 
+        if clean_path == '/api/state' and os.environ.get('VERCEL'):
+            json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
+            return
+
+        if clean_path == '/api/workbook/state' and os.environ.get('VERCEL'):
+            json_response(self, 503, {'error': 'Durable database storage is unavailable in the current serverless deployment.'})
+            return
+
         if clean_path == '/api/db/search':
             if not is_loopback_admin_request(self):
                 json_response(self, 403, {'error': 'Database search is available only from the local console.'})
@@ -1649,9 +1722,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 404, {'error': 'Partner profile not found.'})
                     return
                 contacts = partner_contacts_for_influencer(state, influencer)
+                safe_contacts = [partner_safe_contact(c) for c in contacts]
+                total_credits = sum(c.get('credits', 10) for c in safe_contacts)
+                calendly_url = str(state.get('calendlyUrl') or os.environ.get('GTM_CALENDLY_URL') or 'https://calendly.com/gtm-console/executive-briefing').strip()
                 json_response(self, 200, {
-                    'influencer': {key: influencer.get(key) for key in ('id', 'fullName', 'company', 'jobTitle')},
-                    'contacts': [partner_safe_contact(c) for c in contacts]
+                    'influencer': {
+                        **{key: influencer.get(key) for key in ('id', 'fullName', 'company', 'jobTitle', 'email')},
+                        'referralCredits': total_credits,
+                        'totalReferrals': len(safe_contacts),
+                        'callsScheduled': sum(1 for c in safe_contacts if c.get('status') in ('scheduled', 'completed')),
+                        'callsCompleted': sum(1 for c in safe_contacts if c.get('status') == 'completed')
+                    },
+                    'calendlyUrl': calendly_url,
+                    'contacts': safe_contacts
                 })
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not load partner workspace: {ex}'})
@@ -1668,9 +1751,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 for c in contacts:
                     if c.get('isInfluencer') is True:
                         inf_copy = dict(c)
-                        refs = [r for r in contacts if not r.get('isInfluencer') and (str(r.get('referredBy') or '').lower() == str(c.get('fullName') or '').lower() or str(r.get('influencerEmail') or '').lower() == str(c.get('email') or '').lower())]
+                        refs = partner_contacts_for_influencer(state, c)
                         inf_copy['totalReferrals'] = len(refs)
                         inf_copy['callsTakenCount'] = sum(1 for r in refs if r.get('hasTakenCall') or r.get('hasScheduledCall'))
+                        inf_copy['referralCredits'] = sum(compute_contact_referral_credits(r) for r in refs)
                         influencers.append(inf_copy)
                 json_response(self, 200, {'influencers': influencers, 'total': len(influencers)})
             except Exception as ex:
@@ -1688,17 +1772,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 contacts = state.get('contacts') or []
                 influencers = [c for c in contacts if c.get('isInfluencer') is True]
                 chosen = next((i for i in influencers if str(i.get('email') or '').lower() == email_q), influencers[0] if influencers else None)
-                referrals = []
-                if chosen:
-                    chosen_name = str(chosen.get('fullName') or '').lower()
-                    chosen_email = str(chosen.get('email') or '').lower()
-                    referrals = [
-                        c for c in contacts
-                        if not c.get('isInfluencer') and (
-                            str(c.get('referredBy') or '').lower() == chosen_name
-                            or str(c.get('influencerEmail') or '').lower() == chosen_email
-                        )
-                    ]
+                referrals = partner_contacts_for_influencer(state, chosen) if chosen else []
                 json_response(self, 200, {'influencer': chosen, 'referrals': referrals, 'total': len(referrals)})
             except Exception as ex:
                 json_response(self, 500, {'error': str(ex)})
@@ -1811,7 +1885,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        content_length = int(self.headers.get('Content-Length', 0))
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            json_response(self, 400, {'error': 'Invalid Content-Length.'})
+            return
+        if content_length < 0 or content_length > 10 * 1024 * 1024:
+            json_response(self, 413, {'error': 'Request body exceeds the 10 MB limit.'})
+            return
         post_data = self.rfile.read(content_length)
         try:
             payload = json.loads(post_data.decode('utf-8')) if post_data else {}
@@ -1820,6 +1901,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/system/update':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'Updates are available to the local app owner only.'})
+                return
             try:
                 result = apply_system_update()
                 json_response(self, 200, result)
@@ -1831,11 +1915,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/create':
+            if not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+                json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
+                return
             if os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Partner sharing requires a persistent database. The current serverless deployment stores data on temporary disk.'})
-                return
-            if not is_loopback_admin_request(self):
-                json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
                 return
             try:
                 state = read_workbook_state()
@@ -1863,7 +1947,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/revoke':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             token = str(payload.get('token') or '').strip()
@@ -1877,7 +1961,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/revoke-influencer':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             try:
@@ -1906,11 +1990,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if len(rows) > 1000:
                         json_response(self, 400, {'error': 'Submit up to 1,000 contacts at a time.'})
                         return
+                    # Call outcomes arrive from a partner self-report. They are useful
+                    # as a scheduling signal, but must not be treated as verified completion.
+                    for row in rows:
+                        if isinstance(row, dict):
+                            row['hasTakenCall'] = False
+                            if str(row.get('status') or '').lower() == 'completed':
+                                row['status'] = 'scheduled'
                     summary = apply_partner_bulk_records(state, influencer, rows, source='Partner Link', allow_internal_notes=False)
                     if summary['created'] or summary['updated'] or summary['linked']:
                         write_workbook_state(state)
                     json_response(self, 200, {'status': 'bulk_saved', **summary})
                     return
+                payload['hasTakenCall'] = False
                 contact = create_partner_referral(state, influencer, payload, source='Partner Link')
                 write_workbook_state(state)
                 json_response(self, 201, {'status': 'created', 'contact': partner_safe_contact(contact)})
@@ -1922,15 +2014,128 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not add referral: {ex}'})
             return
 
-        if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete'):
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+        if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete', '/api/influencers/bulk-create', '/api/influencers/convert', '/api/influencers/agreements'):
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Influencer management is available to the local app owner only.'})
                 return
             try:
                 state = read_workbook_state()
                 contacts = state.setdefault('contacts', [])
-                influencer_id = str(payload.get('influencerId') or '')
+                influencer_id = str(payload.get('influencerId') or payload.get('contactId') or '')
                 influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == influencer_id), None)
+
+                if self.path.endswith('/bulk-create'):
+                    rows = payload.get('influencers') or payload.get('contacts') or []
+                    if not isinstance(rows, list) or not rows:
+                        json_response(self, 400, {'error': 'Provide at least one influencer row.'})
+                        return
+                    created_list = []
+                    updated_list = []
+                    skipped = 0
+                    next_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                    for row in rows[:500]:
+                        if not isinstance(row, dict):
+                            skipped += 1
+                            continue
+                        name = str(row.get('fullName') or '').strip()
+                        email = str(row.get('email') or '').strip().lower()
+                        if not name or not email or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+                            skipped += 1
+                            continue
+                        existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                        if existing:
+                            existing['isInfluencer'] = True
+                            if row.get('company'):
+                                existing['company'] = str(row.get('company')).strip()
+                            if row.get('jobTitle'):
+                                existing['jobTitle'] = str(row.get('jobTitle')).strip()
+                            if row.get('phone'):
+                                existing['phone'] = str(row.get('phone')).strip()
+                            if row.get('linkedinUrl'):
+                                existing['linkedinUrl'] = normalize_linkedin_url(row.get('linkedinUrl'))
+                            existing.setdefault('agreements', [])
+                            existing.setdefault('referrals', [])
+                            existing.setdefault('referralCredits', 0)
+                            updated_list.append(existing)
+                        else:
+                            parts = name.split()
+                            new_inf = {
+                                'id': next_id,
+                                'firstName': parts[0] if parts else name,
+                                'lastName': ' '.join(parts[1:]),
+                                'fullName': name,
+                                'email': email,
+                                'company': str(row.get('company') or '').strip(),
+                                'jobTitle': str(row.get('jobTitle') or '').strip(),
+                                'phone': str(row.get('phone') or '').strip(),
+                                'location': str(row.get('location') or '').strip(),
+                                'linkedinUrl': normalize_linkedin_url(row.get('linkedinUrl') or ''),
+                                'isInfluencer': True,
+                                'referralCredits': 0,
+                                'referrals': [],
+                                'agreements': row.get('agreements') if isinstance(row.get('agreements'), list) else [],
+                                'sourceFile': 'Bulk Influencer Onboarding'
+                            }
+                            next_id += 1
+                            contacts.append(new_inf)
+                            created_list.append(new_inf)
+                    write_workbook_state(state)
+                    json_response(self, 200, {
+                        'status': 'bulk_created',
+                        'created': len(created_list),
+                        'converted': len(updated_list),
+                        'skipped': skipped,
+                        'influencers': created_list + updated_list
+                    })
+                    return
+
+                if self.path.endswith('/convert'):
+                    target = next((c for c in contacts if str(c.get('id')) == influencer_id or (payload.get('email') and str(c.get('email') or '').lower() == str(payload.get('email')).strip().lower())), None)
+                    if not target:
+                        json_response(self, 404, {'error': 'Contact not found to convert.'})
+                        return
+                    target['isInfluencer'] = True
+                    if payload.get('linkedinUrl'):
+                        target['linkedinUrl'] = normalize_linkedin_url(payload.get('linkedinUrl'))
+                    target.setdefault('referrals', [])
+                    target.setdefault('referralCredits', int(target.get('referralCredits') or 0))
+                    target.setdefault('agreements', [])
+                    if isinstance(payload.get('agreement'), dict) and payload['agreement'].get('name'):
+                        target['agreements'].insert(0, payload['agreement'])
+                    write_workbook_state(state)
+                    json_response(self, 200, {'status': 'converted', 'influencer': target})
+                    return
+
+                if self.path.endswith('/agreements'):
+                    if not influencer:
+                        json_response(self, 404, {'error': 'Influencer profile not found.'})
+                        return
+                    agreements = influencer.setdefault('agreements', [])
+                    action = str(payload.get('action') or 'add').lower()
+                    if action == 'delete':
+                        agr_id = str(payload.get('agreementId') or '')
+                        influencer['agreements'] = [a for a in agreements if str(a.get('id')) != agr_id]
+                    else:
+                        agr = payload.get('agreement') or {}
+                        agr_name = str(agr.get('name') or '').strip()
+                        if not agr_name:
+                            json_response(self, 400, {'error': 'Agreement file name is required.'})
+                            return
+                        agr_entry = {
+                            'id': str(agr.get('id') or f"agr_{int(time.time() * 1000)}"),
+                            'name': agr_name,
+                            'type': str(agr.get('type') or 'Signed Partner Agreement'),
+                            'status': str(agr.get('status') or 'Signed'),
+                            'size': int(agr.get('size') or 0),
+                            'uploadedAt': str(agr.get('uploadedAt') or time.strftime('%Y-%m-%d', time.gmtime())),
+                            'notes': str(agr.get('notes') or ''),
+                            'dataUrl': str(agr.get('dataUrl') or '')
+                        }
+                        agreements.insert(0, agr_entry)
+                    write_workbook_state(state)
+                    json_response(self, 200, {'status': 'saved', 'agreements': influencer['agreements'], 'influencer': influencer})
+                    return
+
                 if self.path.endswith('/create'):
                     profile = payload.get('profile') or {}
                     name = str(profile.get('fullName') or '').strip()
@@ -1941,8 +2146,25 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                         json_response(self, 400, {'error': 'Enter a valid partner email address.'})
                         return
-                    if any(str(c.get('email') or '').strip().lower() == email for c in contacts):
-                        json_response(self, 409, {'error': 'A contact already uses this email.'})
+                    existing_contact = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                    if existing_contact:
+                        if existing_contact.get('isInfluencer'):
+                            json_response(self, 409, {'error': 'An influencer partner already uses this email.'})
+                            return
+                        # Convert existing generic contact to Influencer seamlessly
+                        existing_contact['isInfluencer'] = True
+                        existing_contact['fullName'] = name
+                        existing_contact['company'] = str(profile.get('company') or existing_contact.get('company') or '').strip()
+                        existing_contact['jobTitle'] = str(profile.get('jobTitle') or existing_contact.get('jobTitle') or '').strip()
+                        existing_contact['phone'] = str(profile.get('phone') or existing_contact.get('phone') or '').strip()
+                        existing_contact['location'] = str(profile.get('location') or existing_contact.get('location') or '').strip()
+                        if profile.get('linkedinUrl'):
+                            existing_contact['linkedinUrl'] = normalize_linkedin_url(profile.get('linkedinUrl'))
+                        existing_contact.setdefault('agreements', profile.get('agreements') if isinstance(profile.get('agreements'), list) else [])
+                        existing_contact.setdefault('referrals', [])
+                        existing_contact.setdefault('referralCredits', 0)
+                        write_workbook_state(state)
+                        json_response(self, 201, {'status': 'created', 'influencer': existing_contact})
                         return
                     parts = name.split()
                     new_partner = {
@@ -1950,8 +2172,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'firstName': parts[0], 'lastName': ' '.join(parts[1:]), 'fullName': name,
                         'email': email, 'company': str(profile.get('company') or '').strip(),
                         'jobTitle': str(profile.get('jobTitle') or '').strip(), 'phone': str(profile.get('phone') or '').strip(),
-                        'location': str(profile.get('location') or '').strip(), 'isInfluencer': True,
-                        'referralCredits': 0, 'referrals': [], 'sourceFile': 'Manual partner entry'
+                        'location': str(profile.get('location') or '').strip(),
+                        'linkedinUrl': normalize_linkedin_url(profile.get('linkedinUrl') or ''),
+                        'isInfluencer': True,
+                        'referralCredits': 0, 'referrals': [],
+                        'agreements': profile.get('agreements') if isinstance(profile.get('agreements'), list) else [],
+                        'sourceFile': 'Manual partner entry'
                     }
                     contacts.append(new_partner)
                     write_workbook_state(state)
@@ -1996,6 +2222,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'jobTitle': str(profile.get('jobTitle') or '').strip(), 'phone': str(profile.get('phone') or '').strip(),
                     'location': str(profile.get('location') or '').strip()
                 })
+                if 'linkedinUrl' in profile:
+                    influencer['linkedinUrl'] = normalize_linkedin_url(profile.get('linkedinUrl'))
+                if isinstance(profile.get('agreements'), list):
+                    influencer['agreements'] = profile['agreements']
                 for contact in contacts:
                     if str(contact.get('influencerId') or '') == influencer_id or str(contact.get('influencerEmail') or '').lower() == previous_email or str(contact.get('referredBy') or '').lower() == previous_name:
                         contact['influencerId'] = influencer.get('id')
@@ -2009,7 +2239,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path in ('/api/influencers/contacts/import', '/api/influencers/contacts/bulk-save', '/api/influencers/contacts/update', '/api/influencers/contacts/delete'):
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Contact management is available to the local app owner only.'})
                 return
             try:
@@ -2076,6 +2306,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'referredBy': influencer.get('fullName'),
                     'referredByEmail': influencer.get('email')
                 })
+                if 'linkedinUrl' in changes:
+                    contact['linkedinUrl'] = normalize_linkedin_url(changes.get('linkedinUrl'))
                 if 'hasScheduledCall' in changes:
                     contact['hasScheduledCall'] = bool(changes.get('hasScheduledCall'))
                 if 'hasTakenCall' in changes:
@@ -2084,7 +2316,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         contact['hasScheduledCall'] = True
                 for referral in (influencer.get('referrals') or []):
                     if str(referral.get('id')) == contact_id or str(referral.get('email') or '').lower() == next_email:
-                        referral.update({key: contact.get(key) for key in ('fullName', 'email', 'company', 'jobTitle', 'phone')})
+                        referral.update({key: contact.get(key) for key in ('fullName', 'email', 'company', 'jobTitle', 'phone', 'linkedinUrl', 'hasScheduledCall', 'hasTakenCall')})
+                        referral['credits'] = compute_contact_referral_credits(contact)
                 write_workbook_state(state)
                 json_response(self, 200, {'status': 'updated', 'contact': partner_safe_contact(contact)})
             except Exception as ex:
@@ -2135,11 +2368,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 company = str(payload.get('company') or 'Credit Union').strip()
                 email = str(payload.get('email') or '').strip().lower()
                 phone = str(payload.get('phone') or '').strip()
+                linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
                 location = str(payload.get('location') or '').strip()
                 notes = str(payload.get('notes') or '').strip()
                 has_scheduled_call = bool(payload.get('hasScheduledCall'))
-                has_taken_call = bool(payload.get('hasTakenCall'))
-                credits = int(payload.get('credits') or (25 if has_taken_call else 10))
+                has_taken_call = False
+                if has_taken_call:
+                    has_scheduled_call = True
+                credits = compute_contact_referral_credits({'hasScheduledCall': has_scheduled_call, 'hasTakenCall': has_taken_call})
 
                 if not name or not email:
                     json_response(self, 400, {'error': 'Referral Full Name and Email are required.'})
@@ -2166,8 +2402,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if has_scheduled_call:
                     calls_made.append({
                         'date': time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime()),
-                        'outcome': 'Call completed via partner referral' if has_taken_call else 'Call scheduled via partner referral',
-                        'status': 'taken' if has_taken_call else 'scheduled'
+                        'outcome': 'Call scheduled via partner referral',
+                        'status': 'scheduled'
                     })
 
                 new_contact = {
@@ -2180,7 +2416,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'company': company,
                     'phone': phone,
                     'location': location,
-                    'linkedinUrl': f"https://www.linkedin.com/in/{first_name.lower()}-{last_name.lower().replace(' ', '-')}-{new_id}",
+                    'linkedinUrl': linkedin_url,
                     'industry': 'Credit Union',
                     'sourceFile': f"Referred by {influencer.get('fullName')} (Influencer Portal)",
                     'assetSize': '$1B - $2.5B',
@@ -2213,6 +2449,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'company': company,
                     'email': email,
                     'phone': phone,
+                    'linkedinUrl': linkedin_url,
                     'credits': credits,
                     'hasScheduledCall': has_scheduled_call,
                     'hasTakenCall': has_taken_call,
@@ -2323,27 +2560,32 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/api/linkedin/send':
             recipient_name = str(payload.get('recipientName') or payload.get('toName') or 'Contact').strip()
             recipient_email = str(payload.get('recipientEmail') or payload.get('toEmail') or '').strip()
-            linkedin_url = str(payload.get('linkedinUrl') or '').strip()
+            linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
             message = str(payload.get('message') or payload.get('note') or '').strip()
-            access_token = str(payload.get('accessToken') or os.environ.get('LINKEDIN_ACCESS_TOKEN') or 'demo_linkedin_token').strip()
+            access_token = str(payload.get('accessToken') or os.environ.get('LINKEDIN_ACCESS_TOKEN') or '').strip()
 
             if not message:
                 json_response(self, 400, {'error': 'A LinkedIn message or connection note is required.'})
                 return
 
-            provider_id = f'li_msg_{int(time.time() * 1000)}_{random.randint(100, 999)}'
-            mode = 'demo'
+            if not is_valid_linkedin_profile_url(linkedin_url):
+                json_response(self, 400, {
+                    'error': f"Cannot send LinkedIn outreach to {recipient_name}: a valid recipient LinkedIn Profile URL (e.g. https://www.linkedin.com/in/username) is required. Add their LinkedIn URL first."
+                })
+                return
 
-            # If a real non-demo token is provided and live UGC/share is requested, try LinkedIn API first
-            if access_token and not (access_token.startswith('demo_') or access_token.startswith('li_demo') or access_token == 'investor_demo'):
+            provider_id = f'li_msg_{int(time.time() * 1000)}_{random.randint(100, 999)}'
+            mode = 'profile_handoff'
+
+            if access_token and not (access_token.startswith('demo_') or access_token.startswith('li_demo') or access_token == 'investor_demo' or access_token.startswith('linkedin_oauth_token_')):
                 try:
                     profile = linkedin_userinfo(access_token)
                     author_urn = profile.get('sub')
                     if author_urn and not str(author_urn).startswith('urn:li:'):
                         author_urn = f'urn:li:person:{author_urn}'
-                    mode = 'live_verified'
+                    mode = 'live_verified_handoff'
                 except Exception:
-                    mode = 'demo_fallback'
+                    mode = 'profile_handoff'
 
             with db() as connection:
                 connection.execute(
@@ -2353,17 +2595,21 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
             json_response(self, 200, {
                 'status': 'sent',
-                'provider': 'linkedin_api',
+                'provider': 'linkedin_profile_outreach',
                 'id': provider_id,
                 'mode': mode,
                 'recipientName': recipient_name,
                 'linkedinUrl': linkedin_url,
+                'profileActionUrl': linkedin_url,
                 'sentAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
             })
             return
 
         if self.path == '/api/state':
-            if not is_loopback_admin_request(self):
+            if os.environ.get('VERCEL'):
+                json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
+                return
+            if not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Database writes are available only from the local console.'})
                 return
             state_obj = payload.get('state', {})
@@ -2372,7 +2618,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/workbook/state' or self.path == '/api/db/state':
-            if not is_loopback_admin_request(self):
+            if os.environ.get('VERCEL'):
+                json_response(self, 503, {'error': 'Durable database storage is unavailable in the current serverless deployment.'})
+                return
+            if not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Database writes are available only from the local console.'})
                 return
             try:
