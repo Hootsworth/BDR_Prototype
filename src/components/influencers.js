@@ -1788,6 +1788,190 @@ function inspectGraphNode(nodeType, nodeKey) {
   }
 }
 
+// ─── IRM MARKETPLACE & VENDOR GOVERNANCE (MODEL 2) ─────────────────────────
+
+async function openIrmMarketplaceModal() {
+  const modal = document.getElementById("irm-marketplace-modal");
+  if (!modal) return;
+  if (typeof modal.showModal === "function" && !modal.open) {
+    modal.showModal();
+  } else {
+    modal.setAttribute("open", "open");
+  }
+  await refreshIrmMarketplaceModal();
+}
+
+function closeIrmMarketplaceModal() {
+  const modal = document.getElementById("irm-marketplace-modal");
+  if (!modal) return;
+  if (typeof modal.close === "function" && modal.open) {
+    modal.close();
+  } else {
+    modal.removeAttribute("open");
+  }
+}
+
+async function refreshIrmMarketplaceModal() {
+  try {
+    const res = await fetch("/api/irm/marketplace");
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.vendors)) database.vendors = data.vendors;
+      if (Array.isArray(data.marketplaceRequests)) database.marketplaceRequests = data.marketplaceRequests;
+      renderIrmMarketplaceModal(data);
+      return;
+    }
+  } catch (_) {}
+  renderIrmMarketplaceModal({
+    vendors: database.vendors || [],
+    marketplaceRequests: database.marketplaceRequests || [],
+    influencersCount: (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt).length,
+    referralsCount: (database.contacts || []).filter(c => !c.isInfluencer && !c.archivedAt).length
+  });
+}
+
+function renderIrmMarketplaceModal(payload = {}) {
+  const vendors = Array.isArray(payload.vendors) ? payload.vendors : (database.vendors || []);
+  const requests = Array.isArray(payload.marketplaceRequests) ? payload.marketplaceRequests : (database.marketplaceRequests || []);
+  const influencersCount = Number.isFinite(payload.influencersCount)
+    ? payload.influencersCount
+    : (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt).length;
+  const signedVendors = vendors.filter(v => v.agreementStatus === "signed" && v.networkAccessLevel !== "locked").length;
+
+  const setText = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(val);
+  };
+  setText("irm-marketplace-summary-badge", `${vendors.length} Vendor${vendors.length === 1 ? "" : "s"} · ${requests.length} Intro Request${requests.length === 1 ? "" : "s"}`);
+  setText("irm-kpi-vendors-total", vendors.length);
+  setText("irm-kpi-vendors-signed", signedVendors);
+  setText("irm-kpi-influencers-count", influencersCount);
+  setText("irm-kpi-requests-total", requests.length);
+
+  const vendorsTbody = document.getElementById("irm-vendors-tbody");
+  if (vendorsTbody) {
+    if (!vendors.length) {
+      vendorsTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 1.25rem; color: var(--color-text-secondary);">No Marketplace Vendors registered yet. Open <a href="marketplace.html" target="_blank" rel="noopener">marketplace.html</a> to onboard a Vendor.</td></tr>`;
+    } else {
+      vendorsTbody.innerHTML = vendors.map(v => {
+        const isSigned = v.agreementStatus === "signed" && v.networkAccessLevel !== "locked";
+        const agrBadge = isSigned
+          ? `<span class="badge" style="background: rgba(13, 148, 136, 0.14); color: #0d9488; font-weight: 700;">Signed (${escapePartnerHTML((v.agreements || [])[0]?.signerName || v.contactName || "Executed")})</span>`
+          : `<span class="badge" style="background: #fef3c7; color: #b45309; font-weight: 600;">${escapePartnerHTML(v.agreementStatus === "revoked" ? "Revoked" : "Unsigned")}</span>`;
+        const accessBadge = isSigned
+          ? `<span class="badge" style="background: #ecfdf5; color: #047857; font-weight: 700;">Network Unlocked</span>`
+          : `<span class="badge" style="background: #f1f5f9; color: #475569;">Locked</span>`;
+        return `
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: var(--color-text-primary);">${escapePartnerHTML(v.companyName || "Vendor")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(v.website || "")}</div>
+            </td>
+            <td>
+              <div style="font-weight: 600;">${escapePartnerHTML(v.contactName || "-")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(v.email || v.contactEmail || "")}</div>
+            </td>
+            <td>${escapePartnerHTML(v.industry || v.category || "Enterprise B2B")}</td>
+            <td>${agrBadge}</td>
+            <td>${accessBadge}</td>
+            <td style="text-align: right;">
+              <div style="display: inline-flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
+                ${!isSigned
+                  ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmVendor('${escapePartnerHTML(v.id)}', 'approve_agreement')">Approve &amp; Unlock</button>`
+                  : `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmVendor('${escapePartnerHTML(v.id)}', 'revoke_access')">Revoke Access</button>`}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+  }
+
+  const reqTbody = document.getElementById("irm-requests-tbody");
+  if (reqTbody) {
+    if (!requests.length) {
+      reqTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1.25rem; color: var(--color-text-secondary);">No Vendor introduction requests submitted yet.</td></tr>`;
+    } else {
+      reqTbody.innerHTML = requests.map(r => {
+        const st = String(r.status || "requested");
+        const stLabel = st === "completed"
+          ? "Call Completed (+25 pts)"
+          : st === "accepted" || st === "scheduled"
+          ? "Accepted & Scheduled (+15 pts)"
+          : st === "declined"
+          ? "Declined"
+          : "Pending Influencer Review";
+        return `
+          <tr>
+            <td>
+              <div style="font-weight: 700;">${escapePartnerHTML(r.vendorName || "Vendor")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.vendorContactEmail || "")}</div>
+            </td>
+            <td>
+              <div style="font-weight: 600;">${escapePartnerHTML(r.influencerName || "Partner")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.influencerEmail || "")}</div>
+            </td>
+            <td>
+              <div style="font-weight: 600;">${escapePartnerHTML(r.contactName || "Prospect")} · ${escapePartnerHTML(r.targetCompany || "")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.contactTitle || "")}</div>
+            </td>
+            <td><span class="badge">${escapePartnerHTML(stLabel)}</span></td>
+            <td style="text-align: right;">
+              <div style="display: inline-flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
+                ${st === "requested" ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'accepted')">Approve Intro</button>` : ""}
+                ${st !== "completed" && st !== "declined" ? `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'completed')">Mark Completed</button>` : ""}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+  }
+}
+
+async function manageIrmVendor(vendorId, action) {
+  const feedback = document.getElementById("irm-marketplace-feedback");
+  if (feedback) feedback.textContent = "Updating Vendor governance status...";
+  try {
+    const res = await fetch("/api/irm/vendors/manage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendorId, action })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Request failed (${res.status})`);
+    }
+    if (feedback) feedback.textContent = "Vendor agreement & network access updated.";
+    await refreshIrmMarketplaceModal();
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message;
+  }
+}
+
+async function manageIrmMarketplaceRequest(requestId, status) {
+  const feedback = document.getElementById("irm-marketplace-feedback");
+  if (feedback) feedback.textContent = "Updating introduction request status...";
+  try {
+    const res = await fetch("/api/irm/requests/manage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId, status })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Request failed (${res.status})`);
+    }
+    if (feedback) feedback.textContent = `Introduction request marked as ${status}.`;
+    await refreshIrmMarketplaceModal();
+    if (typeof loadWorkbookFromServer === "function" && database.workbookMode) {
+      loadWorkbookFromServer().catch(() => {});
+    }
+  } catch (error) {
+    if (feedback) feedback.textContent = error.message;
+  }
+}
+
 window.renderInfluencersTable = renderInfluencersTable;
 window.selectConsolePortalInfluencer = selectConsolePortalInfluencer;
 window.renderConsolePortalReferrals = renderConsolePortalReferrals;
@@ -1845,3 +2029,10 @@ window.openRelationshipGraphModal = openRelationshipGraphModal;
 window.closeRelationshipGraphModal = closeRelationshipGraphModal;
 window.renderRelationshipGraph = renderRelationshipGraph;
 window.inspectGraphNode = inspectGraphNode;
+window.openIrmMarketplaceModal = openIrmMarketplaceModal;
+window.closeIrmMarketplaceModal = closeIrmMarketplaceModal;
+window.refreshIrmMarketplaceModal = refreshIrmMarketplaceModal;
+window.renderIrmMarketplaceModal = renderIrmMarketplaceModal;
+window.manageIrmVendor = manageIrmVendor;
+window.manageIrmMarketplaceRequest = manageIrmMarketplaceRequest;
+

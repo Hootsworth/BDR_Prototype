@@ -19,6 +19,8 @@ for root, dirs, files in os.walk(os.path.join(ROOT, "src")):
 
 JS_FILES.append(os.path.join(ROOT, "app.js"))
 JS_FILES.append(os.path.join(ROOT, "config.js"))
+JS_FILES.append(os.path.join(ROOT, "partner-portal.js"))
+JS_FILES.append(os.path.join(ROOT, "marketplace.js"))
 
 js_content = ""
 for path in JS_FILES:

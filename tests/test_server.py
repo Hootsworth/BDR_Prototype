@@ -125,6 +125,83 @@ class WorkbookPersistenceTests(unittest.TestCase):
         matched = server.partner_contacts_for_influencer(state, state["contacts"][0])
         self.assertEqual(len(matched), 2)
 
+    def test_model2_marketplace_vendor_and_pii_masking(self):
+        # Password hashing & verification
+        pw_hash = server.hash_portal_password("secret123")
+        self.assertTrue(server.verify_portal_password("secret123", pw_hash))
+        self.assertFalse(server.verify_portal_password("wrong", pw_hash))
+
+        # PII masking before vs after Influencer acceptance
+        contact = {
+            "id": 501,
+            "fullName": "Jordan Vance",
+            "email": "jordan@pacificcu.org",
+            "company": "Pacific Crest Credit Union",
+            "jobTitle": "Chief Lending Officer",
+            "phone": "+1 415 555 0192",
+            "linkedin": "https://www.linkedin.com/in/jordan-vance",
+            "location": "San Diego, CA",
+            "hasScheduledCall": False,
+            "hasTakenCall": False,
+        }
+        influencer = {"id": 10, "fullName": "Kim Beluzo", "company": "Beluzo Advisory"}
+        masked = server.mask_contact_for_marketplace(contact, influencer, unlocked_contact_ids=set())
+        self.assertEqual(masked["fullName"], "Jordan V.")
+        self.assertIn("***@pacificcu.org", masked["email"])
+        self.assertEqual(masked["phone"], "Protected by IRM until intro accepted")
+        self.assertFalse(masked["piiUnlocked"])
+
+        unlocked = server.mask_contact_for_marketplace(contact, influencer, unlocked_contact_ids={"501"})
+        self.assertEqual(unlocked["fullName"], "Jordan Vance")
+        self.assertEqual(unlocked["email"], "jordan@pacificcu.org")
+        self.assertEqual(unlocked["phone"], "+1 415 555 0192")
+        self.assertTrue(unlocked["piiUnlocked"])
+
+        # Token lookup & persistence of vendors + marketplaceRequests
+        token = "vtok-test-token-123"
+        token_hash = server.hashlib.sha256(token.encode("utf-8")).hexdigest()
+        state = server.default_workbook_state()
+        state["vendors"] = [
+            {
+                "id": "vnd-1",
+                "companyName": "Aegis AI",
+                "contactName": "Sam Carter",
+                "email": "sam@aegis.ai",
+                "agreementStatus": "signed",
+                "networkAccessLevel": "unlocked",
+                "agreements": [{"id": "vagr-1", "title": "Master Agreement", "status": "Signed"}],
+                "sessionTokenHash": token_hash,
+            }
+        ]
+        state["marketplaceRequests"] = [
+            {
+                "id": "mreq-1",
+                "vendorId": "vnd-1",
+                "vendorName": "Aegis AI",
+                "influencerId": "10",
+                "influencerName": "Kim Beluzo",
+                "contactId": "501",
+                "targetCompany": "Pacific Crest Credit Union",
+                "status": "requested",
+            }
+        ]
+        found_vendor = server.vendor_from_token(state, token)
+        self.assertIsNotNone(found_vendor)
+        self.assertEqual(found_vendor["companyName"], "Aegis AI")
+        safe_v = server.vendor_safe_dict(found_vendor)
+        self.assertEqual(safe_v["agreementStatus"], "signed")
+        self.assertEqual(safe_v["networkAccessLevel"], "unlocked")
+        self.assertNotIn("sessionTokenHash", safe_v)
+
+        if server.HAS_OPENPYXL:
+            server.write_workbook_state(state)
+            reloaded = server.read_workbook_state()
+            self.assertEqual(len(reloaded["vendors"]), 1)
+            self.assertEqual(reloaded["vendors"][0]["companyName"], "Aegis AI")
+            self.assertEqual(len(reloaded["marketplaceRequests"]), 1)
+            self.assertEqual(reloaded["marketplaceRequests"][0]["id"], "mreq-1")
+
 
 if __name__ == "__main__":
     unittest.main()
+

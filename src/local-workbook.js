@@ -15,6 +15,8 @@ function workbookStateSlice() {
     meetings: database.meetings || [],
     approvals: database.approvals || [],
     workflowRuns: database.workflowRuns || database.runs || [],
+    vendors: database.vendors || [],
+    marketplaceRequests: database.marketplaceRequests || [],
     currentOutboundSubtab: database.currentOutboundSubtab || "influencers",
     autoEnrich: Boolean(database.autoEnrich),
     calendlyUrl: database.calendlyUrl || localStorage.getItem("gtm_calendly_url") || ""
@@ -42,6 +44,8 @@ async function loadWorkbookFromServer() {
   database.meetings = state.meetings || [];
   database.approvals = state.approvals || [];
   database.workflowRuns = state.workflowRuns || [];
+  database.vendors = state.vendors || [];
+  database.marketplaceRequests = state.marketplaceRequests || [];
   database.currentOutboundSubtab = state.currentOutboundSubtab || "influencers";
   database.autoEnrich = Boolean(state.autoEnrich);
   if (state.calendlyUrl) {

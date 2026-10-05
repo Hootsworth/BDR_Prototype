@@ -215,6 +215,55 @@ def db():
             raw_json TEXT
         )
     ''')
+
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS vendors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_name TEXT NOT NULL,
+            contact_name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT,
+            session_token_hash TEXT,
+            website TEXT,
+            industry TEXT,
+            icp_description TEXT,
+            calendly_url TEXT,
+            agreement_status TEXT DEFAULT 'none',
+            network_access_level TEXT DEFAULT 'locked',
+            agreements_json TEXT DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            approved_at TEXT,
+            raw_json TEXT
+        )
+    ''')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_vendors_email ON vendors(email)')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_vendors_token ON vendors(session_token_hash)')
+
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS marketplace_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vendor_id INTEGER NOT NULL,
+            vendor_company TEXT,
+            vendor_contact_name TEXT,
+            vendor_email TEXT,
+            influencer_id INTEGER,
+            influencer_name TEXT,
+            influencer_email TEXT,
+            target_contact_id INTEGER,
+            target_contact_name TEXT,
+            target_company TEXT,
+            target_job_title TEXT,
+            status TEXT DEFAULT 'requested',
+            vendor_pitch TEXT,
+            scheduled_meeting_url TEXT,
+            credits_awarded INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            raw_json TEXT
+        )
+    ''')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_mp_requests_vendor ON marketplace_requests(vendor_id)')
+    connection.execute('CREATE INDEX IF NOT EXISTS idx_mp_requests_influencer ON marketplace_requests(influencer_id)')
     connection.commit()
     return connection
 
@@ -230,6 +279,8 @@ def read_state(key):
 def default_workbook_state():
     return {
         'contacts': [],
+        'vendors': [],
+        'marketplaceRequests': [],
         'events': {},
         'eventsMeta': [
             {
@@ -420,6 +471,81 @@ def sync_relational_tables_from_state(state):
                     att.get('eventNotes') or att.get('notes') or '',
                     json.dumps(att)
                 ))
+
+        # Preserve vendors and marketplaceRequests if omitted by a partial frontend state save
+        existing_db_state = read_state('database') or {}
+        if 'vendors' not in state and existing_db_state.get('vendors'):
+            state['vendors'] = existing_db_state['vendors']
+        if 'marketplaceRequests' not in state and existing_db_state.get('marketplaceRequests'):
+            state['marketplaceRequests'] = existing_db_state['marketplaceRequests']
+
+        vendors_list = state.get('vendors') or []
+        conn.execute('DELETE FROM vendors')
+        for idx, v in enumerate(vendors_list):
+            if not isinstance(v, dict):
+                continue
+            vid = int(v.get('id') or (idx + 1))
+            conn.execute('''
+                INSERT OR REPLACE INTO vendors (
+                    id, company_name, contact_name, email, password_hash, session_token_hash,
+                    website, industry, icp_description, calendly_url, agreement_status,
+                    network_access_level, agreements_json, created_at, approved_at, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                vid,
+                str(v.get('companyName') or ''),
+                str(v.get('contactName') or ''),
+                str(v.get('email') or '').lower(),
+                str(v.get('passwordHash') or ''),
+                str(v.get('sessionTokenHash') or ''),
+                str(v.get('website') or ''),
+                str(v.get('industry') or ''),
+                str(v.get('icpDescription') or ''),
+                str(v.get('calendlyUrl') or ''),
+                str(v.get('agreementStatus') or 'none'),
+                str(v.get('networkAccessLevel') or 'locked'),
+                json.dumps(v.get('agreements') or []),
+                str(v.get('createdAt') or time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())),
+                str(v.get('approvedAt') or ''),
+                json.dumps(v)
+            ))
+
+        mp_requests = state.get('marketplaceRequests') or []
+        conn.execute('DELETE FROM marketplace_requests')
+        for idx, req in enumerate(mp_requests):
+            if not isinstance(req, dict):
+                continue
+            rid = int(req.get('id') or (idx + 1))
+            conn.execute('''
+                INSERT OR REPLACE INTO marketplace_requests (
+                    id, vendor_id, vendor_company, vendor_contact_name, vendor_email,
+                    influencer_id, influencer_name, influencer_email,
+                    target_contact_id, target_contact_name, target_company, target_job_title,
+                    status, vendor_pitch, scheduled_meeting_url, credits_awarded,
+                    created_at, updated_at, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                rid,
+                int(req.get('vendorId') or 0),
+                str(req.get('vendorCompany') or ''),
+                str(req.get('vendorContactName') or ''),
+                str(req.get('vendorEmail') or ''),
+                req.get('influencerId'),
+                str(req.get('influencerName') or ''),
+                str(req.get('influencerEmail') or ''),
+                req.get('targetContactId'),
+                str(req.get('targetContactName') or ''),
+                str(req.get('targetCompany') or ''),
+                str(req.get('targetJobTitle') or ''),
+                str(req.get('status') or 'requested'),
+                str(req.get('vendorPitch') or ''),
+                str(req.get('scheduledMeetingUrl') or ''),
+                int(req.get('creditsAwarded') or 0),
+                str(req.get('createdAt') or time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())),
+                str(req.get('updatedAt') or time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())),
+                json.dumps(req)
+            ))
+
         conn.commit()
     persist_state('database', state)
 
@@ -429,6 +555,8 @@ def seed_synthetic_database(force=False):
     state = build_synthetic_dataset()
     for contact in state.get('contacts') or []:
         contact['isDemoData'] = True
+    state.setdefault('vendors', [])
+    state.setdefault('marketplaceRequests', [])
     sync_relational_tables_from_state(state)
     with db() as connection:
         connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),))
@@ -450,6 +578,96 @@ def partner_share_from_token(token):
             'SELECT id, influencer_id, revoked_at FROM partner_shares WHERE token_hash = ?',
             (token_hash,)
         ).fetchone()
+
+def issue_partner_share_token(influencer_id):
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    created_at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    with db() as connection:
+        connection.execute('INSERT INTO partner_shares(influencer_id, token_hash, created_at) VALUES (?, ?, ?)', (int(influencer_id), token_hash, created_at))
+    return token
+
+def hash_portal_password(password):
+    raw = str(password or '').encode('utf-8')
+    salt = b'gtm_irm_marketplace_salt_v1'
+    return hashlib.pbkdf2_hmac('sha256', raw, salt, 100_000).hex()
+
+def verify_portal_password(password, stored_hash):
+    if not stored_hash:
+        return False
+    return secrets.compare_digest(hash_portal_password(password), str(stored_hash))
+
+def vendor_from_token(state, token):
+    if not token:
+        return None
+    token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    for vendor in (state.get('vendors') or []):
+        if isinstance(vendor, dict) and vendor.get('sessionTokenHash') == token_hash:
+            return vendor
+    return None
+
+def vendor_safe_dict(vendor):
+    if not isinstance(vendor, dict):
+        return {}
+    return {
+        'id': vendor.get('id'),
+        'companyName': vendor.get('companyName') or '',
+        'contactName': vendor.get('contactName') or '',
+        'email': vendor.get('email') or '',
+        'website': vendor.get('website') or '',
+        'industry': vendor.get('industry') or 'B2B FinTech / Enterprise Software',
+        'icpDescription': vendor.get('icpDescription') or '',
+        'calendlyUrl': vendor.get('calendlyUrl') or '',
+        'agreementStatus': vendor.get('agreementStatus') or 'none',
+        'networkAccessLevel': vendor.get('networkAccessLevel') or 'locked',
+        'agreements': [
+            {k: v for k, v in agr.items() if k != 'dataUrl'}
+            for agr in (vendor.get('agreements') or [])
+            if isinstance(agr, dict)
+        ],
+        'createdAt': vendor.get('createdAt') or '',
+        'approvedAt': vendor.get('approvedAt') or ''
+    }
+
+def mask_email_address(email):
+    val = str(email or '').strip()
+    if '@' not in val:
+        return '***@***.com'
+    local, domain = val.split('@', 1)
+    prefix = local[0] if local else 'x'
+    return f"{prefix}***@{domain}"
+
+def mask_full_name(full_name):
+    parts = str(full_name or '').strip().split()
+    if not parts:
+        return 'Executive Contact'
+    if len(parts) == 1:
+        return parts[0]
+    return f"{parts[0]} {parts[-1][0]}."
+
+def mask_contact_for_marketplace(contact, influencer, unlocked_contact_ids=None):
+    unlocked = str(contact.get('id')) in (unlocked_contact_ids or set())
+    inf_name = (influencer or {}).get('fullName') or contact.get('referredBy') or 'IRM Partner'
+    inf_id = (influencer or {}).get('id') or contact.get('influencerId')
+    inf_company = (influencer or {}).get('company') or 'Advisory Network'
+    return {
+        'id': contact.get('id'),
+        'fullName': contact.get('fullName') if unlocked else mask_full_name(contact.get('fullName')),
+        'email': contact.get('email') if unlocked else mask_email_address(contact.get('email')),
+        'phone': (contact.get('phone') or '') if unlocked else 'Protected by IRM until intro accepted',
+        'linkedinUrl': normalize_linkedin_url(contact.get('linkedinUrl') or '') if unlocked else '',
+        'company': contact.get('company') or 'Target Organization',
+        'jobTitle': contact.get('jobTitle') or 'Decision Maker',
+        'industry': contact.get('industry') or 'Credit Union / Financial Services',
+        'assetSize': contact.get('assetSize') or '',
+        'location': contact.get('location') or contact.get('state') or '',
+        'influencerId': inf_id,
+        'influencerName': inf_name,
+        'influencerCompany': inf_company,
+        'piiUnlocked': unlocked,
+        'hasTakenCall': bool(contact.get('hasTakenCall')),
+        'hasScheduledCall': bool(contact.get('hasScheduledCall'))
+    }
 
 def normalize_linkedin_url(raw_url):
     val = str(raw_url or '').strip()
@@ -1060,6 +1278,8 @@ def read_workbook_state():
         if db_state and isinstance(db_state, dict) and len(db_state.get('contacts') or []) >= 30:
             if 'eventsMeta' not in db_state:
                 db_state['eventsMeta'] = default_workbook_state()['eventsMeta']
+            db_state.setdefault('vendors', [])
+            db_state.setdefault('marketplaceRequests', [])
             return db_state
         # Auto-seed the 30 Influencers x 30 Contacts synthetic dataset on first load
         try:
@@ -1149,6 +1369,10 @@ def read_workbook_state():
         state['stats'] = settings_values['stats']
     if 'meetings' in settings_values:
         state['meetings'] = settings_values['meetings']
+    if 'vendors' in settings_values:
+        state['vendors'] = settings_values['vendors']
+    if 'marketplaceRequests' in settings_values:
+        state['marketplaceRequests'] = settings_values['marketplaceRequests']
     if 'currentOutboundSubtab' in settings_values:
         state['currentOutboundSubtab'] = settings_values['currentOutboundSubtab']
     if 'autoEnrich' in settings_values:
@@ -1210,6 +1434,8 @@ def build_workbook_snapshot(state):
         {'key': 'eventsMeta', 'value': json.dumps(state.get('eventsMeta') or [])},
         {'key': 'stats', 'value': json.dumps(state.get('stats') or {})},
         {'key': 'meetings', 'value': json.dumps(state.get('meetings') or [])},
+        {'key': 'vendors', 'value': json.dumps(state.get('vendors') or [])},
+        {'key': 'marketplaceRequests', 'value': json.dumps(state.get('marketplaceRequests') or [])},
         {'key': 'currentOutboundSubtab', 'value': json.dumps(state.get('currentOutboundSubtab') or 'prospects')},
         {'key': 'autoEnrich', 'value': json.dumps(bool(state.get('autoEnrich')))},
         {'key': 'calendlyUrl', 'value': json.dumps(state.get('calendlyUrl') or '')},
@@ -1677,6 +1903,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
+        if clean_path == '/marketplace':
+            self.send_response(302)
+            self.send_header('Location', '/marketplace.html')
+            self.end_headers()
+            return
+
         if clean_path == '/api/db/state':
             if not is_loopback_admin_request(self):
                 json_response(self, 403, {'error': 'Database state is available only from the local console.'})
@@ -1725,19 +1957,182 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 safe_contacts = [partner_safe_contact(c) for c in contacts]
                 total_credits = sum(c.get('credits', 10) for c in safe_contacts)
                 calendly_url = str(state.get('calendlyUrl') or os.environ.get('GTM_CALENDLY_URL') or 'https://calendly.com/gtm-console/executive-briefing').strip()
+                agreements = [
+                    {k: v for k, v in a.items() if k != 'dataUrl'}
+                    for a in (influencer.get('agreements') or [])
+                    if isinstance(a, dict)
+                ]
+                inf_id_str = str(influencer.get('id') or '')
+                inf_email_lower = str(influencer.get('email') or '').lower()
+                mp_requests = [
+                    req for req in (state.get('marketplaceRequests') or [])
+                    if isinstance(req, dict) and (
+                        str(req.get('influencerId') or '') == inf_id_str
+                        or (inf_email_lower and str(req.get('influencerEmail') or '').lower() == inf_email_lower)
+                    )
+                ]
                 json_response(self, 200, {
                     'influencer': {
-                        **{key: influencer.get(key) for key in ('id', 'fullName', 'company', 'jobTitle', 'email')},
+                        **{key: influencer.get(key) for key in ('id', 'fullName', 'company', 'jobTitle', 'email', 'linkedinUrl', 'location')},
                         'referralCredits': total_credits,
                         'totalReferrals': len(safe_contacts),
                         'callsScheduled': sum(1 for c in safe_contacts if c.get('status') in ('scheduled', 'completed')),
-                        'callsCompleted': sum(1 for c in safe_contacts if c.get('status') == 'completed')
+                        'callsCompleted': sum(1 for c in safe_contacts if c.get('status') == 'completed'),
+                        'hasSignedAgreement': any(str(a.get('status') or '').lower() == 'signed' for a in agreements),
+                        'agreements': agreements
                     },
                     'calendlyUrl': calendly_url,
-                    'contacts': safe_contacts
+                    'contacts': safe_contacts,
+                    'marketplaceRequests': mp_requests
                 })
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not load partner workspace: {ex}'})
+            return
+
+        if clean_path == '/api/marketplace/vendor/me':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            try:
+                state = read_workbook_state()
+                vendor = vendor_from_token(state, token)
+                if not vendor:
+                    json_response(self, 401, {'error': 'Sign in to your Vendor Marketplace account first.'})
+                    return
+                contacts = state.get('contacts') or []
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt')]
+                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt')]
+                orgs = {str(c.get('company') or '').strip() for c in prospects if c.get('company')}
+                vendor_requests = [
+                    req for req in (state.get('marketplaceRequests') or [])
+                    if isinstance(req, dict) and str(req.get('vendorId')) == str(vendor.get('id'))
+                ]
+                json_response(self, 200, {
+                    'vendor': vendor_safe_dict(vendor),
+                    'requests': vendor_requests,
+                    'networkSummary': {
+                        'totalInfluencers': len(influencers),
+                        'totalNetworkContacts': len(prospects),
+                        'totalOrganizations': len(orgs)
+                    }
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not load vendor profile: {ex}'})
+            return
+
+        if clean_path == '/api/marketplace/network':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            try:
+                state = read_workbook_state()
+                vendor = vendor_from_token(state, token)
+                if not vendor:
+                    json_response(self, 401, {'error': 'Sign in to your Vendor Marketplace account first.'})
+                    return
+                if vendor.get('agreementStatus') != 'signed' or vendor.get('networkAccessLevel') == 'locked':
+                    json_response(self, 403, {
+                        'error': 'Signed IRM Marketplace Agreement is required before accessing the Influencer Network.',
+                        'code': 'AGREEMENT_REQUIRED',
+                        'vendor': vendor_safe_dict(vendor)
+                    })
+                    return
+
+                contacts = state.get('contacts') or []
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt')]
+                inf_by_id = {str(i.get('id')): i for i in influencers}
+                inf_by_email = {str(i.get('email') or '').lower(): i for i in influencers if i.get('email')}
+                inf_by_name = {str(i.get('fullName') or '').lower(): i for i in influencers if i.get('fullName')}
+
+                vendor_requests = [
+                    req for req in (state.get('marketplaceRequests') or [])
+                    if isinstance(req, dict) and str(req.get('vendorId')) == str(vendor.get('id'))
+                ]
+                unlocked_contact_ids = {
+                    str(req.get('targetContactId'))
+                    for req in vendor_requests
+                    if req.get('status') in ('influencer_accepted', 'call_scheduled', 'call_completed') and req.get('targetContactId') is not None
+                }
+
+                network_contacts = []
+                orgs_map = {}
+                for c in contacts:
+                    if c.get('isInfluencer') or c.get('archivedAt'):
+                        continue
+                    inf = (
+                        inf_by_id.get(str(c.get('influencerId') or ''))
+                        or inf_by_email.get(str(c.get('influencerEmail') or '').lower())
+                        or inf_by_name.get(str(c.get('referredBy') or '').lower())
+                    )
+                    masked = mask_contact_for_marketplace(c, inf, unlocked_contact_ids)
+                    network_contacts.append(masked)
+                    comp = masked['company']
+                    if comp not in orgs_map:
+                        orgs_map[comp] = {
+                            'company': comp,
+                            'industry': masked['industry'],
+                            'assetSize': masked['assetSize'],
+                            'contactsCount': 0,
+                            'influencers': set()
+                        }
+                    orgs_map[comp]['contactsCount'] += 1
+                    if masked['influencerName']:
+                        orgs_map[comp]['influencers'].add(masked['influencerName'])
+
+                influencer_summaries = []
+                for inf in influencers:
+                    refs = partner_contacts_for_influencer(state, inf)
+                    influencer_summaries.append({
+                        'id': inf.get('id'),
+                        'fullName': inf.get('fullName') or 'Advisor',
+                        'company': inf.get('company') or 'Advisory Partner',
+                        'jobTitle': inf.get('jobTitle') or 'Industry Partner',
+                        'location': inf.get('location') or inf.get('state') or '',
+                        'reachCount': len(refs),
+                        'organizations': sorted({str(r.get('company') or '').strip() for r in refs if r.get('company')})[:8],
+                        'hasSignedAgreement': any(str(a.get('status') or '').lower() == 'signed' for a in (inf.get('agreements') or []) if isinstance(a, dict))
+                    })
+
+                organizations = [
+                    {
+                        **org_info,
+                        'influencers': sorted(org_info['influencers'])
+                    }
+                    for org_info in orgs_map.values()
+                ]
+
+                json_response(self, 200, {
+                    'vendor': vendor_safe_dict(vendor),
+                    'influencers': influencer_summaries,
+                    'contacts': network_contacts,
+                    'organizations': organizations,
+                    'requests': vendor_requests
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not load marketplace network: {ex}'})
+            return
+
+        if clean_path == '/api/irm/marketplace':
+            if not is_loopback_admin_request(self):
+                json_response(self, 403, {'error': 'IRM Marketplace admin overview is restricted to the local console.'})
+                return
+            try:
+                state = read_workbook_state()
+                vendors = [vendor_safe_dict(v) for v in (state.get('vendors') or []) if isinstance(v, dict)]
+                requests_list = [r for r in (state.get('marketplaceRequests') or []) if isinstance(r, dict)]
+                contacts = state.get('contacts') or []
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt')]
+                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt')]
+                json_response(self, 200, {
+                    'vendors': vendors,
+                    'marketplaceRequests': requests_list,
+                    'summary': {
+                        'totalVendors': len(vendors),
+                        'signedVendors': sum(1 for v in vendors if v.get('agreementStatus') == 'signed'),
+                        'totalInfluencers': len(influencers),
+                        'totalNetworkContacts': len(prospects),
+                        'totalRequests': len(requests_list),
+                        'scheduledIntros': sum(1 for r in requests_list if r.get('status') in ('influencer_accepted', 'call_scheduled', 'call_completed'))
+                    }
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not load IRM marketplace overview: {ex}'})
             return
 
         if clean_path == '/api/portal/influencers':
@@ -2012,6 +2407,539 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 400, {'error': str(ex)})
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not add referral: {ex}'})
+            return
+
+        if self.path == '/api/partner-portal/signup':
+            if os.environ.get('VERCEL'):
+                json_response(self, 503, {'error': 'Self-serve portal signup requires persistent storage.'})
+                return
+            try:
+                state = read_workbook_state()
+                contacts = state.setdefault('contacts', [])
+                name = str(payload.get('fullName') or '').strip()
+                email = str(payload.get('email') or '').strip().lower()
+                password = str(payload.get('password') or '').strip()
+                company = str(payload.get('company') or '').strip()
+                job_title = str(payload.get('jobTitle') or 'Industry Advisor').strip()
+                phone = str(payload.get('phone') or '').strip()
+                location = str(payload.get('location') or '').strip()
+                linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
+                sign_agreement = bool(payload.get('acceptAgreement'))
+
+                if not name or not email:
+                    json_response(self, 400, {'error': 'Full name and work email are required.'})
+                    return
+                if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+                    json_response(self, 400, {'error': 'Enter a valid work email address.'})
+                    return
+                if len(password) < 4:
+                    json_response(self, 400, {'error': 'Choose a password of at least 4 characters.'})
+                    return
+
+                existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                now_date = time.strftime('%Y-%m-%d', time.gmtime())
+                initial_agreements = []
+                if sign_agreement:
+                    initial_agreements.append({
+                        'id': f"agr_{int(time.time() * 1000)}",
+                        'name': 'IRM Partner Network Agreement (Self-Serve Portal)',
+                        'type': 'Signed Partner Agreement',
+                        'status': 'Signed',
+                        'signedBy': name,
+                        'uploadedAt': now_date,
+                        'notes': 'Digitally signed during Influencer Portal onboarding.'
+                    })
+
+                if existing:
+                    if existing.get('isInfluencer') and existing.get('portalPasswordHash'):
+                        json_response(self, 409, {'error': 'An Influencer Portal account with this email already exists. Please sign in.'})
+                        return
+                    existing['isInfluencer'] = True
+                    existing['fullName'] = name
+                    if company:
+                        existing['company'] = company
+                    if job_title:
+                        existing['jobTitle'] = job_title
+                    if phone:
+                        existing['phone'] = phone
+                    if location:
+                        existing['location'] = location
+                    if linkedin_url:
+                        existing['linkedinUrl'] = linkedin_url
+                    existing['portalPasswordHash'] = hash_portal_password(password)
+                    existing.setdefault('referrals', [])
+                    existing.setdefault('referralCredits', 0)
+                    existing.setdefault('agreements', [])
+                    if initial_agreements:
+                        existing['agreements'] = initial_agreements + existing['agreements']
+                    influencer = existing
+                else:
+                    parts = name.split()
+                    new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                    influencer = {
+                        'id': new_id,
+                        'firstName': parts[0] if parts else name,
+                        'lastName': ' '.join(parts[1:]),
+                        'fullName': name,
+                        'email': email,
+                        'company': company or 'Independent Advisory',
+                        'jobTitle': job_title,
+                        'phone': phone,
+                        'location': location,
+                        'linkedinUrl': linkedin_url,
+                        'isInfluencer': True,
+                        'portalPasswordHash': hash_portal_password(password),
+                        'referralCredits': 0,
+                        'referrals': [],
+                        'agreements': initial_agreements,
+                        'sourceFile': 'Influencer Portal Self-Signup'
+                    }
+                    contacts.append(influencer)
+
+                write_workbook_state(state)
+                token = issue_partner_share_token(influencer['id'])
+                json_response(self, 201, {
+                    'status': 'created',
+                    'token': token,
+                    'influencer': {
+                        'id': influencer.get('id'),
+                        'fullName': influencer.get('fullName'),
+                        'email': influencer.get('email'),
+                        'company': influencer.get('company'),
+                        'jobTitle': influencer.get('jobTitle')
+                    }
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Influencer signup failed: {ex}'})
+            return
+
+        if self.path == '/api/partner-portal/login':
+            try:
+                state = read_workbook_state()
+                contacts = state.get('contacts') or []
+                email = str(payload.get('email') or '').strip().lower()
+                password = str(payload.get('password') or '').strip()
+                if not email or not password:
+                    json_response(self, 400, {'error': 'Email and password are required.'})
+                    return
+                influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email), None)
+                if not influencer:
+                    json_response(self, 401, {'error': 'No Influencer Partner account found for this email.'})
+                    return
+                stored_hash = influencer.get('portalPasswordHash')
+                if stored_hash:
+                    if not verify_portal_password(password, stored_hash):
+                        json_response(self, 401, {'error': 'Invalid email or password.'})
+                        return
+                else:
+                    # First-time portal sign-in for a pre-existing partner sets their password
+                    influencer['portalPasswordHash'] = hash_portal_password(password)
+                    write_workbook_state(state)
+
+                token = issue_partner_share_token(influencer['id'])
+                json_response(self, 200, {
+                    'status': 'authenticated',
+                    'token': token,
+                    'influencer': {
+                        'id': influencer.get('id'),
+                        'fullName': influencer.get('fullName'),
+                        'email': influencer.get('email'),
+                        'company': influencer.get('company'),
+                        'jobTitle': influencer.get('jobTitle')
+                    }
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Influencer sign-in failed: {ex}'})
+            return
+
+        if self.path == '/api/partner-share/agreement':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            if not share or share['revoked_at']:
+                json_response(self, 401, {'error': 'Sign in to your Influencer Portal first.'})
+                return
+            try:
+                state = read_workbook_state()
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Partner profile not found.'})
+                    return
+                signer_name = str(payload.get('signerName') or influencer.get('fullName') or '').strip()
+                doc_name = str(payload.get('name') or 'IRM Partner Network Agreement').strip()
+                if not signer_name:
+                    json_response(self, 400, {'error': 'Signer full name is required.'})
+                    return
+                agr_entry = {
+                    'id': f"agr_{int(time.time() * 1000)}",
+                    'name': doc_name,
+                    'type': 'Signed Partner Agreement',
+                    'status': 'Signed',
+                    'signedBy': signer_name,
+                    'uploadedAt': time.strftime('%Y-%m-%d', time.gmtime()),
+                    'notes': str(payload.get('notes') or f'Digitally signed by {signer_name} via Influencer Portal.'),
+                    'dataUrl': str(payload.get('dataUrl') or '')
+                }
+                agreements = influencer.setdefault('agreements', [])
+                agreements.insert(0, agr_entry)
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'signed',
+                    'agreement': {k: v for k, v in agr_entry.items() if k != 'dataUrl'},
+                    'agreements': [{k: v for k, v in a.items() if k != 'dataUrl'} for a in agreements if isinstance(a, dict)]
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not record partner agreement: {ex}'})
+            return
+
+        if self.path == '/api/partner-share/requests/respond':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            if not share or share['revoked_at']:
+                json_response(self, 401, {'error': 'Sign in to your Influencer Portal first.'})
+                return
+            try:
+                state = read_workbook_state()
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Partner profile not found.'})
+                    return
+                req_id = str(payload.get('requestId') or '').strip()
+                decision = str(payload.get('decision') or 'accept').strip().lower()
+                mp_requests = state.setdefault('marketplaceRequests', [])
+                target_req = next((r for r in mp_requests if isinstance(r, dict) and str(r.get('id')) == req_id), None)
+                if not target_req:
+                    json_response(self, 404, {'error': 'Introduction request not found.'})
+                    return
+                if str(target_req.get('influencerId') or '') != str(influencer.get('id')) and str(target_req.get('influencerEmail') or '').lower() != str(influencer.get('email') or '').lower():
+                    json_response(self, 403, {'error': 'This introduction request belongs to another partner.'})
+                    return
+
+                now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                if decision in ('decline', 'declined'):
+                    target_req['status'] = 'declined'
+                elif decision in ('complete', 'completed', 'call_completed'):
+                    target_req['status'] = 'call_completed'
+                    target_req['creditsAwarded'] = 25
+                elif decision in ('schedule', 'scheduled', 'call_scheduled'):
+                    target_req['status'] = 'call_scheduled'
+                    target_req['creditsAwarded'] = 15
+                else:
+                    target_req['status'] = 'influencer_accepted'
+                    target_req['creditsAwarded'] = 15
+
+                if payload.get('scheduledMeetingUrl'):
+                    target_req['scheduledMeetingUrl'] = str(payload.get('scheduledMeetingUrl')).strip()
+                target_req['updatedAt'] = now_iso
+
+                # Sync target contact call state and referral credits
+                target_cid = str(target_req.get('targetContactId') or '')
+                target_contact = next((c for c in (state.get('contacts') or []) if str(c.get('id')) == target_cid and not c.get('isInfluencer')), None)
+                if target_contact and target_req['status'] in ('influencer_accepted', 'call_scheduled', 'call_completed'):
+                    target_contact['hasScheduledCall'] = True
+                    if target_req['status'] == 'call_completed':
+                        target_contact['hasTakenCall'] = True
+                    sync_influencer_referral_ledger(influencer, target_contact)
+
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'updated',
+                    'request': target_req,
+                    'referralCredits': influencer.get('referralCredits', 0)
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not update introduction request: {ex}'})
+            return
+
+        if self.path == '/api/marketplace/vendors/signup':
+            if os.environ.get('VERCEL'):
+                json_response(self, 503, {'error': 'Vendor Marketplace signup requires persistent storage.'})
+                return
+            try:
+                state = read_workbook_state()
+                vendors = state.setdefault('vendors', [])
+                company_name = str(payload.get('companyName') or '').strip()
+                contact_name = str(payload.get('contactName') or '').strip()
+                email = str(payload.get('email') or '').strip().lower()
+                password = str(payload.get('password') or '').strip()
+                website = str(payload.get('website') or '').strip()
+                industry = str(payload.get('industry') or 'B2B FinTech / Credit Union Solutions').strip()
+                icp_description = str(payload.get('icpDescription') or '').strip()
+                calendly_url = str(payload.get('calendlyUrl') or '').strip()
+
+                if not company_name or not contact_name or not email:
+                    json_response(self, 400, {'error': 'Company name, contact name, and work email are required.'})
+                    return
+                if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+                    json_response(self, 400, {'error': 'Enter a valid work email address.'})
+                    return
+                if len(password) < 4:
+                    json_response(self, 400, {'error': 'Choose a password of at least 4 characters.'})
+                    return
+                if any(isinstance(v, dict) and str(v.get('email') or '').lower() == email for v in vendors):
+                    json_response(self, 409, {'error': 'A Vendor account with this email already exists. Please sign in.'})
+                    return
+
+                token = secrets.token_urlsafe(32)
+                token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+                next_vid = max([int(v.get('id') or 0) for v in vendors if isinstance(v, dict)] + [500]) + 1
+                now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+                new_vendor = {
+                    'id': next_vid,
+                    'companyName': company_name,
+                    'contactName': contact_name,
+                    'email': email,
+                    'passwordHash': hash_portal_password(password),
+                    'sessionTokenHash': token_hash,
+                    'website': website,
+                    'industry': industry,
+                    'icpDescription': icp_description,
+                    'calendlyUrl': calendly_url,
+                    'agreementStatus': 'none',
+                    'networkAccessLevel': 'locked',
+                    'agreements': [],
+                    'createdAt': now_iso,
+                    'approvedAt': ''
+                }
+                vendors.append(new_vendor)
+                write_workbook_state(state)
+                json_response(self, 201, {
+                    'status': 'created',
+                    'token': token,
+                    'vendor': vendor_safe_dict(new_vendor)
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Vendor signup failed: {ex}'})
+            return
+
+        if self.path == '/api/marketplace/vendors/login':
+            try:
+                state = read_workbook_state()
+                vendors = state.get('vendors') or []
+                email = str(payload.get('email') or '').strip().lower()
+                password = str(payload.get('password') or '').strip()
+                if not email or not password:
+                    json_response(self, 400, {'error': 'Email and password are required.'})
+                    return
+                vendor = next((v for v in vendors if isinstance(v, dict) and str(v.get('email') or '').lower() == email), None)
+                if not vendor or not verify_portal_password(password, vendor.get('passwordHash')):
+                    json_response(self, 401, {'error': 'Invalid vendor email or password.'})
+                    return
+                token = secrets.token_urlsafe(32)
+                vendor['sessionTokenHash'] = hashlib.sha256(token.encode('utf-8')).hexdigest()
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'authenticated',
+                    'token': token,
+                    'vendor': vendor_safe_dict(vendor)
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Vendor login failed: {ex}'})
+            return
+
+        if self.path == '/api/marketplace/vendor/agreement':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            try:
+                state = read_workbook_state()
+                vendor = vendor_from_token(state, token)
+                if not vendor:
+                    json_response(self, 401, {'error': 'Sign in to your Vendor Marketplace account first.'})
+                    return
+                signer_name = str(payload.get('signerName') or '').strip()
+                signer_title = str(payload.get('signerTitle') or '').strip()
+                accepted_terms = bool(payload.get('acceptedTerms'))
+                agreement_title = str(payload.get('agreementTitle') or 'Model 2 — IRM Master Vendor Network Access Agreement').strip()
+                if not signer_name or not accepted_terms:
+                    json_response(self, 400, {'error': 'Signer full name and acceptance of the IRM Master Agreement terms are required.'})
+                    return
+                now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                agr_entry = {
+                    'id': f"vagr_{int(time.time() * 1000)}",
+                    'title': agreement_title,
+                    'signedBy': signer_name,
+                    'signerTitle': signer_title,
+                    'status': 'Signed',
+                    'signedAt': now_iso[:10],
+                    'termsVersion': 'IRM-Model2-2026.1',
+                    'notes': str(payload.get('notes') or ''),
+                    'dataUrl': str(payload.get('dataUrl') or '')
+                }
+                vendor.setdefault('agreements', []).insert(0, agr_entry)
+                vendor['agreementStatus'] = 'signed'
+                vendor['networkAccessLevel'] = 'full_partner_access'
+                vendor['approvedAt'] = now_iso
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'signed',
+                    'vendor': vendor_safe_dict(vendor)
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not execute vendor agreement: {ex}'})
+            return
+
+        if self.path == '/api/marketplace/requests':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            try:
+                state = read_workbook_state()
+                vendor = vendor_from_token(state, token)
+                if not vendor:
+                    json_response(self, 401, {'error': 'Sign in to your Vendor Marketplace account first.'})
+                    return
+                if vendor.get('agreementStatus') != 'signed' or vendor.get('networkAccessLevel') == 'locked':
+                    json_response(self, 403, {
+                        'error': 'You must sign the IRM Marketplace Agreement before requesting Influencer introductions.',
+                        'code': 'AGREEMENT_REQUIRED'
+                    })
+                    return
+
+                target_contact_id = payload.get('targetContactId')
+                influencer_id = payload.get('influencerId')
+                vendor_pitch = str(payload.get('vendorPitch') or '').strip()
+                if not vendor_pitch:
+                    json_response(self, 400, {'error': 'Provide a brief context or value proposition for the warm introduction.'})
+                    return
+
+                contacts = state.get('contacts') or []
+                target_contact = next((c for c in contacts if not c.get('isInfluencer') and str(c.get('id')) == str(target_contact_id)), None) if target_contact_id is not None else None
+                influencer = None
+                if influencer_id is not None:
+                    influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == str(influencer_id)), None)
+                if not influencer and target_contact:
+                    inf_id_ref = str(target_contact.get('influencerId') or '')
+                    inf_email_ref = str(target_contact.get('influencerEmail') or '').lower()
+                    inf_name_ref = str(target_contact.get('referredBy') or '').lower()
+                    influencer = next((
+                        c for c in contacts if c.get('isInfluencer') and (
+                            (inf_id_ref and str(c.get('id')) == inf_id_ref)
+                            or (inf_email_ref and str(c.get('email') or '').lower() == inf_email_ref)
+                            or (inf_name_ref and str(c.get('fullName') or '').lower() == inf_name_ref)
+                        )
+                    ), None)
+
+                if not target_contact and not influencer:
+                    json_response(self, 404, {'error': 'Select a valid network contact or Influencer Partner to request an introduction.'})
+                    return
+
+                mp_requests = state.setdefault('marketplaceRequests', [])
+                existing_req = next((
+                    r for r in mp_requests
+                    if isinstance(r, dict)
+                    and str(r.get('vendorId')) == str(vendor.get('id'))
+                    and str(r.get('targetContactId') or '') == str(target_contact.get('id') if target_contact else '')
+                    and str(r.get('influencerId') or '') == str(influencer.get('id') if influencer else '')
+                    and r.get('status') not in ('declined',)
+                ), None)
+                if existing_req:
+                    json_response(self, 409, {'error': 'An active introduction request already exists for this target.'})
+                    return
+
+                next_rid = max([int(r.get('id') or 0) for r in mp_requests if isinstance(r, dict)] + [2000]) + 1
+                now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                new_req = {
+                    'id': next_rid,
+                    'vendorId': vendor.get('id'),
+                    'vendorCompany': vendor.get('companyName') or '',
+                    'vendorContactName': vendor.get('contactName') or '',
+                    'vendorEmail': vendor.get('email') or '',
+                    'influencerId': influencer.get('id') if influencer else None,
+                    'influencerName': influencer.get('fullName') if influencer else (target_contact.get('referredBy') if target_contact else 'IRM Partner'),
+                    'influencerEmail': influencer.get('email') if influencer else (target_contact.get('influencerEmail') if target_contact else ''),
+                    'targetContactId': target_contact.get('id') if target_contact else None,
+                    'targetContactName': target_contact.get('fullName') if target_contact else 'Network Introduction',
+                    'targetCompany': (target_contact.get('company') if target_contact else payload.get('targetCompany')) or 'Target Account',
+                    'targetJobTitle': (target_contact.get('jobTitle') if target_contact else payload.get('targetJobTitle')) or 'Executive',
+                    'status': 'requested',
+                    'vendorPitch': vendor_pitch,
+                    'scheduledMeetingUrl': vendor.get('calendlyUrl') or '',
+                    'creditsAwarded': 0,
+                    'createdAt': now_iso,
+                    'updatedAt': now_iso
+                }
+                mp_requests.insert(0, new_req)
+                write_workbook_state(state)
+                json_response(self, 201, {
+                    'status': 'created',
+                    'request': new_req
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not create introduction request: {ex}'})
+            return
+
+        if self.path == '/api/irm/vendors/manage':
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+                json_response(self, 403, {'error': 'Only the IRM Console administrator can manage vendors.'})
+                return
+            try:
+                state = read_workbook_state()
+                vendors = state.setdefault('vendors', [])
+                vendor_id = str(payload.get('vendorId') or '')
+                action = str(payload.get('action') or 'update').lower()
+                vendor = next((v for v in vendors if isinstance(v, dict) and str(v.get('id')) == vendor_id), None)
+                if not vendor:
+                    json_response(self, 404, {'error': 'Vendor not found.'})
+                    return
+                now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                if action == 'approve_agreement':
+                    vendor['agreementStatus'] = 'signed'
+                    vendor['networkAccessLevel'] = 'full_partner_access'
+                    vendor['approvedAt'] = now_iso
+                    if not vendor.get('agreements'):
+                        vendor['agreements'] = [{
+                            'id': f"vagr_{int(time.time() * 1000)}",
+                            'title': 'IRM Master Vendor Agreement (Admin Approved)',
+                            'signedBy': vendor.get('contactName') or 'Vendor Representative',
+                            'status': 'Signed',
+                            'signedAt': now_iso[:10],
+                            'termsVersion': 'IRM-Model2-2026.1'
+                        }]
+                elif action == 'revoke_access':
+                    vendor['agreementStatus'] = 'revoked'
+                    vendor['networkAccessLevel'] = 'locked'
+                else:
+                    if 'agreementStatus' in payload:
+                        vendor['agreementStatus'] = str(payload.get('agreementStatus'))
+                    if 'networkAccessLevel' in payload:
+                        vendor['networkAccessLevel'] = str(payload.get('networkAccessLevel'))
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'vendor': vendor_safe_dict(vendor)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Vendor management failed: {ex}'})
+            return
+
+        if self.path == '/api/irm/requests/manage':
+            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+                json_response(self, 403, {'error': 'Only the IRM Console administrator can manage marketplace requests.'})
+                return
+            try:
+                state = read_workbook_state()
+                mp_requests = state.setdefault('marketplaceRequests', [])
+                req_id = str(payload.get('requestId') or '')
+                next_status = str(payload.get('status') or 'irm_approved').strip().lower()
+                target_req = next((r for r in mp_requests if isinstance(r, dict) and str(r.get('id')) == req_id), None)
+                if not target_req:
+                    json_response(self, 404, {'error': 'Marketplace request not found.'})
+                    return
+                target_req['status'] = next_status
+                target_req['updatedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                if next_status in ('influencer_accepted', 'call_scheduled'):
+                    target_req['creditsAwarded'] = max(int(target_req.get('creditsAwarded') or 0), 15)
+                elif next_status == 'call_completed':
+                    target_req['creditsAwarded'] = 25
+
+                contacts = state.get('contacts') or []
+                target_contact = next((c for c in contacts if not c.get('isInfluencer') and str(c.get('id')) == str(target_req.get('targetContactId') or '')), None)
+                influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == str(target_req.get('influencerId') or '')), None)
+                if target_contact and next_status in ('influencer_accepted', 'call_scheduled', 'call_completed'):
+                    target_contact['hasScheduledCall'] = True
+                    if next_status == 'call_completed':
+                        target_contact['hasTakenCall'] = True
+                    if influencer:
+                        sync_influencer_referral_ledger(influencer, target_contact)
+
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'request': target_req})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Marketplace request update failed: {ex}'})
             return
 
         if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete', '/api/influencers/bulk-create', '/api/influencers/convert', '/api/influencers/agreements'):

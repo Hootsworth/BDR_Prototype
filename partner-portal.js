@@ -6,7 +6,7 @@
     sessionStorage.setItem(tokenKey, incomingToken);
     history.replaceState(null, '', `${location.pathname}${location.search}`);
   }
-  const token = incomingToken || sessionStorage.getItem(tokenKey) || '';
+  let token = incomingToken || sessionStorage.getItem(tokenKey) || '';
   const body = document.getElementById('contacts-body');
   const errorBox = document.getElementById('page-error');
   const form = document.getElementById('referral-form');
@@ -18,9 +18,13 @@
   const modeBulkBtn = document.getElementById('mode-bulk-btn');
   const toggleMultiEditBtn = document.getElementById('toggle-multi-edit-btn');
   const multiEditBar = document.getElementById('multi-edit-bar');
+  const authSection = document.getElementById('portal-auth-section');
+  const workspaceContent = document.getElementById('portal-workspace-content');
+  const signoutBtn = document.getElementById('portal-signout-btn');
 
   let partner = null;
   let currentContacts = [];
+  let currentMarketplaceRequests = [];
   let isMultiEditMode = false;
   let workspaceCalendlyUrl = 'https://calendly.com/company-gtm/intro-call';
 
@@ -28,13 +32,31 @@
     return String(val ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
 
-  function showError(message) {
-    errorBox.textContent = message;
-    errorBox.style.display = 'block';
-    form.hidden = true;
-    if (bulkPanel) bulkPanel.hidden = true;
+  function showAuthView(message = '') {
+    if (authSection) authSection.hidden = false;
+    if (workspaceContent) workspaceContent.hidden = true;
+    if (signoutBtn) signoutBtn.hidden = true;
+    document.getElementById('partner-name').textContent = 'Influencer Partner Portal';
+    document.getElementById('partner-company').textContent = 'Sign up or sign in to manage your network referrals, sign your Partner Agreement, and fulfill Vendor introduction requests.';
+    if (message) {
+      errorBox.textContent = message;
+      errorBox.style.display = 'block';
+    } else {
+      errorBox.style.display = 'none';
+    }
+  }
+
+  function showWorkspaceView() {
+    if (authSection) authSection.hidden = true;
+    if (workspaceContent) workspaceContent.hidden = false;
+    if (signoutBtn) signoutBtn.hidden = false;
+    errorBox.style.display = 'none';
     const introSection = document.getElementById('introduction-section');
-    if (introSection) introSection.hidden = true;
+    if (introSection) introSection.hidden = false;
+  }
+
+  function showError(message) {
+    showAuthView(message);
   }
 
   function createCell(text, secondary = '') {
@@ -139,9 +161,104 @@
     });
   }
 
+  function renderAgreementState() {
+    const badgeEl = document.getElementById('partner-agreement-badge');
+    const descEl = document.getElementById('partner-agreement-desc');
+    const signBtn = document.getElementById('partner-sign-agreement-btn');
+    const hasSigned = Boolean(partner && partner.hasSignedAgreement);
+    if (badgeEl) {
+      badgeEl.className = `portal-badge ${hasSigned ? 'ok' : 'warn'}`;
+      badgeEl.textContent = hasSigned ? 'Signed & Active' : 'Agreement Pending';
+    }
+    if (descEl) {
+      const latestAgr = Array.isArray(partner?.agreements) && partner.agreements.length ? partner.agreements[0] : null;
+      descEl.textContent = hasSigned
+        ? `${latestAgr?.name || 'IRM Partner Network Agreement'} · Active since ${latestAgr?.uploadedAt || '2026'}. Your network is live for Marketplace matchmaking.`
+        : 'Sign the Partner Network Agreement to enable Vendor matchmaking and credit payouts.';
+    }
+    if (signBtn) {
+      signBtn.hidden = hasSigned;
+    }
+  }
+
+  function renderMarketplaceRequests() {
+    const reqBody = document.getElementById('partner-mp-requests-body');
+    const countBadge = document.getElementById('partner-mp-requests-count');
+    if (countBadge) {
+      countBadge.textContent = `${currentMarketplaceRequests.length} request${currentMarketplaceRequests.length === 1 ? '' : 's'}`;
+    }
+    if (!reqBody) return;
+    reqBody.replaceChildren();
+    if (!currentMarketplaceRequests.length) {
+      reqBody.innerHTML = '<tr><td colspan="4" class="empty">No Vendor introduction requests yet. When a Marketplace Vendor requests a warm intro to one of your contacts, it will appear here.</td></tr>';
+      return;
+    }
+    currentMarketplaceRequests.forEach(req => {
+      const tr = document.createElement('tr');
+      const status = String(req.status || 'requested').toLowerCase();
+      let statusLabel = 'Pending your acceptance';
+      let badgeClass = 'warn';
+      if (status === 'influencer_accepted' || status === 'call_scheduled') {
+        statusLabel = 'Accepted & Scheduled (+15 pts)';
+        badgeClass = 'ok';
+      } else if (status === 'call_completed') {
+        statusLabel = 'Call Completed (+25 pts)';
+        badgeClass = 'ok';
+      } else if (status === 'declined') {
+        statusLabel = 'Declined';
+        badgeClass = '';
+      }
+      tr.innerHTML = `
+        <td>
+          <strong>${escapeHTML(req.vendorCompany || 'Marketplace Vendor')}</strong>
+          <small>${escapeHTML(req.vendorContactName || '')}${req.vendorEmail ? ` · ${escapeHTML(req.vendorEmail)}` : ''}</small>
+        </td>
+        <td>
+          <strong>${escapeHTML(req.targetContactName || 'Network Contact')}</strong>
+          <small>${escapeHTML(req.targetJobTitle || 'Executive')} · ${escapeHTML(req.targetCompany || 'Target Account')}</small>
+        </td>
+        <td>${escapeHTML(req.vendorPitch || 'Warm introduction requested via IRM Marketplace.')}</td>
+        <td>
+          <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+            <span class="portal-badge ${badgeClass}">${escapeHTML(statusLabel)}</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              ${status === 'requested' || status === 'irm_approved' ? `
+                <button type="button" class="btn-sm" data-req-action="schedule" data-req-id="${escapeHTML(req.id)}">Accept &amp; Schedule (+15 pts)</button>
+                <button type="button" class="btn-outline btn-sm" data-req-action="decline" data-req-id="${escapeHTML(req.id)}">Decline</button>
+              ` : ''}
+              ${status === 'influencer_accepted' || status === 'call_scheduled' ? `
+                <button type="button" class="btn-outline btn-sm" data-req-action="complete" data-req-id="${escapeHTML(req.id)}">Mark Call Completed (+25 pts)</button>
+              ` : ''}
+            </div>
+          </div>
+        </td>
+      `;
+      tr.querySelectorAll('[data-req-action]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const decision = btn.getAttribute('data-req-action');
+          const requestId = btn.getAttribute('data-req-id');
+          btn.disabled = true;
+          try {
+            await request('/api/partner-share/requests/respond', {
+              method: 'POST',
+              body: JSON.stringify({ requestId, decision })
+            });
+            render(await request('/api/partner-share'));
+          } catch (err) {
+            alert(err.message);
+            btn.disabled = false;
+          }
+        });
+      });
+      reqBody.appendChild(tr);
+    });
+  }
+
   function render(data) {
+    showWorkspaceView();
     partner = data.influencer || {};
     currentContacts = data.contacts || [];
+    currentMarketplaceRequests = data.marketplaceRequests || [];
     if (data.calendlyUrl) workspaceCalendlyUrl = data.calendlyUrl;
     document.getElementById('partner-name').textContent = partner.fullName || 'Partner workspace';
     document.getElementById('partner-company').textContent = [partner.jobTitle, partner.company].filter(Boolean).join(' · ') || 'Your introductions and their next steps.';
@@ -160,6 +277,8 @@
     const openCalendlyEl = document.getElementById('partner-calendly-open-link');
     if (openCalendlyEl && workspaceCalendlyUrl) openCalendlyEl.href = workspaceCalendlyUrl;
     document.getElementById('visible-count').textContent = `${currentContacts.length} contact${currentContacts.length === 1 ? '' : 's'}`;
+    renderAgreementState();
+    renderMarketplaceRequests();
     renderContactsTable();
   }
 
@@ -172,18 +291,138 @@
     } catch (_) {}
   });
 
+  document.getElementById('partner-sign-agreement-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      await request('/api/partner-share/agreement', {
+        method: 'POST',
+        body: JSON.stringify({
+          signerName: partner?.fullName || 'Influencer Partner',
+          name: 'IRM Partner Network Agreement (Model 2)'
+        })
+      });
+      render(await request('/api/partner-share'));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   async function request(path, options = {}) {
     const response = await fetch(path, {
       ...options,
-      headers: { Authorization: `Bearer ${token}`, ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
     return data;
   }
 
+  // Self-serve Influencer Portal Authentication Tabs & Handlers
+  const tabSignup = document.getElementById('portal-tab-signup');
+  const tabLogin = document.getElementById('portal-tab-login');
+  const tabToken = document.getElementById('portal-tab-token');
+  const signupForm = document.getElementById('portal-signup-form');
+  const loginForm = document.getElementById('portal-login-form');
+  const tokenForm = document.getElementById('portal-token-form');
+
+  function setPortalAuthTab(tab) {
+    if (signupForm) signupForm.hidden = tab !== 'signup';
+    if (loginForm) loginForm.hidden = tab !== 'login';
+    if (tokenForm) tokenForm.hidden = tab !== 'token';
+    tabSignup?.classList.toggle('active', tab === 'signup');
+    tabLogin?.classList.toggle('active', tab === 'login');
+    tabToken?.classList.toggle('active', tab === 'token');
+  }
+
+  tabSignup?.addEventListener('click', () => setPortalAuthTab('signup'));
+  tabLogin?.addEventListener('click', () => setPortalAuthTab('login'));
+  tabToken?.addEventListener('click', () => setPortalAuthTab('token'));
+
+  signupForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(signupForm);
+    const feedback = document.getElementById('portal-auth-feedback');
+    const submitBtn = document.getElementById('portal-signup-submit');
+    submitBtn.disabled = true;
+    feedback.className = '';
+    feedback.textContent = 'Creating your Influencer Portal account…';
+    try {
+      const res = await request('/api/partner-portal/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          fullName: String(fd.get('fullName') || '').trim(),
+          email: String(fd.get('email') || '').trim(),
+          password: String(fd.get('password') || '').trim(),
+          company: String(fd.get('company') || '').trim(),
+          jobTitle: String(fd.get('jobTitle') || '').trim(),
+          phone: String(fd.get('phone') || '').trim(),
+          linkedinUrl: String(fd.get('linkedinUrl') || '').trim(),
+          location: String(fd.get('location') || '').trim(),
+          acceptAgreement: fd.get('acceptAgreement') === 'on'
+        })
+      });
+      token = res.token;
+      sessionStorage.setItem(tokenKey, token);
+      signupForm.reset();
+      await load();
+    } catch (err) {
+      feedback.className = 'error';
+      feedback.textContent = err.message;
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(loginForm);
+    const feedback = document.getElementById('portal-login-feedback');
+    const submitBtn = document.getElementById('portal-login-submit');
+    submitBtn.disabled = true;
+    feedback.className = '';
+    feedback.textContent = 'Signing in…';
+    try {
+      const res = await request('/api/partner-portal/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: String(fd.get('email') || '').trim(),
+          password: String(fd.get('password') || '').trim()
+        })
+      });
+      token = res.token;
+      sessionStorage.setItem(tokenKey, token);
+      loginForm.reset();
+      await load();
+    } catch (err) {
+      feedback.className = 'error';
+      feedback.textContent = err.message;
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  tokenForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(tokenForm);
+    const raw = String(fd.get('token') || '').trim();
+    if (!raw) return;
+    const match = raw.match(/token=([^&]+)/);
+    token = match ? decodeURIComponent(match[1]) : raw;
+    sessionStorage.setItem(tokenKey, token);
+    await load();
+  });
+
+  signoutBtn?.addEventListener('click', () => {
+    token = '';
+    sessionStorage.removeItem(tokenKey);
+    showAuthView();
+  });
+
   async function load() {
-    if (!token) return showError('This workspace link is missing. Ask the workspace owner for a new private link.');
+    if (!token) return showAuthView();
     try { render(await request('/api/partner-share')); }
     catch (error) { showError(error.message); }
   }

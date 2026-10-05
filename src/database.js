@@ -55,7 +55,9 @@ let database = {
   workbookPath: "",
   localWorkbookLastSaved: "",
   approvals: [],
-  workflowRuns: []
+  workflowRuns: [],
+  vendors: [],
+  marketplaceRequests: []
 };
 window.database = database;
 
@@ -71,6 +73,8 @@ function saveDatabaseCache() {
     eventsMeta: database.eventsMeta || [],
     stats: database.stats,
     meetings: database.meetings || [],
+    vendors: database.vendors || [],
+    marketplaceRequests: database.marketplaceRequests || [],
     updatedAt: new Date().toISOString()
   };
   try {

@@ -260,29 +260,6 @@
         </div>
       </header>
 
-      <!-- ═══ SYSTEM AUTO-UPDATE NOTIFICATION BANNER ═══ -->
-      <div id="system-update-banner" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1.25rem; background: var(--color-background-surface); border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-sm); color: var(--color-text-primary); box-shadow: none; align-items: center; justify-content: space-between; gap: 1rem;">
-        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
-          <div style="background: var(--color-background-muted); border: 1px solid var(--color-border); padding: 5px; border-radius: var(--radius-xs); display: flex; align-items: center; justify-content: center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          </div>
-          <div style="min-width: 0;">
-            <div style="font-weight: 600; font-size: 13px; color: var(--color-text-primary); display: flex; align-items: center; gap: 0.5rem;">
-              <span>New Update Available</span>
-              <span id="update-banner-tag" style="background: var(--color-primary); color: var(--color-background-body); font-size: 10px; padding: 1px 5px; border-radius: var(--radius-xs); font-family: var(--font-family-mono, monospace); font-weight: 600;">Latest</span>
-            </div>
-            <div id="update-banner-msg" style="font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">A newer version was published to GitHub.</div>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <button id="btn-run-auto-update" class="btn btn-sm btn-primary" onclick="triggerOneClickUpdate()" style="white-space: nowrap;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-            <span id="btn-update-text">1-Click Update</span>
-          </button>
-          <button onclick="dismissUpdateBanner()" style="background: transparent; border: none; color: var(--color-text-disabled); font-size: 16px; cursor: pointer; padding: 4px 8px;" title="Dismiss">&times;</button>
-        </div>
-      </div>
-
       <main>
 
         <!-- ═══ TAB: Search (Previously Dashboard) ═══ -->
@@ -323,6 +300,13 @@
 
       </main>
     </div>
+  </div>
+
+  <div id="system-update-banner" class="system-update-banner" role="status" aria-live="polite" style="display:none">
+    <span class="system-update-indicator" aria-hidden="true">↻</span>
+    <span class="system-update-copy"><strong>Update available</strong><span id="update-banner-tag">Latest</span><small id="update-banner-msg">A newer version was published to GitHub.</small></span>
+    <button id="btn-run-auto-update" class="btn btn-primary btn-sm" onclick="triggerOneClickUpdate()"><span id="btn-update-text">Update</span></button>
+    <button class="system-update-dismiss" type="button" onclick="dismissUpdateBanner()" title="Dismiss update notice" aria-label="Dismiss update notice">&times;</button>
   </div>
 
   <!-- Dialogs and overlays are dynamically appended from components/dialogs.html -->

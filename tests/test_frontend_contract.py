@@ -202,6 +202,40 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("relationship-graph-svg", dialogs_html)
         self.assertIn("renderRelationshipGraph", influencers_js)
 
+    def test_model2_marketplace_and_self_serve_portal_contracts(self):
+        marketplace_html = self.read("marketplace.html")
+        marketplace_js = self.read("marketplace.js")
+        partner_portal_html = self.read("partner-portal.html")
+        partner_portal_js = self.read("partner-portal.js")
+        influencers_html = self.read("components/influencers.html")
+        influencers_js = self.read("src/components/influencers.js")
+        dialogs_html = self.read("components/dialogs.html")
+
+        # Vendor Marketplace (Vendor -> [Signed Agreement] -> IRM -> [Access to Network] -> Influencer)
+        self.assertIn("vendor-auth-section", marketplace_html)
+        self.assertIn("vendor-agreement-section", marketplace_html)
+        self.assertIn("vendor-network-section", marketplace_html)
+        self.assertIn("/api/marketplace/vendors/signup", marketplace_js)
+        self.assertIn("/api/marketplace/vendor/agreement", marketplace_js)
+        self.assertIn("/api/marketplace/network", marketplace_js)
+        self.assertIn("/api/marketplace/requests", marketplace_js)
+
+        # Self-serve Influencer Portal & Incoming Vendor Requests
+        self.assertIn("portal-auth-section", partner_portal_html)
+        self.assertIn("partner-agreement-bar", partner_portal_html)
+        self.assertIn("partner-marketplace-requests-section", partner_portal_html)
+        self.assertIn("/api/partner-portal/signup", partner_portal_js)
+        self.assertIn("/api/partner-share/agreement", partner_portal_js)
+        self.assertIn("/api/partner-share/requests/respond", partner_portal_js)
+
+        # Central IRM Admin Governance
+        self.assertIn("openIrmMarketplaceModal()", influencers_html)
+        self.assertIn("irm-marketplace-modal", dialogs_html)
+        self.assertIn("openIrmMarketplaceModal", influencers_js)
+        self.assertIn("manageIrmVendor", influencers_js)
+        self.assertIn("manageIrmMarketplaceRequest", influencers_js)
+
 
 if __name__ == "__main__":
     unittest.main()
+

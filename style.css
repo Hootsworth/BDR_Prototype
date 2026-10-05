@@ -2153,7 +2153,26 @@ main { padding: 34px 40px 56px; }
 .selection-outreach-btn:hover { background: #0c0a09 !important; transform: none; }
 .variable-chip { border-radius: 9999px !important; }
 .bulk-recipient-chip { border-radius: 9999px; }
-#system-update-banner { border-radius: 12px !important; box-shadow: none !important; }
+#system-update-banner.system-update-banner {
+  position: fixed; z-index: 1200; right: 20px; bottom: 18px;
+  display: none; width: min(390px, calc(100vw - 32px)); min-height: 48px;
+  align-items: center; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--color-border-emphasized); border-radius: 10px;
+  background: var(--color-background-surface); color: var(--color-text-primary);
+  box-shadow: 0 8px 24px rgba(28, 25, 23, .14);
+}
+#system-update-banner .system-update-indicator {
+  display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center;
+  border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-secondary); font-size: 16px;
+}
+#system-update-banner .system-update-copy { display: grid; grid-template-columns: auto auto; align-items: center; gap: 2px 7px; min-width: 0; flex: 1; }
+#system-update-banner .system-update-copy strong { font-size: 11px; font-weight: 650; white-space: nowrap; }
+#system-update-banner .system-update-copy > span { overflow: hidden; max-width: 135px; color: var(--color-text-secondary); font: 10px var(--font-family-mono, monospace); text-overflow: ellipsis; white-space: nowrap; }
+#system-update-banner .system-update-copy small { grid-column: 1 / -1; overflow: hidden; color: var(--color-text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+#system-update-banner .btn { min-height: 30px; padding-inline: 11px; font-size: 11px; }
+#system-update-banner .system-update-dismiss { align-self: flex-start; padding: 0 3px; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 16px; line-height: 1; cursor: pointer; }
+#system-update-banner .system-update-dismiss:hover { color: var(--color-text-primary); }
+html[data-theme="dark"] #system-update-banner.system-update-banner { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
 @media (max-width: 900px) {
   header { padding: 14px 20px; }
   main { padding: 24px 20px 40px; }

@@ -1174,3 +1174,103 @@ Autonomous GTM Copilot</div>
   </div>
 </dialog>
 
+<!-- ═══ DIALOG: IRM Marketplace & Vendor Governance Console (Model 2) ═══ -->
+<dialog id="irm-marketplace-modal" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 1020px; width: 96vw;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <div>
+        <div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #0d9488;">MODEL 2 — CENTRAL IRM MARKETPLACE GOVERNANCE</div>
+        <h3 style="margin: 0;">Marketplace Vendors, Agreements &amp; Introduction Routing</h3>
+      </div>
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <a href="marketplace.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Vendor Marketplace ↗</a>
+        <a href="partner-portal.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Influencer Portal ↗</a>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="closeIrmMarketplaceModal()">× Close</button>
+      </div>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 1.15rem; max-height: 76vh; overflow-y: auto;">
+      <!-- Architecture Flow Banner -->
+      <div style="padding: 0.75rem 1rem; background: rgba(13, 148, 136, 0.08); border: 1px solid rgba(13, 148, 136, 0.25); border-radius: var(--radius-xs); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; font-size: 12px;">
+        <div>
+          <strong style="color: #0d9488;">Model 2 Active:</strong>
+          <span><strong>Vendor</strong> &rarr; <em>[Signed Agreement]</em> &rarr; <strong>Central IRM</strong> &rarr; <em>[Access to Network]</em> &rarr; <strong>Influencer Portal</strong></span>
+        </div>
+        <span class="badge" style="background: var(--surface-card); border: 1px solid var(--color-border); color: var(--color-text-primary); font-weight: 600;" id="irm-marketplace-summary-badge">0 Vendors · 0 Intro Requests</span>
+      </div>
+
+      <!-- KPI Strip -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem;">
+        <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Registered Vendors</div>
+          <div id="irm-kpi-vendors-total" style="font-size: 1.35rem; font-weight: 700; color: var(--color-text-primary);">0</div>
+        </div>
+        <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Signed Agreements</div>
+          <div id="irm-kpi-vendors-signed" style="font-size: 1.35rem; font-weight: 700; color: #0d9488;">0</div>
+        </div>
+        <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Influencer Network</div>
+          <div id="irm-kpi-influencers-count" style="font-size: 1.35rem; font-weight: 700; color: var(--color-text-primary);">0</div>
+        </div>
+        <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Warm Intro Requests</div>
+          <div id="irm-kpi-requests-total" style="font-size: 1.35rem; font-weight: 700; color: #2563eb;">0</div>
+        </div>
+      </div>
+
+      <!-- Registered Vendors Table -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary);">1. Marketplace Vendors &amp; Master Agreements (Vendor &rarr; IRM)</div>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="refreshIrmMarketplaceModal()">↻ Refresh</button>
+        </div>
+        <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <table class="data-table" style="margin: 0;">
+            <thead>
+              <tr>
+                <th>Vendor Organization</th>
+                <th>Primary Contact</th>
+                <th>Category</th>
+                <th>Master Agreement</th>
+                <th>Network Access</th>
+                <th style="text-align: right;">IRM Governance</th>
+              </tr>
+            </thead>
+            <tbody id="irm-vendors-tbody">
+              <tr><td colspan="6" style="text-align: center; padding: 1.25rem; color: var(--color-text-secondary);">No Marketplace Vendors registered yet. Open <a href="marketplace.html" target="_blank" rel="noopener">marketplace.html</a> to onboard a Vendor.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Vendor-to-Influencer Introduction Requests Table -->
+      <div>
+        <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.5rem;">2. Warm Introduction Requests (Vendor &rarr; IRM &rarr; Influencer)</div>
+        <div style="max-height: 240px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
+          <table class="data-table" style="margin: 0;">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Influencer Partner</th>
+                <th>Target Prospect &amp; Account</th>
+                <th>Status</th>
+                <th style="text-align: right;">Routing Action</th>
+              </tr>
+            </thead>
+            <tbody id="irm-requests-tbody">
+              <tr><td colspan="5" style="text-align: center; padding: 1.25rem; color: var(--color-text-secondary);">No Vendor introduction requests submitted yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+      <span id="irm-marketplace-feedback" style="font-size: 12px; color: var(--color-text-secondary);"></span>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeIrmMarketplaceModal()">Close</button>
+    </div>
+  </div>
+</dialog>
+
+

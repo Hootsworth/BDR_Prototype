@@ -11,6 +11,7 @@
         <option value="">Select a partner</option>
       </select>
       <button class="btn btn-primary btn-sm" onclick="createCurrentInfluencerShareLink()" type="button">Create private link</button>
+      <button class="btn btn-secondary btn-sm" onclick="openIrmMarketplaceModal()" type="button" id="btn-open-irm-marketplace">Marketplace &amp; Vendors</button>
       <details class="partner-management-menu">
         <summary class="btn btn-secondary btn-sm">Manage <span aria-hidden="true">⌄</span></summary>
         <div class="partner-management-menu-items">
@@ -20,6 +21,9 @@
           <button type="button" onclick="openBulkAddInfluencerModal()">Bulk add partners</button>
           <button type="button" onclick="openInfluencerAgreementsModal()">Agreements</button>
           <button type="button" onclick="openRelationshipGraphModal()">Referral network</button>
+          <button type="button" onclick="openIrmMarketplaceModal()">Vendor Marketplace Admin</button>
+          <a href="marketplace.html" target="_blank" rel="noopener">Open Vendor Marketplace ↗</a>
+          <a href="partner-portal.html" target="_blank" rel="noopener">Open Influencer Portal ↗</a>
         </div>
       </details>
     </div>

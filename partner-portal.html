@@ -60,42 +60,159 @@
     .bulk-remove-btn { min-height:30px; width:30px; padding:0; background:transparent; color:var(--muted); border:1px solid transparent; font-size:16px; line-height:1; }
     .bulk-remove-btn:hover { color:var(--error); border-color:var(--line); background:var(--soft); }
     .multi-edit-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 14px; margin-bottom:10px; border:1px solid var(--line); border-radius:4px; background:var(--surface); font-size:12.5px; }
+    .portal-topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid var(--line); font-size:12px; }
+    .portal-topbar-links { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .portal-topbar-links a { color:var(--muted); text-decoration:none; padding:6px 10px; border:1px solid var(--line); border-radius:3px; background:var(--surface); }
+    .portal-topbar-links a:hover { color:var(--ink); background:var(--soft); }
+    .portal-auth-card { max-width:680px; margin:28px 0; padding:28px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
+    .portal-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; background:var(--soft); color:var(--ink); }
+    .portal-badge.ok { background:#dcfce7; color:var(--ok); }
+    .portal-badge.warn { background:#fef3c7; color:#92400e; }
+    .agreement-bar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:16px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
+    .mp-requests-card { margin-top:28px; padding:20px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
     footer { margin-top:48px; padding-top:15px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
     @media(max-width:620px) { main { padding:35px 18px 48px; } .summary { gap:24px; } .section-head { align-items:start; flex-direction:column; } form { grid-template-columns:1fr; } .form-actions { grid-column:auto; align-items:flex-start; flex-direction:column; } }
   </style>
 </head>
 <body>
   <main>
-    <header>
-      <p class="eyebrow">Partner workspace</p>
-      <h1 id="partner-name">Your introductions</h1>
-      <p class="intro" id="partner-company">A shared space for your referrals and their next steps.</p>
-    </header>
-    <section class="summary" aria-label="Referral summary">
-      <p>Introductions<strong id="total-count">—</strong></p>
-      <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
-      <p>Calls completed<strong id="completed-count">—</strong></p>
-      <p>Earned credits<strong id="partner-credits">—</strong></p>
-      <p>Est. partner reward<strong id="partner-payout">—</strong></p>
-    </section>
-    <section id="partner-calendly-bar" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:20px; border:1px solid var(--line); border-radius:4px; background:var(--surface);">
+    <nav class="portal-topbar" aria-label="Portal navigation">
       <div>
-        <strong style="font-size:13px; display:block;">Schedule a GTM Meeting Directly</strong>
-        <span style="font-size:12px; color:var(--muted);">Share contact details below for future outreach, or book a direct GTM call with a referred company (+15 bonus credits when scheduled).</span>
+        <span style="font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:11px;">IRM Influencer Portal · Model 2 Network</span>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:36px; padding:0 14px; border-radius:3px; background:var(--accent); color:#fff; font-size:12px; text-decoration:none; font-weight:500;">Book GTM Call ↗</a>
-        <button type="button" class="btn-outline btn-sm" id="partner-calendly-copy-btn">Copy Booking Link</button>
+      <div class="portal-topbar-links">
+        <a href="/marketplace.html">Vendor Marketplace ↗</a>
+        <a href="/">IRM Console ↗</a>
+        <button type="button" class="btn-outline btn-sm" id="portal-signout-btn" hidden>Sign out</button>
       </div>
-    </section>
-    <section>
-      <header class="section-head">
-        <section><p class="eyebrow">Your network</p><h2>Referred contacts</h2></section>
-        <div class="section-actions">
-          <span class="contact-count" id="visible-count"></span>
-          <button type="button" class="btn-outline btn-sm" id="toggle-multi-edit-btn">Multi-record edit</button>
+    </nav>
+
+    <header>
+      <p class="eyebrow">Influencer Partner Portal</p>
+      <h1 id="partner-name">Your introductions</h1>
+      <p class="intro" id="partner-company">Sign up or sign in to manage your network referrals, review Vendor introduction requests, and track partner credits.</p>
+    </header>
+
+    <!-- Self-Serve Influencer Sign Up / Sign In Gate -->
+    <section id="portal-auth-section" class="portal-auth-card" hidden>
+      <p class="eyebrow" style="margin-bottom:6px;">Self-Serve Partner Onboarding</p>
+      <h2 style="margin-bottom:8px;">Join or Sign In to the Influencer Portal</h2>
+      <p style="margin:0 0 18px; color:var(--muted); font-size:13px; line-height:1.55;">
+        In Model 2, Influencers register on this Portal to contribute their network to the IRM and approve warm introductions requested by vetted Marketplace Vendors.
+      </p>
+      <div class="mode-switcher" role="tablist" aria-label="Influencer authentication mode">
+        <button type="button" id="portal-tab-signup" class="active" role="tab" aria-selected="true">Sign up as Influencer</button>
+        <button type="button" id="portal-tab-login" role="tab" aria-selected="false">Sign in</button>
+        <button type="button" id="portal-tab-token" role="tab" aria-selected="false">Use private link token</button>
+      </div>
+
+      <form id="portal-signup-form">
+        <label>Full name *<input name="fullName" placeholder="Kim Beluzo" required></label>
+        <label>Work email *<input name="email" type="email" placeholder="kim@advisory.com" required></label>
+        <label>Create password *<input name="password" type="password" minlength="4" placeholder="At least 4 characters" required></label>
+        <label>Advisory / Company *<input name="company" placeholder="Beluzo Credit Union Advisory" required></label>
+        <label>Job title<input name="jobTitle" placeholder="Managing Partner"></label>
+        <label>Phone<input name="phone" type="tel" placeholder="+1 415 555 0190"></label>
+        <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
+        <label>Location<input name="location" placeholder="San Diego, CA"></label>
+        <label style="grid-column:1/-1; display:flex; align-items:flex-start; gap:10px; padding:10px 12px; background:var(--soft); border-radius:4px; color:var(--ink);">
+          <input type="checkbox" name="acceptAgreement" checked style="width:18px; min-height:18px; margin-top:2px;">
+          <span>I agree to the <strong>IRM Partner Network Agreement</strong> and authorize the IRM to match my network with vetted Vendors (+10 pts per contact shared, +15 pts scheduled call, +25 pts completed briefing).</span>
+        </label>
+        <div class="form-actions">
+          <button type="submit" id="portal-signup-submit">Create Influencer Account</button>
+          <span id="portal-auth-feedback" role="status" aria-live="polite"></span>
         </div>
-      </header>
+      </form>
+
+      <form id="portal-login-form" hidden>
+        <label>Work email *<input name="email" type="email" placeholder="kim.beluzo@beluzoadvisory.com" required></label>
+        <label>Password *<input name="password" type="password" placeholder="Enter your portal password" required></label>
+        <div class="form-actions">
+          <button type="submit" id="portal-login-submit">Sign In to Portal</button>
+          <span id="portal-login-feedback" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <form id="portal-token-form" hidden>
+        <label style="grid-column:1/-1;">Private Workspace Token<input name="token" placeholder="Paste token from your private invite link"></label>
+        <div class="form-actions">
+          <button type="submit">Open Workspace</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="portal-workspace-content">
+      <section class="summary" aria-label="Referral summary">
+        <p>Introductions<strong id="total-count">—</strong></p>
+        <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
+        <p>Calls completed<strong id="completed-count">—</strong></p>
+        <p>Earned credits<strong id="partner-credits">—</strong></p>
+        <p>Est. partner reward<strong id="partner-payout">—</strong></p>
+      </section>
+
+      <!-- Partner Network Agreement Bar -->
+      <section id="partner-agreement-bar" class="agreement-bar">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <strong style="font-size:13px;">IRM Partner Network Agreement</strong>
+            <span id="partner-agreement-badge" class="portal-badge warn">Agreement Pending</span>
+          </div>
+          <span id="partner-agreement-desc" style="font-size:12px; color:var(--muted); display:block; margin-top:4px;">Sign the Partner Network Agreement to enable Vendor matchmaking and credit payouts.</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn-sm" id="partner-sign-agreement-btn">Sign Partner Agreement</button>
+        </div>
+      </section>
+
+      <section id="partner-calendly-bar" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:16px; border:1px solid var(--line); border-radius:4px; background:var(--surface);">
+        <div>
+          <strong style="font-size:13px; display:block;">Schedule a GTM Meeting Directly</strong>
+          <span style="font-size:12px; color:var(--muted);">Share contact details below for future outreach, or book a direct GTM call with a referred company (+15 bonus credits when scheduled).</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:36px; padding:0 14px; border-radius:3px; background:var(--accent); color:#fff; font-size:12px; text-decoration:none; font-weight:500;">Book GTM Call ↗</a>
+          <button type="button" class="btn-outline btn-sm" id="partner-calendly-copy-btn">Copy Booking Link</button>
+        </div>
+      </section>
+
+      <!-- Marketplace Vendor Introduction Requests Queue -->
+      <section id="partner-marketplace-requests-section" class="mp-requests-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+          <div>
+            <p class="eyebrow" style="margin:0 0 4px;">Marketplace Matchmaking</p>
+            <h2 style="font-size:22px; margin:0;">Vendor introduction requests</h2>
+          </div>
+          <span class="portal-badge" id="partner-mp-requests-count">0 active requests</span>
+        </div>
+        <p style="margin:0 0 14px; font-size:12.5px; color:var(--muted);">
+          Vetted Vendors who have signed the IRM Master Agreement can request warm introductions to organizations in your network. Accept a request to unlock +15 credits (and +25 credits once the briefing call completes).
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Requesting Vendor</th>
+                <th>Target Contact &amp; Organization</th>
+                <th>Vendor Pitch / Context</th>
+                <th>Status &amp; Action</th>
+              </tr>
+            </thead>
+            <tbody id="partner-mp-requests-body">
+              <tr><td colspan="4" class="empty">No Vendor introduction requests yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <header class="section-head">
+          <section><p class="eyebrow">Your network</p><h2>Referred contacts</h2></section>
+          <div class="section-actions">
+            <span class="contact-count" id="visible-count"></span>
+            <button type="button" class="btn-outline btn-sm" id="toggle-multi-edit-btn">Multi-record edit</button>
+          </div>
+        </header>
       <div id="multi-edit-bar" class="multi-edit-bar" hidden>
         <span><strong>Multi-record edit mode:</strong> Update any fields below or add rows, then save all changes at once.</span>
         <div class="section-actions">
@@ -167,8 +284,9 @@
         </div>
       </div>
     </section>
+    </div>
     <p id="page-error" role="alert"></p>
-    <footer>This private link grants access to this partner workspace only. Contact the workspace owner if the link should be revoked.</footer>
+    <footer>IRM Influencer Relationship Management Portal (Model 2) · Partner referrals, agreements, and marketplace introductions are protected under your Partner Network Agreement.</footer>
   </main>
   <script src="partner-portal.js"></script>
 </body>
