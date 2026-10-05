@@ -93,8 +93,8 @@
       </td>
       <td>
         <select class="inline-edit-select" data-field="status">
-          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled (+10 pts)</option>
-          <option value="scheduled" ${statusVal === 'scheduled' || statusVal === 'completed' ? 'selected' : ''}>Scheduled (+5 pts)</option>
+          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled (+10 credits)</option>
+          <option value="scheduled" ${statusVal === 'scheduled' || statusVal === 'completed' ? 'selected' : ''}>Scheduled (+15 credits)</option>
         </select>
       </td>
     `;
@@ -137,14 +137,14 @@
         liLink.href = contact.linkedinUrl;
         liLink.target = '_blank';
         liLink.rel = 'noopener noreferrer';
-        liLink.textContent = 'LinkedIn Profile ↗';
+        liLink.textContent = 'Open LinkedIn profile';
         liLink.style.cssText = 'display:inline-block;margin-top:4px;font-size:11px;color:var(--ink);';
         contactTd.appendChild(liLink);
       }
       row.appendChild(contactTd);
       row.appendChild(createCell(contact.company, [contact.jobTitle, contact.phone].filter(Boolean).join(' · ')));
 
-      const status = contact.status === 'completed' ? 'Call completed (+10 pts bonus)' : contact.status === 'scheduled' ? 'Call scheduled (+5 pts bonus)' : 'Contact shared (+10 pts)';
+      const status = contact.status === 'completed' ? 'Call completed (+25 credits)' : contact.status === 'scheduled' ? 'Call scheduled (+15 credits)' : 'Contact shared (+10 credits)';
       const statusTd = createCell(status);
       if (contact.status !== 'completed' && workspaceCalendlyUrl) {
         const bookLink = document.createElement('a');
@@ -152,7 +152,7 @@
         bookLink.href = `${workspaceCalendlyUrl}${sep}name=${encodeURIComponent(contact.fullName || '')}&email=${encodeURIComponent(contact.email || '')}`;
         bookLink.target = '_blank';
         bookLink.rel = 'noopener noreferrer';
-        bookLink.textContent = 'Schedule GTM Call ↗';
+        bookLink.textContent = 'Schedule GTM call';
         bookLink.style.cssText = 'display:inline-block;margin-top:5px;font-size:11px;color:var(--ok);font-weight:500;';
         statusTd.appendChild(bookLink);
       }
@@ -199,10 +199,10 @@
       let statusLabel = 'Pending your acceptance';
       let badgeClass = 'warn';
       if (status === 'influencer_accepted' || status === 'call_scheduled') {
-        statusLabel = 'Accepted & Scheduled (+15 pts)';
+        statusLabel = 'Accepted & Scheduled (+15 credits)';
         badgeClass = 'ok';
       } else if (status === 'call_completed') {
-        statusLabel = 'Call Completed (+25 pts)';
+        statusLabel = 'Call Completed (+25 credits)';
         badgeClass = 'ok';
       } else if (status === 'declined') {
         statusLabel = 'Declined';
@@ -223,11 +223,11 @@
             <span class="portal-badge ${badgeClass}">${escapeHTML(statusLabel)}</span>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               ${status === 'requested' || status === 'irm_approved' ? `
-                <button type="button" class="btn-sm" data-req-action="schedule" data-req-id="${escapeHTML(req.id)}">Accept &amp; Schedule (+15 pts)</button>
+                <button type="button" class="btn-sm" data-req-action="schedule" data-req-id="${escapeHTML(req.id)}">Accept &amp; Schedule (+15 credits)</button>
                 <button type="button" class="btn-outline btn-sm" data-req-action="decline" data-req-id="${escapeHTML(req.id)}">Decline</button>
               ` : ''}
               ${status === 'influencer_accepted' || status === 'call_scheduled' ? `
-                <button type="button" class="btn-outline btn-sm" data-req-action="complete" data-req-id="${escapeHTML(req.id)}">Mark Call Completed (+25 pts)</button>
+                <button type="button" class="btn-outline btn-sm" data-req-action="complete" data-req-id="${escapeHTML(req.id)}">Mark Call Completed (+25 credits)</button>
               ` : ''}
             </div>
           </div>
@@ -271,9 +271,9 @@
       ? partner.referralCredits
       : currentContacts.reduce((acc, c) => acc + (c.status === 'completed' ? 25 : c.status === 'scheduled' ? 15 : 10), 0);
     const creditsEl = document.getElementById('partner-credits');
-    if (creditsEl) creditsEl.textContent = `${totalCredits} pts`;
+    if (creditsEl) creditsEl.textContent = `${totalCredits} credits`;
     const payoutEl = document.getElementById('partner-payout');
-    if (payoutEl) payoutEl.textContent = `$${totalCredits * 10}`;
+    if (payoutEl) payoutEl.textContent = 'Manual';
     const openCalendlyEl = document.getElementById('partner-calendly-open-link');
     if (openCalendlyEl && workspaceCalendlyUrl) openCalendlyEl.href = workspaceCalendlyUrl;
     document.getElementById('visible-count').textContent = `${currentContacts.length} contact${currentContacts.length === 1 ? '' : 's'}`;

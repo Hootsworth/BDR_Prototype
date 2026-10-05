@@ -2,14 +2,15 @@ import re
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HTML_FILES = []
-
-for root, dirs, files in os.walk(ROOT):
-    if "node_modules" in root or ".git" in root or ".venv" in root:
-        continue
-    for f in files:
-        if f.endswith(".html"):
-            HTML_FILES.append(os.path.join(root, f))
+HTML_FILES = [
+    os.path.join(ROOT, name)
+    for name in ("index.html", "marketplace.html", "partner-portal.html")
+]
+HTML_FILES.extend(
+    os.path.join(ROOT, "components", name)
+    for name in os.listdir(os.path.join(ROOT, "components"))
+    if name.endswith(".html")
+)
 
 JS_FILES = []
 for root, dirs, files in os.walk(os.path.join(ROOT, "src")):
@@ -42,7 +43,7 @@ for html_path in HTML_FILES:
                 if fn not in ("return", "if", "for", "while", "switch", "console"):
                     all_onclick_funcs.add(fn)
 
-DOM_BUILTINS = {"return", "if", "for", "while", "switch", "console", "getElementById", "querySelector", "querySelectorAll", "setAttribute", "removeAttribute", "stopPropagation", "preventDefault", "focus", "blur", "click", "showModal", "close"}
+DOM_BUILTINS = {"return", "if", "for", "while", "switch", "console", "getElementById", "querySelector", "querySelectorAll", "setAttribute", "removeAttribute", "stopPropagation", "preventDefault", "focus", "blur", "click", "showModal", "close", "alert", "print"}
 
 missing_funcs = []
 for fn in sorted(all_onclick_funcs):

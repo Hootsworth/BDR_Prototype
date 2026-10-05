@@ -1837,6 +1837,7 @@ function renderIrmMarketplaceModal(payload = {}) {
     ? payload.influencersCount
     : (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt).length;
   const signedVendors = vendors.filter(v => v.agreementStatus === "signed" && v.networkAccessLevel !== "locked").length;
+  const approvedVendors = vendors.filter(v => v.vendorStatus === "approved").length;
 
   const setText = (id, val) => {
     const el = document.getElementById(id);
@@ -1845,6 +1846,7 @@ function renderIrmMarketplaceModal(payload = {}) {
   setText("irm-marketplace-summary-badge", `${vendors.length} Vendor${vendors.length === 1 ? "" : "s"} · ${requests.length} Intro Request${requests.length === 1 ? "" : "s"}`);
   setText("irm-kpi-vendors-total", vendors.length);
   setText("irm-kpi-vendors-signed", signedVendors);
+  setText("irm-kpi-vendors-approved", approvedVendors);
   setText("irm-kpi-influencers-count", influencersCount);
   setText("irm-kpi-requests-total", requests.length);
 
@@ -1876,8 +1878,10 @@ function renderIrmMarketplaceModal(payload = {}) {
             <td>${accessBadge}</td>
             <td style="text-align: right;">
               <div style="display: inline-flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
-                ${!isSigned
-                  ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmVendor('${escapePartnerHTML(v.id)}', 'approve_agreement')">Approve &amp; Unlock</button>`
+                ${v.vendorStatus !== "approved" && v.vendorStatus !== "revoked"
+                  ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmVendor('${escapePartnerHTML(v.id)}', 'approve_vendor')">Approve Vendor</button>`
+                  : v.vendorStatus === "revoked"
+                  ? `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmVendor('${escapePartnerHTML(v.id)}', 'restore_vendor')">Restore Vendor</button>`
                   : `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmVendor('${escapePartnerHTML(v.id)}', 'revoke_access')">Revoke Access</button>`}
               </div>
             </td>
@@ -1893,33 +1897,35 @@ function renderIrmMarketplaceModal(payload = {}) {
       reqTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1.25rem; color: var(--color-text-secondary);">No Vendor introduction requests submitted yet.</td></tr>`;
     } else {
       reqTbody.innerHTML = requests.map(r => {
-        const st = String(r.status || "requested");
-        const stLabel = st === "completed"
+      const st = String(r.status || "requested");
+        const stLabel = st === "call_completed" || st === "completed"
           ? "Call Completed (+25 pts)"
-          : st === "accepted" || st === "scheduled"
+          : st === "influencer_accepted" || st === "call_scheduled" || st === "scheduled"
           ? "Accepted & Scheduled (+15 pts)"
+          : st === "irm_approved"
+          ? "IRM Approved · Awaiting Influencer"
           : st === "declined"
           ? "Declined"
           : "Pending Influencer Review";
         return `
           <tr>
             <td>
-              <div style="font-weight: 700;">${escapePartnerHTML(r.vendorName || "Vendor")}</div>
-              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.vendorContactEmail || "")}</div>
+              <div style="font-weight: 700;">${escapePartnerHTML(r.vendorCompany || r.vendorName || "Vendor")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.vendorEmail || r.vendorContactEmail || "")}</div>
             </td>
             <td>
               <div style="font-weight: 600;">${escapePartnerHTML(r.influencerName || "Partner")}</div>
               <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.influencerEmail || "")}</div>
             </td>
             <td>
-              <div style="font-weight: 600;">${escapePartnerHTML(r.contactName || "Prospect")} · ${escapePartnerHTML(r.targetCompany || "")}</div>
-              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.contactTitle || "")}</div>
+              <div style="font-weight: 600;">${escapePartnerHTML(r.targetContactName || "Prospect")} · ${escapePartnerHTML(r.targetCompany || "")}</div>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(r.targetJobTitle || "")}</div>
             </td>
             <td><span class="badge">${escapePartnerHTML(stLabel)}</span></td>
             <td style="text-align: right;">
               <div style="display: inline-flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
-                ${st === "requested" ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'accepted')">Approve Intro</button>` : ""}
-                ${st !== "completed" && st !== "declined" ? `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'completed')">Mark Completed</button>` : ""}
+                ${st === "requested" ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'irm_approved')">Approve &amp; Route</button>` : ""}
+                ${st === "call_scheduled" ? `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'call_completed')">Mark Completed</button>` : ""}
               </div>
             </td>
           </tr>
@@ -1931,7 +1937,7 @@ function renderIrmMarketplaceModal(payload = {}) {
 
 async function manageIrmVendor(vendorId, action) {
   const feedback = document.getElementById("irm-marketplace-feedback");
-  if (feedback) feedback.textContent = "Updating Vendor governance status...";
+    if (feedback) feedback.textContent = "Updating Vendor governance status...";
   try {
     const res = await fetch("/api/irm/vendors/manage", {
       method: "POST",
@@ -1942,7 +1948,7 @@ async function manageIrmVendor(vendorId, action) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Request failed (${res.status})`);
     }
-    if (feedback) feedback.textContent = "Vendor agreement & network access updated.";
+    if (feedback) feedback.textContent = action === "approve_vendor" ? "Vendor approved; Marketplace Agreement remains required." : "Vendor access revoked.";
     await refreshIrmMarketplaceModal();
   } catch (error) {
     if (feedback) feedback.textContent = error.message;
@@ -2035,4 +2041,3 @@ window.refreshIrmMarketplaceModal = refreshIrmMarketplaceModal;
 window.renderIrmMarketplaceModal = renderIrmMarketplaceModal;
 window.manageIrmVendor = manageIrmVendor;
 window.manageIrmMarketplaceRequest = manageIrmMarketplaceRequest;
-

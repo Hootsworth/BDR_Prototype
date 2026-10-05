@@ -589,13 +589,28 @@ def issue_partner_share_token(influencer_id):
 
 def hash_portal_password(password):
     raw = str(password or '').encode('utf-8')
-    salt = b'gtm_irm_marketplace_salt_v1'
-    return hashlib.pbkdf2_hmac('sha256', raw, salt, 100_000).hex()
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac('sha256', raw, salt, 100_000).hex()
+    return f"pbkdf2_sha256$100000${base64.urlsafe_b64encode(salt).decode('ascii')}${digest}"
 
 def verify_portal_password(password, stored_hash):
     if not stored_hash:
         return False
-    return secrets.compare_digest(hash_portal_password(password), str(stored_hash))
+    stored = str(stored_hash)
+    try:
+        algorithm, iterations, encoded_salt, expected = stored.split('$', 3)
+        if algorithm != 'pbkdf2_sha256':
+            return False
+        actual = hashlib.pbkdf2_hmac(
+            'sha256', str(password or '').encode('utf-8'),
+            base64.urlsafe_b64decode(encoded_salt.encode('ascii')), int(iterations)
+        ).hex()
+        return secrets.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        # Accept the old deterministic hash format so existing prototype accounts
+        # can still log in; successful login upgrades them to the salted format.
+        legacy_hash = hashlib.pbkdf2_hmac('sha256', str(password or '').encode('utf-8'), b'gtm_irm_marketplace_salt_v1', 100_000).hex()
+        return secrets.compare_digest(legacy_hash, stored)
 
 def vendor_from_token(state, token):
     if not token:
@@ -620,6 +635,7 @@ def vendor_safe_dict(vendor):
         'calendlyUrl': vendor.get('calendlyUrl') or '',
         'agreementStatus': vendor.get('agreementStatus') or 'none',
         'networkAccessLevel': vendor.get('networkAccessLevel') or 'locked',
+        'vendorStatus': vendor.get('vendorStatus') or 'pending_review',
         'agreements': [
             {k: v for k, v in agr.items() if k != 'dataUrl'}
             for agr in (vendor.get('agreements') or [])
@@ -1964,12 +1980,13 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 ]
                 inf_id_str = str(influencer.get('id') or '')
                 inf_email_lower = str(influencer.get('email') or '').lower()
+                demo_contact_ids = {str(c.get('id')) for c in (state.get('contacts') or []) if c.get('isDemoData')}
                 mp_requests = [
                     req for req in (state.get('marketplaceRequests') or [])
                     if isinstance(req, dict) and (
                         str(req.get('influencerId') or '') == inf_id_str
                         or (inf_email_lower and str(req.get('influencerEmail') or '').lower() == inf_email_lower)
-                    )
+                    ) and str(req.get('targetContactId') or '') not in demo_contact_ids
                 ]
                 json_response(self, 200, {
                     'influencer': {
@@ -1997,13 +2014,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not vendor:
                     json_response(self, 401, {'error': 'Sign in to your Vendor Marketplace account first.'})
                     return
+                if vendor.get('vendorStatus') == 'revoked':
+                    json_response(self, 403, {'error': 'Vendor Marketplace access has been revoked.'})
+                    return
                 contacts = state.get('contacts') or []
-                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt')]
-                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt')]
+                demo_contact_ids = {str(c.get('id')) for c in contacts if c.get('isDemoData')}
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
+                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
                 orgs = {str(c.get('company') or '').strip() for c in prospects if c.get('company')}
                 vendor_requests = [
                     req for req in (state.get('marketplaceRequests') or [])
                     if isinstance(req, dict) and str(req.get('vendorId')) == str(vendor.get('id'))
+                    and str(req.get('targetContactId') or '') not in demo_contact_ids
                 ]
                 json_response(self, 200, {
                     'vendor': vendor_safe_dict(vendor),
@@ -2033,9 +2055,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'vendor': vendor_safe_dict(vendor)
                     })
                     return
+                if vendor.get('vendorStatus') == 'revoked':
+                    json_response(self, 403, {'error': 'Vendor Marketplace access has been revoked.'})
+                    return
 
                 contacts = state.get('contacts') or []
-                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt')]
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
                 inf_by_id = {str(i.get('id')): i for i in influencers}
                 inf_by_email = {str(i.get('email') or '').lower(): i for i in influencers if i.get('email')}
                 inf_by_name = {str(i.get('fullName') or '').lower(): i for i in influencers if i.get('fullName')}
@@ -2043,6 +2068,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 vendor_requests = [
                     req for req in (state.get('marketplaceRequests') or [])
                     if isinstance(req, dict) and str(req.get('vendorId')) == str(vendor.get('id'))
+                    and str(req.get('targetContactId') or '') not in {str(c.get('id')) for c in contacts if c.get('isDemoData')}
                 ]
                 unlocked_contact_ids = {
                     str(req.get('targetContactId'))
@@ -2053,13 +2079,15 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 network_contacts = []
                 orgs_map = {}
                 for c in contacts:
-                    if c.get('isInfluencer') or c.get('archivedAt'):
+                    if c.get('isInfluencer') or c.get('archivedAt') or c.get('isDemoData'):
                         continue
                     inf = (
                         inf_by_id.get(str(c.get('influencerId') or ''))
                         or inf_by_email.get(str(c.get('influencerEmail') or '').lower())
                         or inf_by_name.get(str(c.get('referredBy') or '').lower())
                     )
+                    if not inf or not any(str(a.get('status') or '').lower() == 'signed' for a in (inf.get('agreements') or []) if isinstance(a, dict)):
+                        continue
                     masked = mask_contact_for_marketplace(c, inf, unlocked_contact_ids)
                     network_contacts.append(masked)
                     comp = masked['company']
@@ -2117,8 +2145,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 vendors = [vendor_safe_dict(v) for v in (state.get('vendors') or []) if isinstance(v, dict)]
                 requests_list = [r for r in (state.get('marketplaceRequests') or []) if isinstance(r, dict)]
                 contacts = state.get('contacts') or []
-                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt')]
-                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt')]
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
+                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
                 json_response(self, 200, {
                     'vendors': vendors,
                     'marketplaceRequests': requests_list,
@@ -2426,14 +2454,17 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
                 sign_agreement = bool(payload.get('acceptAgreement'))
 
-                if not name or not email:
-                    json_response(self, 400, {'error': 'Full name and work email are required.'})
+                if not name or not email or not company:
+                    json_response(self, 400, {'error': 'Full name, work email, and company are required.'})
                     return
                 if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                     json_response(self, 400, {'error': 'Enter a valid work email address.'})
                     return
-                if len(password) < 4:
-                    json_response(self, 400, {'error': 'Choose a password of at least 4 characters.'})
+                if len(password) < 12:
+                    json_response(self, 400, {'error': 'Choose a password of at least 12 characters.'})
+                    return
+                if not sign_agreement:
+                    json_response(self, 400, {'error': 'Accept the IRM Partner Network Agreement to create a portal account.'})
                     return
 
                 existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
@@ -2451,8 +2482,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     })
 
                 if existing:
-                    if existing.get('isInfluencer') and existing.get('portalPasswordHash'):
-                        json_response(self, 409, {'error': 'An Influencer Portal account with this email already exists. Please sign in.'})
+                    if existing.get('isInfluencer') or existing.get('portalPasswordHash'):
+                        json_response(self, 409, {'error': 'An account or contact with this email already exists. Please sign in or contact the IRM administrator.'})
                         return
                     existing['isInfluencer'] = True
                     existing['fullName'] = name
@@ -2531,10 +2562,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if not verify_portal_password(password, stored_hash):
                         json_response(self, 401, {'error': 'Invalid email or password.'})
                         return
+                    if '$' not in str(stored_hash):
+                        influencer['portalPasswordHash'] = hash_portal_password(password)
+                        write_workbook_state(state)
                 else:
-                    # First-time portal sign-in for a pre-existing partner sets their password
-                    influencer['portalPasswordHash'] = hash_portal_password(password)
-                    write_workbook_state(state)
+                    json_response(self, 403, {'error': 'This partner profile needs to be claimed through the approved onboarding process.'})
+                    return
 
                 token = issue_partner_share_token(influencer['id'])
                 json_response(self, 200, {
@@ -2672,8 +2705,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                     json_response(self, 400, {'error': 'Enter a valid work email address.'})
                     return
-                if len(password) < 4:
-                    json_response(self, 400, {'error': 'Choose a password of at least 4 characters.'})
+                if len(password) < 12:
+                    json_response(self, 400, {'error': 'Choose a password of at least 12 characters.'})
                     return
                 if any(isinstance(v, dict) and str(v.get('email') or '').lower() == email for v in vendors):
                     json_response(self, 409, {'error': 'A Vendor account with this email already exists. Please sign in.'})
@@ -2791,6 +2824,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'code': 'AGREEMENT_REQUIRED'
                     })
                     return
+                if vendor.get('vendorStatus') == 'revoked':
+                    json_response(self, 403, {'error': 'Vendor Marketplace access has been revoked.'})
+                    return
 
                 target_contact_id = payload.get('targetContactId')
                 influencer_id = payload.get('influencerId')
@@ -2816,8 +2852,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         )
                     ), None)
 
-                if not target_contact and not influencer:
-                    json_response(self, 404, {'error': 'Select a valid network contact or Influencer Partner to request an introduction.'})
+                if not target_contact or not influencer:
+                    json_response(self, 404, {'error': 'Select a valid network contact linked to an Influencer Partner to request an introduction.'})
+                    return
+                if target_contact.get('isDemoData') or influencer.get('isDemoData') or target_contact.get('archivedAt') or influencer.get('archivedAt'):
+                    json_response(self, 404, {'error': 'This network contact is not available for Marketplace introductions.'})
+                    return
+                if not any(str(a.get('status') or '').lower() == 'signed' for a in (influencer.get('agreements') or []) if isinstance(a, dict)):
+                    json_response(self, 403, {'error': 'This Influencer must sign the IRM Partner Network Agreement before receiving introduction requests.'})
                     return
 
                 mp_requests = state.setdefault('marketplaceRequests', [])
@@ -2879,27 +2921,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 404, {'error': 'Vendor not found.'})
                     return
                 now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                if action == 'approve_agreement':
-                    vendor['agreementStatus'] = 'signed'
-                    vendor['networkAccessLevel'] = 'full_partner_access'
-                    vendor['approvedAt'] = now_iso
-                    if not vendor.get('agreements'):
-                        vendor['agreements'] = [{
-                            'id': f"vagr_{int(time.time() * 1000)}",
-                            'title': 'IRM Master Vendor Agreement (Admin Approved)',
-                            'signedBy': vendor.get('contactName') or 'Vendor Representative',
-                            'status': 'Signed',
-                            'signedAt': now_iso[:10],
-                            'termsVersion': 'IRM-Model2-2026.1'
-                        }]
+                if action == 'approve_vendor':
+                    vendor['vendorStatus'] = 'approved'
                 elif action == 'revoke_access':
-                    vendor['agreementStatus'] = 'revoked'
                     vendor['networkAccessLevel'] = 'locked'
+                    vendor['vendorStatus'] = 'revoked'
+                elif action == 'restore_vendor':
+                    vendor['vendorStatus'] = 'approved'
                 else:
-                    if 'agreementStatus' in payload:
-                        vendor['agreementStatus'] = str(payload.get('agreementStatus'))
-                    if 'networkAccessLevel' in payload:
-                        vendor['networkAccessLevel'] = str(payload.get('networkAccessLevel'))
+                    json_response(self, 400, {'error': 'Unsupported vendor governance action.'})
+                    return
                 write_workbook_state(state)
                 json_response(self, 200, {'status': 'updated', 'vendor': vendor_safe_dict(vendor)})
             except Exception as ex:
@@ -2919,19 +2950,43 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not target_req:
                     json_response(self, 404, {'error': 'Marketplace request not found.'})
                     return
-                target_req['status'] = next_status
+                if next_status in ('accepted', 'accept', 'influencer_accepted'):
+                    json_response(self, 400, {'error': 'Only the Influencer can accept a request from their Portal.'})
+                    return
+                elif next_status in ('scheduled',):
+                    next_status = 'call_scheduled'
+                elif next_status in ('completed',):
+                    next_status = 'call_completed'
+                if next_status not in ('irm_approved', 'declined', 'call_scheduled', 'call_completed'):
+                    json_response(self, 400, {'error': 'Unsupported marketplace request status.'})
+                    return
                 target_req['updatedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                if next_status in ('influencer_accepted', 'call_scheduled'):
-                    target_req['creditsAwarded'] = max(int(target_req.get('creditsAwarded') or 0), 15)
-                elif next_status == 'call_completed':
-                    target_req['creditsAwarded'] = 25
 
                 contacts = state.get('contacts') or []
                 target_contact = next((c for c in contacts if not c.get('isInfluencer') and str(c.get('id')) == str(target_req.get('targetContactId') or '')), None)
                 influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == str(target_req.get('influencerId') or '')), None)
-                if target_contact and next_status in ('influencer_accepted', 'call_scheduled', 'call_completed'):
+                current_status = target_req.get('status') or 'requested'
+                if next_status == 'irm_approved' and current_status == 'requested':
+                    target_req['status'] = 'irm_approved'
+                elif next_status == 'declined' and current_status in ('requested', 'irm_approved'):
+                    target_req['status'] = 'declined'
+                elif next_status == 'call_scheduled' and current_status in ('influencer_accepted', 'call_scheduled'):
+                    target_req['status'] = 'call_scheduled'
+                elif next_status == 'call_completed' and current_status in ('call_scheduled', 'call_completed'):
+                    target_req['status'] = 'call_completed'
+                else:
+                    json_response(self, 409, {'error': 'This status transition is not allowed. The Influencer must accept and schedule before completion.'})
+                    return
+
+                if target_req['status'] in ('influencer_accepted', 'call_scheduled'):
+                    target_req['creditsAwarded'] = max(int(target_req.get('creditsAwarded') or 0), 15)
+                elif target_req['status'] == 'call_completed':
+                    target_req['creditsAwarded'] = 25
+                target_req['updatedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+                if target_contact and target_req['status'] in ('influencer_accepted', 'call_scheduled', 'call_completed'):
                     target_contact['hasScheduledCall'] = True
-                    if next_status == 'call_completed':
+                    if target_req['status'] == 'call_completed':
                         target_contact['hasTakenCall'] = True
                     if influencer:
                         sync_influencer_referral_ledger(influencer, target_contact)

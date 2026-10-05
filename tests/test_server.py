@@ -157,6 +157,17 @@ class WorkbookPersistenceTests(unittest.TestCase):
         self.assertEqual(unlocked["phone"], "+1 415 555 0192")
         self.assertTrue(unlocked["piiUnlocked"])
 
+    def test_portal_password_hash_uses_independent_random_salts_and_legacy_login(self):
+        first = server.hash_portal_password("long test password")
+        second = server.hash_portal_password("long test password")
+        self.assertNotEqual(first, second)
+        self.assertTrue(server.verify_portal_password("long test password", first))
+        self.assertFalse(server.verify_portal_password("wrong password", first))
+        legacy = server.hashlib.pbkdf2_hmac(
+            "sha256", b"legacy-password", b"gtm_irm_marketplace_salt_v1", 100_000
+        ).hex()
+        self.assertTrue(server.verify_portal_password("legacy-password", legacy))
+
         # Token lookup & persistence of vendors + marketplaceRequests
         token = "vtok-test-token-123"
         token_hash = server.hashlib.sha256(token.encode("utf-8")).hexdigest()
@@ -204,4 +215,3 @@ class WorkbookPersistenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

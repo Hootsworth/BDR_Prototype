@@ -7,34 +7,35 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Partner workspace</title>
   <style>
-    :root { color-scheme: light; --paper:#f5f5f5; --ink:#292524; --muted:#777169; --line:#e7e5e4; --surface:#fff; --soft:#f0efed; --accent:#292524; --ok:#176b4d; --error:#a62b25; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    :root { color-scheme: light; --paper:#f4f6f8; --ink:#17211f; --muted:#66736f; --line:#dce4e1; --surface:#fff; --soft:#f7faf9; --accent:#126b5b; --ok:#14745d; --error:#a73737; --radius:12px; font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     * { box-sizing:border-box; }
-    body { margin:0; background:var(--paper); color:var(--ink); }
-    main { max-width:1040px; margin:0 auto; padding:56px 28px 72px; }
-    .eyebrow { margin:0 0 12px; color:var(--muted); font-size:11px; font-weight:650; letter-spacing:.13em; text-transform:uppercase; }
-    h1 { margin:0; font-family:"Waldenburg",Georgia,serif; font-size:clamp(38px,6vw,62px); font-weight:300; letter-spacing:-.04em; line-height:1.04; }
-    .intro { max-width:620px; margin:14px 0 0; color:var(--muted); font-size:15px; line-height:1.65; }
-    header { padding-bottom:30px; border-bottom:1px solid var(--line); }
-    .summary { display:flex; gap:48px; flex-wrap:wrap; padding:20px 0; border-bottom:1px solid var(--line); }
-    .summary p { margin:0; color:var(--muted); font-size:12px; }
-    .summary strong { display:block; margin-top:5px; color:var(--ink); font-size:20px; font-weight:500; }
+    body { margin:0; background:radial-gradient(ellipse at 50% -25%, #e1efeb 0, transparent 55%),var(--paper); color:var(--ink); }
+    main { max-width:1180px; margin:0 auto; padding:28px 32px 80px; }
+    .eyebrow { margin:0 0 10px; color:var(--accent); font-size:10px; font-weight:750; letter-spacing:.14em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(38px,5vw,58px); font-weight:650; letter-spacing:-.055em; line-height:1.02; }
+    .intro { max-width:700px; margin:14px 0 0; color:var(--muted); font-size:15px; line-height:1.65; }
+    main > header { padding:4px 0 32px; border-bottom:1px solid var(--line); }
+    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:20px 0 22px; border-bottom:1px solid var(--line); }
+    .summary p { margin:0; padding:16px; color:var(--muted); font-size:11px; border:1px solid var(--line); border-radius:10px; background:white; }
+    .summary strong { display:block; margin-top:8px; color:var(--ink); font-size:21px; font-weight:650; letter-spacing:-.03em; }
     .section-head { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:30px 0 14px; border:0; }
-    h2 { margin:0; font-family:"Waldenburg",Georgia,serif; font-size:29px; font-weight:300; }
+    h2 { margin:0; font-size:26px; font-weight:620; letter-spacing:-.035em; }
     .contact-count { color:var(--muted); font-size:12px; }
-    .table-wrap { overflow-x:auto; border-top:1px solid var(--line); }
+    .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }
     table { width:100%; min-width:620px; border-collapse:collapse; text-align:left; }
-    th { padding:12px 10px; color:var(--muted); font-size:10px; font-weight:650; letter-spacing:.09em; text-transform:uppercase; }
-    td { padding:14px 10px; border-top:1px solid var(--line); font-size:13px; vertical-align:top; }
+    th { padding:12px 14px; color:var(--muted); background:#f7faf9; border-bottom:1px solid var(--line); font-size:10px; font-weight:750; letter-spacing:.09em; text-transform:uppercase; }
+    td { padding:14px; border-top:1px solid #edf1ef; font-size:13px; vertical-align:top; }
     td small { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
     .status { white-space:nowrap; }
     .empty { padding:36px 10px; color:var(--muted); text-align:center; }
-    .form-section { margin-top:42px; padding-top:24px; border-top:1px solid var(--line); }
+    .form-section { margin-top:36px; padding:26px; border:1px solid var(--line); border-radius:var(--radius); background:#fff; box-shadow:0 10px 28px #17392f09; }
     .form-section > p { max-width:650px; margin:7px 0 20px; color:var(--muted); font-size:13px; line-height:1.6; }
-    form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px 18px; max-width:760px; }
+    form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 20px; max-width:900px; }
     label { display:grid; gap:7px; color:var(--muted); font-size:12px; }
-    input,select { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:3px; background:var(--surface); color:var(--ink); font:inherit; }
-    input:focus,select:focus { outline:2px solid #aaa39b; outline-offset:1px; }
-    button { min-height:42px; width:max-content; padding:0 18px; border:0; border-radius:3px; background:var(--accent); color:white; font:inherit; font-size:13px; cursor:pointer; }
+    input,select,textarea { width:100%; min-height:44px; padding:10px 13px; border:1px solid #d5dfdb; border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; transition:border-color .16s,box-shadow .16s; }
+    input:focus,select:focus,textarea:focus { outline:none; border-color:#60a795; box-shadow:0 0 0 3px #14806b20; }
+    button { min-height:42px; width:max-content; padding:0 17px; border:0; border-radius:8px; background:var(--accent); color:white; font:inherit; font-size:13px; font-weight:600; cursor:pointer; transition:transform .16s,box-shadow .16s,background .16s; }
+    button:hover:not(:disabled) { background:#0d594b; box-shadow:0 5px 12px #126b5b2a; transform:translateY(-1px); }
     button.btn-outline { background:var(--surface); color:var(--ink); border:1px solid var(--line); }
     button.btn-outline:hover { background:var(--soft); }
     button.btn-sm { min-height:34px; padding:0 12px; font-size:12px; }
@@ -45,9 +46,9 @@
     #feedback.success, #bulk-feedback.success, #multi-edit-feedback.success { color:var(--ok); }
     #page-error { display:none; margin-top:32px; padding:14px 0; border-top:1px solid var(--line); color:var(--error); font-size:13px; }
     .section-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .mode-switcher { display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; background:var(--soft); margin:8px 0 20px; }
+    .mode-switcher { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:var(--soft); margin:8px 0 20px; padding:3px; }
     .mode-switcher button { min-height:36px; padding:0 14px; border:0; border-radius:0; background:transparent; color:var(--muted); font-size:12px; font-weight:500; }
-    .mode-switcher button.active { background:var(--accent); color:#fff; }
+    .mode-switcher button.active { background:var(--accent); color:#fff; border-radius:6px; box-shadow:0 2px 5px #142f291c; }
     .bulk-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
     .bulk-toolbar-buttons { display:flex; gap:8px; flex-wrap:wrap; }
     .bulk-paste-box { margin-bottom:14px; padding:14px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
@@ -57,21 +58,23 @@
     .bulk-table th { background:var(--soft); padding:10px 8px; font-size:10px; border-bottom:1px solid var(--line); }
     .bulk-table td { padding:6px 6px; border-top:1px solid var(--line); vertical-align:middle; }
     .bulk-table input, .bulk-table select, .inline-edit-input, .inline-edit-select { min-height:36px; padding:6px 9px; font-size:12.5px; }
-    .bulk-remove-btn { min-height:30px; width:30px; padding:0; background:transparent; color:var(--muted); border:1px solid transparent; font-size:16px; line-height:1; }
+    .bulk-remove-btn { min-height:30px; width:30px; padding:0; background:transparent; color:var(--muted); border:1px solid transparent; font-size:16px; line-height:1; border-radius:7px; }
     .bulk-remove-btn:hover { color:var(--error); border-color:var(--line); background:var(--soft); }
     .multi-edit-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 14px; margin-bottom:10px; border:1px solid var(--line); border-radius:4px; background:var(--surface); font-size:12.5px; }
-    .portal-topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid var(--line); font-size:12px; }
+    .portal-topbar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:36px; padding-bottom:18px; border-bottom:1px solid var(--line); font-size:12px; }
     .portal-topbar-links { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .portal-topbar-links a { color:var(--muted); text-decoration:none; padding:6px 10px; border:1px solid var(--line); border-radius:3px; background:var(--surface); }
-    .portal-topbar-links a:hover { color:var(--ink); background:var(--soft); }
-    .portal-auth-card { max-width:680px; margin:28px 0; padding:28px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
+    .portal-topbar-links a { color:var(--muted); text-decoration:none; padding:8px 12px; border:1px solid var(--line); border-radius:999px; background:#ffffffb8; transition:color .16s,background .16s,border-color .16s; }
+    .portal-topbar-links a:hover { color:var(--accent); background:#fff; border-color:#b8d2cb; }
+    .portal-topbar-links svg { width:13px; height:13px; margin-left:5px; vertical-align:-2px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+    .portal-auth-card { max-width:820px; margin:28px 0; padding:28px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:0 10px 28px #17392f09; }
     .portal-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; background:var(--soft); color:var(--ink); }
     .portal-badge.ok { background:#dcfce7; color:var(--ok); }
     .portal-badge.warn { background:#fef3c7; color:#92400e; }
-    .agreement-bar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:16px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
-    .mp-requests-card { margin-top:28px; padding:20px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
+    .agreement-bar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:18px 20px; margin-top:18px; border:1px solid var(--line); border-radius:10px; background:var(--surface); box-shadow:0 8px 22px #17392f08; }
+    .mp-requests-card { margin-top:28px; padding:22px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:0 10px 28px #17392f09; }
     footer { margin-top:48px; padding-top:15px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
-    @media(max-width:620px) { main { padding:35px 18px 48px; } .summary { gap:24px; } .section-head { align-items:start; flex-direction:column; } form { grid-template-columns:1fr; } .form-actions { grid-column:auto; align-items:flex-start; flex-direction:column; } }
+    a:focus-visible,button:focus-visible { outline:3px solid #16806b66; outline-offset:2px; }
+    @media(max-width:760px) { main { padding:22px 18px 56px; } .section-head { align-items:start; flex-direction:column; } form { grid-template-columns:1fr; } .form-actions { grid-column:auto; align-items:flex-start; flex-direction:column; } .form-section,.mp-requests-card,.portal-auth-card { padding:20px; } }
   </style>
 </head>
 <body>
@@ -81,8 +84,8 @@
         <span style="font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:11px;">IRM Influencer Portal · Model 2 Network</span>
       </div>
       <div class="portal-topbar-links">
-        <a href="/marketplace.html">Vendor Marketplace ↗</a>
-        <a href="/">IRM Console ↗</a>
+        <a href="/marketplace.html">Vendor Marketplace <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
+        <a href="/">IRM Console <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
         <button type="button" class="btn-outline btn-sm" id="portal-signout-btn" hidden>Sign out</button>
       </div>
     </nav>
@@ -98,7 +101,7 @@
       <p class="eyebrow" style="margin-bottom:6px;">Self-Serve Partner Onboarding</p>
       <h2 style="margin-bottom:8px;">Join or Sign In to the Influencer Portal</h2>
       <p style="margin:0 0 18px; color:var(--muted); font-size:13px; line-height:1.55;">
-        In Model 2, Influencers register on this Portal to contribute their network to the IRM and approve warm introductions requested by vetted Marketplace Vendors.
+        Create your partner profile and submit your network for IRM review. Once approved and covered by an active Partner Agreement, you can review introduction requests from approved Marketplace Vendors.
       </p>
       <div class="mode-switcher" role="tablist" aria-label="Influencer authentication mode">
         <button type="button" id="portal-tab-signup" class="active" role="tab" aria-selected="true">Sign up as Influencer</button>
@@ -109,7 +112,7 @@
       <form id="portal-signup-form">
         <label>Full name *<input name="fullName" placeholder="Kim Beluzo" required></label>
         <label>Work email *<input name="email" type="email" placeholder="kim@advisory.com" required></label>
-        <label>Create password *<input name="password" type="password" minlength="4" placeholder="At least 4 characters" required></label>
+        <label>Create password *<input name="password" type="password" minlength="12" autocomplete="new-password" placeholder="At least 12 characters" required></label>
         <label>Advisory / Company *<input name="company" placeholder="Beluzo Credit Union Advisory" required></label>
         <label>Job title<input name="jobTitle" placeholder="Managing Partner"></label>
         <label>Phone<input name="phone" type="tel" placeholder="+1 415 555 0190"></label>
@@ -117,7 +120,7 @@
         <label>Location<input name="location" placeholder="San Diego, CA"></label>
         <label style="grid-column:1/-1; display:flex; align-items:flex-start; gap:10px; padding:10px 12px; background:var(--soft); border-radius:4px; color:var(--ink);">
           <input type="checkbox" name="acceptAgreement" checked style="width:18px; min-height:18px; margin-top:2px;">
-          <span>I agree to the <strong>IRM Partner Network Agreement</strong> and authorize the IRM to match my network with vetted Vendors (+10 pts per contact shared, +15 pts scheduled call, +25 pts completed briefing).</span>
+          <span>I agree to the <strong>IRM Partner Network Agreement</strong> and authorize the IRM to match my network with approved Vendors (10 credits per eligible contact, 5 additional credits when a call is scheduled, and 10 additional credits when a call is completed).</span>
         </label>
         <div class="form-actions">
           <button type="submit" id="portal-signup-submit">Create Influencer Account</button>
@@ -127,7 +130,7 @@
 
       <form id="portal-login-form" hidden>
         <label>Work email *<input name="email" type="email" placeholder="kim.beluzo@beluzoadvisory.com" required></label>
-        <label>Password *<input name="password" type="password" placeholder="Enter your portal password" required></label>
+        <label>Password *<input name="password" type="password" autocomplete="current-password" placeholder="Enter your portal password" required></label>
         <div class="form-actions">
           <button type="submit" id="portal-login-submit">Sign In to Portal</button>
           <span id="portal-login-feedback" role="status" aria-live="polite"></span>
@@ -148,7 +151,7 @@
         <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
         <p>Calls completed<strong id="completed-count">—</strong></p>
         <p>Earned credits<strong id="partner-credits">—</strong></p>
-        <p>Est. partner reward<strong id="partner-payout">—</strong></p>
+        <p>Partner reward status<strong id="partner-payout">Manual review</strong></p>
       </section>
 
       <!-- Partner Network Agreement Bar -->
@@ -168,10 +171,10 @@
       <section id="partner-calendly-bar" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:16px; border:1px solid var(--line); border-radius:4px; background:var(--surface);">
         <div>
           <strong style="font-size:13px; display:block;">Schedule a GTM Meeting Directly</strong>
-          <span style="font-size:12px; color:var(--muted);">Share contact details below for future outreach, or book a direct GTM call with a referred company (+15 bonus credits when scheduled).</span>
+          <span style="font-size:12px; color:var(--muted);">Share contact details below for future outreach, or book a direct GTM call with a referred company. Scheduled and completed calls receive additional credits after review.</span>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:36px; padding:0 14px; border-radius:3px; background:var(--accent); color:#fff; font-size:12px; text-decoration:none; font-weight:500;">Book GTM Call ↗</a>
+          <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:40px; padding:0 15px; border-radius:8px; background:var(--accent); color:#fff; font-size:12px; text-decoration:none; font-weight:600;">Book GTM Call <svg aria-hidden="true" viewBox="0 0 16 16" style="width:13px;height:13px;margin-left:8px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
           <button type="button" class="btn-outline btn-sm" id="partner-calendly-copy-btn">Copy Booking Link</button>
         </div>
       </section>
@@ -186,7 +189,7 @@
           <span class="portal-badge" id="partner-mp-requests-count">0 active requests</span>
         </div>
         <p style="margin:0 0 14px; font-size:12.5px; color:var(--muted);">
-          Vetted Vendors who have signed the IRM Master Agreement can request warm introductions to organizations in your network. Accept a request to unlock +15 credits (and +25 credits once the briefing call completes).
+          Approved Vendors who have signed the IRM Master Agreement can request warm introductions to organizations in your network. You decide whether to accept each request; credits update when the call is scheduled and completed.
         </p>
         <div class="table-wrap">
           <table>
@@ -217,7 +220,7 @@
         <span><strong>Multi-record edit mode:</strong> Update any fields below or add rows, then save all changes at once.</span>
         <div class="section-actions">
           <span id="multi-edit-feedback" role="status" aria-live="polite"></span>
-          <button type="button" class="btn-outline btn-sm" id="multi-edit-add-row-btn">+ Add row</button>
+          <button type="button" class="btn-outline btn-sm" id="multi-edit-add-row-btn">Add row</button>
           <button type="button" class="btn-outline btn-sm" id="multi-edit-cancel-btn">Cancel</button>
           <button type="button" class="btn-sm" id="multi-edit-save-btn">Save all changes</button>
         </div>
@@ -238,16 +241,16 @@
         <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
         <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
         <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
-        <label>Call status<select name="status"><option value="pending">Not scheduled (+10 pts)</option><option value="scheduled">Scheduled (+25 pts)</option><option value="completed">Completed (+50 pts)</option></select></label>
+        <label>Call status<select name="status"><option value="pending">Not scheduled (+10 credits)</option><option value="scheduled">Scheduled (+15 credits)</option><option value="completed">Completed (+25 credits)</option></select></label>
         <section class="form-actions"><button id="submit-button" type="submit">Save introduction</button><span id="feedback" role="status" aria-live="polite"></span></section>
       </form>
 
       <div id="bulk-referral-panel" hidden>
         <div class="bulk-toolbar">
           <div class="bulk-toolbar-buttons">
-            <button type="button" class="btn-outline btn-sm" id="bulk-add-row-btn">+ Add row</button>
-            <button type="button" class="btn-outline btn-sm" id="bulk-add-5-btn">+ Add 5 rows</button>
-            <button type="button" class="btn-outline btn-sm" id="bulk-paste-toggle-btn">Paste from Excel / CSV</button>
+            <button type="button" class="btn-outline btn-sm" id="bulk-add-row-btn">Add row</button>
+            <button type="button" class="btn-outline btn-sm" id="bulk-add-5-btn">Add 5 rows</button>
+          <button type="button" class="btn-outline btn-sm" id="bulk-paste-toggle-btn">Paste from spreadsheet</button>
             <button type="button" class="btn-outline btn-sm" id="bulk-clear-btn">Reset rows</button>
           </div>
           <span class="contact-count" id="bulk-row-count">3 rows</span>

@@ -138,6 +138,18 @@ Manage influencer profiles and referrals from **Influencer Portal**. Import CSV 
 
 For sharing outside the local computer, configure `GTM_PUBLIC_BASE_URL` in `.env` with an HTTPS address routed to the same persistent local server. A `localhost` link is only reachable from that machine. The current Vercel adapter uses temporary storage, so sharing and database-owner operations are disabled there until a durable shared database is configured.
 
+### Model 2 Marketplace launch boundary
+
+The Vendor Marketplace and self-serve Influencer Portal currently require the local Python server and its persistent database. Vendor signup, influencer signup, agreements, network access, and introduction requests deliberately return `503` on Vercel because this deployment has no durable shared storage. Do not publish the Marketplace as a Vercel-backed signup flow until the server has been moved to a persistent database-backed deployment and the Marketplace and Portal routes are configured to that service.
+
+The Marketplace only exposes real, active network contacts affiliated with an Influencer who has signed the Partner Network Agreement. Seeded demo contacts are excluded. Vendors must sign the Marketplace Agreement, and each introduction request must target a specific eligible contact; contact email, phone, and profile links remain masked until the Influencer accepts.
+
+### IRM operating workflow
+
+Before onboarding external participants, an IRM operator should review the vendor organization and mark it **Approved** in the IRM Console. Vendor approval is separate from the Vendor's signed Marketplace Agreement; the operator action does not create or represent a signature. Vendors must then execute the agreement themselves before network access is enabled. Influencer profiles also need operator review and a signed Partner Network Agreement before they appear in the vendor directory.
+
+For each request, IRM may approve and route it to the Influencer or decline it. The Influencer responds in the Portal and is the only role that can accept/schedule. IRM may record completion only after a call is scheduled. Keep the signed agreement records and follow your organization's retention and payout process; the prototype records agreement metadata and referral credits but does not provide a qualified e-signature service, identity verification, billing, or payout processing.
+
 Referral charts are separate from the app: use **Export chart data**, then load the JSON in [`reports/referral-analytics.html`](reports/referral-analytics.html). The report runs locally and contains aggregate counts only.
 
 ---

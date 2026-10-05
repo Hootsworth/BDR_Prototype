@@ -1,5 +1,11 @@
 # Influencer contacts and partner sharing
 
+## Model 2 marketplace operating controls
+
+Keep the workflow human-reviewed: the IRM operator reviews vendors and partner records; a Vendor signs its own Marketplace Agreement; an Influencer signs its own Partner Network Agreement; the IRM operator routes or declines requests; and the Influencer decides whether to accept and schedule. An IRM operator can mark a call complete only after it is scheduled. Admin approval must never be treated as a substitute for a participant's signature or response.
+
+The current app records agreement metadata and referral-credit totals only. It does not provide legally qualified electronic signatures, identity or organization verification, invoicing, or payout processing. Store the executed agreement through your approved legal process and manually reconcile credits/payouts until those workflows are implemented. Vendor and Influencer signup/Marketplace APIs remain local-server-only until durable hosted storage is configured.
+
 ## Managing partner records
 
 The Influencer Portal supports creating, editing, and removing partner profiles. Select a partner to add an individual referral, import a CSV, or edit and remove linked contacts. CSV import recognizes common headers for name, email, company, job title, phone, location, and industry. Email is the duplicate key; existing records are skipped and reported. Imported records receive the partner's stable influencer ID.

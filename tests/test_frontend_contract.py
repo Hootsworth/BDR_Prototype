@@ -21,8 +21,8 @@ class FrontendContractTests(unittest.TestCase):
 
     def test_partner_portal_credit_schedule_and_bulk_csv_parser(self):
         portal = self.read("partner-portal.js")
-        self.assertIn("Scheduled (+5 pts)", portal)
-        self.assertIn("Call completed (+10 pts bonus)", portal)
+        self.assertIn("Scheduled (+15 credits)", portal)
+        self.assertIn("Call completed (+25 credits)", portal)
         self.assertIn("parseDelimitedLine", portal)
         self.assertIn("Correct rejected rows and submit again.", portal)
 
@@ -235,7 +235,13 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("manageIrmVendor", influencers_js)
         self.assertIn("manageIrmMarketplaceRequest", influencers_js)
 
+        self.assertIn("Protected by IRM", marketplace_js)
+        self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
+        self.assertIn("minlength=\"12\"", marketplace_html)
+        self.assertIn("minlength=\"12\"", partner_portal_html)
+        self.assertIn("partner reward status", partner_portal_html.lower())
+        self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
+
 
 if __name__ == "__main__":
     unittest.main()
-

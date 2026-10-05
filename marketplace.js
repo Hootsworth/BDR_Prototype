@@ -164,7 +164,9 @@
           </td>
           <td>
             <strong>${escapeHTML(contact.fullName)}</strong>
-            <small>${escapeHTML(contact.email)} · ${escapeHTML(contact.phone)}</small>
+            <small>${contact.piiUnlocked
+              ? `${escapeHTML(contact.email)} · ${escapeHTML(contact.phone)}`
+              : `Protected by IRM · ${escapeHTML(contact.email)}`}</small>
           </td>
           <td>
             <strong>${escapeHTML(contact.influencerName)}</strong>
@@ -242,7 +244,8 @@
       : `Request Intro via ${influencer?.fullName || 'IRM Partner'}`;
     document.getElementById('intro-dialog-subtitle').textContent = contact
       ? `Target: ${contact.jobTitle} (${contact.fullName}) · Facilitated by Influencer Partner ${contact.influencerName}`
-      : `Partner: ${influencer?.fullName} (${influencer?.company})`;
+      : 'Choose a specific network contact before requesting an introduction.';
+    document.getElementById('intro-submit-btn').disabled = !contact;
     document.getElementById('intro-vendor-pitch').value = currentVendor?.icpDescription || '';
     document.getElementById('intro-dialog-feedback').textContent = '';
     if (typeof introDialog?.showModal === 'function') introDialog.showModal();
@@ -279,7 +282,7 @@
       feedback.className = 'feedback-msg error';
       feedback.textContent = err.message;
     } finally {
-      submitBtn.disabled = false;
+      submitBtn.disabled = !document.getElementById('intro-target-contact-id').value;
     }
   });
 
