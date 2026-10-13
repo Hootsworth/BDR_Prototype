@@ -1,7 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
+  "outputDirectory": ".",
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "go.connectem.ai" }],
+      "destination": "/partner-portal",
+      "permanent": false
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/api/",
+      "destination": "/api/index?route=health"
+    },
+    {
+      "source": "/api",
+      "destination": "/api/index?route=health"
+    },
+    {
+      "source": "/app-config.js",
+      "destination": "/api/index?route=app-config.js"
+    },
     {
       "source": "/api/proxy/:path*",
       "destination": "https://api.explorium.ai/:path*"

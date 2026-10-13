@@ -1,11 +1,22 @@
-# Keep api/index.py, server.py, and requirements.txt available to the Vercel Python function.
-# These are local-only project folders that are not needed by the deployed function.
-agents/
-cli/
-tools/
-tests/
-scripts/
-main.py
-verify_bdr.py
 .env
-.env.example
+.env.*
+!.env.example
+.git/
+.agents/
+.codex/
+.prototype-data/
+node_modules/
+tests/
+docs/
+agents/
+gtm-console-database.json
+gtm-console-database.xlsx
+*.sqlite
+*.sqlite3
+*.db
+firebase-debug.log
+npm-debug.log
+*.pyc
+*.pyo
+__pycache__/
+**/__pycache__/
