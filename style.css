@@ -2160,8 +2160,29 @@ main { padding: 34px 40px 56px; }
 .agent-progress span { background: #777169; }
 .agent-progress-copy span:last-child, .agent-card-title button, .agent-tip-card > span { color: #777169; }
 .auth-sso-center-wrap { background: #f5f5f5; }
-.auth-brand-logo-glow { background: #f0efed !important; box-shadow: none !important; }
-.auth-login-brand-name { font: 400 24px var(--font-family-heading); }
+.auth-brand-logo-glow {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #e7e5e4;
+  border-radius: 11px;
+  background: #f0efed !important;
+  color: #292524;
+  box-shadow: none !important;
+}
+.auth-brand-logo-glow .icon-svg { width: 19px; height: 19px; }
+.auth-login-brand-name {
+  color: #292524;
+  font: 400 24px/1.1 var(--font-family-heading);
+  letter-spacing: -.025em;
+}
+.auth-login-header h2 {
+  color: #211f1d;
+  font: 400 27px/1.2 var(--font-family-heading);
+  letter-spacing: -.025em;
+}
+.auth-login-header p { color: #6f6962 !important; }
 .selection-outreach-btn { background: #292524 !important; box-shadow: none !important; border-radius: 9999px !important; }
 .selection-outreach-btn:hover { background: #0c0a09 !important; transform: none; }
 .variable-chip { border-radius: 9999px !important; }
@@ -2571,6 +2592,10 @@ html[data-theme="dark"] .floating-selection-inner { background: #211f1d; border-
 html[data-theme="dark"] .upload-log-clear, html[data-theme="dark"] .upload-log-clear:hover { background: #302d29 !important; color: #f5f2ee !important; border-color: #514b44 !important; }
 html[data-theme="dark"] .event-outreach-btn, html[data-theme="dark"] .selection-outreach-btn { background: #e7e0d7 !important; color: #211f1d !important; }
 html[data-theme="dark"] .auth-sso-center-wrap { background: #171614; }
+html[data-theme="dark"] .auth-brand-logo-glow { background: #302d29 !important; border-color: #514b44; color: #f5f2ee; }
+html[data-theme="dark"] .auth-login-brand-name,
+html[data-theme="dark"] .auth-login-header h2 { color: #f5f2ee; }
+html[data-theme="dark"] .auth-login-header p { color: #b8b1a8 !important; }
 
 /* Use restrained control geometry on working screens. */
 #tab-panel-dashboard .btn, #tab-panel-upload .btn, #tab-panel-campaign-outbound .btn,
