@@ -96,7 +96,17 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         vendor_token = signup["token"]
 
         status, _ = self.request("/api/marketplace/network", token=vendor_token)
-        self.assertEqual(status, 403, "network access remains gated before vendor agreement")
+        self.assertEqual(status, 403, "network access remains gated before IRM approval")
+
+        status, _ = self.request("/api/marketplace/requests", "POST", {
+            "targetContactId": 21, "influencerId": 20, "vendorPitch": "Request before approval"
+        }, token=vendor_token)
+        self.assertEqual(status, 403, "pending vendors cannot create requests")
+
+        status, _ = self.request("/api/irm/vendors/manage", "POST", {
+            "vendorId": signup["vendor"]["id"], "action": "approve_vendor"
+        })
+        self.assertEqual(status, 200)
 
         status, agreement = self.request("/api/marketplace/vendor/agreement", "POST", {
             "signerName": "Taylor Vendor", "acceptedTerms": True,
@@ -124,7 +134,19 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         status, _ = self.request("/api/partner-share/requests/respond", "POST", {
             "requestId": request_id, "decision": "schedule",
         }, token=influencer_token)
+        self.assertEqual(status, 409, "IRM must route requests before an influencer can act")
+        status, _ = self.request("/api/irm/requests/manage", "POST", {
+            "requestId": request_id, "status": "irm_approved",
+        })
         self.assertEqual(status, 200)
+        status, _ = self.request("/api/partner-share/requests/respond", "POST", {
+            "requestId": request_id, "decision": "schedule",
+        }, token=influencer_token)
+        self.assertEqual(status, 200)
+        status, _ = self.request("/api/partner-share/requests/respond", "POST", {
+            "requestId": request_id, "decision": "complete",
+        }, token=influencer_token)
+        self.assertEqual(status, 409, "influencers cannot self-verify completed meetings")
 
         status, network = self.request("/api/marketplace/network", token=vendor_token)
         self.assertEqual(status, 200)
@@ -134,18 +156,51 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertEqual(unlocked["phone"], "+1 415 555 0100")
         self.assertEqual(network["requests"][0]["status"], "call_scheduled")
 
-    def test_signup_rejects_short_password_and_unaccepted_agreement(self):
+        premature = self.request("/api/irm/requests/manage", "POST", {
+            "requestId": request_id, "status": "call_completed",
+        })
+        self.assertEqual(premature[0], 400, "meeting completion requires buyer evidence")
+        completed = self.request("/api/irm/requests/manage", "POST", {
+            "requestId": request_id, "status": "call_completed", "evidence": "Buyer confirmed meeting held on 2026-10-09."
+        })
+        self.assertEqual(completed[0], 200)
+
+        # Evidence-backed points can only be awarded by an IRM administrator.
+        awarded = self.request("/api/irm/requests/manage", "POST", {
+            "requestId": request_id, "status": "award_milestone",
+            "milestone": "warm_introduction", "evidence": "Buyer confirmed the permissioned email handoff."
+        })
+        self.assertEqual(awarded[0], 200)
+        self.assertEqual(awarded[1]["rewardEvent"]["points"], 200)
+        duplicate = self.request("/api/irm/requests/manage", "POST", {
+            "requestId": request_id, "status": "award_milestone",
+            "milestone": "warm_introduction", "evidence": "Buyer confirmed the permissioned email handoff."
+        })
+        self.assertEqual(duplicate[0], 200)
+        self.assertEqual(len(server.read_workbook_state()["rewardLedger"]), 1)
+
+        redemption = self.request("/api/partner-share/rewards/redeem", "POST", {
+            "rewardType": "vip_dinner", "points": 150, "details": "Prefer west coast event"
+        }, token=influencer_token)
+        self.assertEqual(redemption[0], 201)
+        excessive = self.request("/api/partner-share/rewards/redeem", "POST", {
+            "rewardType": "cash", "points": 100, "details": ""
+        }, token=influencer_token)
+        self.assertEqual(excessive[0], 409)
+
+    def test_vendor_signup_validates_password_and_legacy_partner_signup_is_retired(self):
         short_password = self.request("/api/marketplace/vendors/signup", "POST", {
             "companyName": "Short Password", "contactName": "Taylor Vendor",
             "email": "short@vendor.test", "password": "short",
         })
         self.assertEqual(short_password[0], 400)
-        unsigned = self.request("/api/partner-portal/signup", "POST", {
+        legacy_signup = self.request("/api/partner-portal/signup", "POST", {
             "fullName": "New Influencer", "email": "new@example.test",
             "company": "New Advisory", "password": "A-long-password-2026!",
             "acceptAgreement": False,
         })
-        self.assertEqual(unsigned[0], 400)
+        self.assertEqual(legacy_signup[0], 410)
+        self.assertIn("Clerk", legacy_signup[1]["error"])
 
     def test_irm_cannot_fake_influencer_acceptance_or_complete_unscheduled_call(self):
         state = server.read_workbook_state()

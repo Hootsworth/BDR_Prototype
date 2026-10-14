@@ -39,7 +39,7 @@ Welcome to **GTM Console**, an autonomous AI-powered BDR and Omnichannel GTM Out
 ---
 
 ## ⚡ Features Included
-- **Firebase Auth**: Live account sign-in & Google OAuth authentication.
+- **Clerk**: Email/password and Google account sign-in. Firebase is used for Firestore storage only.
 - **Google Workspace Sync**: Real Read & Write for Gmail sending & Google Calendar scheduling.
 - **Lemlist Outbound Integration**: Remote MCP server connection (`https://app.lemlist.com/mcp`).
 - **Firecrawl Agentic Scraping**: Multi-tab Google Dorking, press release scanning, and executive dossier compilation.

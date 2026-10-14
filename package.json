@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "node --check app.js && node --check src/main.js && node --check src/database.js && node --check src/local-workbook.js && node --check src/google-integration.js",
+    "build:firebase": "python3 scripts/build_firebase_public.py",
+    "test": "node --check app.js && node --check src/main.js && node --check src/app-state.js && node --check src/clerk-api.js && node --check src/local-workbook.js && node --check src/google-integration.js",
     "test:python": "PYTHONPYCACHEPREFIX=/tmp/langchain-pyc python3 -m unittest discover -s tests -v",
     "verify:prototype": "PYTHONPYCACHEPREFIX=/tmp/langchain-pyc python3 scripts/verify_prototype.py"
   },
@@ -24,5 +25,8 @@
     "@astryxdesign/cli": "^0.1.8",
     "@astryxdesign/core": "^0.1.8",
     "@astryxdesign/theme-neutral": "^0.1.8"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.33.0"
   }
 }

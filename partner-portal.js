@@ -21,10 +21,53 @@
   const authSection = document.getElementById('portal-auth-section');
   const workspaceContent = document.getElementById('portal-workspace-content');
   const signoutBtn = document.getElementById('portal-signout-btn');
+  const clerkMount = document.getElementById('clerk-auth-mount');
+  const clerkSignupMount = document.getElementById('clerk-signup-mount');
+  const onboardingForm = document.getElementById('portal-onboarding-form');
+  const authTabs = document.getElementById('portal-auth-tabs');
+  let clerkListenerAdded = false;
+  let selectedAuthMode = 'signin';
+
+  function loadPartnerClerk() {
+    const key = window.ClerkConfig?.publishableKey || '';
+    if (!key || key.includes('placeholder')) return Promise.reject(new Error('Secure sign-in is not configured for this portal.'));
+    if (window.Clerk?.user || (window.Clerk && typeof window.Clerk.mountSignIn === 'function')) return Promise.resolve(window.Clerk);
+    if (!window.__partnerClerkPromise) {
+      let frontendApi;
+      try {
+        const encoded = key.split('_')[2];
+        frontendApi = atob(encoded.replace(/-/g, '+').replace(/_/g, '/')).replace(/\$$/, '');
+        if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error('Invalid Clerk frontend domain.');
+      } catch (_) { return Promise.reject(new Error('The Clerk publishable key is invalid.')); }
+      const add = (url, publishableKey = '') => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url; script.async = true; script.crossOrigin = 'anonymous';
+        if (publishableKey) script.setAttribute('data-clerk-publishable-key', publishableKey);
+        script.onload = resolve; script.onerror = () => reject(new Error('Could not load secure sign-in.'));
+        document.head.appendChild(script);
+      });
+      window.__partnerClerkPromise = (async () => {
+        const base = `https://${frontendApi}/npm`;
+        await add(`${base}/@clerk/ui@1/dist/ui.browser.js`);
+        await add(`${base}/@clerk/clerk-js@6/dist/clerk.browser.js`, key);
+        if (typeof window.Clerk === 'function') {
+          const instance = new window.Clerk(key);
+          await instance.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+          window.Clerk = instance;
+        } else if (window.Clerk?.load) {
+          await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+        }
+        return window.Clerk;
+      })();
+    }
+    return window.__partnerClerkPromise;
+  }
 
   let partner = null;
   let currentContacts = [];
-  let currentMarketplaceRequests = [];
+  let currentRewardLedger = [];
+  let currentRewardRedemptions = [];
+  let currentRewardPoints = 0;
   let isMultiEditMode = false;
   let workspaceCalendlyUrl = 'https://calendly.com/company-gtm/intro-call';
 
@@ -36,8 +79,8 @@
     if (authSection) authSection.hidden = false;
     if (workspaceContent) workspaceContent.hidden = true;
     if (signoutBtn) signoutBtn.hidden = true;
-    document.getElementById('partner-name').textContent = 'Influencer Partner Portal';
-    document.getElementById('partner-company').textContent = 'Sign up or sign in to manage your network referrals, sign your Partner Agreement, and fulfill Vendor introduction requests.';
+    document.getElementById('partner-name').textContent = 'Influencer workspace';
+    document.getElementById('partner-company').textContent = 'A trusted network, with clear next steps and rewards you can choose.';
     if (message) {
       errorBox.textContent = message;
       errorBox.style.display = 'block';
@@ -93,8 +136,9 @@
       </td>
       <td>
         <select class="inline-edit-select" data-field="status">
-          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled (+10 credits)</option>
-          <option value="scheduled" ${statusVal === 'scheduled' || statusVal === 'completed' ? 'selected' : ''}>Scheduled (+15 credits)</option>
+          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled</option>
+          <option value="scheduled" ${statusVal === 'scheduled' || statusVal === 'completed' ? 'selected' : ''}>Scheduled (no points until verified)</option>
+          <option value="completed" disabled>Completed (buyer confirmation required)</option>
         </select>
       </td>
     `;
@@ -144,7 +188,7 @@
       row.appendChild(contactTd);
       row.appendChild(createCell(contact.company, [contact.jobTitle, contact.phone].filter(Boolean).join(' · ')));
 
-      const status = contact.status === 'completed' ? 'Call completed (+25 credits)' : contact.status === 'scheduled' ? 'Call scheduled (+15 credits)' : 'Contact shared (+10 credits)';
+      const status = contact.status === 'completed' ? 'Meeting completion pending buyer confirmation' : contact.status === 'scheduled' ? 'Meeting scheduled · no points yet' : 'Introduction recorded · verification pending';
       const statusTd = createCell(status);
       if (contact.status !== 'completed' && workspaceCalendlyUrl) {
         const bookLink = document.createElement('a');
@@ -173,92 +217,21 @@
     if (descEl) {
       const latestAgr = Array.isArray(partner?.agreements) && partner.agreements.length ? partner.agreements[0] : null;
       descEl.textContent = hasSigned
-        ? `${latestAgr?.name || 'IRM Partner Network Agreement'} · Active since ${latestAgr?.uploadedAt || '2026'}. Your network is live for Marketplace matchmaking.`
-        : 'Sign the Partner Network Agreement to enable Vendor matchmaking and credit payouts.';
+        ? `${latestAgr?.name || 'IRM Partner Network Agreement'} · Active since ${latestAgr?.uploadedAt || '2026'}. Your partner profile is active.`
+        : 'Review and sign the Partner Network Agreement to activate your partner profile.';
     }
     if (signBtn) {
       signBtn.hidden = hasSigned;
     }
   }
 
-  function renderMarketplaceRequests() {
-    const reqBody = document.getElementById('partner-mp-requests-body');
-    const countBadge = document.getElementById('partner-mp-requests-count');
-    if (countBadge) {
-      countBadge.textContent = `${currentMarketplaceRequests.length} request${currentMarketplaceRequests.length === 1 ? '' : 's'}`;
-    }
-    if (!reqBody) return;
-    reqBody.replaceChildren();
-    if (!currentMarketplaceRequests.length) {
-      reqBody.innerHTML = '<tr><td colspan="4" class="empty">No Vendor introduction requests yet. When a Marketplace Vendor requests a warm intro to one of your contacts, it will appear here.</td></tr>';
-      return;
-    }
-    currentMarketplaceRequests.forEach(req => {
-      const tr = document.createElement('tr');
-      const status = String(req.status || 'requested').toLowerCase();
-      let statusLabel = 'Pending your acceptance';
-      let badgeClass = 'warn';
-      if (status === 'influencer_accepted' || status === 'call_scheduled') {
-        statusLabel = 'Accepted & Scheduled (+15 credits)';
-        badgeClass = 'ok';
-      } else if (status === 'call_completed') {
-        statusLabel = 'Call Completed (+25 credits)';
-        badgeClass = 'ok';
-      } else if (status === 'declined') {
-        statusLabel = 'Declined';
-        badgeClass = '';
-      }
-      tr.innerHTML = `
-        <td>
-          <strong>${escapeHTML(req.vendorCompany || 'Marketplace Vendor')}</strong>
-          <small>${escapeHTML(req.vendorContactName || '')}${req.vendorEmail ? ` · ${escapeHTML(req.vendorEmail)}` : ''}</small>
-        </td>
-        <td>
-          <strong>${escapeHTML(req.targetContactName || 'Network Contact')}</strong>
-          <small>${escapeHTML(req.targetJobTitle || 'Executive')} · ${escapeHTML(req.targetCompany || 'Target Account')}</small>
-        </td>
-        <td>${escapeHTML(req.vendorPitch || 'Warm introduction requested via IRM Marketplace.')}</td>
-        <td>
-          <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
-            <span class="portal-badge ${badgeClass}">${escapeHTML(statusLabel)}</span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              ${status === 'requested' || status === 'irm_approved' ? `
-                <button type="button" class="btn-sm" data-req-action="schedule" data-req-id="${escapeHTML(req.id)}">Accept &amp; Schedule (+15 credits)</button>
-                <button type="button" class="btn-outline btn-sm" data-req-action="decline" data-req-id="${escapeHTML(req.id)}">Decline</button>
-              ` : ''}
-              ${status === 'influencer_accepted' || status === 'call_scheduled' ? `
-                <button type="button" class="btn-outline btn-sm" data-req-action="complete" data-req-id="${escapeHTML(req.id)}">Mark Call Completed (+25 credits)</button>
-              ` : ''}
-            </div>
-          </div>
-        </td>
-      `;
-      tr.querySelectorAll('[data-req-action]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const decision = btn.getAttribute('data-req-action');
-          const requestId = btn.getAttribute('data-req-id');
-          btn.disabled = true;
-          try {
-            await request('/api/partner-share/requests/respond', {
-              method: 'POST',
-              body: JSON.stringify({ requestId, decision })
-            });
-            render(await request('/api/partner-share'));
-          } catch (err) {
-            alert(err.message);
-            btn.disabled = false;
-          }
-        });
-      });
-      reqBody.appendChild(tr);
-    });
-  }
-
   function render(data) {
     showWorkspaceView();
     partner = data.influencer || {};
     currentContacts = data.contacts || [];
-    currentMarketplaceRequests = data.marketplaceRequests || [];
+    currentRewardLedger = data.rewardLedger || [];
+    currentRewardRedemptions = data.rewardRedemptions || [];
+    currentRewardPoints = Number(data.rewardPoints || 0);
     if (data.calendlyUrl) workspaceCalendlyUrl = data.calendlyUrl;
     document.getElementById('partner-name').textContent = partner.fullName || 'Partner workspace';
     document.getElementById('partner-company').textContent = [partner.jobTitle, partner.company].filter(Boolean).join(' · ') || 'Your introductions and their next steps.';
@@ -267,20 +240,54 @@
     const completedCount = currentContacts.filter(contact => contact.status === 'completed').length;
     document.getElementById('scheduled-count').textContent = scheduledCount;
     document.getElementById('completed-count').textContent = completedCount;
-    const totalCredits = typeof partner.referralCredits === 'number'
-      ? partner.referralCredits
-      : currentContacts.reduce((acc, c) => acc + (c.status === 'completed' ? 25 : c.status === 'scheduled' ? 15 : 10), 0);
+    const totalCredits = Number(data.rewardPoints ?? partner.referralCredits ?? 0);
     const creditsEl = document.getElementById('partner-credits');
-    if (creditsEl) creditsEl.textContent = `${totalCredits} credits`;
+    if (creditsEl) creditsEl.textContent = `${totalCredits.toLocaleString()} approved points`;
     const payoutEl = document.getElementById('partner-payout');
     if (payoutEl) payoutEl.textContent = 'Manual';
     const openCalendlyEl = document.getElementById('partner-calendly-open-link');
     if (openCalendlyEl && workspaceCalendlyUrl) openCalendlyEl.href = workspaceCalendlyUrl;
     document.getElementById('visible-count').textContent = `${currentContacts.length} contact${currentContacts.length === 1 ? '' : 's'}`;
     renderAgreementState();
-    renderMarketplaceRequests();
+    renderRewards();
     renderContactsTable();
   }
+
+  function renderRewards() {
+    const balance = document.getElementById('partner-reward-balance');
+    const available = Math.max(0, currentRewardPoints - currentRewardRedemptions.filter(r => ['requested', 'approved', 'fulfilling'].includes(r.status)).reduce((sum, r) => sum + Number(r.points || 0), 0));
+    if (balance) balance.textContent = `${available.toLocaleString()} available points`;
+    const tbody = document.getElementById('partner-reward-redemptions');
+    if (!tbody) return;
+    if (!currentRewardRedemptions.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No redemption requests.</td></tr>';
+      return;
+    }
+    tbody.replaceChildren(...currentRewardRedemptions.map(r => {
+      const tr = document.createElement('tr');
+      tr.append(createCell(String(r.rewardType || '').replaceAll('_', ' ')), createCell(`${Number(r.points || 0).toLocaleString()} pts`), createCell(r.status || 'requested'), createCell(r.createdAt || ''));
+      return tr;
+    }));
+  }
+
+  document.getElementById('partner-reward-redemption-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const feedback = document.getElementById('partner-reward-feedback');
+    try {
+      const response = await request('/api/partner-share/rewards/redeem', {
+        method: 'POST', body: JSON.stringify({
+          rewardType: document.getElementById('partner-reward-type').value,
+          points: Number(document.getElementById('partner-reward-points').value),
+          details: document.getElementById('partner-reward-details').value
+        })
+      });
+      if (feedback) feedback.textContent = `Request submitted for IRM review. ${response.availablePoints} points remain available. This is not a cash payment or fulfillment confirmation.`;
+      event.currentTarget.reset();
+      render(await request('/api/partner-share'));
+    } catch (error) {
+      if (feedback) feedback.textContent = error.message;
+    }
+  });
 
   document.getElementById('partner-calendly-copy-btn')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
@@ -320,109 +327,122 @@
     return data;
   }
 
-  // Self-serve Influencer Portal Authentication Tabs & Handlers
+  const tabSignin = document.getElementById('portal-tab-signin');
   const tabSignup = document.getElementById('portal-tab-signup');
-  const tabLogin = document.getElementById('portal-tab-login');
-  const tabToken = document.getElementById('portal-tab-token');
-  const signupForm = document.getElementById('portal-signup-form');
-  const loginForm = document.getElementById('portal-login-form');
-  const tokenForm = document.getElementById('portal-token-form');
-
-  function setPortalAuthTab(tab) {
-    if (signupForm) signupForm.hidden = tab !== 'signup';
-    if (loginForm) loginForm.hidden = tab !== 'login';
-    if (tokenForm) tokenForm.hidden = tab !== 'token';
-    tabSignup?.classList.toggle('active', tab === 'signup');
-    tabLogin?.classList.toggle('active', tab === 'login');
-    tabToken?.classList.toggle('active', tab === 'token');
+  const signinSwitchline = document.getElementById('portal-auth-switch-signin');
+  const signupSwitchline = document.getElementById('portal-auth-switch-signup');
+  const mountedAuthModes = new Set();
+  function mountClerkAuth(mode) {
+    const mount = mode === 'signin' ? clerkMount : clerkSignupMount;
+    if (!window.Clerk || !mount || mountedAuthModes.has(mode)) return;
+    try {
+      mount.querySelector('.clerk-loading')?.remove();
+      const appearance = { variables: { colorPrimary: '#315f4d', colorText: '#202925', colorBackground: '#fbfcfa', colorInputBackground: '#ffffff', colorInputText: '#202925', borderRadius: '10px', fontFamily: 'DM Sans, sans-serif' }, options: { socialButtonsVariant: 'iconButton', socialButtonsPlacement: 'top' }, elements: { card: { boxShadow: 'none', border: '0', background: 'transparent' }, rootBox: { width: '100%' }, footer: { display: 'none' } } };
+      // Keep Clerk's component links and post-auth return on this portal page.
+      // Without force redirects Clerk falls back to `/`, the IRM admin console.
+      const portalUrl = `${window.location.origin}${window.location.pathname}`;
+      const options = {
+        appearance,
+        signInUrl: portalUrl,
+        signUpUrl: portalUrl,
+        signInForceRedirectUrl: portalUrl,
+        signUpForceRedirectUrl: portalUrl,
+        signInFallbackRedirectUrl: portalUrl,
+        signUpFallbackRedirectUrl: portalUrl
+      };
+      if (mode === 'signin') window.Clerk.mountSignIn(mount, options);
+      else window.Clerk.mountSignUp(mount, options);
+      mountedAuthModes.add(mode);
+    } catch (error) {
+      mount.textContent = error.message || 'Secure sign-in could not be shown.';
+    }
   }
+  function chooseAuthMode(mode) {
+    selectedAuthMode = mode;
+    const isSignin = mode === 'signin';
+    tabSignin?.classList.toggle('active', isSignin);
+    tabSignup?.classList.toggle('active', !isSignin);
+    tabSignin?.setAttribute('aria-selected', String(isSignin));
+    tabSignup?.setAttribute('aria-selected', String(!isSignin));
+    authTabs.hidden = false;
+    onboardingForm.hidden = true;
+    clerkMount.hidden = !isSignin;
+    clerkSignupMount.hidden = isSignin;
+    signinSwitchline.hidden = isSignin;
+    signupSwitchline.hidden = !isSignin;
+    mountClerkAuth(mode);
+  }
+  tabSignin?.addEventListener('click', () => chooseAuthMode('signin'));
+  tabSignup?.addEventListener('click', () => chooseAuthMode('signup'));
+  document.getElementById('portal-switch-to-signin')?.addEventListener('click', () => chooseAuthMode('signin'));
+  document.getElementById('portal-switch-to-signup')?.addEventListener('click', () => chooseAuthMode('signup'));
 
-  tabSignup?.addEventListener('click', () => setPortalAuthTab('signup'));
-  tabLogin?.addEventListener('click', () => setPortalAuthTab('login'));
-  tabToken?.addEventListener('click', () => setPortalAuthTab('token'));
-
-  signupForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(signupForm);
+  onboardingForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
     const feedback = document.getElementById('portal-auth-feedback');
-    const submitBtn = document.getElementById('portal-signup-submit');
-    submitBtn.disabled = true;
-    feedback.className = '';
-    feedback.textContent = 'Creating your Influencer Portal account…';
+    const submit = document.getElementById('portal-onboarding-submit');
+    const values = Object.fromEntries(new FormData(onboardingForm).entries());
+    submit.disabled = true;
+    feedback.textContent = 'Saving your profile…';
     try {
-      const res = await request('/api/partner-portal/signup', {
-        method: 'POST',
-        body: JSON.stringify({
-          fullName: String(fd.get('fullName') || '').trim(),
-          email: String(fd.get('email') || '').trim(),
-          password: String(fd.get('password') || '').trim(),
-          company: String(fd.get('company') || '').trim(),
-          jobTitle: String(fd.get('jobTitle') || '').trim(),
-          phone: String(fd.get('phone') || '').trim(),
-          linkedinUrl: String(fd.get('linkedinUrl') || '').trim(),
-          location: String(fd.get('location') || '').trim(),
-          acceptAgreement: fd.get('acceptAgreement') === 'on'
-        })
-      });
-      token = res.token;
+      const response = await request('/api/partner-portal/onboard', { method: 'POST', body: JSON.stringify(values) });
+      token = response.token;
       sessionStorage.setItem(tokenKey, token);
-      signupForm.reset();
+      onboardingForm.reset();
       await load();
-    } catch (err) {
-      feedback.className = 'error';
-      feedback.textContent = err.message;
-    } finally {
-      submitBtn.disabled = false;
-    }
+    } catch (error) {
+      feedback.textContent = error.message;
+    } finally { submit.disabled = false; }
   });
 
-  loginForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(loginForm);
-    const feedback = document.getElementById('portal-login-feedback');
-    const submitBtn = document.getElementById('portal-login-submit');
-    submitBtn.disabled = true;
-    feedback.className = '';
-    feedback.textContent = 'Signing in…';
-    try {
-      const res = await request('/api/partner-portal/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: String(fd.get('email') || '').trim(),
-          password: String(fd.get('password') || '').trim()
-        })
-      });
-      token = res.token;
-      sessionStorage.setItem(tokenKey, token);
-      loginForm.reset();
-      await load();
-    } catch (err) {
-      feedback.className = 'error';
-      feedback.textContent = err.message;
-    } finally {
-      submitBtn.disabled = false;
-    }
-  });
-
-  tokenForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(tokenForm);
-    const raw = String(fd.get('token') || '').trim();
-    if (!raw) return;
-    const match = raw.match(/token=([^&]+)/);
-    token = match ? decodeURIComponent(match[1]) : raw;
-    sessionStorage.setItem(tokenKey, token);
-    await load();
-  });
-
-  signoutBtn?.addEventListener('click', () => {
+  signoutBtn?.addEventListener('click', async () => {
     token = '';
     sessionStorage.removeItem(tokenKey);
+    try { await window.Clerk?.signOut(); } catch (_) {}
     showAuthView();
+    chooseAuthMode('signin');
   });
 
   async function load() {
-    if (!token) return showAuthView();
+    if (!token) {
+      try {
+        await loadPartnerClerk();
+        if (!clerkListenerAdded) {
+          window.Clerk.addListener?.(({ user }) => {
+            if (user && !token) load();
+            else if (!user && token) {
+              token = '';
+              sessionStorage.removeItem(tokenKey);
+              showAuthView();
+            }
+          });
+          clerkListenerAdded = true;
+        }
+        if (window.Clerk.user) {
+          const session = await request('/api/partner-portal/session');
+          if (session.profileComplete && session.token) {
+            token = session.token;
+            sessionStorage.setItem(tokenKey, token);
+            return load();
+          }
+          showAuthView();
+          clerkMount.hidden = true;
+          clerkSignupMount.hidden = true;
+          authTabs.hidden = true;
+          signinSwitchline.hidden = true;
+          signupSwitchline.hidden = true;
+          onboardingForm.hidden = false;
+          const currentName = session.user?.fullName || window.Clerk.user.fullName || '';
+          onboardingForm.elements.fullName.value = currentName;
+          return;
+        }
+        chooseAuthMode(selectedAuthMode);
+      } catch (error) {
+        const authError = document.getElementById('portal-auth-error');
+        if (authError) authError.textContent = error.message;
+      }
+      return showAuthView();
+    }
     try { render(await request('/api/partner-share')); }
     catch (error) { showError(error.message); }
   }

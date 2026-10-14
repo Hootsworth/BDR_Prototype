@@ -101,8 +101,8 @@ When you push new updates, bug fixes, or enhancements to GitHub (`git push origi
 │
 ├── src/                          # Modular Frontend JS Engine & Subsystems
 │   ├── auth.js                   # Clerk & session authentication
-│   ├── database.js               # Reactive database model & state management
-│   ├── firebase-auth.js          # Firebase auth adapter
+│   ├── app-state.js              # Reactive database model & state management
+│   ├── clerk-api.js              # Clerk API session token bridge
 │   ├── google-integration.js     # Google Identity Services client
 │   ├── local-workbook.js         # Local-first .xlsx server-managed persistence
 │   ├── main.js                   # Client init, updater engine & lifecycle

@@ -16,7 +16,8 @@ aaranya-university/
 aaranya_university_website.zip
 AARANYA_UNIVERSITY_DESIGN_AND_INFO.md
 .claude/
+firebase-debug.log
+firestore-debug.log
+public/
 pylibs/
 test_print.html
-
-

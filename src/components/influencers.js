@@ -1081,7 +1081,7 @@ function openInfluencerEarningsModal(influencerId) {
         totalCredits: influencer.referralCredits || 0,
         approvedCredits: influencer.referralCredits || 0,
         pendingCredits: 0,
-        estimatedPayoutUsd: (influencer.referralCredits || 0) * 10,
+        estimatedPayoutUsd: 0,
         paymentStatus: "Settlement Pending (Placeholder)",
         referrals: []
       };
@@ -1094,11 +1094,11 @@ function openInfluencerEarningsModal(influencerId) {
   const statusBadgeEl = document.getElementById("earnings-payment-status-badge");
   const tbodyEl = document.getElementById("earnings-ledger-tbody");
 
-  if (titleEl) titleEl.textContent = `${influencer.fullName} — Partner Credits & Earnings`;
+  if (titleEl) titleEl.textContent = `${influencer.fullName} — Points & Rewards`;
   if (totalEl) totalEl.textContent = `${summary.totalCredits} pts`;
   if (approvedEl) approvedEl.textContent = `${summary.approvedCredits} pts`;
   if (pendingEl) pendingEl.textContent = `${summary.pendingCredits} pts`;
-  if (payoutEl) payoutEl.textContent = `$${summary.estimatedPayoutUsd.toLocaleString()}`;
+  if (payoutEl) payoutEl.textContent = "Not configured";
   if (statusBadgeEl) statusBadgeEl.textContent = summary.paymentStatus;
 
   if (tbodyEl) {
@@ -1107,17 +1107,13 @@ function openInfluencerEarningsModal(influencerId) {
       tbodyEl.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1.5rem; color: var(--color-text-secondary);">No referrals recorded yet for ${escapePartnerHTML(influencer.fullName)}.</td></tr>`;
     } else {
       tbodyEl.innerHTML = referrals.map(r => {
-        const pts = typeof computeContactReferralCredits === "function" ? computeContactReferralCredits(r) : (r.hasTakenCall ? 25 : r.hasScheduledCall ? 15 : 10);
+        const pts = 0;
         const statusText = r.hasTakenCall
-          ? `<span class="badge badge-success" style="font-size: 10px;">✓ Call Completed</span>`
+          ? `<span class="badge badge-success" style="font-size: 10px;">Meeting reported · verify milestone</span>`
           : r.hasScheduledCall
-            ? `<span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.14); color: #0d9488;">Call Scheduled</span>`
-            : `<span class="badge" style="font-size: 10px;">Contact Shared</span>`;
-        const breakdown = r.hasTakenCall
-          ? "+10 intro · +5 scheduled · +10 call completed"
-          : r.hasScheduledCall
-            ? "+10 intro · +5 call scheduled"
-            : "+10 contact shared";
+            ? `<span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.14); color: #0d9488;">Scheduled · no points yet</span>`
+            : `<span class="badge" style="font-size: 10px;">Introduction unverified</span>`;
+        const breakdown = "Only IRM-approved, evidence-backed marketplace milestones count toward the points balance.";
         return `
           <tr>
             <td>
@@ -1818,6 +1814,8 @@ async function refreshIrmMarketplaceModal() {
       const data = await res.json();
       if (Array.isArray(data.vendors)) database.vendors = data.vendors;
       if (Array.isArray(data.marketplaceRequests)) database.marketplaceRequests = data.marketplaceRequests;
+      if (Array.isArray(data.rewardLedger)) database.rewardLedger = data.rewardLedger;
+      if (Array.isArray(data.rewardRedemptions)) database.rewardRedemptions = data.rewardRedemptions;
       renderIrmMarketplaceModal(data);
       return;
     }
@@ -1825,6 +1823,8 @@ async function refreshIrmMarketplaceModal() {
   renderIrmMarketplaceModal({
     vendors: database.vendors || [],
     marketplaceRequests: database.marketplaceRequests || [],
+    rewardRedemptions: database.rewardRedemptions || [],
+    influencers: (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt && !c.isDemoData).map(c => ({ id: c.id, fullName: c.fullName, email: c.email, company: c.company, influencerStatus: c.influencerStatus || "approved" })),
     influencersCount: (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt).length,
     referralsCount: (database.contacts || []).filter(c => !c.isInfluencer && !c.archivedAt).length
   });
@@ -1833,6 +1833,8 @@ async function refreshIrmMarketplaceModal() {
 function renderIrmMarketplaceModal(payload = {}) {
   const vendors = Array.isArray(payload.vendors) ? payload.vendors : (database.vendors || []);
   const requests = Array.isArray(payload.marketplaceRequests) ? payload.marketplaceRequests : (database.marketplaceRequests || []);
+  const redemptions = Array.isArray(payload.rewardRedemptions) ? payload.rewardRedemptions : (database.rewardRedemptions || []);
+  const influencers = Array.isArray(payload.influencers) ? payload.influencers : [];
   const influencersCount = Number.isFinite(payload.influencersCount)
     ? payload.influencersCount
     : (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt).length;
@@ -1891,6 +1893,13 @@ function renderIrmMarketplaceModal(payload = {}) {
     }
   }
 
+  const influencerTbody = document.getElementById("irm-influencers-tbody");
+  if (influencerTbody) {
+    const pendingInfluencers = influencers.filter(i => i.influencerStatus !== "approved");
+    if (!pendingInfluencers.length) influencerTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--color-text-secondary);">No influencer reviews pending.</td></tr>`;
+    else influencerTbody.innerHTML = pendingInfluencers.map(i => `<tr><td>${escapePartnerHTML(i.fullName || "Influencer")}</td><td>${escapePartnerHTML(i.email || "")}</td><td>${escapePartnerHTML(i.company || "")}</td><td>${escapePartnerHTML(i.influencerStatus || "pending_review")}</td><td><button class="btn btn-primary btn-xs" onclick="manageIrmInfluencer('${escapePartnerHTML(i.id)}','approve')">Approve</button><button class="btn btn-secondary btn-xs" onclick="manageIrmInfluencer('${escapePartnerHTML(i.id)}','suspend')">Suspend</button></td></tr>`).join("");
+  }
+
   const reqTbody = document.getElementById("irm-requests-tbody");
   if (reqTbody) {
     if (!requests.length) {
@@ -1899,9 +1908,9 @@ function renderIrmMarketplaceModal(payload = {}) {
       reqTbody.innerHTML = requests.map(r => {
       const st = String(r.status || "requested");
         const stLabel = st === "call_completed" || st === "completed"
-          ? "Call Completed (+25 pts)"
+          ? "Meeting confirmed"
           : st === "influencer_accepted" || st === "call_scheduled" || st === "scheduled"
-          ? "Accepted & Scheduled (+15 pts)"
+          ? "Accepted / scheduled · points pending approval"
           : st === "irm_approved"
           ? "IRM Approved · Awaiting Influencer"
           : st === "declined"
@@ -1925,7 +1934,8 @@ function renderIrmMarketplaceModal(payload = {}) {
             <td style="text-align: right;">
               <div style="display: inline-flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
                 ${st === "requested" ? `<button type="button" class="btn btn-primary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'irm_approved')">Approve &amp; Route</button>` : ""}
-                ${st === "call_scheduled" ? `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'call_completed')">Mark Completed</button>` : ""}
+                ${st === "call_scheduled" ? `<button type="button" class="btn btn-secondary btn-xs" onclick="manageIrmMarketplaceRequest('${escapePartnerHTML(r.id)}', 'call_completed')">Confirm meeting with evidence</button>` : ""}
+                ${st === "call_completed" ? `<button type="button" class="btn btn-primary btn-xs" onclick="awardIrmMilestone('${escapePartnerHTML(r.id)}', 'warm_introduction')">Approve +200 intro</button><button type="button" class="btn btn-primary btn-xs" onclick="awardIrmMilestone('${escapePartnerHTML(r.id)}', 'qualified_meeting')">Approve +600 meeting</button><button type="button" class="btn btn-secondary btn-xs" onclick="awardIrmMilestone('${escapePartnerHTML(r.id)}', 'opportunity_created')">Approve +1,000 opportunity</button><button type="button" class="btn btn-secondary btn-xs" onclick="awardIrmMilestone('${escapePartnerHTML(r.id)}', 'customer_closed')">Approve +5,000 close</button><button type="button" class="btn btn-secondary btn-xs" onclick="awardIrmMilestone('${escapePartnerHTML(r.id)}', 'customer_expansion')">Approve +2,500 expansion</button>` : ""}
               </div>
             </td>
           </tr>
@@ -1933,7 +1943,49 @@ function renderIrmMarketplaceModal(payload = {}) {
       }).join("");
     }
   }
+
+  const redemptionBody = document.getElementById("irm-redemptions-tbody");
+  if (redemptionBody) {
+    if (!redemptions.length) redemptionBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--color-text-secondary);">No redemption requests.</td></tr>`;
+    else redemptionBody.innerHTML = redemptions.map(item => {
+      const influencer = (database.contacts || []).find(c => c.isInfluencer && String(c.id) === String(item.influencerId));
+      return `<tr><td>${escapePartnerHTML(influencer?.fullName || item.influencerId)}</td><td>${escapePartnerHTML(String(item.rewardType || "").replaceAll("_", " "))}<div style="font-size:11px;color:var(--color-text-secondary);">${escapePartnerHTML(item.details || "")}</div></td><td>${Number(item.points || 0).toLocaleString()}</td><td>${escapePartnerHTML(item.status || "requested")}</td><td>${item.status === "requested" ? `<button class="btn btn-primary btn-xs" onclick="manageIrmRedemption('${escapePartnerHTML(item.id)}','approve')">Approve</button><button class="btn btn-secondary btn-xs" onclick="manageIrmRedemption('${escapePartnerHTML(item.id)}','reject')">Reject</button>` : item.status === "approved" ? `<button class="btn btn-secondary btn-xs" onclick="manageIrmRedemption('${escapePartnerHTML(item.id)}','fulfill')">Confirm fulfilled</button>` : ""}</td></tr>`;
+    }).join("");
+  }
 }
+
+async function awardIrmMilestone(requestId, milestone) {
+  const labels = { warm_introduction: "200-point permissioned introduction", qualified_meeting: "600-point buyer-confirmed meeting", opportunity_created: "1,000-point accepted opportunity", customer_closed: "5,000-point customer close", customer_expansion: "2,500-point customer expansion" };
+  const evidence = prompt(`Enter buyer-confirmed evidence for ${labels[milestone]}:`);
+  if (!evidence?.trim()) return;
+  const res = await fetch("/api/irm/requests/manage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId, status: "award_milestone", milestone, evidence: evidence.trim() }) });
+  const body = await res.json().catch(() => ({}));
+  const feedback = document.getElementById("irm-marketplace-feedback");
+  if (!res.ok) { if (feedback) feedback.textContent = body.error || `Request failed (${res.status})`; return; }
+  if (feedback) feedback.textContent = `Approved ${body.rewardEvent.points} points. Influencer balance: ${body.rewardPoints}.`;
+  await refreshIrmMarketplaceModal();
+}
+
+async function manageIrmRedemption(redemptionId, action) {
+  const note = action === "reject" ? (prompt("Reason for rejecting this reward request:") || "") : "";
+  const res = await fetch("/api/irm/rewards/redemptions/manage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ redemptionId, action, note }) });
+  const body = await res.json().catch(() => ({}));
+  const feedback = document.getElementById("irm-marketplace-feedback");
+  if (!res.ok) { if (feedback) feedback.textContent = body.error || `Request failed (${res.status})`; return; }
+  if (feedback) feedback.textContent = `Reward request marked ${body.status}.`;
+  await refreshIrmMarketplaceModal();
+}
+async function manageIrmInfluencer(influencerId, action) {
+  const res = await fetch("/api/irm/influencers/manage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ influencerId, action }) });
+  const body = await res.json().catch(() => ({}));
+  const feedback = document.getElementById("irm-marketplace-feedback");
+  if (!res.ok) { if (feedback) feedback.textContent = body.error || `Request failed (${res.status})`; return; }
+  if (feedback) feedback.textContent = `Influencer status updated: ${body.status}.`;
+  await refreshIrmMarketplaceModal();
+}
+window.awardIrmMilestone = awardIrmMilestone;
+window.manageIrmRedemption = manageIrmRedemption;
+window.manageIrmInfluencer = manageIrmInfluencer;
 
 async function manageIrmVendor(vendorId, action) {
   const feedback = document.getElementById("irm-marketplace-feedback");
@@ -1959,10 +2011,12 @@ async function manageIrmMarketplaceRequest(requestId, status) {
   const feedback = document.getElementById("irm-marketplace-feedback");
   if (feedback) feedback.textContent = "Updating introduction request status...";
   try {
-    const res = await fetch("/api/irm/requests/manage", {
+      const extra = status === "call_completed" ? { evidence: prompt("Buyer confirmation that the meeting occurred:") || "" } : {};
+      if (status === "call_completed" && !extra.evidence.trim()) throw new Error("Buyer confirmation is required to verify a held meeting.");
+      const res = await fetch("/api/irm/requests/manage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId, status })
+        body: JSON.stringify({ requestId, status, ...extra })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

@@ -1,5 +1,19 @@
 import http.server
 import urllib.request
+from firebase_backend import (
+    FirebaseBackendUnavailable,
+    FirebaseTokenInvalid,
+    bearer_token,
+    firestore_enabled,
+    lookup_partner_share,
+    read_state_snapshot,
+    revoke_partner_share as firebase_revoke_partner_share,
+    revoke_partner_shares_for_influencer as firebase_revoke_partner_shares_for_influencer,
+    store_partner_share as firebase_store_partner_share,
+    verify_admin_token,
+    write_state_snapshot,
+    verify_clerk_token,
+)
 import json
 import os
 import time
@@ -17,6 +31,7 @@ import re
 import sys
 import hashlib
 import ipaddress
+from datetime import datetime, timezone, timedelta
 import xml.etree.ElementTree as ET
 try:
     import openpyxl
@@ -32,7 +47,7 @@ except ImportError:
     InvalidToken = Exception
     HAS_CRYPTOGRAPHY = False
 
-PORT = 8001
+PORT = int(os.environ.get('PORT', '8001'))
 GITHUB_REPO = "Hootsworth/BDR_Prototype"
 GITHUB_COMMITS_API = f"https://api.github.com/repos/{GITHUB_REPO}/commits/main"
 GITHUB_ZIPBALL_URL = f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip"
@@ -268,10 +283,15 @@ def db():
     return connection
 
 def persist_state(key, value):
+    if firestore_enabled() and key == 'database':
+        write_state_snapshot(key, value)
+        return
     with db() as connection:
         connection.execute('INSERT INTO app_state(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', (key, json.dumps(value), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))
 
 def read_state(key):
+    if firestore_enabled() and key == 'database':
+        return read_state_snapshot(key)
     with db() as connection:
         row = connection.execute('SELECT value FROM app_state WHERE key = ?', (key,)).fetchone()
         return json.loads(row['value']) if row else None
@@ -281,6 +301,8 @@ def default_workbook_state():
         'contacts': [],
         'vendors': [],
         'marketplaceRequests': [],
+        'rewardLedger': [],
+        'rewardRedemptions': [],
         'events': {},
         'eventsMeta': [
             {
@@ -319,6 +341,9 @@ def default_workbook_state():
 def sync_relational_tables_from_state(state):
     """Synchronize normalized SQLite relational and graph-edge tables from state object."""
     if not state or not isinstance(state, dict):
+        return
+    if firestore_enabled():
+        persist_state('database', state)
         return
     contacts = state.get('contacts') or []
     events = state.get('events') or {}
@@ -476,8 +501,11 @@ def sync_relational_tables_from_state(state):
         existing_db_state = read_state('database') or {}
         if 'vendors' not in state and existing_db_state.get('vendors'):
             state['vendors'] = existing_db_state['vendors']
-        if 'marketplaceRequests' not in state and existing_db_state.get('marketplaceRequests'):
-            state['marketplaceRequests'] = existing_db_state['marketplaceRequests']
+            if 'marketplaceRequests' not in state and existing_db_state.get('marketplaceRequests'):
+                state['marketplaceRequests'] = existing_db_state['marketplaceRequests']
+        for preserved_key in ('rewardLedger', 'rewardRedemptions'):
+            if preserved_key not in state and existing_db_state.get(preserved_key):
+                state[preserved_key] = existing_db_state[preserved_key]
 
         vendors_list = state.get('vendors') or []
         conn.execute('DELETE FROM vendors')
@@ -546,6 +574,11 @@ def sync_relational_tables_from_state(state):
                 json.dumps(req)
             ))
 
+        conn.execute('INSERT INTO app_state(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at',
+                     ('rewardLedger', json.dumps(state.get('rewardLedger') or []), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))
+        conn.execute('INSERT INTO app_state(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at',
+                     ('rewardRedemptions', json.dumps(state.get('rewardRedemptions') or []), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))
+
         conn.commit()
     persist_state('database', state)
 
@@ -557,6 +590,8 @@ def seed_synthetic_database(force=False):
         contact['isDemoData'] = True
     state.setdefault('vendors', [])
     state.setdefault('marketplaceRequests', [])
+    state.setdefault('rewardLedger', [])
+    state.setdefault('rewardRedemptions', [])
     sync_relational_tables_from_state(state)
     with db() as connection:
         connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),))
@@ -573,16 +608,64 @@ def partner_share_from_token(token):
     if not token:
         return None
     token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    if firestore_enabled():
+        share = lookup_partner_share(token_hash)
+        if share:
+            created_at = share.get('created_at')
+            try:
+                expires_epoch = datetime.strptime(created_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp() + 30 * 24 * 60 * 60
+                if expires_epoch <= time.time():
+                    share['revoked_at'] = 'expired'
+            except (ValueError, TypeError):
+                share['revoked_at'] = 'invalid_expiry'
+        return share
     with db() as connection:
-        return connection.execute(
-            'SELECT id, influencer_id, revoked_at FROM partner_shares WHERE token_hash = ?',
+        row = connection.execute(
+            'SELECT id, influencer_id, revoked_at, created_at FROM partner_shares WHERE token_hash = ?',
             (token_hash,)
         ).fetchone()
+    if not row:
+        return None
+    share = dict(row)
+    try:
+        expires_epoch = datetime.strptime(share['created_at'], '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp() + 30 * 24 * 60 * 60
+        if expires_epoch <= time.time():
+            share['revoked_at'] = 'expired'
+    except (ValueError, TypeError):
+        share['revoked_at'] = 'invalid_expiry'
+    return share
 
-def issue_partner_share_token(influencer_id):
+def store_partner_share_record(influencer_id, token_hash, created_at):
+    if firestore_enabled():
+        return firebase_store_partner_share(influencer_id, token_hash, created_at)
+    with db() as connection:
+        connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (created_at, int(influencer_id)))
+        connection.execute('INSERT INTO partner_shares(influencer_id, token_hash, created_at) VALUES (?, ?, ?)', (int(influencer_id), token_hash, created_at))
+
+def revoke_partner_share_record(share_id, revoked_at):
+    if firestore_enabled():
+        return firebase_revoke_partner_share(share_id, revoked_at)
+    with db() as connection:
+        cursor = connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE id = ?', (revoked_at, share_id))
+        return cursor.rowcount > 0
+
+def revoke_partner_share_records_for_influencer(influencer_id, revoked_at):
+    if firestore_enabled():
+        return firebase_revoke_partner_shares_for_influencer(influencer_id, revoked_at)
+    with db() as connection:
+        cursor = connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (revoked_at, int(influencer_id)))
+        return cursor.rowcount
+
+def issue_partner_share_token(influencer_id, revoke_existing=True):
     token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
     created_at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    if firestore_enabled():
+        if revoke_existing:
+            store_partner_share_record(influencer_id, token_hash, created_at)
+        else:
+            firebase_store_partner_share(influencer_id, token_hash, created_at, revoke_existing=False)
+        return token
     with db() as connection:
         connection.execute('INSERT INTO partner_shares(influencer_id, token_hash, created_at) VALUES (?, ?, ?)', (int(influencer_id), token_hash, created_at))
     return token
@@ -618,6 +701,14 @@ def vendor_from_token(state, token):
     token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
     for vendor in (state.get('vendors') or []):
         if isinstance(vendor, dict) and vendor.get('sessionTokenHash') == token_hash:
+            expires = vendor.get('sessionExpiresAt')
+            if expires:
+                try:
+                    expires_epoch = datetime.strptime(str(expires), '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
+                    if expires_epoch <= time.time():
+                        return None
+                except (ValueError, TypeError, OverflowError):
+                    return None
             return vendor
     return None
 
@@ -711,6 +802,45 @@ def compute_contact_referral_credits(contact):
     if contact.get('hasTakenCall'):
         pts += 10
     return pts
+
+REWARD_MILESTONES = {
+    'warm_introduction': 200,
+    'qualified_meeting': 600,
+    'opportunity_created': 1000,
+    'customer_closed': 5000,
+    'customer_expansion': 2500,
+}
+
+def ensure_reward_ledger(state):
+    ledger = state.setdefault('rewardLedger', [])
+    if not isinstance(ledger, list):
+        ledger = []
+        state['rewardLedger'] = ledger
+    return ledger
+
+def reward_points_for_influencer(state, influencer_id):
+    return sum(int(e.get('points') or 0) for e in ensure_reward_ledger(state)
+               if isinstance(e, dict) and str(e.get('influencerId')) == str(influencer_id)
+               and e.get('status') == 'approved')
+
+def add_reward_event(state, request, milestone, evidence, approved_by, now_iso):
+    """Append a unique, evidence-linked milestone award; duplicate awards are idempotent."""
+    if milestone not in REWARD_MILESTONES:
+        raise ValueError('Unsupported reward milestone.')
+    ledger = ensure_reward_ledger(state)
+    event_id = f"request:{request.get('id')}:milestone:{milestone}"
+    existing = next((e for e in ledger if isinstance(e, dict) and e.get('eventId') == event_id), None)
+    if existing:
+        return existing
+    event = {
+        'eventId': event_id, 'requestId': request.get('id'),
+        'influencerId': request.get('influencerId'), 'milestone': milestone,
+        'points': REWARD_MILESTONES[milestone], 'status': 'approved',
+        'evidence': str(evidence or '').strip(), 'approvedBy': approved_by,
+        'createdAt': now_iso,
+    }
+    ledger.append(event)
+    return event
 
 def sync_influencer_referral_ledger(influencer, contact):
     """Keep cached referral rows and totals derived from the current contact state."""
@@ -994,6 +1124,87 @@ def request_origin_is_trusted(handler):
     parsed = urllib.parse.urlparse(origin)
     host = handler.headers.get('Host', '').lower()
     return parsed.netloc.lower() == host and parsed.scheme in ('http', 'https')
+
+def is_irm_admin_request(handler):
+    """Use Clerk identity/allowlisting in hosted mode, loopback in local mode."""
+    if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true':
+        if getattr(handler, '_clerk_admin_claims', None):
+            return True
+        try:
+            handler._clerk_admin_claims = verify_admin_token(bearer_token(handler.headers))
+            return True
+        except (FirebaseBackendUnavailable, FirebaseTokenInvalid):
+            return False
+    return is_loopback_admin_request(handler) and request_origin_is_trusted(handler)
+
+def clerk_user_for_claims(claims):
+    """Resolve verified Clerk profile fields server-side; never trust profile email from the browser."""
+    user_id = str((claims or {}).get('sub') or '').strip()
+    secret = str(os.environ.get('CLERK_SECRET_KEY') or '').strip()
+    if not user_id or not secret:
+        raise FirebaseBackendUnavailable('Clerk user lookup is not configured. Set CLERK_SECRET_KEY.')
+    url = 'https://api.clerk.com/v1/users/' + urllib.parse.quote(user_id, safe='')
+    # Clerk's API edge rejects urllib's default Python signature; use an explicit app client UA.
+    request = urllib.request.Request(url, headers={
+        'Authorization': f'Bearer {secret}',
+        'Accept': 'application/json',
+        'User-Agent': 'BDR-Partner-Portal/1.0'
+    })
+    try:
+        with safe_urlopen(request, timeout=15) as response:
+            clerk_user = json.loads(response.read().decode('utf-8'))
+    except urllib.error.HTTPError as exc:
+        raise FirebaseBackendUnavailable(f'Clerk profile lookup failed with HTTP {exc.code}. Check the linked Clerk instance and secret key.') from exc
+    except urllib.error.URLError as exc:
+        reason = type(getattr(exc, 'reason', None)).__name__ or 'connection error'
+        raise FirebaseBackendUnavailable(f'Could not reach Clerk to read the signed-in profile ({reason}).') from exc
+    except Exception as exc:
+        raise FirebaseBackendUnavailable(f'Could not read the signed-in Clerk profile ({type(exc).__name__}).') from exc
+    emails = clerk_user.get('email_addresses') or []
+    primary_id = str(clerk_user.get('primary_email_address_id') or '')
+    email_record = next((entry for entry in emails if str(entry.get('id') or '') == primary_id), None)
+    email = str((email_record or {}).get('email_address') or '').strip().lower()
+    if not email or str((email_record or {}).get('verification', {}).get('status') or '').lower() != 'verified':
+        raise FirebaseTokenInvalid('Verify your primary email in Clerk before creating a partner profile.')
+    first = str(clerk_user.get('first_name') or '').strip()
+    last = str(clerk_user.get('last_name') or '').strip()
+    name = ' '.join(part for part in (first, last) if part).strip() or email.split('@', 1)[0]
+    return {'id': user_id, 'email': email, 'fullName': name}
+
+def hosted_api_request_allowed(handler, method, path):
+    """Default-deny hosted API access; only participant-token flows are public."""
+    if str(os.environ.get('HOSTED_API_ONLY') or '').lower() != 'true' or not path.startswith('/api/'):
+        return True
+
+    public_routes = {
+        ('GET', '/api/health'),
+        ('GET', '/api/auth/session'),  # validates its own Clerk session token
+        ('GET', '/api/partner-portal/session'),
+        ('POST', '/api/partner-portal/onboard'),
+        ('GET', '/api/partner-share'),
+        ('GET', '/api/marketplace/vendor/me'),
+        ('GET', '/api/marketplace/network'),
+        ('GET', '/api/google/oauth/callback'),  # validates the OAuth state/cookie
+        ('POST', '/api/partner-share/referrals'),
+        ('POST', '/api/partner-share/agreement'),
+        ('POST', '/api/partner-share/requests/respond'),
+        ('POST', '/api/partner-share/rewards/redeem'),
+        ('POST', '/api/marketplace/vendors/signup'),
+        ('POST', '/api/marketplace/vendors/login'),
+        ('POST', '/api/marketplace/vendor/agreement'),
+        ('POST', '/api/marketplace/requests'),
+    }
+    if (method, path) in public_routes:
+        return True
+
+    try:
+        handler._clerk_admin_claims = verify_admin_token(bearer_token(handler.headers))
+        return True
+    except FirebaseBackendUnavailable:
+        json_response(handler, 503, {'error': 'Clerk token verification is not configured.'})
+    except FirebaseTokenInvalid:
+        json_response(handler, 401, {'error': 'Sign in with an authorized IRM administrator account.'})
+    return False
 
 def add_referral_via_portal(influencer_email, prospect_data):
     """Adds a referred contact under an influencer and persists to SQLite."""
@@ -1291,12 +1502,17 @@ def read_workbook_state():
     else:
         # Primary source of truth is now our relational SQLite database!
         db_state = read_state('database')
-        if db_state and isinstance(db_state, dict) and len(db_state.get('contacts') or []) >= 30:
+        if db_state and isinstance(db_state, dict) and (firestore_enabled() or len(db_state.get('contacts') or []) >= 30):
             if 'eventsMeta' not in db_state:
                 db_state['eventsMeta'] = default_workbook_state()['eventsMeta']
             db_state.setdefault('vendors', [])
             db_state.setdefault('marketplaceRequests', [])
+            db_state.setdefault('rewardLedger', [])
+            db_state.setdefault('rewardRedemptions', [])
             return db_state
+        if firestore_enabled():
+            # Hosted environments must never auto-seed synthetic demo data.
+            return default_workbook_state()
         # Auto-seed the 30 Influencers x 30 Contacts synthetic dataset on first load
         try:
             return seed_synthetic_database()
@@ -1389,6 +1605,10 @@ def read_workbook_state():
         state['vendors'] = settings_values['vendors']
     if 'marketplaceRequests' in settings_values:
         state['marketplaceRequests'] = settings_values['marketplaceRequests']
+    if 'rewardLedger' in settings_values:
+        state['rewardLedger'] = settings_values['rewardLedger']
+    if 'rewardRedemptions' in settings_values:
+        state['rewardRedemptions'] = settings_values['rewardRedemptions']
     if 'currentOutboundSubtab' in settings_values:
         state['currentOutboundSubtab'] = settings_values['currentOutboundSubtab']
     if 'autoEnrich' in settings_values:
@@ -1452,6 +1672,8 @@ def build_workbook_snapshot(state):
         {'key': 'meetings', 'value': json.dumps(state.get('meetings') or [])},
         {'key': 'vendors', 'value': json.dumps(state.get('vendors') or [])},
         {'key': 'marketplaceRequests', 'value': json.dumps(state.get('marketplaceRequests') or [])},
+        {'key': 'rewardLedger', 'value': json.dumps(state.get('rewardLedger') or [])},
+        {'key': 'rewardRedemptions', 'value': json.dumps(state.get('rewardRedemptions') or [])},
         {'key': 'currentOutboundSubtab', 'value': json.dumps(state.get('currentOutboundSubtab') or 'prospects')},
         {'key': 'autoEnrich', 'value': json.dumps(bool(state.get('autoEnrich')))},
         {'key': 'calendlyUrl', 'value': json.dumps(state.get('calendlyUrl') or '')},
@@ -1472,6 +1694,9 @@ def build_workbook_snapshot(state):
     }
 
 def write_workbook_state(state):
+    if firestore_enabled():
+        persist_state('database', state)
+        return
     default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
     if WORKBOOK_PATH == default_wb_path:
         try:
@@ -1908,6 +2133,68 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         clean_path = parsed_url.path
 
+        if clean_path == '/app-config.js':
+            publishable_key = str(os.environ.get('CLERK_PUBLISHABLE_KEY') or '').strip()
+            body = ('window.__APP_CONFIG__ = ' + json.dumps({'clerkPublishableKey': publishable_key}) + ';').encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/javascript; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true' and not clean_path.startswith('/api/'):
+            json_response(self, 404, {'error': 'Not found.'})
+            return
+
+        if clean_path == '/api/health':
+            json_response(self, 200, {'ok': True, 'service': 'trusted-influence-api'})
+            return
+
+        if not hosted_api_request_allowed(self, 'GET', clean_path):
+            return
+
+        if clean_path == '/api/auth/session':
+            try:
+                claims = verify_clerk_token(bearer_token(self.headers))
+                json_response(self, 200, {
+                    'authenticated': True,
+                    'user': {
+                        'uid': claims.get('sub'),
+                        'email': claims.get('email'),
+                        'emailVerified': bool(claims.get('email_verified')),
+                        'displayName': claims.get('name') or ''
+                    }
+                })
+            except FirebaseBackendUnavailable as ex:
+                json_response(self, 503, {'error': str(ex)})
+            except FirebaseTokenInvalid as ex:
+                json_response(self, 401, {'error': str(ex)})
+            return
+
+        if clean_path == '/api/partner-portal/session':
+            try:
+                claims = verify_clerk_token(bearer_token(self.headers))
+                user = clerk_user_for_claims(claims)
+                state = read_workbook_state()
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and (str(c.get('clerkUserId') or '') == str(user['id']) or str(c.get('email') or '').strip().lower() == user['email'].lower())), None)
+                if not influencer:
+                    json_response(self, 200, {'profileComplete': False, 'user': user})
+                    return
+                if influencer.get('clerkUserId') and str(influencer.get('clerkUserId')) != str(user['id']):
+                    json_response(self, 409, {'error': 'This partner profile is linked to a different Clerk account.'})
+                    return
+                influencer['clerkUserId'] = user['id']
+                write_workbook_state(state)
+                json_response(self, 200, {'profileComplete': True, 'token': issue_partner_share_token(influencer['id'], revoke_existing=False)})
+            except FirebaseBackendUnavailable as ex:
+                json_response(self, 503, {'error': str(ex)})
+            except FirebaseTokenInvalid as ex:
+                json_response(self, 401, {'error': str(ex)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not load partner profile: {ex}'})
+            return
+
         if clean_path == '/portal':
             query = urllib.parse.parse_qs(parsed_url.query)
             email = (query.get('email') or [''])[0]
@@ -1926,7 +2213,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/db/state':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database state is available only from the local console.'})
                 return
             try:
@@ -1945,7 +2232,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/db/search':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database search is available only from the local console.'})
                 return
             query_params = urllib.parse.parse_qs(parsed_url.query)
@@ -2000,7 +2287,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     },
                     'calendlyUrl': calendly_url,
                     'contacts': safe_contacts,
-                    'marketplaceRequests': mp_requests
+                    'marketplaceRequests': mp_requests,
+                    'rewardLedger': [e for e in ensure_reward_ledger(state) if isinstance(e, dict) and str(e.get('influencerId')) == inf_id_str],
+                    'rewardPoints': reward_points_for_influencer(state, inf_id_str),
+                    'rewardRedemptions': [r for r in (state.get('rewardRedemptions') or []) if isinstance(r, dict) and str(r.get('influencerId')) == inf_id_str]
                 })
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not load partner workspace: {ex}'})
@@ -2048,6 +2338,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not vendor:
                     json_response(self, 401, {'error': 'Sign in to your Vendor Marketplace account first.'})
                     return
+                if vendor.get('vendorStatus') != 'approved':
+                    json_response(self, 403, {'error': 'IRM approval is required before Marketplace network access.', 'code': 'VENDOR_REVIEW_REQUIRED'})
+                    return
                 if vendor.get('agreementStatus') != 'signed' or vendor.get('networkAccessLevel') == 'locked':
                     json_response(self, 403, {
                         'error': 'Signed IRM Marketplace Agreement is required before accessing the Influencer Network.',
@@ -2058,7 +2351,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if vendor.get('vendorStatus') == 'revoked':
                     json_response(self, 403, {'error': 'Vendor Marketplace access has been revoked.'})
                     return
-
                 contacts = state.get('contacts') or []
                 influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
                 inf_by_id = {str(i.get('id')): i for i in influencers}
@@ -2137,7 +2429,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/irm/marketplace':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'IRM Marketplace admin overview is restricted to the local console.'})
                 return
             try:
@@ -2150,6 +2442,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 200, {
                     'vendors': vendors,
                     'marketplaceRequests': requests_list,
+                    'influencers': [
+                        {'id': c.get('id'), 'fullName': c.get('fullName'), 'email': c.get('email'),
+                         'company': c.get('company'), 'influencerStatus': c.get('influencerStatus', 'approved')}
+                        for c in influencers
+                    ],
                     'summary': {
                         'totalVendors': len(vendors),
                         'signedVendors': sum(1 for v in vendors if v.get('agreementStatus') == 'signed'),
@@ -2164,7 +2461,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/portal/influencers':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Use a scoped partner link to view shared partner data.'})
                 return
             try:
@@ -2185,7 +2482,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/portal/referrals':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Use a scoped partner link to view shared referrals.'})
                 return
             try:
@@ -2285,15 +2582,17 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/state':
-            if not is_loopback_admin_request(self):
-                json_response(self, 403, {'error': 'Database state is available only from the local console.'})
+            if not is_irm_admin_request(self):
+                status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
+                json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
                 return
             json_response(self, 200, {'state': read_state('database') or {}})
             return
 
         if self.path == '/api/workbook/state':
-            if not is_loopback_admin_request(self):
-                json_response(self, 403, {'error': 'Database state is available only from the local console.'})
+            if not is_irm_admin_request(self):
+                status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
+                json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
                 return
             try:
                 json_response(self, 200, {'state': read_workbook_state(), 'path': DB_PATH})
@@ -2323,8 +2622,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 400, {'error': 'Request body must be valid JSON.'})
             return
 
+        if not hosted_api_request_allowed(self, 'POST', urllib.parse.urlsplit(self.path).path):
+            return
+
         if self.path == '/api/system/update':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Updates are available to the local app owner only.'})
                 return
             try:
@@ -2338,7 +2640,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/create':
-            if not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
                 return
             if os.environ.get('VERCEL'):
@@ -2358,9 +2660,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 token = secrets.token_urlsafe(32)
                 token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
                 created_at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                with db() as connection:
-                    connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (created_at, int(influencer['id'])))
-                    connection.execute('INSERT INTO partner_shares(influencer_id, token_hash, created_at) VALUES (?, ?, ?)', (int(influencer['id']), token_hash, created_at))
+                store_partner_share_record(influencer['id'], token_hash, created_at)
                 request_origin = self.headers.get('Origin') or f"http://{self.headers.get('Host', f'localhost:{PORT}')}"
                 share_base = configured_base or request_origin
                 share_url = f"{share_base}/partner-portal.html#token={urllib.parse.quote(token)}"
@@ -2370,7 +2670,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/revoke':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             token = str(payload.get('token') or '').strip()
@@ -2378,20 +2678,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if not share:
                 json_response(self, 404, {'error': 'Partner link not found.'})
                 return
-            with db() as connection:
-                connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE id = ?', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), share['id']))
+            revoke_partner_share_record(share['id'], time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
             json_response(self, 200, {'status': 'revoked'})
             return
 
         if self.path == '/api/partner-shares/revoke-influencer':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             try:
                 influencer_id = int(payload.get('influencerId'))
-                with db() as connection:
-                    cursor = connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), influencer_id))
-                json_response(self, 200, {'status': 'revoked', 'revoked': cursor.rowcount})
+                revoked = revoke_partner_share_records_for_influencer(influencer_id, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+                json_response(self, 200, {'status': 'revoked', 'revoked': revoked})
             except (TypeError, ValueError):
                 json_response(self, 400, {'error': 'A valid influencer ID is required.'})
             return
@@ -2403,6 +2701,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 401, {'error': 'This partner link is invalid or has been revoked.'})
                 return
             try:
+                if any(str(row.get('status') or '').lower() == 'completed' for row in (payload.get('referrals') or []) if isinstance(row, dict)) or str(payload.get('status') or '').lower() == 'completed':
+                    json_response(self, 400, {'error': 'Meeting completion must be confirmed by the buyer and approved by IRM.'})
+                    return
                 state = read_workbook_state()
                 influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
                 if not influencer:
@@ -2437,152 +2738,75 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not add referral: {ex}'})
             return
 
-        if self.path == '/api/partner-portal/signup':
-            if os.environ.get('VERCEL'):
-                json_response(self, 503, {'error': 'Self-serve portal signup requires persistent storage.'})
-                return
+        if self.path == '/api/partner-portal/onboard':
             try:
-                state = read_workbook_state()
-                contacts = state.setdefault('contacts', [])
-                name = str(payload.get('fullName') or '').strip()
-                email = str(payload.get('email') or '').strip().lower()
-                password = str(payload.get('password') or '').strip()
+                claims = verify_clerk_token(bearer_token(self.headers))
+                user = clerk_user_for_claims(claims)
+                name = str(payload.get('fullName') or user['fullName']).strip()
                 company = str(payload.get('company') or '').strip()
                 job_title = str(payload.get('jobTitle') or 'Industry Advisor').strip()
-                phone = str(payload.get('phone') or '').strip()
-                location = str(payload.get('location') or '').strip()
                 linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
-                sign_agreement = bool(payload.get('acceptAgreement'))
-
-                if not name or not email or not company:
-                    json_response(self, 400, {'error': 'Full name, work email, and company are required.'})
-                    return
-                if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
-                    json_response(self, 400, {'error': 'Enter a valid work email address.'})
-                    return
-                if len(password) < 12:
-                    json_response(self, 400, {'error': 'Choose a password of at least 12 characters.'})
-                    return
-                if not sign_agreement:
-                    json_response(self, 400, {'error': 'Accept the IRM Partner Network Agreement to create a portal account.'})
+                location = str(payload.get('location') or '').strip()
+                if not name or not company:
+                    json_response(self, 400, {'error': 'Your name and company or advisory are required.'})
                     return
 
-                existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
-                now_date = time.strftime('%Y-%m-%d', time.gmtime())
-                initial_agreements = []
-                if sign_agreement:
-                    initial_agreements.append({
-                        'id': f"agr_{int(time.time() * 1000)}",
-                        'name': 'IRM Partner Network Agreement (Self-Serve Portal)',
-                        'type': 'Signed Partner Agreement',
-                        'status': 'Signed',
-                        'signedBy': name,
-                        'uploadedAt': now_date,
-                        'notes': 'Digitally signed during Influencer Portal onboarding.'
-                    })
-
-                if existing:
-                    if existing.get('isInfluencer') or existing.get('portalPasswordHash'):
-                        json_response(self, 409, {'error': 'An account or contact with this email already exists. Please sign in or contact the IRM administrator.'})
-                        return
-                    existing['isInfluencer'] = True
-                    existing['fullName'] = name
-                    if company:
-                        existing['company'] = company
-                    if job_title:
-                        existing['jobTitle'] = job_title
-                    if phone:
-                        existing['phone'] = phone
-                    if location:
-                        existing['location'] = location
+                state = read_workbook_state()
+                contacts = state.setdefault('contacts', [])
+                email = user['email']
+                influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email), None)
+                if influencer and influencer.get('clerkUserId') and str(influencer.get('clerkUserId')) != user['id']:
+                    json_response(self, 409, {'error': 'This partner profile is linked to a different Clerk account.'})
+                    return
+                if influencer:
+                    influencer['fullName'] = name
+                    influencer['company'] = company
+                    influencer['jobTitle'] = job_title
+                    influencer['clerkUserId'] = user['id']
                     if linkedin_url:
-                        existing['linkedinUrl'] = linkedin_url
-                    existing['portalPasswordHash'] = hash_portal_password(password)
-                    existing.setdefault('referrals', [])
-                    existing.setdefault('referralCredits', 0)
-                    existing.setdefault('agreements', [])
-                    if initial_agreements:
-                        existing['agreements'] = initial_agreements + existing['agreements']
-                    influencer = existing
+                        influencer['linkedinUrl'] = linkedin_url
+                    if location:
+                        influencer['location'] = location
+                    influencer.setdefault('referrals', [])
+                    influencer.setdefault('referralCredits', 0)
+                    influencer.setdefault('agreements', [])
                 else:
-                    parts = name.split()
-                    new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
-                    influencer = {
-                        'id': new_id,
-                        'firstName': parts[0] if parts else name,
-                        'lastName': ' '.join(parts[1:]),
-                        'fullName': name,
-                        'email': email,
-                        'company': company or 'Independent Advisory',
-                        'jobTitle': job_title,
-                        'phone': phone,
-                        'location': location,
-                        'linkedinUrl': linkedin_url,
-                        'isInfluencer': True,
-                        'portalPasswordHash': hash_portal_password(password),
-                        'referralCredits': 0,
-                        'referrals': [],
-                        'agreements': initial_agreements,
-                        'sourceFile': 'Influencer Portal Self-Signup'
-                    }
-                    contacts.append(influencer)
-
+                    existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                    if existing and not existing.get('isInfluencer'):
+                        existing.update({
+                            'fullName': name, 'company': company, 'jobTitle': job_title,
+                            'isInfluencer': True, 'influencerStatus': 'pending_review',
+                            'clerkUserId': user['id'], 'sourceFile': existing.get('sourceFile') or 'Influencer Portal Onboarding'
+                        })
+                        influencer = existing
+                    else:
+                        parts = name.split()
+                        new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                        influencer = {
+                            'id': new_id, 'firstName': parts[0] if parts else name,
+                            'lastName': ' '.join(parts[1:]), 'fullName': name, 'email': email,
+                            'company': company, 'jobTitle': job_title, 'linkedinUrl': linkedin_url,
+                            'location': location, 'isInfluencer': True, 'influencerStatus': 'pending_review',
+                            'clerkUserId': user['id'], 'referralCredits': 0, 'referrals': [],
+                            'agreements': [], 'sourceFile': 'Influencer Portal Onboarding'
+                        }
+                        contacts.append(influencer)
                 write_workbook_state(state)
-                token = issue_partner_share_token(influencer['id'])
                 json_response(self, 201, {
                     'status': 'created',
-                    'token': token,
-                    'influencer': {
-                        'id': influencer.get('id'),
-                        'fullName': influencer.get('fullName'),
-                        'email': influencer.get('email'),
-                        'company': influencer.get('company'),
-                        'jobTitle': influencer.get('jobTitle')
-                    }
+                    'token': issue_partner_share_token(influencer['id'], revoke_existing=False),
+                    'influencer': {key: influencer.get(key) for key in ('id', 'fullName', 'email', 'company', 'jobTitle')}
                 })
+            except FirebaseBackendUnavailable as ex:
+                json_response(self, 503, {'error': str(ex)})
+            except FirebaseTokenInvalid as ex:
+                json_response(self, 401, {'error': str(ex)})
             except Exception as ex:
-                json_response(self, 500, {'error': f'Influencer signup failed: {ex}'})
+                json_response(self, 500, {'error': f'Partner onboarding failed: {ex}'})
             return
 
-        if self.path == '/api/partner-portal/login':
-            try:
-                state = read_workbook_state()
-                contacts = state.get('contacts') or []
-                email = str(payload.get('email') or '').strip().lower()
-                password = str(payload.get('password') or '').strip()
-                if not email or not password:
-                    json_response(self, 400, {'error': 'Email and password are required.'})
-                    return
-                influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email), None)
-                if not influencer:
-                    json_response(self, 401, {'error': 'No Influencer Partner account found for this email.'})
-                    return
-                stored_hash = influencer.get('portalPasswordHash')
-                if stored_hash:
-                    if not verify_portal_password(password, stored_hash):
-                        json_response(self, 401, {'error': 'Invalid email or password.'})
-                        return
-                    if '$' not in str(stored_hash):
-                        influencer['portalPasswordHash'] = hash_portal_password(password)
-                        write_workbook_state(state)
-                else:
-                    json_response(self, 403, {'error': 'This partner profile needs to be claimed through the approved onboarding process.'})
-                    return
-
-                token = issue_partner_share_token(influencer['id'])
-                json_response(self, 200, {
-                    'status': 'authenticated',
-                    'token': token,
-                    'influencer': {
-                        'id': influencer.get('id'),
-                        'fullName': influencer.get('fullName'),
-                        'email': influencer.get('email'),
-                        'company': influencer.get('company'),
-                        'jobTitle': influencer.get('jobTitle')
-                    }
-                })
-            except Exception as ex:
-                json_response(self, 500, {'error': f'Influencer sign-in failed: {ex}'})
+        if self.path in ('/api/partner-portal/signup', '/api/partner-portal/login'):
+            json_response(self, 410, {'error': 'Partner accounts now use Clerk. Sign in through the Influencer Portal.'})
             return
 
         if self.path == '/api/partner-share/agreement':
@@ -2636,9 +2860,17 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not influencer:
                     json_response(self, 404, {'error': 'Partner profile not found.'})
                     return
+                if influencer.get('influencerStatus', 'approved') != 'approved':
+                    json_response(self, 403, {'error': 'Your profile is awaiting IRM approval before participating in Marketplace requests.'})
+                    return
                 req_id = str(payload.get('requestId') or '').strip()
                 decision = str(payload.get('decision') or 'accept').strip().lower()
                 mp_requests = state.setdefault('marketplaceRequests', [])
+                # This first pilot only awards points after a milestone has verifiable evidence
+                # and an IRM operator approves it; participant actions cannot self-award.
+                if decision in ('complete', 'completed', 'call_completed'):
+                    json_response(self, 409, {'error': 'Meeting completion must be confirmed by the buyer and approved by IRM.'})
+                    return
                 target_req = next((r for r in mp_requests if isinstance(r, dict) and str(r.get('id')) == req_id), None)
                 if not target_req:
                     json_response(self, 404, {'error': 'Introduction request not found.'})
@@ -2648,17 +2880,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     return
 
                 now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                if decision in ('decline', 'declined'):
+                current_status = str(target_req.get('status') or 'requested')
+                if decision in ('decline', 'declined') and current_status in ('requested', 'irm_approved'):
                     target_req['status'] = 'declined'
-                elif decision in ('complete', 'completed', 'call_completed'):
-                    target_req['status'] = 'call_completed'
-                    target_req['creditsAwarded'] = 25
-                elif decision in ('schedule', 'scheduled', 'call_scheduled'):
+                elif decision in ('schedule', 'scheduled', 'call_scheduled') and current_status == 'irm_approved':
                     target_req['status'] = 'call_scheduled'
-                    target_req['creditsAwarded'] = 15
-                else:
+                elif decision in ('accept', 'accepted', 'influencer_accepted') and current_status == 'irm_approved':
                     target_req['status'] = 'influencer_accepted'
-                    target_req['creditsAwarded'] = 15
+                else:
+                    json_response(self, 409, {'error': 'IRM must approve the request before you accept, schedule, or decline it.'})
+                    return
 
                 if payload.get('scheduledMeetingUrl'):
                     target_req['scheduledMeetingUrl'] = str(payload.get('scheduledMeetingUrl')).strip()
@@ -2667,10 +2898,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 # Sync target contact call state and referral credits
                 target_cid = str(target_req.get('targetContactId') or '')
                 target_contact = next((c for c in (state.get('contacts') or []) if str(c.get('id')) == target_cid and not c.get('isInfluencer')), None)
-                if target_contact and target_req['status'] in ('influencer_accepted', 'call_scheduled', 'call_completed'):
+                if target_contact and target_req['status'] in ('influencer_accepted', 'call_scheduled'):
                     target_contact['hasScheduledCall'] = True
-                    if target_req['status'] == 'call_completed':
-                        target_contact['hasTakenCall'] = True
                     sync_influencer_referral_ledger(influencer, target_contact)
 
                 write_workbook_state(state)
@@ -2681,6 +2910,45 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 })
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not update introduction request: {ex}'})
+            return
+
+        if self.path == '/api/partner-share/rewards/redeem':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            if not share or share['revoked_at']:
+                json_response(self, 401, {'error': 'Sign in to your Influencer Portal first.'})
+                return
+            reward_type = str(payload.get('rewardType') or '').strip()
+            allowed_rewards = {'cash', 'nonprofit_donation', 'conference_sponsorship', 'products_services', 'executive_event', 'vip_dinner', 'research_sponsorship', 'speaking_opportunity', 'content_collaboration', 'thought_leadership'}
+            try:
+                if reward_type not in allowed_rewards:
+                    json_response(self, 400, {'error': 'Choose a listed reward type.'})
+                    return
+                points = int(payload.get('points') or 0)
+                if points <= 0:
+                    json_response(self, 400, {'error': 'Enter the points to redeem.'})
+                    return
+                state = read_workbook_state()
+                influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
+                if not influencer:
+                    json_response(self, 404, {'error': 'Partner profile not found.'})
+                    return
+                ledger = ensure_reward_ledger(state)
+                reserved = sum(int(r.get('points') or 0) for r in (state.get('rewardRedemptions') or []) if isinstance(r, dict) and str(r.get('influencerId')) == str(share['influencer_id']) and r.get('status') in ('requested', 'approved', 'fulfilling'))
+                available = reward_points_for_influencer(state, share['influencer_id']) - reserved
+                if points > available:
+                    json_response(self, 409, {'error': 'Requested points exceed your available approved balance.', 'availablePoints': max(available, 0)})
+                    return
+                redemptions = state.setdefault('rewardRedemptions', [])
+                rid = f"redemption:{share['influencer_id']}:{int(time.time() * 1000)}"
+                entry = {'id': rid, 'influencerId': share['influencer_id'], 'rewardType': reward_type,
+                    'points': points, 'details': str(payload.get('details') or '').strip(),
+                    'status': 'requested', 'createdAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+                redemptions.append(entry)
+                write_workbook_state(state)
+                json_response(self, 201, {'status': 'requested', 'redemption': entry, 'availablePoints': available - points})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not submit reward request: {ex}'})
             return
 
         if self.path == '/api/marketplace/vendors/signup':
@@ -2732,6 +3000,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'networkAccessLevel': 'locked',
                     'agreements': [],
                     'createdAt': now_iso,
+                    'sessionExpiresAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() + 30 * 24 * 60 * 60)),
                     'approvedAt': ''
                 }
                 vendors.append(new_vendor)
@@ -2760,6 +3029,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     return
                 token = secrets.token_urlsafe(32)
                 vendor['sessionTokenHash'] = hashlib.sha256(token.encode('utf-8')).hexdigest()
+                vendor['sessionExpiresAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() + 30 * 24 * 60 * 60))
                 write_workbook_state(state)
                 json_response(self, 200, {
                     'status': 'authenticated',
@@ -2800,7 +3070,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 vendor.setdefault('agreements', []).insert(0, agr_entry)
                 vendor['agreementStatus'] = 'signed'
                 vendor['networkAccessLevel'] = 'full_partner_access'
-                vendor['approvedAt'] = now_iso
                 write_workbook_state(state)
                 json_response(self, 200, {
                     'status': 'signed',
@@ -2827,6 +3096,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if vendor.get('vendorStatus') == 'revoked':
                     json_response(self, 403, {'error': 'Vendor Marketplace access has been revoked.'})
                     return
+                if vendor.get('vendorStatus') != 'approved':
+                    json_response(self, 403, {'error': 'IRM approval is required before submitting introduction requests.', 'code': 'VENDOR_REVIEW_REQUIRED'})
+                    return
 
                 target_contact_id = payload.get('targetContactId')
                 influencer_id = payload.get('influencerId')
@@ -2851,6 +3123,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             or (inf_name_ref and str(c.get('fullName') or '').lower() == inf_name_ref)
                         )
                     ), None)
+                if influencer and influencer.get('influencerStatus', 'approved') != 'approved':
+                    json_response(self, 403, {'error': 'This Influencer is not yet approved for Marketplace requests.', 'code': 'INFLUENCER_REVIEW_REQUIRED'})
+                    return
 
                 if not target_contact or not influencer:
                     json_response(self, 404, {'error': 'Select a valid network contact linked to an Influencer Partner to request an introduction.'})
@@ -2908,7 +3183,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/irm/vendors/manage':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM Console administrator can manage vendors.'})
                 return
             try:
@@ -2923,11 +3198,13 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
                 if action == 'approve_vendor':
                     vendor['vendorStatus'] = 'approved'
+                    vendor['approvedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
                 elif action == 'revoke_access':
                     vendor['networkAccessLevel'] = 'locked'
                     vendor['vendorStatus'] = 'revoked'
                 elif action == 'restore_vendor':
                     vendor['vendorStatus'] = 'approved'
+                    vendor['approvedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
                 else:
                     json_response(self, 400, {'error': 'Unsupported vendor governance action.'})
                     return
@@ -2937,8 +3214,30 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Vendor management failed: {ex}'})
             return
 
+        if self.path == '/api/irm/influencers/manage':
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+                json_response(self, 403, {'error': 'Only the IRM administrator can manage influencer eligibility.'})
+                return
+            state = read_workbook_state()
+            influencer = next((c for c in (state.get('contacts') or []) if c.get('isInfluencer') and str(c.get('id')) == str(payload.get('influencerId') or '')), None)
+            if not influencer:
+                json_response(self, 404, {'error': 'Influencer not found.'})
+                return
+            action = str(payload.get('action') or '').strip().lower()
+            if action == 'approve':
+                influencer['influencerStatus'] = 'approved'
+            elif action == 'suspend':
+                influencer['influencerStatus'] = 'suspended'
+            else:
+                json_response(self, 400, {'error': 'Choose approve or suspend.'})
+                return
+            influencer['influencerReviewedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            write_workbook_state(state)
+            json_response(self, 200, {'status': influencer['influencerStatus'], 'influencerId': influencer.get('id')})
+            return
+
         if self.path == '/api/irm/requests/manage':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM Console administrator can manage marketplace requests.'})
                 return
             try:
@@ -2957,7 +3256,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     next_status = 'call_scheduled'
                 elif next_status in ('completed',):
                     next_status = 'call_completed'
-                if next_status not in ('irm_approved', 'declined', 'call_scheduled', 'call_completed'):
+                if next_status not in ('irm_approved', 'declined', 'call_scheduled', 'call_completed', 'award_milestone'):
                     json_response(self, 400, {'error': 'Unsupported marketplace request status.'})
                     return
                 target_req['updatedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
@@ -2966,22 +3265,52 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 target_contact = next((c for c in contacts if not c.get('isInfluencer') and str(c.get('id')) == str(target_req.get('targetContactId') or '')), None)
                 influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == str(target_req.get('influencerId') or '')), None)
                 current_status = target_req.get('status') or 'requested'
-                if next_status == 'irm_approved' and current_status == 'requested':
+                if next_status == 'award_milestone':
+                    milestone = str(payload.get('milestone') or '').strip()
+                    evidence = str(payload.get('evidence') or '').strip()
+                    allowed_status = {
+                        'warm_introduction': ('influencer_accepted', 'call_scheduled', 'call_completed'),
+                        'qualified_meeting': ('call_completed',),
+                        'opportunity_created': ('call_completed',),
+                        'customer_closed': ('call_completed',),
+                        'customer_expansion': ('call_completed',),
+                    }
+                    if milestone not in allowed_status:
+                        json_response(self, 400, {'error': 'Unsupported reward milestone.'})
+                        return
+                    if current_status not in allowed_status[milestone]:
+                        json_response(self, 409, {'error': 'The introduction workflow has not reached this reward milestone.'})
+                        return
+                    if not evidence:
+                        json_response(self, 400, {'error': 'Add buyer-confirmed evidence before approving points.'})
+                        return
+                    if not influencer:
+                        json_response(self, 409, {'error': 'The request has no active influencer to reward.'})
+                        return
+                    event = add_reward_event(state, target_req, milestone, evidence, 'irm_admin', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+                    target_req.setdefault('rewardMilestones', {})[milestone] = event['eventId']
+                elif next_status == 'irm_approved' and current_status == 'requested':
                     target_req['status'] = 'irm_approved'
                 elif next_status == 'declined' and current_status in ('requested', 'irm_approved'):
                     target_req['status'] = 'declined'
                 elif next_status == 'call_scheduled' and current_status in ('influencer_accepted', 'call_scheduled'):
                     target_req['status'] = 'call_scheduled'
                 elif next_status == 'call_completed' and current_status in ('call_scheduled', 'call_completed'):
+                    evidence = str(payload.get('evidence') or '').strip()
+                    if not evidence:
+                        json_response(self, 400, {'error': 'Add buyer confirmation that the meeting occurred before marking it completed.'})
+                        return
                     target_req['status'] = 'call_completed'
+                    target_req['meetingEvidence'] = evidence
+                    target_req['meetingConfirmedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
                 else:
                     json_response(self, 409, {'error': 'This status transition is not allowed. The Influencer must accept and schedule before completion.'})
                     return
 
                 if target_req['status'] in ('influencer_accepted', 'call_scheduled'):
-                    target_req['creditsAwarded'] = max(int(target_req.get('creditsAwarded') or 0), 15)
+                    target_req['creditsAwarded'] = 0
                 elif target_req['status'] == 'call_completed':
-                    target_req['creditsAwarded'] = 25
+                    target_req['creditsAwarded'] = 0
                 target_req['updatedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
                 if target_contact and target_req['status'] in ('influencer_accepted', 'call_scheduled', 'call_completed'):
@@ -2992,13 +3321,48 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         sync_influencer_referral_ledger(influencer, target_contact)
 
                 write_workbook_state(state)
-                json_response(self, 200, {'status': 'updated', 'request': target_req})
+                json_response(self, 200, {'status': 'updated', 'request': target_req,
+                    'rewardEvent': event if next_status == 'award_milestone' else None,
+                    'rewardPoints': reward_points_for_influencer(state, target_req.get('influencerId'))})
             except Exception as ex:
                 json_response(self, 500, {'error': f'Marketplace request update failed: {ex}'})
             return
 
+        if self.path == '/api/irm/rewards/redemptions/manage':
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+                json_response(self, 403, {'error': 'Only the IRM administrator can manage reward redemptions.'})
+                return
+            try:
+                state = read_workbook_state()
+                item = next((r for r in (state.get('rewardRedemptions') or []) if isinstance(r, dict) and str(r.get('id')) == str(payload.get('redemptionId') or '')), None)
+                if not item:
+                    json_response(self, 404, {'error': 'Reward redemption not found.'})
+                    return
+                action = str(payload.get('action') or '').strip().lower()
+                status_by_action = {'approve': 'approved', 'fulfill': 'fulfilled', 'reject': 'rejected'}
+                if action not in status_by_action:
+                    json_response(self, 400, {'error': 'Choose approve, fulfill, or reject.'})
+                    return
+                if action == 'approve' and item.get('status') != 'requested':
+                    json_response(self, 409, {'error': 'Only requested redemptions can be approved.'})
+                    return
+                if action == 'fulfill' and item.get('status') != 'approved':
+                    json_response(self, 409, {'error': 'Approve the redemption before confirming fulfillment.'})
+                    return
+                if action == 'reject' and item.get('status') not in ('requested', 'approved'):
+                    json_response(self, 409, {'error': 'This redemption can no longer be rejected.'})
+                    return
+                item['status'] = status_by_action[action]
+                item['updatedAt'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                item.setdefault('history', []).append({'action': action, 'by': 'irm_admin', 'at': item['updatedAt'], 'note': str(payload.get('note') or '').strip()})
+                write_workbook_state(state)
+                json_response(self, 200, {'status': item['status'], 'redemption': item})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Reward redemption update failed: {ex}'})
+            return
+
         if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete', '/api/influencers/bulk-create', '/api/influencers/convert', '/api/influencers/agreements'):
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Influencer management is available to the local app owner only.'})
                 return
             try:
@@ -3181,8 +3545,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             contact['referredByEmail'] = ''
                             contact['sourceFile'] = 'Unassigned after partner removal'
                     contacts.remove(influencer)
-                    with db() as connection:
-                        connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), int(influencer_id)))
+                    revoke_partner_share_records_for_influencer(influencer_id, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
                     write_workbook_state(state)
                     json_response(self, 200, {'status': 'deleted', 'retainedContacts': retained_contacts})
                     return
@@ -3222,7 +3585,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path in ('/api/influencers/contacts/import', '/api/influencers/contacts/bulk-save', '/api/influencers/contacts/update', '/api/influencers/contacts/delete'):
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Contact management is available to the local app owner only.'})
                 return
             try:
@@ -3308,7 +3671,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/db/search':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database search is available only from the local console.'})
                 return
             try:
@@ -3321,7 +3684,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/db/seed':
-            if not is_loopback_admin_request(self):
+            if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database seeding is available only from the local console.'})
                 return
             try:
@@ -3338,7 +3701,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/portal/referrals':
-            if os.environ.get('VERCEL') or not is_loopback_admin_request(self):
+            if os.environ.get('VERCEL') or not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Use the local console to manage contacts, or a scoped partner link to submit referrals.'})
                 return
             try:
@@ -3592,8 +3955,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
                 return
-            if not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
-                json_response(self, 403, {'error': 'Database writes are available only from the local console.'})
+            if not is_irm_admin_request(self):
+                status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
+                json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
                 return
             state_obj = payload.get('state', {})
             sync_relational_tables_from_state(state_obj)
@@ -3604,8 +3968,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Durable database storage is unavailable in the current serverless deployment.'})
                 return
-            if not is_loopback_admin_request(self) or not request_origin_is_trusted(self):
-                json_response(self, 403, {'error': 'Database writes are available only from the local console.'})
+            if not is_irm_admin_request(self):
+                status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
+                json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
                 return
             try:
                 state_obj = payload.get('state', {})
@@ -3658,7 +4023,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             recipient = payload.get('to')
             subject = payload.get('subject')
             body = payload.get('body')
-            demo_fallback = payload.get('demoFallback', True)
+            hosted_mode = str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true'
+            demo_fallback = False if hosted_mode else payload.get('demoFallback', True)
             if not recipient or not subject or not body:
                 json_response(self, 400, {'error': 'to, subject, and body are required.'})
                 return

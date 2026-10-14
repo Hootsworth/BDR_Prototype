@@ -4,7 +4,7 @@ function loadClerkSDK() {
   const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "";
 
   if (!pubKey || pubKey.includes("placeholder")) {
-    console.log("[AUTH] Running in local offline mode (Clerk SDK bypassed).");
+    console.log("[AUTH] Clerk publishable key is not configured.");
     setTimeout(() => {
       updateClerkUIState();
       const loader = document.getElementById("app-loading-screen");
@@ -16,17 +16,45 @@ function loadClerkSDK() {
     return;
   }
 
-  const script = document.createElement("script");
-  script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
-  script.async = true;
-  script.crossOrigin = "anonymous";
-  script.setAttribute("data-clerk-publishable-key", pubKey);
+  if (!window.__clerkAssetsPromise) {
+    let frontendApi;
+    try {
+      const encodedDomain = pubKey.split("_")[2];
+      if (!encodedDomain) throw new Error("Malformed Clerk publishable key.");
+      frontendApi = atob(encodedDomain.replace(/-/g, "+").replace(/_/g, "/")).replace(/\$$/, "");
+      if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error("Invalid Clerk Frontend API domain.");
+    } catch (error) {
+      showClerkAuthError(error.message);
+      return;
+    }
 
-  script.onload = () => {
-    initClerkAuth(pubKey);
-  };
+    const loadScript = (src, publishableKey = "") => new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      if (publishableKey) script.setAttribute("data-clerk-publishable-key", publishableKey);
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Could not load Clerk asset: ${new URL(src).pathname}`));
+      document.head.appendChild(script);
+    });
 
-  document.head.appendChild(script);
+    window.__clerkAssetsPromise = (async () => {
+      const baseUrl = `https://${frontendApi}/npm`;
+      await loadScript(`${baseUrl}/@clerk/ui@1/dist/ui.browser.js`);
+      await loadScript(`${baseUrl}/@clerk/clerk-js@6/dist/clerk.browser.js`, pubKey);
+    })();
+  }
+
+  window.__clerkAssetsPromise
+    .then(() => initClerkAuth(pubKey))
+    .catch(error => {
+      console.error("Error loading Clerk assets:", error);
+      showClerkAuthError(error.message);
+      updateClerkUIState();
+      const loader = document.getElementById("app-loading-screen");
+      if (loader) loader.remove();
+    });
 }
 
 async function initClerkAuth(publishableKey) {
@@ -42,10 +70,10 @@ async function initClerkAuth(publishableKey) {
   try {
     if (typeof window.Clerk === "function") {
       const clerkInstance = new window.Clerk(publishableKey);
-      await clerkInstance.load();
+      await clerkInstance.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
       window.Clerk = clerkInstance;
     } else if (window.Clerk && typeof window.Clerk.load === "function") {
-      await window.Clerk.load({ publishableKey: publishableKey });
+      await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
     }
 
     // Listen to auth state transitions
@@ -67,6 +95,7 @@ async function initClerkAuth(publishableKey) {
     }
   } catch (err) {
     console.error("Error loading Clerk:", err);
+    showClerkAuthError("Clerk could not finish initializing. Check the development instance's allowed origins and try reloading.");
     updateClerkUIState();
     // Ensure loader is removed on error
     const loader = document.getElementById("app-loading-screen");
@@ -88,18 +117,7 @@ function updateClerkUIState() {
   const localAuthUser = localStorage.getItem("gtm_local_user_name") || "GTM Operator";
   const localAuthEmail = localStorage.getItem("gtm_local_user_email") || "demo@gtmconsole.internal";
 
-  if (window.gtmFirebaseUser) {
-    const firebaseUser = window.gtmFirebaseUser;
-    const firebaseName = firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User";
-    const firebaseEmail = firebaseUser.email || "";
-    if (authGate) authGate.style.display = "none";
-    if (mainApp) mainApp.style.display = "flex";
-    if (signInBtn) signInBtn.style.display = "none";
-    if (userProfileWrap) userProfileWrap.style.display = "flex";
-    if (nameEl) nameEl.textContent = firebaseName;
-    if (emailEl) emailEl.textContent = firebaseEmail;
-    if (typeof updateSidebarUserAvatar === "function") updateSidebarUserAvatar(firebaseName, firebaseEmail, firebaseUser.photoURL);
-  } else if (window.Clerk && window.Clerk.user) {
+  if (window.Clerk && window.Clerk.user) {
     // User is signed in via Clerk
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
@@ -117,8 +135,9 @@ function updateClerkUIState() {
     }
 
     fetchClerkGoogleOAuthToken();
-  } else if (!window.Clerk || (window.ClerkConfig && (!window.ClerkConfig.publishableKey || window.ClerkConfig.publishableKey.includes("placeholder")))) {
-    // Offline mode is active when Clerk is not configured.
+  } else if ((!window.Clerk || (window.ClerkConfig && (!window.ClerkConfig.publishableKey || window.ClerkConfig.publishableKey.includes("placeholder"))))
+      && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) {
+    // Offline/local mode is allowed only on a loopback development host.
     if (authGate) authGate.style.display = "none";
     if (mainApp) mainApp.style.display = "flex";
 
@@ -164,10 +183,6 @@ function triggerClerkSignIn() {
   const authGate = document.getElementById("clerk-auth-gate");
   const mainApp = document.getElementById("app-layout-main");
 
-  // If on auth gate, always reveal main app first so user is never blocked
-  if (authGate) authGate.style.display = "none";
-  if (mainApp) mainApp.style.display = "flex";
-
   if (window.Clerk && typeof window.Clerk.openSignIn === "function") {
     try {
       window.Clerk.openSignIn({
@@ -176,21 +191,34 @@ function triggerClerkSignIn() {
       });
     } catch (e) {
       console.warn("Clerk openSignIn error:", e);
-      openLocalAuthModal();
+      showClerkAuthError(e.message);
     }
   } else {
-    openLocalAuthModal();
+    if (authGate) authGate.style.display = "flex";
+    if (mainApp) mainApp.style.display = "none";
+    showClerkAuthError("Clerk is not configured. Add the Clerk publishable key to config.js.");
   }
 }
 
+function triggerClerkSignUp() {
+  if (window.Clerk && typeof window.Clerk.openSignUp === "function") {
+    window.Clerk.openSignUp({ afterSignUpUrl: window.location.href, afterSignInUrl: window.location.href });
+  } else {
+    showClerkAuthError("Clerk is not configured. Add the Clerk publishable key to config.js.");
+  }
+}
+
+function showClerkAuthError(message) {
+  const banner = document.getElementById("clerk-auth-error-banner");
+  if (banner) { banner.textContent = message || "Sign in could not be started."; banner.style.display = "block"; }
+}
+
+async function clerkSignOut() {
+  if (window.Clerk && typeof window.Clerk.signOut === "function") await window.Clerk.signOut();
+  updateClerkUIState();
+}
+
 async function triggerGoogleSignIn() {
-  const authGate = document.getElementById("clerk-auth-gate");
-  const mainApp = document.getElementById("app-layout-main");
-
-  // Reveal main app layout immediately so user is never blocked
-  if (authGate) authGate.style.display = "none";
-  if (mainApp) mainApp.style.display = "flex";
-
   if (window.Clerk && typeof window.Clerk.openSignIn === "function") {
     try {
       window.Clerk.openSignIn({
@@ -199,10 +227,10 @@ async function triggerGoogleSignIn() {
       });
     } catch (e) {
       console.warn("Clerk openSignIn error:", e);
-      openQuickAccountPickerModal();
+      showClerkAuthError(e.message);
     }
   } else {
-    openQuickAccountPickerModal();
+    showClerkAuthError("Configure Google as a sign-in provider in Clerk, then add the Clerk publishable key to config.js.");
   }
 }
 
@@ -416,6 +444,8 @@ window.loadClerkSDK = loadClerkSDK;
 window.initClerkAuth = initClerkAuth;
 window.updateClerkUIState = updateClerkUIState;
 window.triggerClerkSignIn = triggerClerkSignIn;
+window.triggerClerkSignUp = triggerClerkSignUp;
+window.clerkSignOut = clerkSignOut;
 window.fetchClerkGoogleOAuthToken = fetchClerkGoogleOAuthToken;
 window.setUserRole = setUserRole;
 window.enforceRbacPermissions = enforceRbacPermissions;

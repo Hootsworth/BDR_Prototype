@@ -4,7 +4,7 @@
 
 The Vercel project serves the existing app at connectem.ai. A host-conditional redirect sends / on go.connectem.ai to the Influencer Portal page while keeping the go.connectem.ai host. API calls continue through the Python function. /app-config.js is routed through that function so the Clerk publishable key can be supplied at runtime.
 
-The checkout is linked to Vercel project `bdr-prototype`. Its project Root Directory must be the repository root (the folder containing `vercel.json`, `index.html`, and `api/`). `vercel.json` sets the output directory to `.` so a dashboard-level output directory such as `api` does not cause Vercel to publish a directory listing instead of the app. Add connectem.ai and go.connectem.ai to that project under Settings → Domains, then apply the DNS records Vercel shows. Domain activation and DNS are left for the owner; this setup does not claim either domain is live until Vercel verifies it.
+The checkout is linked to Vercel project `bdr-prototype`. Its project Root Directory must be the repository root (the folder containing `vercel.json`, `index.html`, and `api/`). `vercel.json` sets the output directory to `.`. The Vercel framework preset was changed to Other after the Python preset caused Vercel to expose a directory listing for `/api/`. The fresh preview at `https://bdr-prototype-2wcxgnm14-aditya-p-dixit-s-projects.vercel.app` serves the app and `/partner-portal`; the earlier `bdr-prototype-henna` preview is an older deployment and still shows the listing. The current preview deployment is protected by Vercel authentication. Add connectem.ai and go.connectem.ai to that project under Settings → Domains, then apply the DNS records Vercel shows. Domain activation and DNS are left for the owner; neither domain is live until Vercel verifies it.
 
 The repository does not yet contain a separate public marketing landing page: connectem.ai/ currently serves the existing application console. The Vendor Marketplace remains at /marketplace.html.
 
@@ -14,7 +14,7 @@ The API uses Firebase Admin on the server. Browser code must not access Firestor
 
 The Firebase Web App config supplied for `bdrcreek` is public client configuration (API key, auth domain, project ID, app ID, and measurement ID), not a backend credential. It is recorded in `.env.example` as `FIREBASE_*` values for future Firebase client SDK features. The current product does not initialize the Firebase browser SDK or Firebase Analytics: Clerk remains the authentication provider, and the backend uses Firebase Admin for Firestore. Never put a service-account private key or other server secret in browser code or a `NEXT_PUBLIC_` variable.
 
-The owner confirmed the existing `(default)` database is `STANDARD` / `FIRESTORE_NATIVE`. The repository setup does not create a database. A rules/index deployment was attempted, but this environment could not reach Google's Service Usage API to verify/enable the Firestore API, so rules/index deployment is still pending. From an authenticated terminal with API access, deploy with:
+The owner confirmed the existing `(default)` database is `STANDARD` / `FIRESTORE_NATIVE`, and supplied successful Firebase CLI output confirming Firestore rules and indexes were deployed to it. To repeat a deployment from an authenticated terminal:
 
     npx -y firebase-tools@latest firestore:databases:list --project bdrcreek
     npx -y firebase-tools@latest deploy --only firestore --project bdrcreek
@@ -30,7 +30,7 @@ Enable Vercel Secure Backend Access / OIDC federation and configure a Google Wor
 3. Grant only the matching Vercel workload identity roles/iam.workloadIdentityUser on that service account.
 4. Add the WIF values below to Vercel's production environment. Set the project environment values, then redeploy.
 
-The Python function reads the short-lived x-vercel-oidc-token request header and exchanges it through Google STS and service-account impersonation. It does not save the token or require a persistent service-account private key. Local development continues to use Application Default Credentials.
+The Python function reads the short-lived x-vercel-oidc-token request header and exchanges it through Google STS and service-account impersonation. It does not save the token or require a persistent service-account private key. This requires the Google workload identity pool/provider, service account, and IAM bindings to be created and configured; those cloud IAM steps are not complete. Local development continues to use Application Default Credentials.
 
 ## Vercel environment variables
 
@@ -70,15 +70,17 @@ Backup storage is billable. A restore rehearsal to a separate database is still 
 
 ## Deployment checklist
 
-1. Confirm the project Root Directory is the repository root, then deploy a preview from this repository. `/api/` and `/api/health` should return the API health JSON rather than a file listing.
+1. Confirm the project Root Directory is the repository root. The app and `/partner-portal` are verified on a fresh protected preview. The deployed revision must include the latest application code before `/api/health` can be expected to return the health JSON.
 2. Configure the Vercel and Google OIDC trust plus the server-side variables above.
 3. Verify the preview app-config response contains only the Clerk publishable key; verify API calls reach the Python function and Firestore.
 4. Add both custom domains in Vercel and apply the Vercel-provided DNS records when ready.
 5. Verify https://connectem.ai/, https://go.connectem.ai/, partner sign-in/onboarding, API authorization, and that private local database files are absent from the deployment.
 6. Create and verify scheduled Firestore backups, then complete a restore rehearsal before real pilot data is entered.
 
-## Current blockers
+## Remaining launch work
 
-- The existing database is confirmed as `(default)` / Standard / Firestore Native. Deploying Firestore rules/indexes from this environment failed while calling Google's Service Usage API; existing backup schedules remain unverified.
-- No Vercel deployment has been created from this environment; the Vercel CLI is not installed here.
+- Publish the current application revision to GitHub and Vercel; the latest deployed preview is based on the previous commit and does not yet contain the Clerk/Firestore API changes in the working tree.
+- Configure Clerk production instance values and Google Workload Identity Federation (plus least-privilege Firestore service-account access) as Vercel server-side environment variables, then redeploy and verify authenticated API reads/writes.
+- Add and verify the two custom domains and configure the Clerk allowed origins.
+- Confirm scheduled Firestore backups and complete a restore rehearsal before real pilot data is entered.
 - The project still needs a public marketing landing page if connectem.ai is intended to be a customer-facing website rather than the existing app console.

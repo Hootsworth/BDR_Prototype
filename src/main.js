@@ -202,7 +202,10 @@ async function bootstrapApp() {
     }
 
     try {
-      const durableResponse = await fetch("/api/state");
+      const idToken = await window.getFirebaseIdToken?.();
+      const durableResponse = await fetch("/api/state", {
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {}
+      });
       if (!durableResponse.ok) throw new Error(`Durable state unavailable (${durableResponse.status})`);
       const durable = await durableResponse.json();
       const durableState = durable.state || {};

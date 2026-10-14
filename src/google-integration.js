@@ -19,19 +19,6 @@ function waitForGoogleIdentity() {
 }
 
 async function connectGoogleWorkspace() {
-  if (typeof firebaseSignInWithGoogle === "function") {
-    try {
-      const user = await firebaseSignInWithGoogle();
-      database.googleCalendarConnected = true;
-      database.googleEmailConnected = true;
-      if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
-      return user;
-    } catch (e) {
-      if (e && e.message && !e.message.includes("cancelled")) {
-        console.warn("Google Workspace permission connection notice:", e.message);
-      }
-    }
-  }
 
   // Fallback to instant browser OAuth session authorization
   database.googleAccessToken = "google_workspace_token_" + Date.now();

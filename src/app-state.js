@@ -57,7 +57,9 @@ let database = {
   approvals: [],
   workflowRuns: [],
   vendors: [],
-  marketplaceRequests: []
+  marketplaceRequests: [],
+  rewardLedger: [],
+  rewardRedemptions: []
 };
 window.database = database;
 
@@ -75,6 +77,8 @@ function saveDatabaseCache() {
     meetings: database.meetings || [],
     vendors: database.vendors || [],
     marketplaceRequests: database.marketplaceRequests || [],
+    rewardLedger: database.rewardLedger || [],
+    rewardRedemptions: database.rewardRedemptions || [],
     updatedAt: new Date().toISOString()
   };
   try {
@@ -96,7 +100,15 @@ function saveDatabaseCache() {
     }
   }
   // Durable local prototype storage. Browser cache remains a fast fallback only.
-  fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: stateSnapshot }) })
+  Promise.resolve(window.getFirebaseIdToken?.())
+    .then(idToken => fetch("/api/state", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ state: stateSnapshot })
+    }))
     .then(response => {
       if (!response.ok) throw new Error(`Server responded with ${response.status}`);
     })
@@ -208,7 +220,7 @@ function getInfluencerEarningsSummary(influencer) {
       pendingCredits: 0,
       approvedCredits: 0,
       creditDollarRate: 10,
-      estimatedPayoutUsd: 0,
+      estimatedPayoutUsd: null,
       ledger: []
     };
   }
@@ -267,7 +279,6 @@ function getInfluencerEarningsSummary(influencer) {
     };
   });
 
-  const creditDollarRate = 10; // $10 per partner credit placeholder
   return {
     totalReferrals: referrals.length,
     contactsOnlyCount,
@@ -276,8 +287,8 @@ function getInfluencerEarningsSummary(influencer) {
     totalCredits,
     approvedCredits,
     pendingCredits,
-    creditDollarRate,
-    estimatedPayoutUsd: totalCredits * creditDollarRate,
+    creditDollarRate: null,
+    estimatedPayoutUsd: null,
     ledger
   };
 }

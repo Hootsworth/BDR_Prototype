@@ -1,5 +1,5 @@
 // --- ANALYTICS CHATBOT CONTROLLER ---
-// Note: addLogConsole is defined in database.js (shared utility)
+// Note: addLogConsole is defined in app-state.js (shared utility)
 
 async function sendAnalyseChatMessage() {
   const input = document.getElementById("analyse-chat-input");

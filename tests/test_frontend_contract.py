@@ -19,10 +19,12 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("Demo Mode Auto-Unlock", auth)
         self.assertIn("A configured Clerk instance must authenticate", auth)
 
-    def test_partner_portal_credit_schedule_and_bulk_csv_parser(self):
+    def test_partner_portal_points_require_verified_milestones_and_bulk_csv_parser(self):
         portal = self.read("partner-portal.js")
-        self.assertIn("Scheduled (+15 credits)", portal)
-        self.assertIn("Call completed (+25 credits)", portal)
+        self.assertIn("Meeting completion pending buyer confirmation", portal)
+        self.assertIn("Scheduled (no points until verified)", portal)
+        self.assertIn("/api/partner-share/rewards/redeem", portal)
+        self.assertNotIn("Call completed (+25 credits)", portal)
         self.assertIn("parseDelimitedLine", portal)
         self.assertIn("Correct rejected rows and submit again.", portal)
 
@@ -168,7 +170,7 @@ class FrontendContractTests(unittest.TestCase):
         outbound_js = self.read("src/components/outbound.js")
         influencers_html = self.read("components/influencers.html")
         influencers_js = self.read("src/components/influencers.js")
-        database_js = self.read("src/database.js")
+        database_js = self.read("src/app-state.js")
         partner_portal_html = self.read("partner-portal.html")
 
         # 1. Search/Home generic Contacts view & Convert to Influencer
@@ -220,13 +222,16 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("/api/marketplace/network", marketplace_js)
         self.assertIn("/api/marketplace/requests", marketplace_js)
 
-        # Self-serve Influencer Portal & Incoming Vendor Requests
+        # Self-serve Influencer Portal uses Clerk onboarding; vendor requests
+        # are handled by the IRM workflow and do not appear in the portal.
         self.assertIn("portal-auth-section", partner_portal_html)
         self.assertIn("partner-agreement-bar", partner_portal_html)
-        self.assertIn("partner-marketplace-requests-section", partner_portal_html)
-        self.assertIn("/api/partner-portal/signup", partner_portal_js)
+        self.assertNotIn("partner-marketplace-requests-section", partner_portal_html)
+        self.assertIn("/api/partner-portal/onboard", partner_portal_js)
+        self.assertIn("/api/partner-portal/session", partner_portal_js)
+        self.assertNotIn("/api/partner-portal/signup", partner_portal_js)
         self.assertIn("/api/partner-share/agreement", partner_portal_js)
-        self.assertIn("/api/partner-share/requests/respond", partner_portal_js)
+        self.assertNotIn("/api/partner-share/requests/respond", partner_portal_js)
 
         # Central IRM Admin Governance
         self.assertIn("openIrmMarketplaceModal()", influencers_html)
@@ -238,7 +243,8 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("Protected by IRM", marketplace_js)
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
         self.assertIn("minlength=\"12\"", marketplace_html)
-        self.assertIn("minlength=\"12\"", partner_portal_html)
+        self.assertIn("clerk-auth-mount", partner_portal_html)
+        self.assertNotIn('name="password"', partner_portal_html)
         self.assertIn("partner reward status", partner_portal_html.lower())
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
 

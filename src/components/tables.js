@@ -227,7 +227,7 @@ function changeInfluencersPage(page) {
   });
 }
 
-// Note: getInitials and getAvatarColor are defined in database.js (shared utilities)
+// Note: getInitials and getAvatarColor are defined in app-state.js (shared utilities)
 
 database.selectedUploadRows = [];
 

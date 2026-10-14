@@ -21,16 +21,15 @@
   <link rel="stylesheet" href="vendor/astryx/astryx.css">
   <link rel="stylesheet" href="vendor/astryx/theme.css">
   <link rel="stylesheet" href="style.css">
+  <script src="app-config.js"></script>
   <script src="config.js"></script>
   <script src="src/theme.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="src/firebase-auth.js"></script>
+  <script src="src/clerk-api.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 
-<body onload="initFirebaseAuth(); loadClerkSDK();">
+<body onload="loadClerkSDK();">
 
   <!-- ═══ APP LOADING OVERLAY (CUSTOM ASTRYX SVG LOADER) ═══ -->
   <div class="app-loading-screen" id="app-loading-screen">
@@ -46,7 +45,7 @@
     </div>
   </div>
 
-  <!-- ═══ FIREBASE AUTHENTICATION GATE ═══ -->
+  <!-- ═══ CLERK AUTHENTICATION GATE ═══ -->
   <div class="clerk-auth-gate" id="clerk-auth-gate">
     <div class="auth-sso-center-wrap">
       <div class="card auth-sso-card" style="max-width: 440px; border-radius: var(--radius-md);">
@@ -64,15 +63,15 @@
 
         <!-- Auth Mode Toggle Tabs -->
         <div style="display: flex; background: var(--surface-soft, #f1f5f9); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); margin-bottom: 1.25rem;">
-          <button type="button" class="btn btn-sm" id="tab-fb-signin" onclick="switchFirebaseAuthTab('signin')" style="flex: 1; font-weight: 700; background: var(--color-background-surface); color: var(--color-text-primary); border-radius: var(--radius-xs); box-shadow: none; border: 1px solid var(--color-border);">Sign In</button>
-          <button type="button" class="btn btn-sm" id="tab-fb-signup" onclick="switchFirebaseAuthTab('signup')" style="flex: 1; font-weight: 600; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-xs); border: 1px solid transparent;">Create Account</button>
+          <button type="button" class="btn btn-sm" id="tab-fb-signin" onclick="triggerClerkSignIn()" style="flex: 1; font-weight: 700; background: var(--color-background-surface); color: var(--color-text-primary); border-radius: var(--radius-xs); box-shadow: none; border: 1px solid var(--color-border);">Sign In</button>
+          <button type="button" class="btn btn-sm" id="tab-fb-signup" onclick="triggerClerkSignUp()" style="flex: 1; font-weight: 600; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-xs); border: 1px solid transparent;">Create Account</button>
         </div>
 
         <!-- Error Notification Banner -->
-        <div id="fb-auth-error-banner" style="display: none; padding: 8px 12px; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: var(--radius-xs); font-size: 12px; color: #b91c1c; margin-bottom: 1rem;"></div>
+        <div id="clerk-auth-error-banner" style="display: none; padding: 8px 12px; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: var(--radius-xs); font-size: 12px; color: #b91c1c; margin-bottom: 1rem;"></div>
 
         <!-- Google OAuth Button -->
-        <button class="btn" onclick="handleFirebaseGoogleSignIn()" style="width: 100%; padding: 0.75rem 1rem; font-size: 13.5px; font-weight: 600; background: var(--color-background-surface); color: var(--color-text-primary); border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 0.625rem; box-shadow: none; cursor: pointer; transition: background-color 0.15s ease;">
+        <button class="btn" onclick="triggerGoogleSignIn()" style="width: 100%; padding: 0.75rem 1rem; font-size: 13.5px; font-weight: 600; background: var(--color-background-surface); color: var(--color-text-primary); border: 1px solid var(--color-border-emphasized); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 0.625rem; box-shadow: none; cursor: pointer; transition: background-color 0.15s ease;">
           <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -88,30 +87,10 @@
           <div style="flex: 1; height: 1px; background: var(--color-border);"></div>
         </div>
 
-        <!-- Email/Password Auth Form -->
-        <form onsubmit="handleFirebaseAuthSubmit(event)">
-          <div id="fb-group-name" class="form-group" style="display: none; margin-bottom: 0.875rem;">
-            <label class="form-label" for="fb-input-name" style="font-size: 12px; font-weight: 700;">Full Name</label>
-            <input type="text" class="form-input" id="fb-input-name" placeholder="Aditya Dixit" style="width: 100%; font-size: 13px;">
-          </div>
-
-          <div class="form-group" style="margin-bottom: 0.875rem;">
-            <label class="form-label" for="fb-input-email" style="font-size: 12px; font-weight: 700;">Email Address</label>
-            <input type="email" class="form-input" id="fb-input-email" placeholder="user@company.com" required style="width: 100%; font-size: 13px;">
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label class="form-label" for="fb-input-password" style="font-size: 12px; font-weight: 700;">Password</label>
-            <input type="password" class="form-input" id="fb-input-password" placeholder="••••••••" required minlength="6" style="width: 100%; font-size: 13px;">
-          </div>
-
-          <button type="submit" class="btn btn-primary" id="btn-fb-submit" style="width: 100%; padding: 0.75rem; font-size: 14px; font-weight: 700;">
-            Sign In to Console
-          </button>
-        </form>
+        <div id="clerk-signin-mount"></div>
 
         <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-align: center; margin-top: 1.25rem;">
-          Protected by Firebase Authentication &amp; Security Rules.
+          Authentication managed by Clerk.
         </div>
       </div>
     </div>
@@ -160,7 +139,7 @@
             <span class="user-display-name" id="clerk-user-name">GTM Operator</span>
             <span class="user-email" id="clerk-user-email">user@domain.com</span>
           </div>
-          <button class="btn btn-secondary btn-sm sidebar-signout-btn" onclick="firebaseSignOut()" title="Sign Out" id="btn-sidebar-signout">
+          <button class="btn btn-secondary btn-sm sidebar-signout-btn" onclick="clerkSignOut()" title="Sign Out" id="btn-sidebar-signout">
             <svg class="signout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
@@ -312,7 +291,7 @@
   <!-- Dialogs and overlays are dynamically appended from components/dialogs.html -->
 
   <!-- Import Modular Application Layers -->
-  <script src="src/database.js"></script>
+  <script src="src/app-state.js"></script>
   <script src="src/auth.js"></script>
   <script src="src/google-integration.js"></script>
   <script src="src/local-workbook.js"></script>
