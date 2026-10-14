@@ -61,6 +61,12 @@
           <p id="fb-auth-subtitle" style="margin: 0; font-size: 13px; color: var(--color-text-secondary);">Sign in or create an account to get started</p>
         </div>
 
+        <div id="clerk-auth-unconfigured" class="auth-sso-unavailable" role="status" hidden>
+          <strong>Sign-in is not available yet</strong>
+          <p>This deployment is missing its authentication setup. Please contact the Connectem administrator.</p>
+        </div>
+
+        <div id="clerk-auth-controls">
         <!-- Auth Mode Toggle Tabs -->
         <div style="display: flex; background: var(--surface-soft, #f1f5f9); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); margin-bottom: 1.25rem;">
           <button type="button" class="btn btn-sm" id="tab-fb-signin" onclick="triggerClerkSignIn()" style="flex: 1; font-weight: 700; background: var(--color-background-surface); color: var(--color-text-primary); border-radius: var(--radius-xs); box-shadow: none; border: 1px solid var(--color-border);">Sign In</button>
@@ -88,6 +94,7 @@
         </div>
 
         <div id="clerk-signin-mount"></div>
+        </div>
 
         <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary); text-align: center; margin-top: 1.25rem;">
           Authentication managed by Clerk.

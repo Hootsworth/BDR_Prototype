@@ -11,6 +11,13 @@ async function loadClerkSDKInternal() {
 
   if (!pubKey || pubKey.includes("placeholder")) {
     console.log("[AUTH] Clerk publishable key is not configured.");
+    const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const controls = document.getElementById("clerk-auth-controls");
+    const unavailable = document.getElementById("clerk-auth-unconfigured");
+    if (!isLocal) {
+      if (controls) controls.hidden = true;
+      if (unavailable) unavailable.hidden = false;
+    }
     setTimeout(() => {
       updateClerkUIState();
       const loader = document.getElementById("app-loading-screen");
