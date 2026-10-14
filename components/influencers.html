@@ -29,23 +29,31 @@
     </div>
   </header>
 
-  <section class="partner-profile-strip" aria-label="Active partner">
-    <div class="partner-profile-main">
-      <div class="partner-avatar" id="inf-portal-avatar">KB</div>
-      <div>
-        <div class="partner-profile-label">ACTIVE PARTNER</div>
-        <h3 id="inf-portal-active-name">Kim Beluzo</h3>
-        <p id="inf-portal-active-company">Beluzo Credit Union Advisory</p>
-      </div>
+  <section class="partner-overview-layout" aria-label="Partner directory and selected partner">
+    <aside class="partner-directory-panel">
+      <div class="partner-directory-heading"><div><p class="partner-kicker">NETWORK</p><h3>Influencers</h3></div><span id="partner-directory-count">0</span></div>
+      <label class="partner-directory-search"><span class="sr-only">Search influencers</span><input type="search" id="partner-directory-search" placeholder="Search partners" oninput="renderPartnerDirectory()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 5 5"></path></svg></label>
+      <div class="partner-directory-list" id="partner-directory-list" role="listbox" aria-label="Influencers"><div class="partner-empty-state">Loading partners…</div></div>
+    </aside>
+    <div class="partner-overview-detail">
+      <section class="partner-profile-strip" aria-label="Active partner">
+        <div class="partner-profile-main">
+          <div class="partner-avatar" id="inf-portal-avatar">KB</div>
+          <div>
+            <div class="partner-profile-label">ACTIVE PARTNER</div>
+            <h3 id="inf-portal-active-name">Kim Beluzo</h3>
+            <p id="inf-portal-active-company">Beluzo Credit Union Advisory</p>
+          </div>
+        </div>
+        <div class="partner-profile-contact" id="inf-portal-active-email"></div>
+      </section>
+      <section class="partner-metrics" aria-label="Partner referral performance">
+        <div class="partner-metric"><span>Referrals</span><strong id="inf-portal-kpi-referrals">0</strong></div>
+        <div class="partner-metric"><span>Calls scheduled</span><strong id="inf-portal-kpi-calls">0</strong></div>
+        <div class="partner-metric"><span>Completed calls</span><strong id="inf-portal-kpi-enriched">0</strong></div>
+        <button class="partner-metric partner-credit-metric" type="button" onclick="openInfluencerEarningsModal()"><span>Partner credits</span><strong id="inf-portal-kpi-credits">0 pts</strong></button>
+      </section>
     </div>
-    <div class="partner-profile-contact" id="inf-portal-active-email"></div>
-  </section>
-
-  <section class="partner-metrics" aria-label="Partner referral performance">
-    <div class="partner-metric"><span>Referrals</span><strong id="inf-portal-kpi-referrals">0</strong></div>
-    <div class="partner-metric"><span>Calls scheduled</span><strong id="inf-portal-kpi-calls">0</strong></div>
-    <div class="partner-metric"><span>Completed calls</span><strong id="inf-portal-kpi-enriched">0</strong></div>
-    <button class="partner-metric partner-credit-metric" type="button" onclick="openInfluencerEarningsModal()"><span>Partner credits</span><strong id="inf-portal-kpi-credits">0 pts</strong></button>
   </section>
 
   <section class="partner-ledger" aria-label="Referred contacts">

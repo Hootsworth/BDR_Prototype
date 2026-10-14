@@ -26,12 +26,11 @@ function workbookStateSlice() {
 }
 
 async function loadWorkbookFromServer() {
-  if (!localPersistenceAvailable()) {
-    updateLocalWorkbookStatus("Remote database storage is unavailable in this deployment.");
-    throw new Error("Durable database storage is available only from the local app server.");
+  const response = await fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state");
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.error || `Server responded with ${response.status}`);
   }
-  const response = await fetch("/api/db/state");
-  if (!response.ok) throw new Error(`Server responded with ${response.status}`);
   const payload = await response.json();
   const state = payload.state || {};
 
@@ -59,8 +58,10 @@ async function loadWorkbookFromServer() {
   database._dirty = false;
 
   database.workbookMode = true;
-  database.workbookName = "gtm.sqlite3 (SQLite Relational + Graph DB)";
-  database.workbookPath = payload.path || ".prototype-data/gtm.sqlite3";
+  database.workbookName = payload.database === "firestore"
+    ? "Firestore (durable cloud database)"
+    : "gtm.sqlite3 (SQLite Relational + Graph DB)";
+  database.workbookPath = payload.path || (localPersistenceAvailable() ? ".prototype-data/gtm.sqlite3" : "bdrcreek / (default)");
 
   initLoadedData();
   updateLocalWorkbookStatus();
@@ -78,18 +79,18 @@ function saveWorkbookToServer() {
   if (!database.workbookMode) {
     return Promise.reject(new Error("The database hasn't finished loading yet. Try again in a moment."));
   }
-  if (!localPersistenceAvailable()) {
-    return Promise.reject(new Error("Durable database storage is available only from the local app server."));
-  }
   const run = workbookSaveQueue.then(async () => {
     const snapshot = workbookStateSlice();
     const savedDirtyState = database._dirty;
-    const response = await fetch("/api/db/state", {
+    const response = await fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ state: snapshot })
     });
-    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.error || `Server responded with ${response.status}`);
+    }
     // Mutations can happen while the request is in flight. Only clear the dirty
     // flag if the current state still matches the snapshot we just persisted.
     if (savedDirtyState && JSON.stringify(workbookStateSlice()) === JSON.stringify(snapshot)) {
@@ -120,11 +121,17 @@ function startWorkbookAutoSaveDaemon() {
   }, 4000);
 }
 
-function saveWorkbookBeforeUnload() {
-  if (!database.workbookMode || !database._dirty || !navigator.sendBeacon) return;
-  if (!localPersistenceAvailable()) return;
-  const blob = new Blob([JSON.stringify({ state: workbookStateSlice() })], { type: "application/json" });
-  navigator.sendBeacon("/api/db/state", blob);
+async function saveWorkbookBeforeUnload() {
+  if (!database.workbookMode || !database._dirty) return;
+  const headers = { "Content-Type": "application/json" };
+  const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+  if (token) headers.Authorization = `Bearer ${token}`;
+  fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ state: workbookStateSlice() }),
+    keepalive: true
+  }).catch(() => {});
 }
 
 async function searchDatabaseContacts(queryText = "", filters = {}) {
@@ -191,10 +198,10 @@ function updateLocalWorkbookStatus(message) {
     return;
   }
   if (database.workbookMode && database.workbookName) {
-    const saved = database.localWorkbookLastSaved ? ` · Synced ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : " · Real-time SQLite sync active";
+    const saved = database.localWorkbookLastSaved ? ` · Synced ${new Date(database.localWorkbookLastSaved).toLocaleTimeString()}` : ` · ${localPersistenceAvailable() ? "Local database sync active" : "Cloud database sync active"}`;
     const infCount = (database.contacts || []).filter(c => c.isInfluencer).length;
     const prosCount = (database.contacts || []).length - infCount;
-    status.textContent = `Connected SQLite Relational & Graph DB: ${database.workbookPath} (${infCount} Influencers, ${prosCount} Prospects)${saved}.`;
+    status.textContent = `Connected ${database.workbookName}: ${database.workbookPath} (${infCount} Influencers, ${prosCount} Prospects)${saved}.`;
   } else {
     status.textContent = "Database unavailable. Confirm the local server is running.";
   }

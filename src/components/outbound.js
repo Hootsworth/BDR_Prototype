@@ -30,6 +30,16 @@ function updateOutboundHeaderMetrics() {
   if (tabCountPros) tabCountPros.textContent = prospects.length;
   if (tabCountSched) tabCountSched.textContent = meetings;
 }
+
+function ensureCalendlyBookingLink(body) {
+  const text = String(body || "").trim();
+  const url = typeof getCustomerCalendlyUrl === "function"
+    ? getCustomerCalendlyUrl()
+    : (database.calendlyUrl || "");
+  if (!url || text.includes(url)) return text;
+  return `${text}${text ? "\n\n" : ""}If a brief conversation would be useful, you can choose a time here: ${url}`;
+}
+window.ensureCalendlyBookingLink = ensureCalendlyBookingLink;
 window.updateOutboundHeaderMetrics = updateOutboundHeaderMetrics;
 
 function openInfluencerPortal(email) {
@@ -765,6 +775,7 @@ ${customInstructions ? `Additional instructions from the sender: ${customInstruc
   btn.disabled = false;
   btn.textContent = originalText;
 
+  finalBody = ensureCalendlyBookingLink(finalBody);
   contact.emailDraft = { subject: finalSubject, body: finalBody };
 
   const subjectInput = document.getElementById("email-draft-subject");
@@ -2547,6 +2558,8 @@ async function generateAIOutboundWithPrompt() {
       existingBody: bodyInput?.value || ""
     });
 
+    if (draft?.body) draft.body = ensureCalendlyBookingLink(draft.body);
+
     if (subjInput && draft.subject) {
       subjInput.value = draft.subject;
     }
@@ -2629,6 +2642,8 @@ async function generateBulkWithCustomPrompt() {
       existingSubject: subjInput?.value || "",
       existingBody: bodyInput?.value || ""
     });
+
+    if (draft?.body) draft.body = ensureCalendlyBookingLink(draft.body);
 
     if (subjInput && draft.subject) {
       subjInput.value = draft.subject;

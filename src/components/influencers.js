@@ -48,6 +48,7 @@ function openPortalContactOutreach(contactIdOrIdx, channel = "email") {
 function renderInfluencersTable() {
   const influencers = (database.contacts || []).filter(c => c.isInfluencer);
   const selectEl = document.getElementById("console-portal-influencer-select");
+  renderPartnerDirectory();
 
   if (selectEl) {
     if (influencers.length === 0) {
@@ -70,6 +71,28 @@ function renderInfluencersTable() {
   renderConsolePortalReferrals();
 }
 
+function renderPartnerDirectory() {
+  const list = document.getElementById("partner-directory-list");
+  const count = document.getElementById("partner-directory-count");
+  if (!list) return;
+  const partners = (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt);
+  const query = String(document.getElementById("partner-directory-search")?.value || "").trim().toLowerCase();
+  const visible = partners.filter(partner => !query || [partner.fullName, partner.company, partner.jobTitle, partner.email].some(value => String(value || "").toLowerCase().includes(query)));
+  if (count) count.textContent = String(partners.length);
+  if (!visible.length) {
+    list.innerHTML = `<div class="partner-empty-state">${partners.length ? "No partners match your search." : "No influencers yet. Add one to start building the network."}</div>`;
+    return;
+  }
+  list.innerHTML = visible.map(partner => {
+    const key = partner.email || partner.fullName;
+    const active = String(key).toLowerCase() === String(activeConsolePortalInfluencerEmail || "").toLowerCase();
+    const referrals = getInfluencerReferralsList(partner);
+    const points = getInfluencerEarningsSummary?.(partner)?.totalCredits ?? partner.referralCredits ?? 0;
+    const initials = String(partner.fullName || "P").split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
+    return `<button type="button" class="partner-directory-item ${active ? "is-active" : ""}" role="option" aria-selected="${active}" onclick="selectConsolePortalInfluencer('${escapePartnerHTML(key)}')"><span class="partner-directory-avatar">${escapePartnerHTML(initials)}</span><span class="partner-directory-copy"><strong>${escapePartnerHTML(partner.fullName || "Unnamed partner")}</strong><small>${escapePartnerHTML(partner.company || partner.jobTitle || "Partner")}</small><small>${referrals.length} referrals · ${Number(points).toLocaleString()} pts</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>`;
+  }).join("");
+}
+
 function getInfluencerReferralsList(influencer) {
   if (!influencer) return [];
   const infNameLower = (influencer.fullName || "").toLowerCase();
@@ -85,6 +108,15 @@ function getInfluencerReferralsList(influencer) {
 
 function escapePartnerHTML(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function safePartnerUrl(value) {
+  try {
+    const url = new URL(String(value || ""), window.location.origin);
+    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+  } catch (_) {
+    return "";
+  }
 }
 
 function currentPartner() {
@@ -109,6 +141,7 @@ function selectConsolePortalInfluencer(emailOrName) {
   else pageUrl.searchParams.delete("email");
   window.history.replaceState({}, "", pageUrl.toString());
   renderConsolePortalReferrals();
+  renderPartnerDirectory();
 }
 
 function renderConsolePortalReferrals() {
@@ -129,6 +162,7 @@ function renderConsolePortalReferrals() {
   const revokeButton = document.getElementById('partner-revoke-link');
   if (revokeButton) revokeButton.hidden = false;
   const referrals = getInfluencerReferralsList(activeInf);
+  renderPartnerDirectory();
   const callsScheduled = referrals.filter(r => r.hasScheduledCall && !r.hasTakenCall).length;
   const callsCompleted = referrals.filter(r => r.hasTakenCall).length;
   const earningsSummary = typeof getInfluencerEarningsSummary === "function" ? getInfluencerEarningsSummary(activeInf) : null;
@@ -141,7 +175,13 @@ function renderConsolePortalReferrals() {
   const initials = (activeInf.fullName || "Partner").split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
   setText("inf-portal-active-name", activeInf.fullName || "Partner");
   setText("inf-portal-active-company", `${activeInf.jobTitle || "Partner"} · ${activeInf.company || "Advisory"}`);
-  setText("inf-portal-active-email", activeInf.email || "");
+  const partnerContact = document.getElementById("inf-portal-active-email");
+  if (partnerContact) {
+    const emailLink = activeInf.email ? `<a href="mailto:${escapePartnerHTML(activeInf.email)}">${escapePartnerHTML(activeInf.email)}</a>` : "";
+    const linkedinUrl = safePartnerUrl(activeInf.linkedinUrl);
+    const linkedinLink = linkedinUrl ? `<a href="${escapePartnerHTML(linkedinUrl)}" target="_blank" rel="noopener noreferrer">LinkedIn profile ↗</a>` : "";
+    partnerContact.innerHTML = [emailLink, linkedinLink].filter(Boolean).join("<br>") || "No contact channels yet";
+  }
   setText("inf-portal-avatar", initials);
   setText("inf-portal-kpi-referrals", referrals.length);
   setText("inf-portal-kpi-calls", callsScheduled);
@@ -203,6 +243,10 @@ function renderPortalContactStatusPanel(activeInf, filtered, allReferrals) {
   const hasCall = Boolean(selected.hasTakenCall || selected.hasScheduledCall);
   const status = selected.hasTakenCall ? "Call completed" : selected.hasScheduledCall ? "Call scheduled" : "Pending outreach";
   const historyList = Array.isArray(selected.outboundHistory) ? selected.outboundHistory : [];
+  const meeting = (database.meetings || []).find(item => String(item.contactId || "") === String(selected.id) || String(item.contactEmail || "").toLowerCase() === String(selected.email || "").toLowerCase());
+  const meetingUrl = safePartnerUrl(meeting?.meetingUrl);
+  const emailDraft = selected.emailDraft && typeof selected.emailDraft === "object" ? selected.emailDraft : null;
+  const linkedinDraft = typeof selected.linkedinDraft === "string" ? selected.linkedinDraft : selected.linkedinDraft?.body;
   const channelStatus = [
     ["Email", selected.emailsSent || selected.emailSent ? `Sent (${selected.emailsSent || 1})` : "Not sent"],
     ["LinkedIn", selected.linkedinSent ? `Sent (${selected.linkedinSent})` : "Not sent"],
@@ -227,6 +271,7 @@ function renderPortalContactStatusPanel(activeInf, filtered, allReferrals) {
         <button type="button" class="btn btn-primary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'email')">Email</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'linkedin')">LinkedIn</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'call')">Call</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'calendar')">${meeting ? "View briefing" : "Schedule"}</button>
         <details class="partner-contact-more">
           <summary class="btn btn-secondary btn-sm">More</summary>
           <div class="partner-management-menu-items">
@@ -236,6 +281,8 @@ function renderPortalContactStatusPanel(activeInf, filtered, allReferrals) {
           </div>
         </details>
       </div>
+      ${meeting ? `<div class="partner-referral-notes"><span>Scheduled briefing</span><p>${escapePartnerHTML(meeting.timeString || meeting.datetimeRaw || "Time to be confirmed")}${meetingUrl ? ` · <a href="${escapePartnerHTML(meetingUrl)}" target="_blank" rel="noopener noreferrer">Join meeting ↗</a>` : ""}</p></div>` : ""}
+      ${emailDraft || linkedinDraft ? `<div class="partner-draft-summary"><span class="partner-kicker">OUTREACH DRAFTS</span>${emailDraft ? `<button type="button" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'email')"><strong>Email</strong><small>${escapePartnerHTML(emailDraft.subject || "Email draft ready")}</small></button>` : ""}${linkedinDraft ? `<button type="button" onclick="openPortalContactOutreach('${escapePartnerHTML(selected.id)}', 'linkedin')"><strong>LinkedIn</strong><small>${escapePartnerHTML(linkedinDraft)}</small></button>` : ""}</div>` : ""}
       ${selected.portalNotes ? `<div class="partner-referral-notes"><span>Introduction notes</span><p>${escapePartnerHTML(selected.portalNotes)}</p></div>` : ""}
       ${historyList.length ? `<div class="partner-selected-history"><span class="partner-kicker">RECENT OUTREACH</span>${historyList.slice(-3).reverse().map(item => `<div class="partner-history-entry"><strong>${escapePartnerHTML((item.channel || "outreach").toUpperCase())}</strong><span>${escapePartnerHTML(item.subject || item.preview || "Outreach logged")}</span><time>${escapePartnerHTML(item.date || "")}</time></div>`).join("")}</div>` : ""}
     </article>
@@ -2033,6 +2080,7 @@ async function manageIrmMarketplaceRequest(requestId, status) {
 }
 
 window.renderInfluencersTable = renderInfluencersTable;
+window.renderPartnerDirectory = renderPartnerDirectory;
 window.selectConsolePortalInfluencer = selectConsolePortalInfluencer;
 window.renderConsolePortalReferrals = renderConsolePortalReferrals;
 window.toggleReferralCallStatus = toggleReferralCallStatus;

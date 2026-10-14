@@ -1,6 +1,12 @@
 // --- CLERK AUTHENTICATION CONTROLLER ---
 
 function loadClerkSDK() {
+  if (window.__clerkReadyPromise) return window.__clerkReadyPromise;
+  window.__clerkReadyPromise = loadClerkSDKInternal();
+  return window.__clerkReadyPromise;
+}
+
+async function loadClerkSDKInternal() {
   const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "";
 
   if (!pubKey || pubKey.includes("placeholder")) {
@@ -25,7 +31,7 @@ function loadClerkSDK() {
       if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error("Invalid Clerk Frontend API domain.");
     } catch (error) {
       showClerkAuthError(error.message);
-      return;
+      throw error;
     }
 
     const loadScript = (src, publishableKey = "") => new Promise((resolve, reject) => {
@@ -46,15 +52,17 @@ function loadClerkSDK() {
     })();
   }
 
-  window.__clerkAssetsPromise
-    .then(() => initClerkAuth(pubKey))
-    .catch(error => {
+  try {
+    await window.__clerkAssetsPromise;
+    await initClerkAuth(pubKey);
+  } catch (error) {
       console.error("Error loading Clerk assets:", error);
       showClerkAuthError(error.message);
       updateClerkUIState();
       const loader = document.getElementById("app-loading-screen");
       if (loader) loader.remove();
-    });
+      throw error;
+  }
 }
 
 async function initClerkAuth(publishableKey) {
@@ -78,8 +86,23 @@ async function initClerkAuth(publishableKey) {
 
     // Listen to auth state transitions
     if (window.Clerk && typeof window.Clerk.addListener === "function") {
+      window.__clerkObservedUserId = window.Clerk.user?.id || "";
       window.Clerk.addListener(({ user }) => {
         updateClerkUIState();
+        const userId = user?.id || "";
+        if (userId && userId !== window.__clerkObservedUserId && typeof loadWorkbookFromServer === "function") {
+          loadWorkbookFromServer().then(() => {
+            if (typeof filterOutboundTable === "function") filterOutboundTable();
+            if (typeof renderDashboard === "function") renderDashboard();
+            if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+            if (typeof renderEventsList === "function") renderEventsList();
+            if (typeof renderPartnerDirectory === "function") renderPartnerDirectory();
+          }).catch(error => {
+            console.error("Could not load cloud data after sign-in:", error);
+            updateLocalWorkbookStatus?.(`Cloud database unavailable: ${error.message}`);
+          });
+        }
+        window.__clerkObservedUserId = userId;
       });
     }
 

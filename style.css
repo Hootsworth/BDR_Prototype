@@ -3127,6 +3127,60 @@ html[data-theme="dark"] .sidebar-controls-section { border-color: #393530; }
   #tab-panel-influencers .influencer-form-heading, #tab-panel-influencers .influencer-form-fields { padding-inline: 22px !important; }
 }
 
+/* Partner directory and profile workspace. */
+#tab-panel-influencers .partner-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: stretch;
+  margin: 22px 0 30px;
+}
+#tab-panel-influencers .partner-directory-panel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-background-surface);
+}
+#tab-panel-influencers .partner-directory-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+#tab-panel-influencers .partner-directory-heading .partner-kicker { margin-bottom:4px; }
+#tab-panel-influencers .partner-directory-heading h3 { margin:0; font:400 21px/1.2 var(--font-family-heading); letter-spacing:-.025em; }
+#tab-panel-influencers .partner-directory-heading > span { color:var(--color-text-secondary); font-size:11px; font-variant-numeric:tabular-nums; }
+#tab-panel-influencers .partner-directory-search { position:relative; display:block; margin-bottom:10px; }
+#tab-panel-influencers .partner-directory-search input { width:100%; min-height:38px; padding:0 35px 0 11px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-background); color:var(--color-text-primary); font:inherit; font-size:12px; }
+#tab-panel-influencers .partner-directory-search svg { position:absolute; top:11px; right:11px; width:16px; height:16px; fill:none; stroke:var(--color-text-secondary); stroke-width:1.7; stroke-linecap:round; }
+#tab-panel-influencers .partner-directory-list { display:grid; gap:4px; max-height:350px; overflow:auto; }
+#tab-panel-influencers .partner-directory-item { display:grid; grid-template-columns:34px minmax(0,1fr) 14px; gap:10px; align-items:center; width:100%; min-width:0; padding:9px 8px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--color-text-primary); text-align:left; cursor:pointer; }
+#tab-panel-influencers .partner-directory-item:hover { background:var(--color-background-muted); }
+#tab-panel-influencers .partner-directory-item.is-active { border-color:var(--color-border-emphasized); background:var(--color-background-muted); }
+#tab-panel-influencers .partner-directory-avatar { display:grid; place-items:center; width:34px; height:34px; border:1px solid var(--color-border); border-radius:50%; background:var(--color-background-surface); font-size:10px; font-weight:700; }
+#tab-panel-influencers .partner-directory-copy { display:grid; min-width:0; gap:2px; }
+#tab-panel-influencers .partner-directory-copy strong, #tab-panel-influencers .partner-directory-copy small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#tab-panel-influencers .partner-directory-copy strong { font-size:11px; font-weight:650; }
+#tab-panel-influencers .partner-directory-copy small { color:var(--color-text-secondary); font-size:10px; }
+#tab-panel-influencers .partner-directory-item > svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.7; }
+#tab-panel-influencers .partner-overview-detail { min-width:0; }
+#tab-panel-influencers .partner-profile-contact a { color:var(--color-text-primary); text-decoration:underline; text-decoration-color:var(--color-border-emphasized); text-underline-offset:3px; }
+#tab-panel-influencers .partner-overview-detail .partner-profile-strip { margin:0; padding:18px 0; }
+#tab-panel-influencers .partner-overview-detail .partner-metrics { margin-bottom:0; }
+#tab-panel-influencers .partner-overview-detail .partner-metric { padding-top:16px; padding-bottom:16px; }
+#tab-panel-influencers .partner-directory-panel .partner-empty-state { padding:20px 10px; color:var(--color-text-secondary); text-align:center; font-size:11px; line-height:1.5; }
+#tab-panel-influencers .partner-draft-summary { display:grid; gap:6px; padding-top:13px; border-top:1px solid var(--color-border); }
+#tab-panel-influencers .partner-draft-summary > .partner-kicker { margin:0; }
+#tab-panel-influencers .partner-draft-summary button { display:grid; gap:3px; padding:8px 10px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-background-surface); color:var(--color-text-primary); text-align:left; cursor:pointer; }
+#tab-panel-influencers .partner-draft-summary button:hover { background:var(--color-background-muted); }
+#tab-panel-influencers .partner-draft-summary button strong { font-size:10px; }
+#tab-panel-influencers .partner-draft-summary button small { overflow:hidden; color:var(--color-text-secondary); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width: 900px) {
+  #tab-panel-influencers .partner-overview-layout { grid-template-columns:minmax(0,1fr); }
+  #tab-panel-influencers .partner-directory-list { grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); max-height:260px; }
+}
+@media (max-width: 620px) {
+  #tab-panel-influencers .partner-directory-panel { padding:12px; }
+  #tab-panel-influencers .partner-overview-detail .partner-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #tab-panel-influencers .partner-overview-detail .partner-metric { padding:12px 8px; }
+}
+
 /* Keep partner rows compact; secondary management actions expand on demand. */
 #table-campaign-outbound .influencer-row-actions-cell { min-width: 250px; text-align: right; }
 #table-campaign-outbound .influencer-row-actions {

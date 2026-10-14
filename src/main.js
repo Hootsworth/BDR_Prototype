@@ -53,6 +53,13 @@ window.currentTabId = currentTabId;
 window.currentImportContactsMode = 'csv';
 
 async function bootstrapApp() {
+  // Clerk must be ready before the first protected database request. Otherwise
+  // hosted startup falls back to browser cache and never enables autosave.
+  if (typeof loadClerkSDK === "function") {
+    try { await loadClerkSDK(); }
+    catch (error) { console.warn("Clerk initialization failed; hosted data access remains unavailable.", error); }
+  }
+
   // 1. Fetch & inject templates first
   await loadComponentTemplates();
 
@@ -162,8 +169,8 @@ async function bootstrapApp() {
       }
     }
     if (!loadedFromWorkbook) {
-      const message = `Workbook NOT connected after ${maxAttempts} attempts (${lastError?.message || "unknown error"}). Changes will NOT be saved to gtm-console-database.xlsx until you reload the page.`;
-      addLogConsole("enrich", `[LOCAL WORKBOOK] ${message}`, "error");
+      const message = `Database not connected after ${maxAttempts} attempts (${lastError?.message || "unknown error"}). Sign in and confirm the hosted database configuration before adding records.`;
+      addLogConsole("enrich", `[DATABASE] ${message}`, "error");
       if (typeof updateLocalWorkbookStatus === "function") updateLocalWorkbookStatus(message);
     }
   }
@@ -201,7 +208,8 @@ async function bootstrapApp() {
       addLogConsole("enrich", "[SYSTEM] Ready for a real workflow. Import contacts or open a local workbook to begin.", "info");
     }
 
-    try {
+    if (localPersistenceAvailable()) {
+      try {
       const idToken = await window.getFirebaseIdToken?.();
       const durableResponse = await fetch("/api/state", {
         headers: idToken ? { Authorization: `Bearer ${idToken}` } : {}
@@ -215,12 +223,13 @@ async function bootstrapApp() {
         database.stats = durableState.stats || database.stats;
         database.meetings = durableState.meetings || database.meetings || [];
         initLoadedData();
-        addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} contacts from durable local storage.`, "info");
+        addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} contacts from durable storage.`, "info");
       } else if (durableState.contacts && durableState.contacts.length > 0) {
         addLogConsole("enrich", "[SYSTEM] Ignored legacy demo records from durable storage.", "warning");
       }
-    } catch (error) {
-      addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
+      } catch (error) {
+        addLogConsole("enrich", "[SYSTEM] Durable storage unavailable; browser cache remains active.", "warning");
+      }
     }
   }
 
@@ -236,9 +245,6 @@ async function bootstrapApp() {
 
   // Initialize autocomplete typing
   if (typeof initAgentAutocomplete === "function") initAgentAutocomplete();
-
-  // Dynamically load Clerk Auth SDK
-  if (typeof loadClerkSDK === "function") loadClerkSDK();
 
   // Check for GitHub updates non-blockingly
   checkForAppUpdates();

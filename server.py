@@ -2,6 +2,7 @@ import http.server
 import urllib.request
 from firebase_backend import (
     FirebaseBackendUnavailable,
+    FirebaseStateConflict,
     FirebaseTokenInvalid,
     bearer_token,
     firestore_enabled,
@@ -2223,6 +2224,22 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Database read failed: {ex}'})
             return
 
+        if clean_path == '/api/workbook/state':
+            if str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true' and not firestore_enabled():
+                json_response(self, 503, {'error': 'Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true and configure the Vercel workload identity connection.'})
+                return
+            if not is_irm_admin_request(self):
+                status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
+                json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
+                return
+            try:
+                json_response(self, 200, {'state': read_workbook_state(), 'database': 'firestore' if firestore_enabled() else 'sqlite3', 'path': 'bdrcreek / (default)' if firestore_enabled() else DB_PATH})
+            except FirebaseBackendUnavailable as ex:
+                json_response(self, 503, {'error': str(ex)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not read the database: {ex}'})
+            return
+
         if clean_path == '/api/state' and os.environ.get('VERCEL'):
             json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
             return
@@ -3965,8 +3982,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/workbook/state' or self.path == '/api/db/state':
-            if os.environ.get('VERCEL'):
+            if self.path == '/api/db/state' and os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Durable database storage is unavailable in the current serverless deployment.'})
+                return
+            if self.path == '/api/workbook/state' and str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true' and not firestore_enabled():
+                json_response(self, 503, {'error': 'Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true and configure the Vercel workload identity connection.'})
                 return
             if not is_irm_admin_request(self):
                 status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
@@ -3974,9 +3994,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 state_obj = payload.get('state', {})
-                sync_relational_tables_from_state(state_obj)
-                write_workbook_state(state_obj)
-                json_response(self, 200, {'status': 'saved', 'savedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})
+                if not isinstance(state_obj, dict):
+                    json_response(self, 400, {'error': 'state must be an object.'})
+                    return
+                if firestore_enabled():
+                    write_workbook_state(state_obj)
+                else:
+                    sync_relational_tables_from_state(state_obj)
+                    write_workbook_state(state_obj)
+                json_response(self, 200, {'status': 'saved', 'database': 'firestore' if firestore_enabled() else 'sqlite3', 'savedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})
+            except FirebaseStateConflict as ex:
+                json_response(self, 409, {'error': str(ex), 'reloadRequired': True})
+            except FirebaseBackendUnavailable as ex:
+                json_response(self, 503, {'error': str(ex)})
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not save the database: {ex}'})
             return

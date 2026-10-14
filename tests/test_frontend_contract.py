@@ -94,13 +94,13 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("cat-group-contacts", index_html)
         self.assertNotIn("cat-group-events", index_html)
 
-        # Outbound screen header & navigation buttons (called "Import" not "Events")
+        # Outbound keeps Events as a direct action while Import opens CSV intake.
         self.assertNotIn("Omnichannel Outbound &amp; Referral Engine", outbound_html)
         self.assertNotIn("Coordinate influencer networks, manage warm referrals", outbound_html)
         self.assertIn("switchTab('agent-mode')", outbound_html)
         self.assertIn("switchTab('dashboard')", outbound_html)
-        self.assertNotIn("outbound-btn-events", outbound_html)
-        self.assertNotIn("openImportContactsTab('events')", outbound_html)
+        self.assertIn("outbound-btn-events", outbound_html)
+        self.assertIn("openImportContactsTab('events')", outbound_html)
         self.assertIn("openImportContactsTab('csv')", outbound_html)
         self.assertIn("Import\n", outbound_html)
 
