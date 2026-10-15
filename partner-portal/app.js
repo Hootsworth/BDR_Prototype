@@ -1,6 +1,6 @@
 /**
- * CONNECTEM PARTNER PORTAL · HUMAN-FRIENDLY WORKSPACE CONTROLLER
- * Pure Modern JS · Clean State Management · Uncluttered UX
+ * CONNECTEM PARTNER PORTAL · FULL-SCREEN INTRODUCTION & SCHEDULING WORKSPACE
+ * Pure Modern JS · Clean State Management · Uncluttered UX · 100% SVG Icons
  */
 
 (() => {
@@ -35,6 +35,7 @@
     // Views
     viewAuth: document.getElementById('view-auth'),
     viewWorkspace: document.getElementById('view-workspace'),
+    viewFullscreenIntro: document.getElementById('view-fullscreen-intro'),
 
     // Auth Forms & Tabs
     tabAuthSignin: document.getElementById('tab-auth-signin'),
@@ -48,7 +49,7 @@
     userFirstName: document.getElementById('user-first-name'),
     userSubtext: document.getElementById('user-subtext'),
     linkCalendly: document.getElementById('link-calendly-intro'),
-    btnOpenAddModal: document.getElementById('btn-open-add-modal'),
+    btnOpenAddFullscreen: document.getElementById('btn-open-add-fullscreen'),
 
     // KPIs
     kpiTotal: document.getElementById('kpi-total'),
@@ -73,6 +74,31 @@
     btnOpenBulkModal: document.getElementById('btn-open-bulk-modal'),
     introsContainer: document.getElementById('intros-container'),
 
+    // Full-Screen Workspace Elements
+    btnCloseFullscreen: document.getElementById('btn-close-fullscreen'),
+    btnSubmitIntroFullscreen: document.getElementById('btn-submit-intro-fullscreen'),
+    fsName: document.getElementById('fs-name'),
+    fsCompany: document.getElementById('fs-company'),
+    fsTitle: document.getElementById('fs-title'),
+    fsSeniority: document.getElementById('fs-seniority'),
+    fsEmail: document.getElementById('fs-email'),
+    fsPhone: document.getElementById('fs-phone'),
+    fsLinkedin: document.getElementById('fs-linkedin'),
+    fsLocation: document.getElementById('fs-location'),
+    fsWarmth: document.getElementById('fs-warmth'),
+    fsStrength: document.getElementById('fs-strength'),
+    fsHistory: document.getElementById('fs-history'),
+    fsEvalRole: document.getElementById('fs-eval-role'),
+    fsBudget: document.getElementById('fs-budget'),
+    fsContext: document.getElementById('fs-context'),
+    fsMeetingDate: document.getElementById('fs-meeting-date'),
+    fsMeetingTime: document.getElementById('fs-meeting-time'),
+    fsMeetingDuration: document.getElementById('fs-meeting-duration'),
+    fsMeetingPlatform: document.getElementById('fs-meeting-platform'),
+    fsPartnerAttendance: document.getElementById('fs-partner-attendance'),
+    fsBriefing: document.getElementById('fs-briefing'),
+    fsConsent: document.getElementById('fs-consent'),
+
     // Earnings Tab
     earningsCardBalance: document.getElementById('earnings-card-balance'),
     earningsCardUsd: document.getElementById('earnings-card-usd'),
@@ -87,9 +113,6 @@
     btnReReadAgreement: document.getElementById('btn-re-read-agreement'),
 
     // Modals
-    modalAddIntro: document.getElementById('modal-add-intro'),
-    formModalAddIntro: document.getElementById('form-modal-add-intro'),
-
     modalBulkCsv: document.getElementById('modal-bulk-csv'),
     bulkPasteText: document.getElementById('bulk-paste-text'),
     btnConfirmBulk: document.getElementById('btn-confirm-bulk'),
@@ -133,7 +156,27 @@
     document.querySelectorAll('.modal-backdrop').forEach(m => m.style.display = 'none');
   }
 
-  // Local Storage
+  // Full-Screen Workspace Controls
+  function openFullscreenIntroWorkspace() {
+    // Set default proposed meeting date to tomorrow
+    if (el.fsMeetingDate && !el.fsMeetingDate.value) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      el.fsMeetingDate.value = tomorrow.toISOString().split('T')[0];
+    }
+    if (el.viewFullscreenIntro) {
+      el.viewFullscreenIntro.style.display = 'flex';
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }
+
+  function closeFullscreenIntroWorkspace() {
+    if (el.viewFullscreenIntro) {
+      el.viewFullscreenIntro.style.display = 'none';
+    }
+  }
+
+  // Local Storage Persistence
   function saveState() {
     if (!state.user) return;
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(state.user));
@@ -205,17 +248,6 @@
     if (el.agreementMetaSigner) el.agreementMetaSigner.textContent = state.agreement.signedBy || 'Jordan Vance';
     if (el.agreementMetaDate) el.agreementMetaDate.textContent = state.agreement.signedAt || 'Oct 15, 2026';
     if (el.agreementMetaHash) el.agreementMetaHash.textContent = state.agreement.hash || '#IRM-88214-VERIFIED';
-    if (el.agreementPillBadge) {
-      if (state.agreement.signed) {
-        el.agreementPillBadge.textContent = '✓ AGREEMENT EXECUTED';
-        el.agreementPillBadge.style.background = 'var(--black)';
-        el.agreementPillBadge.style.color = 'var(--white)';
-      } else {
-        el.agreementPillBadge.textContent = 'PENDING SIGNATURE';
-        el.agreementPillBadge.style.background = 'var(--bg-muted)';
-        el.agreementPillBadge.style.color = 'var(--text-muted)';
-      }
-    }
   }
 
   // Render Introductions Cards List
@@ -245,8 +277,9 @@
               : 'Try clearing your search term or switching the status filter.'}
           </div>
           ${state.intros.length === 0 ? `
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('btn-open-add-modal').click()">
-              + Submit First Introduction
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('btn-open-add-fullscreen').click()">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Submit First Introduction
             </button>
           ` : ''}
         </div>
@@ -256,6 +289,7 @@
 
     el.introsContainer.innerHTML = filtered.map(intro => {
       const initial = (intro.name || 'C').charAt(0).toUpperCase();
+      const hasMeeting = intro.meetingDate ? `<span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); display:block; margin-top:3px;">📅 Proposed: ${escapeHTML(intro.meetingDate)} at ${escapeHTML(intro.meetingTime || '14:00')}</span>` : '';
       return `
         <div class="intro-card" data-id="${intro.id}">
           <div class="intro-info-col">
@@ -266,6 +300,7 @@
                 ${intro.linkedin ? `<a href="${escapeHTML(intro.linkedin)}" target="_blank" rel="noopener" style="margin-left:6px; font-size:11px; color:var(--text-muted); text-decoration:none;" title="LinkedIn Profile">↗</a>` : ''}
               </div>
               <div class="intro-sub">${escapeHTML(intro.title ? `${intro.title} · ${intro.company}` : intro.company)}</div>
+              ${hasMeeting}
             </div>
           </div>
 
@@ -401,6 +436,88 @@
     });
   }
 
+  // Handle Full-Screen Introduction Submission
+  function handleSubmitFullscreenIntro() {
+    const name = el.fsName.value.trim();
+    const company = el.fsCompany.value.trim();
+    const title = el.fsTitle.value.trim();
+    const email = el.fsEmail.value.trim();
+    const seniority = el.fsSeniority.value;
+    const phone = el.fsPhone.value.trim();
+    const linkedin = el.fsLinkedin.value.trim();
+    const location = el.fsLocation.value.trim();
+    const warmth = el.fsWarmth.value;
+    const strength = el.fsStrength.value;
+    const history = el.fsHistory.value.trim();
+    const evalRole = el.fsEvalRole.value;
+    const budget = el.fsBudget.value;
+    const context = el.fsContext.value.trim();
+    const meetingDate = el.fsMeetingDate.value;
+    const meetingTime = el.fsMeetingTime.value;
+    const meetingDuration = el.fsMeetingDuration.value;
+    const meetingPlatform = el.fsMeetingPlatform.value;
+    const partnerAttendance = el.fsPartnerAttendance.value;
+    const briefing = el.fsBriefing.value.trim();
+
+    if (!name || !company || !title || !email) {
+      alert('Please fill out the Executive Full Name, Company, Title, and Work Email.');
+      return;
+    }
+
+    if (!el.fsConsent.checked) {
+      alert('Please confirm that you have explicit permission from this executive to coordinate this introductory discussion.');
+      return;
+    }
+
+    const hasScheduledCall = Boolean(meetingDate);
+
+    const newIntro = {
+      id: Date.now(),
+      name,
+      company,
+      title,
+      seniority,
+      email,
+      phone,
+      linkedin,
+      location,
+      warmth,
+      strength,
+      history,
+      evalRole,
+      budget,
+      context,
+      meetingDate,
+      meetingTime,
+      meetingDuration,
+      meetingPlatform,
+      partnerAttendance,
+      briefing,
+      status: hasScheduledCall ? 'Call Scheduled' : 'Intro Submitted',
+      pointsAwarded: 200,
+      createdAt: new Date().toISOString()
+    };
+
+    state.intros.unshift(newIntro);
+    recordTransaction('Executive Intro & Scheduling', `${name} (${company})`, 200);
+
+    // Reset Form fields
+    el.fsName.value = '';
+    el.fsCompany.value = '';
+    el.fsTitle.value = '';
+    el.fsEmail.value = '';
+    el.fsPhone.value = '';
+    el.fsLinkedin.value = '';
+    el.fsLocation.value = '';
+    el.fsHistory.value = '';
+    el.fsContext.value = '';
+    el.fsBriefing.value = '';
+
+    closeFullscreenIntroWorkspace();
+    renderIntros();
+    showToast(`Introduction for ${name} submitted (+200 pts). Meeting coordination initiated.`);
+  }
+
   // Activate Workspace for User
   function activateWorkspace(user) {
     state.user = user;
@@ -428,6 +545,7 @@
     el.viewWorkspace.style.display = 'none';
     el.signoutBtn.style.display = 'none';
     el.navBalancePill.style.display = 'none';
+    closeFullscreenIntroWorkspace();
   }
 
   // Setup Event Listeners
@@ -467,6 +585,8 @@
             email: 'sarah.chen@databricks.com',
             linkedin: 'https://linkedin.com',
             warmth: 'Direct Former Colleague',
+            meetingDate: '2026-10-18',
+            meetingTime: '14:00',
             status: 'Meeting Verified',
             pointsAwarded: 800
           },
@@ -478,6 +598,8 @@
             email: 'm.brody@snowflake.com',
             linkedin: 'https://linkedin.com',
             warmth: 'Advisory Client',
+            meetingDate: '2026-10-21',
+            meetingTime: '11:30',
             status: 'Call Scheduled',
             pointsAwarded: 200
           },
@@ -488,7 +610,7 @@
             title: 'Director of Security Architecture',
             email: 'elena@figma.com',
             linkedin: 'https://linkedin.com',
-            warmth: 'Personal Industry Peer',
+            warmth: 'Close Industry Peer',
             status: 'Intro Submitted',
             pointsAwarded: 200
           }
@@ -548,8 +670,12 @@
     el.searchIntros.addEventListener('input', renderIntros);
     el.filterIntroStatus.addEventListener('change', renderIntros);
 
+    // Full-Screen Workspace Trigger & Close
+    el.btnOpenAddFullscreen.addEventListener('click', openFullscreenIntroWorkspace);
+    el.btnCloseFullscreen.addEventListener('click', closeFullscreenIntroWorkspace);
+    el.btnSubmitIntroFullscreen.addEventListener('click', handleSubmitFullscreenIntro);
+
     // Modal Triggers
-    el.btnOpenAddModal.addEventListener('click', () => openModal(el.modalAddIntro));
     el.btnOpenBulkModal.addEventListener('click', () => openModal(el.modalBulkCsv));
     el.btnOpenPayoutModal.addEventListener('click', () => openModal(el.modalPayout));
     el.btnReReadAgreement.addEventListener('click', () => openModal(el.modalAgreement));
@@ -563,39 +689,6 @@
       if (e.target.classList.contains('modal-backdrop')) {
         closeAllModals();
       }
-    });
-
-    // Add Single Intro Modal Submit
-    el.formModalAddIntro.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = document.getElementById('add-name').value.trim();
-      const company = document.getElementById('add-company').value.trim();
-      const title = document.getElementById('add-title').value.trim();
-      const email = document.getElementById('add-email').value.trim();
-      const linkedin = document.getElementById('add-linkedin').value.trim();
-      const warmth = document.getElementById('add-warmth').value;
-
-      if (!name || !company || !email) return;
-
-      const newIntro = {
-        id: Date.now(),
-        name,
-        company,
-        title,
-        email,
-        linkedin,
-        warmth,
-        status: 'Intro Submitted',
-        pointsAwarded: 200
-      };
-
-      state.intros.unshift(newIntro);
-      recordTransaction('Warm Intro Submission', `${name} (${company})`, 200);
-
-      el.formModalAddIntro.reset();
-      closeAllModals();
-      renderIntros();
-      showToast(`Introduction for ${name} added (+200 pts).`);
     });
 
     // Bulk CSV Confirm
@@ -622,7 +715,7 @@
             title,
             email,
             linkedin,
-            warmth: 'Direct Colleague',
+            warmth: 'Direct Former Colleague',
             status: 'Intro Submitted',
             pointsAwarded: 200
           });

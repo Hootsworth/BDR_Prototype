@@ -60,12 +60,14 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 10px;">
-            Sign In &rarr;
+            Sign In
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
 
           <div style="margin-top: 16px; text-align: center;">
             <button type="button" id="btn-quick-demo" class="btn btn-subtle btn-sm" style="width: 100%;">
-              ⚡ Test Drive as Demo Partner (1-Click)
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Test Drive as Demo Partner (1-Click)
             </button>
           </div>
         </form>
@@ -121,7 +123,8 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-            Create Partner Account &rarr;
+            Create Partner Account
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
         </form>
 
@@ -142,10 +145,13 @@
         </div>
         <div class="hero-actions">
           <a id="link-calendly-intro" href="https://calendly.com" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
-            📅 Open Intro Calendar ↗
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Intro Calendar
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </a>
-          <button type="button" id="btn-open-add-modal" class="btn btn-primary">
-            + New Introduction
+          <button type="button" id="btn-open-add-fullscreen" class="btn btn-primary">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Introduction
           </button>
         </div>
       </div>
@@ -233,7 +239,8 @@
           </div>
           <div>
             <button type="button" id="btn-open-payout-modal" class="btn btn-primary btn-lg">
-              Request Payout &rarr;
+              Request Payout
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </button>
           </div>
         </div>
@@ -279,7 +286,8 @@
         
         <div class="agreement-card">
           <div class="agreement-status-pill" id="agreement-pill-badge">
-            ✓ AGREEMENT EXECUTED
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>
+            AGREEMENT EXECUTED
           </div>
           <h2 class="agreement-title">Partner Network Standard Terms</h2>
           <p class="agreement-summary-text">
@@ -313,69 +321,271 @@
   </main>
 
   <!-- ====================================================================
-       FOCUSED MODALS (NO SCREEN CLUTTER)
+       FULL-SCREEN EXECUTIVE INTRODUCTION & SCHEDULING WORKSPACE
        ==================================================================== -->
-
-  <!-- 1. ADD SINGLE INTRODUCTION MODAL -->
-  <div id="modal-add-intro" class="modal-backdrop" style="display: none;">
-    <div class="modal-window">
-      <div class="modal-top">
-        <div class="modal-heading">New Executive Introduction</div>
-        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
+  <section id="view-fullscreen-intro" class="fullscreen-intro-workspace" style="display: none;">
+    
+    <!-- Top Navigation Bar for Workspace -->
+    <header class="fullscreen-topbar">
+      <div class="fullscreen-topbar-left">
+        <button type="button" id="btn-close-fullscreen" class="btn btn-subtle btn-sm">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back to Dashboard
+        </button>
+        <span class="fullscreen-title">New Executive Introduction &amp; Meeting Coordination</span>
       </div>
-      <form id="form-modal-add-intro">
-        <div class="modal-content-area">
+      <div>
+        <button type="button" id="btn-submit-intro-fullscreen" class="btn btn-primary">
+          Submit Introduction &amp; Meeting (+200 pts)
+        </button>
+      </div>
+    </header>
+
+    <div class="fullscreen-body">
+      
+      <!-- LEFT COLUMN: Executive Dossier & Context Intelligence -->
+      <div>
+        
+        <!-- 1. Target Executive Identity -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Target Executive Intelligence
+          </div>
+          <div class="workspace-card-subtitle">
+            Provide the decision-maker profile for this warm enterprise introduction.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-name">Executive Full Name *</label>
+              <input type="text" id="fs-name" class="text-input" placeholder="Sarah Chen" required>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-company">Current Company / Organization *</label>
+              <input type="text" id="fs-company" class="text-input" placeholder="Databricks" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-title">Executive Title / Role *</label>
+              <input type="text" id="fs-title" class="text-input" placeholder="VP of Platform Engineering" required>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-seniority">Seniority Level</label>
+              <select id="fs-seniority" class="select-input">
+                <option value="C-Level / Executive Suite">C-Level / Executive Suite (CTO, CIO, CISO)</option>
+                <option value="Vice President / Head of">Vice President / Head of Department</option>
+                <option value="Director / Senior Director">Director / Senior Director</option>
+                <option value="Board Member / Advisor">Board Member / Investor</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-email">Direct Work Email *</label>
+              <input type="email" id="fs-email" class="text-input" placeholder="sarah.chen@databricks.com" required>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-phone">Direct Phone (Optional)</label>
+              <input type="tel" id="fs-phone" class="text-input" placeholder="+1 (415) 555-0192">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-linkedin">LinkedIn Profile URL</label>
+              <input type="url" id="fs-linkedin" class="text-input" placeholder="https://www.linkedin.com/in/sarahchen">
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-location">Location / Timezone</label>
+              <input type="text" id="fs-location" class="text-input" placeholder="San Francisco, CA (PT)">
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Relationship Warmth & Prior History -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Relationship Warmth &amp; History
+          </div>
+          <div class="workspace-card-subtitle">
+            Establishing the strength of your relationship builds buyer trust and boosts conversion.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-warmth">Connection Type</label>
+              <select id="fs-warmth" class="select-input">
+                <option value="Direct Former Colleague">Direct Former Colleague / Peer</option>
+                <option value="Active Advisory Client">Active Advisory Client</option>
+                <option value="Former Manager / Leader">Former Manager / Leader</option>
+                <option value="Close Industry Peer">Close Personal Industry Peer</option>
+                <option value="Board / Investor Network">Board / Investor Network</option>
+              </select>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-strength">Relationship Warmth Level</label>
+              <select id="fs-strength" class="select-input">
+                <option value="Very Close (Regular contact)">Very Close (Regular contact)</option>
+                <option value="Strong Colleague (High trust)">Strong Colleague (High trust)</option>
+                <option value="Warm Network (Re-engaged)">Warm Network (Re-engaged)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="fs-history">How do you know this executive?</label>
+            <textarea id="fs-history" class="textarea-input" placeholder="e.g. Worked closely together at Databricks for 4 years on infrastructure scaling. Maintained monthly catchups since."></textarea>
+          </div>
+        </div>
+
+        <!-- 3. Strategic Fit & Buying Context -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            Strategic Intent &amp; Pain Points
+          </div>
+          <div class="workspace-card-subtitle">
+            Why is this buyer evaluating solutions now?
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-eval-role">Decision-Making Role</label>
+              <select id="fs-eval-role" class="select-input">
+                <option value="Final Budget Approver">Final Budget Approver</option>
+                <option value="Primary Technical Evaluator">Primary Technical Evaluator</option>
+                <option value="Internal Executive Champion">Internal Executive Champion</option>
+              </select>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-budget">Estimated Initiative Budget</label>
+              <select id="fs-budget" class="select-input">
+                <option value="$100k - $250k">$100k – $250k ARR</option>
+                <option value="$250k - $500k">$250k – $500k ARR</option>
+                <option value="$500k+">$500k+ Enterprise ARR</option>
+                <option value="Discovery Phase">Discovery Phase / TBD</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="fs-context">Current Pain Point &amp; Priority Triggers</label>
+            <textarea id="fs-context" class="textarea-input" placeholder="e.g. Currently re-architecting modern data pipeline; dissatisfied with current vendor pricing and looking to migrate in Q3."></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Direct Meeting Coordination & Milestone Incentive -->
+      <div>
+        
+        <!-- 4. Meeting Coordination -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Meeting Coordination &amp; Scheduling
+          </div>
+          <div class="workspace-card-subtitle">
+            Coordinate the introductory discussion directly with this executive.
+          </div>
+
           <div class="input-field-group">
-            <label class="input-label" for="add-name">Executive Full Name *</label>
-            <input type="text" id="add-name" class="text-input" placeholder="Sarah Chen" required>
+            <label class="input-label" for="fs-meeting-date">Proposed Meeting Date</label>
+            <input type="date" id="fs-meeting-date" class="text-input">
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="input-field-group">
-              <label class="input-label" for="add-company">Company *</label>
-              <input type="text" id="add-company" class="text-input" placeholder="Databricks" required>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-meeting-time">Proposed Time Slot</label>
+              <input type="time" id="fs-meeting-time" class="text-input" value="14:00">
             </div>
-            <div class="input-field-group">
-              <label class="input-label" for="add-title">Title / Role</label>
-              <input type="text" id="add-title" class="text-input" placeholder="VP of Platform">
-            </div>
-          </div>
-
-          <div class="input-field-group">
-            <label class="input-label" for="add-email">Work Email *</label>
-            <input type="email" id="add-email" class="text-input" placeholder="sarah@databricks.com" required>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="input-field-group">
-              <label class="input-label" for="add-linkedin">LinkedIn Profile URL</label>
-              <input type="url" id="add-linkedin" class="text-input" placeholder="https://linkedin.com/in/sarahchen">
-            </div>
-            <div class="input-field-group">
-              <label class="input-label" for="add-warmth">Relationship Warmth</label>
-              <select id="add-warmth" class="select-input">
-                <option value="Direct Former Colleague">Direct Former Colleague</option>
-                <option value="Advisory Client">Advisory Client</option>
-                <option value="Personal Industry Peer">Personal Industry Peer</option>
-                <option value="Permission-Based Referral">Permission-Based Referral</option>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-meeting-duration">Call Duration</label>
+              <select id="fs-meeting-duration" class="select-input">
+                <option value="30 Minutes">30 Minutes (Recommended)</option>
+                <option value="20 Minutes">20 Minutes (Brief Intro)</option>
+                <option value="45 Minutes">45 Minutes (Deep Dive)</option>
               </select>
             </div>
           </div>
 
           <div class="input-field-group">
-            <label class="input-label" for="add-notes">Context / Opportunity Angle</label>
-            <textarea id="add-notes" class="textarea-input" placeholder="Why are they currently evaluating solutions?"></textarea>
+            <label class="input-label" for="fs-meeting-platform">Meeting Platform</label>
+            <select id="fs-meeting-platform" class="select-input">
+              <option value="Google Meet">Google Meet</option>
+              <option value="Zoom">Zoom</option>
+              <option value="Microsoft Teams">Microsoft Teams</option>
+            </select>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="fs-partner-attendance">Will you join this intro call?</label>
+            <select id="fs-partner-attendance" class="select-input">
+              <option value="Yes, I will attend and introduce both parties">Yes, I will attend and introduce both parties (Recommended)</option>
+              <option value="No, direct email introduction handover">No, direct email introduction handover</option>
+            </select>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="fs-briefing">Pre-Meeting Briefing Note for Team</label>
+            <textarea id="fs-briefing" class="textarea-input" style="min-height: 70px;" placeholder="Any specific sensitivities or executive communication preferences?"></textarea>
+          </div>
+
+          <!-- Compliance Confirmation Checkbox -->
+          <div style="margin-top: 20px; padding: 14px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
+            <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px;">
+              <input type="checkbox" id="fs-consent" checked style="margin-top: 3px;">
+              <label for="fs-consent">
+                <strong>Permission-Based Confirmation:</strong> I confirm I have communicated with this executive and have their explicit consent to coordinate this introductory discussion.
+              </label>
+            </div>
           </div>
         </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary modal-close">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit &amp; Earn +200 pts</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
-  <!-- 2. BULK CSV INTAKE MODAL -->
+        <!-- 5. Incentive Rewards Box -->
+        <div class="incentive-box">
+          <div style="font-family: var(--font-display); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <span>Milestone Rewards</span>
+            <span class="status-badge verified">+200 pts earned now</span>
+          </div>
+
+          <div class="incentive-tier-row">
+            <span>Warm Intro Submitted</span>
+            <strong>+200 pts ($20.00)</strong>
+          </div>
+          <div class="incentive-tier-row">
+            <span>Intro Call Completed</span>
+            <strong>+600 pts ($60.00)</strong>
+          </div>
+          <div class="incentive-tier-row">
+            <span>Opportunity Pipeline</span>
+            <strong>+1,000 pts ($100.00)</strong>
+          </div>
+          <div class="incentive-tier-row">
+            <span>Enterprise Deal Closed</span>
+            <strong>+5,000 pts ($500.00)</strong>
+          </div>
+
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 12px; font-family: var(--font-mono);">
+            Points are automatically deposited to your balance upon milestone verification.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       MODALS
+       ==================================================================== -->
+
+  <!-- 1. BULK CSV INTAKE MODAL -->
   <div id="modal-bulk-csv" class="modal-backdrop" style="display: none;">
     <div class="modal-window">
       <div class="modal-top">
@@ -396,7 +606,7 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
     </div>
   </div>
 
-  <!-- 3. AGREEMENT TERMS MODAL -->
+  <!-- 2. AGREEMENT TERMS MODAL -->
   <div id="modal-agreement" class="modal-backdrop" style="display: none;">
     <div class="modal-window" style="max-width: 620px;">
       <div class="modal-top">
@@ -441,7 +651,7 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
     </div>
   </div>
 
-  <!-- 4. PAYOUT / REDEMPTION MODAL -->
+  <!-- 3. PAYOUT / REDEMPTION MODAL -->
   <div id="modal-payout" class="modal-backdrop" style="display: none;">
     <div class="modal-window">
       <div class="modal-top">

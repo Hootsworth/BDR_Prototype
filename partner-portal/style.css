@@ -919,3 +919,132 @@ body {
     justify-content: flex-end;
   }
 }
+
+/* ==========================================================================
+   FULL-SCREEN INTRODUCTION & SCHEDULING WORKSPACE
+   ========================================================================== */
+
+.fullscreen-intro-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.fullscreen-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  height: var(--header-height);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px;
+  backdrop-filter: blur(8px);
+}
+
+.fullscreen-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fullscreen-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.fullscreen-body {
+  flex: 1;
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 32px 100px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 440px);
+  gap: 40px;
+  align-items: start;
+}
+
+.workspace-card {
+  padding: 32px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+}
+
+.workspace-card-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-card-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.incentive-box {
+  padding: 20px;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  margin-top: 24px;
+}
+
+.incentive-tier-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
+}
+
+.incentive-tier-row:last-child {
+  border-bottom: none;
+}
+
+/* SVG Icon Rules */
+.icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  stroke-width: 2;
+  stroke: currentColor;
+}
+
+.icon-sm {
+  width: 13px;
+  height: 13px;
+}
+
+.icon-lg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 960px) {
+  .fullscreen-body {
+    grid-template-columns: 1fr;
+    padding: 24px 20px 80px;
+  }
+}
+
