@@ -1499,6 +1499,13 @@ def read_workbook_state():
     default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
     if WORKBOOK_PATH != default_wb_path:
         if not os.path.exists(WORKBOOK_PATH):
+            json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
+            if os.path.exists(json_path):
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+                except Exception:
+                    pass
             return default_workbook_state()
     else:
         # Primary source of truth is now our relational SQLite database!

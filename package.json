@@ -24,7 +24,8 @@
   "dependencies": {
     "@astryxdesign/cli": "^0.1.8",
     "@astryxdesign/core": "^0.1.8",
-    "@astryxdesign/theme-neutral": "^0.1.8"
+    "@astryxdesign/theme-neutral": "^0.1.8",
+    "@vercel/oidc": "^4.0.1"
   },
   "devDependencies": {
     "firebase-tools": "^15.33.0"

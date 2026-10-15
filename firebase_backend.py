@@ -12,7 +12,7 @@ import json
 import time
 from datetime import datetime, timezone, timedelta
 from functools import lru_cache
-from threading import local
+from threading import Lock, local
 from uuid import uuid4
 
 
@@ -28,17 +28,23 @@ class FirebaseStateConflict(RuntimeError):
     pass
 
 
-_vercel_request_context = local()
+_vercel_oidc_token = ""
+_vercel_oidc_token_lock = Lock()
 
 
 def set_vercel_oidc_token(token):
-    """Set the request-scoped Vercel identity token used for Google federation."""
-    _vercel_request_context.oidc_token = str(token or "").strip()
+    """Cache the latest short-lived Vercel token for Firestore's gRPC callback."""
+    global _vercel_oidc_token
+    value = str(token or "").strip()
+    if value:
+        with _vercel_oidc_token_lock:
+            _vercel_oidc_token = value
 
 
 class _VercelOidcSubjectTokenSupplier:
     def get_subject_token(self, context, request):
-        token = str(getattr(_vercel_request_context, "oidc_token", "") or "").strip()
+        with _vercel_oidc_token_lock:
+            token = _vercel_oidc_token
         if not token:
             raise FirebaseBackendUnavailable(
                 "The Vercel request is missing its OIDC identity token. Enable Vercel Secure Backend Access and configure Google Workload Identity Federation."
@@ -144,7 +150,7 @@ def _clerk_jwks_client():
     issuer = str(os.environ.get("CLERK_ISSUER") or "").strip().rstrip("/")
     if not issuer:
         raise FirebaseBackendUnavailable("CLERK_ISSUER is not configured.")
-    return PyJWKClient(f"{issuer}/.well-known/jwks.json"), issuer
+    return PyJWKClient(f"{issuer}/.well-known/jwks.json", timeout=5), issuer
 
 
 def verify_clerk_token(token):
@@ -153,6 +159,9 @@ def verify_clerk_token(token):
         raise FirebaseTokenInvalid("A Clerk session token is required.")
     try:
         import jwt
+    except ImportError as exc:
+        raise FirebaseBackendUnavailable("PyJWT is required to verify Clerk sessions.") from exc
+    try:
         client, issuer = _clerk_jwks_client()
         signing_key = client.get_signing_key_from_jwt(value)
         claims = jwt.decode(

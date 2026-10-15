@@ -21,3 +21,5 @@ firestore-debug.log
 public/
 pylibs/
 test_print.html
+.agents/
+skills-lock.json
