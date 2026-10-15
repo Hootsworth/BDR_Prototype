@@ -675,6 +675,12 @@
     el.btnCloseFullscreen.addEventListener('click', closeFullscreenIntroWorkspace);
     el.btnSubmitIntroFullscreen.addEventListener('click', handleSubmitFullscreenIntro);
 
+    const btnSubmitBottom = document.getElementById('btn-submit-intro-bottom');
+    if (btnSubmitBottom) btnSubmitBottom.addEventListener('click', handleSubmitFullscreenIntro);
+
+    const btnCancelBottom = document.getElementById('btn-cancel-intro-bottom');
+    if (btnCancelBottom) btnCancelBottom.addEventListener('click', closeFullscreenIntroWorkspace);
+
     // Modal Triggers
     el.btnOpenBulkModal.addEventListener('click', () => openModal(el.modalBulkCsv));
     el.btnOpenPayoutModal.addEventListener('click', () => openModal(el.modalPayout));
