@@ -5,174 +5,891 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex,nofollow">
-  <meta name="theme-color" content="#f6f7f5">
+  <meta name="theme-color" content="#ffffff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="/app-config.js"></script>
   <script src="config.js"></script>
   <script src="src/clerk-api.js"></script>
-  <title>Partner workspace</title>
+  <title>Influencer Partner Workspace — Connectem</title>
   <style>
-    :root { color-scheme:light; --paper:#f6f7f5; --ink:#202925; --muted:#727b75; --line:#e4e7e2; --surface:#fff; --soft:#f2f4f0; --accent:#315f4d; --ok:#286b50; --error:#a73737; --radius:14px; font-family:"DM Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-synthesis:none; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--paper); color:var(--ink); }
-    main { max-width:1280px; margin:0 auto; padding:24px 40px 80px; }
-    .eyebrow { margin:0 0 10px; color:var(--accent); font-size:10px; font-weight:750; letter-spacing:.14em; text-transform:uppercase; }
-    h1 { margin:0; font-family:Newsreader,Georgia,serif; font-size:clamp(40px,5vw,62px); font-weight:400; letter-spacing:-.045em; line-height:.98; }
-    .intro { max-width:700px; margin:14px 0 0; color:var(--muted); font-size:15px; line-height:1.65; }
-    main > header { padding:16px 0 30px; border-bottom:1px solid var(--line); }
-    .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:20px 0 22px; border-bottom:1px solid var(--line); }
-    .summary p { margin:0; padding:17px 18px; color:var(--muted); font-size:11px; border:1px solid var(--line); border-radius:var(--radius); background:white; }
-    .summary strong { display:block; margin-top:9px; color:var(--ink); font-size:23px; font-weight:600; letter-spacing:-.035em; }
-    .section-head { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:30px 0 14px; border:0; }
-    h2 { margin:0; font-size:26px; font-weight:620; letter-spacing:-.035em; }
-    .contact-count { color:var(--muted); font-size:12px; }
-    .table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:#fff; }
-    table { width:100%; min-width:620px; border-collapse:collapse; text-align:left; }
-    th { padding:12px 14px; color:var(--muted); background:#f7faf9; border-bottom:1px solid var(--line); font-size:10px; font-weight:750; letter-spacing:.09em; text-transform:uppercase; }
-    td { padding:14px; border-top:1px solid #edf1ef; font-size:13px; vertical-align:top; }
-    td small { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
-    .status { white-space:nowrap; }
-    .empty { padding:36px 10px; color:var(--muted); text-align:center; }
-    .form-section { margin-top:24px; padding:28px; border:1px solid var(--line); border-radius:var(--radius); background:#fff; box-shadow:0 2px 8px #20292506; }
-    .form-section > p { max-width:650px; margin:7px 0 20px; color:var(--muted); font-size:13px; line-height:1.6; }
-    form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 20px; max-width:900px; }
-    label { display:grid; gap:7px; color:var(--muted); font-size:12px; }
-    input,select,textarea { width:100%; min-height:44px; padding:10px 13px; border:1px solid #d5dfdb; border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; transition:border-color .16s,box-shadow .16s; }
-    input:focus,select:focus,textarea:focus { outline:none; border-color:#60a795; box-shadow:0 0 0 3px #14806b20; }
-    button { min-height:42px; width:max-content; padding:0 17px; border:0; border-radius:8px; background:var(--accent); color:white; font:inherit; font-size:13px; font-weight:600; cursor:pointer; transition:transform .16s,box-shadow .16s,background .16s; }
-    button:hover:not(:disabled) { background:#0d594b; box-shadow:0 5px 12px #126b5b2a; transform:translateY(-1px); }
-    button.btn-outline { background:var(--surface); color:var(--ink); border:1px solid var(--line); }
-    button.btn-outline:hover { background:var(--soft); }
-    button.btn-sm { min-height:34px; padding:0 12px; font-size:12px; }
-    button:disabled { opacity:.55; cursor:wait; }
-    .form-actions { display:flex; align-items:center; gap:14px; grid-column:1/-1; flex-wrap:wrap; }
-    #feedback, #bulk-feedback, #multi-edit-feedback { color:var(--muted); font-size:12px; }
-    #feedback.error, #bulk-feedback.error, #multi-edit-feedback.error { color:var(--error); }
-    #feedback.success, #bulk-feedback.success, #multi-edit-feedback.success { color:var(--ok); }
-    #page-error { display:none; margin-top:32px; padding:14px 0; border-top:1px solid var(--line); color:var(--error); font-size:13px; }
-    .section-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .mode-switcher { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:var(--soft); margin:8px 0 20px; padding:3px; }
-    .mode-switcher button { min-height:36px; padding:0 14px; border:0; border-radius:0; background:transparent; color:var(--muted); font-size:12px; font-weight:500; }
-    .mode-switcher button.active { background:var(--accent); color:#fff; border-radius:6px; box-shadow:0 2px 5px #142f291c; }
-    .bulk-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
-    .bulk-toolbar-buttons { display:flex; gap:8px; flex-wrap:wrap; }
-    .bulk-paste-box { margin-bottom:14px; padding:14px; border:1px solid var(--line); border-radius:4px; background:var(--surface); }
-    .bulk-paste-box textarea { width:100%; margin:8px 0 10px; padding:10px; border:1px solid var(--line); border-radius:3px; font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; }
-    .bulk-table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:4px; background:var(--surface); margin-bottom:16px; }
-    .bulk-table { width:100%; min-width:780px; border-collapse:collapse; }
-    .bulk-table th { background:var(--soft); padding:10px 8px; font-size:10px; border-bottom:1px solid var(--line); }
-    .bulk-table td { padding:6px 6px; border-top:1px solid var(--line); vertical-align:middle; }
-    .bulk-table input, .bulk-table select, .inline-edit-input, .inline-edit-select { min-height:36px; padding:6px 9px; font-size:12.5px; }
-    .bulk-remove-btn { min-height:30px; width:30px; padding:0; background:transparent; color:var(--muted); border:1px solid transparent; font-size:16px; line-height:1; border-radius:7px; }
-    .bulk-remove-btn:hover { color:var(--error); border-color:var(--line); background:var(--soft); }
-    .multi-edit-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 14px; margin-bottom:10px; border:1px solid var(--line); border-radius:4px; background:var(--surface); font-size:12.5px; }
-    .portal-topbar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:28px; padding:4px 0 18px; border-bottom:1px solid var(--line); font-size:12px; }
-    .portal-topbar-links { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .portal-topbar-links a { color:var(--muted); text-decoration:none; padding:8px 12px; border:1px solid var(--line); border-radius:999px; background:#ffffffb8; transition:color .16s,background .16s,border-color .16s; }
-    .portal-topbar-links a:hover { color:var(--accent); background:#fff; border-color:#b8d2cb; }
-    .portal-topbar-links svg { width:13px; height:13px; margin-left:5px; vertical-align:-2px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
-    .portal-auth-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,440px); gap:48px; max-width:1080px; margin:34px auto 50px; padding:42px; border:1px solid var(--line); border-radius:20px; background:var(--surface); box-shadow:0 18px 54px #24352b0a; }
-    .portal-auth-copy { align-self:center; max-width:470px; }
-    .portal-auth-copy h2 { margin:0; font-family:Newsreader,Georgia,serif; font-size:38px; font-weight:400; letter-spacing:-.035em; line-height:1.05; }
-    .portal-auth-copy > p:not(.eyebrow) { margin:13px 0 24px; color:var(--muted); font-size:14px; line-height:1.7; }
-    .onboarding-steps { display:grid; gap:14px; padding:0; margin:0; list-style:none; }
-    .onboarding-steps li { display:grid; grid-template-columns:30px 1fr; gap:12px; align-items:start; font-size:13px; line-height:1.5; }
-    .step-number { display:grid; width:28px; height:28px; place-items:center; border:1px solid var(--line); border-radius:50%; color:var(--accent); font-size:11px; font-weight:700; }
-    .onboarding-steps strong { display:block; margin-bottom:2px; font-size:13px; font-weight:600; }
-    .portal-auth-panel { padding:24px; border:1px solid var(--line); border-radius:14px; background:#fbfcfa; }
-    .auth-tabs { display:flex; gap:4px; padding:4px; border-radius:9px; background:#eff1ed; }
-    .auth-tabs button { width:50%; min-height:36px; padding:0 10px; border:0; border-radius:6px; background:transparent; color:var(--muted); box-shadow:none; }
-    .auth-tabs button.active { background:white; color:var(--ink); box-shadow:0 1px 4px #1d2b2417; }
-    .auth-switchline { margin:12px 0 0; color:var(--muted); text-align:center; font-size:12px; }
-    .auth-switchline button { width:auto; min-height:unset; padding:0; border:0; background:none; color:var(--accent); font-size:12px; font-weight:700; text-decoration:underline; text-underline-offset:3px; box-shadow:none; }
-    .auth-switchline button:hover { background:none; box-shadow:none; transform:none; }
-    #clerk-auth-mount { min-height:330px; padding-top:18px; }
-    #clerk-signup-mount { min-height:330px; padding-top:18px; }
-    .clerk-loading { padding:60px 12px; color:var(--muted); text-align:center; font-size:13px; }
-    .setup-form { display:grid; gap:14px; margin-top:18px; }
-    .setup-form[hidden] { display:none; }
-    .setup-form .form-actions { margin-top:4px; }
-    .setup-note { padding:12px 14px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--muted); font-size:11px; line-height:1.55; }
-    .portal-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; background:var(--soft); color:var(--ink); }
-    .portal-badge.ok { background:#dcfce7; color:var(--ok); }
-    .portal-badge.warn { background:#fef3c7; color:#92400e; }
-    .agreement-bar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:18px 20px; margin-top:18px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
-    .rewards-card { margin-top:24px; padding:24px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); box-shadow:0 2px 8px #20292506; }
-    .section-head { padding-top:26px; }
-    .table-wrap { border-radius:11px; }
-    th { padding:13px 15px; }
-    td { padding:15px; }
-    .portal-topbar-links a { background:transparent; border-color:transparent; }
-    .portal-topbar-links a:hover { background:#fff; border-color:var(--line); }
-    #portal-workspace-content { padding-bottom:18px; }
-    #portal-workspace-content[hidden] { display:none; }
-    #portal-auth-section[hidden] { display:none; }
-    [hidden] { display:none !important; }
-    footer { margin-top:48px; padding-top:15px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; }
-    a:focus-visible,button:focus-visible { outline:3px solid #16806b66; outline-offset:2px; }
-    @media(max-width:760px) { main { padding:18px 18px 56px; } .section-head { align-items:start; flex-direction:column; } form { grid-template-columns:1fr; } .form-actions { grid-column:auto; align-items:flex-start; flex-direction:column; } .form-section,.rewards-card,.portal-auth-card { padding:20px; } .portal-auth-card { grid-template-columns:1fr; gap:26px; margin:22px auto 34px; } .portal-auth-copy h2 { font-size:32px; } .portal-auth-panel { padding:17px; } }
+    :root {
+      color-scheme: light;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-subtle: #f1f5f9;
+      --line: #e2e8f0;
+      --line-subtle: #edf2f7;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --accent: #0d9488;
+      --accent-hover: #0f766e;
+      --accent-subtle: #f0fdfa;
+      --accent-border: #ccfbf1;
+      --ok: #16a34a;
+      --ok-bg: #f0fdf4;
+      --ok-border: #bbf7d0;
+      --warn: #d97706;
+      --warn-bg: #fffbeb;
+      --warn-border: #fde68a;
+      --error: #e11d48;
+      --error-bg: #fff1f2;
+      --radius-sm: 8px;
+      --radius: 14px;
+      --radius-lg: 20px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+      --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.08), 0 4px 8px -2px rgb(0 0 0 / 0.04);
+      --shadow-xl: 0 24px 48px -12px rgb(0 0 0 / 0.12);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 50% 0%, #f0fdfa 0%, var(--bg) 60%);
+      color: var(--ink);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 24px 32px 80px;
+    }
+
+    /* Top Navigation Bar */
+    .portal-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+    .portal-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .portal-brand-logo {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent), #047857);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(13, 148, 136, 0.35);
+    }
+    .portal-brand-text {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .portal-brand-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .portal-topbar-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .portal-topbar-links a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .16s ease;
+    }
+    .portal-topbar-links a:hover {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-subtle);
+      transform: translateY(-1px);
+    }
+    .portal-topbar-links svg {
+      width: 12px;
+      height: 12px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Header */
+    header.portal-hero {
+      padding: 10px 0 32px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    h1 {
+      margin: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: clamp(32px, 4vw, 44px);
+      font-weight: 800;
+      letter-spacing: -.03em;
+      line-height: 1.15;
+      color: var(--ink);
+    }
+    .intro {
+      max-width: 680px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* Auth Screen Card */
+    .portal-auth-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(360px, 460px);
+      gap: 40px;
+      max-width: 1080px;
+      margin: 40px auto 60px;
+      padding: 44px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-xl);
+      position: relative;
+      overflow: hidden;
+    }
+    .portal-auth-card::before {
+      content: "";
+      position: absolute;
+      top: -80px;
+      left: -80px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(13, 148, 136, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .portal-auth-copy {
+      align-self: center;
+      padding-right: 10px;
+    }
+    .portal-auth-copy h2 {
+      margin: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      line-height: 1.2;
+      color: var(--ink);
+    }
+    .portal-auth-copy > p:not(.eyebrow) {
+      margin: 14px 0 28px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+    .onboarding-steps {
+      display: grid;
+      gap: 16px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+    .onboarding-steps li {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 14px;
+      align-items: start;
+      font-size: 13.5px;
+      line-height: 1.5;
+      padding: 12px 14px;
+      background: var(--surface-subtle);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line-subtle);
+    }
+    .step-number {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      background: #ffffff;
+      border: 1px solid var(--accent-border);
+      border-radius: 50%;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: var(--shadow-sm);
+    }
+    .onboarding-steps strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .portal-auth-panel {
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: var(--shadow-md);
+    }
+    .auth-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 5px;
+      border-radius: 10px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--line);
+    }
+    .auth-tabs button {
+      width: 50%;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: none;
+      transition: all .16s ease;
+    }
+    .auth-tabs button.active {
+      background: #ffffff;
+      color: var(--ink);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    }
+    .auth-switchline {
+      margin: 16px 0 0;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12.5px;
+    }
+    .auth-switchline button {
+      width: auto;
+      min-height: unset;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--accent);
+      font-size: 12.5px;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+    .auth-switchline button:hover {
+      color: var(--accent-hover);
+    }
+    #clerk-auth-mount, #clerk-signup-mount {
+      min-height: 340px;
+      padding-top: 14px;
+    }
+    .clerk-loading {
+      padding: 70px 16px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13.5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .clerk-loading::before {
+      content: "";
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--line);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .setup-form {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .setup-note {
+      padding: 12px 14px;
+      border: 1px solid var(--accent-border);
+      border-radius: var(--radius-sm);
+      background: var(--accent-subtle);
+      color: #0f766e;
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+
+    /* Metric Cards Grid */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      padding: 24px 0 28px;
+      border-bottom: 1px solid var(--line);
+    }
+    .summary p {
+      margin: 0;
+      padding: 20px;
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .summary p:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .summary p::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), #34d399);
+    }
+    .summary strong {
+      display: block;
+      margin-top: 10px;
+      color: var(--ink);
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      line-height: 1.1;
+    }
+
+    /* Agreement & Quick Action Bars */
+    .agreement-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 20px 24px;
+      margin-top: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+    }
+    .calendly-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 20px 24px;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Badges */
+    .portal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--surface-subtle);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .portal-badge.ok {
+      background: var(--ok-bg);
+      color: var(--ok);
+      border-color: var(--ok-border);
+    }
+    .portal-badge.warn {
+      background: var(--warn-bg);
+      color: var(--warn);
+      border-color: var(--warn-border);
+    }
+
+    /* Section Headers */
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      padding: 36px 0 16px;
+      border: 0;
+    }
+    h2 {
+      margin: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 24px;
+      font-weight: 750;
+      letter-spacing: -.025em;
+      color: var(--ink);
+    }
+    .contact-count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Cards and Form Sections */
+    .rewards-card, .form-section {
+      margin-top: 24px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+    }
+    .form-section > p {
+      max-width: 680px;
+      margin: 8px 0 22px;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+
+    /* Forms & Inputs */
+    form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 20px;
+      max-width: 960px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    input, select, textarea {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 13px;
+      transition: all .16s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+    }
+    input::placeholder, textarea::placeholder {
+      color: #94a3b8;
+    }
+
+    /* Buttons */
+    button {
+      min-height: 40px;
+      width: max-content;
+      padding: 0 18px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: white;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(13, 148, 136, 0.25);
+      transition: all .16s ease;
+    }
+    button:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 10px rgba(13, 148, 136, 0.35);
+      transform: translateY(-1px);
+    }
+    button.btn-outline {
+      background: #ffffff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-sm);
+    }
+    button.btn-outline:hover {
+      background: var(--surface-subtle);
+      border-color: #cbd5e1;
+      box-shadow: var(--shadow-sm);
+    }
+    button.btn-sm {
+      min-height: 34px;
+      padding: 0 14px;
+      font-size: 12px;
+    }
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      grid-column: 1 / -1;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    /* Status & Feedback Messages */
+    #feedback, #bulk-feedback, #multi-edit-feedback, #portal-auth-feedback, #partner-reward-feedback {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    #feedback.error, #bulk-feedback.error, #multi-edit-feedback.error, #portal-auth-feedback.error, #portal-auth-error {
+      color: var(--error);
+      background: var(--error-bg);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #fecdd3;
+    }
+    #feedback.success, #bulk-feedback.success, #multi-edit-feedback.success, #portal-auth-feedback.success {
+      color: var(--ok);
+      background: var(--ok-bg);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--ok-border);
+    }
+    #page-error {
+      display: none;
+      margin-top: 32px;
+      padding: 14px 18px;
+      border-radius: var(--radius-sm);
+      background: var(--error-bg);
+      border: 1px solid #fecdd3;
+      color: var(--error);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    /* Mode Switcher Tabs */
+    .mode-switcher {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface-subtle);
+      margin: 6px 0 22px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .mode-switcher button {
+      min-height: 36px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      box-shadow: none;
+    }
+    .mode-switcher button.active {
+      background: #ffffff;
+      color: var(--ink);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+    }
+    table {
+      width: 100%;
+      min-width: 680px;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th {
+      padding: 13px 16px;
+      color: var(--muted);
+      background: #f8fafc;
+      border-bottom: 1px solid var(--line);
+      font-size: 10.5px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 15px 16px;
+      border-top: 1px solid var(--line-subtle);
+      font-size: 13px;
+      vertical-align: top;
+    }
+    tr:hover td {
+      background: #fcfdfe;
+    }
+    td small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+    .empty {
+      padding: 44px 16px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    /* Bulk & Multi-Edit Panels */
+    .bulk-toolbar, .multi-edit-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface-subtle);
+      font-size: 12.5px;
+    }
+    .bulk-toolbar-buttons, .section-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .bulk-paste-box {
+      margin-bottom: 16px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+    }
+    .bulk-paste-box textarea {
+      width: 100%;
+      margin: 8px 0 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .bulk-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+      margin-bottom: 16px;
+    }
+    .bulk-table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+    }
+    .bulk-table th {
+      background: var(--surface-subtle);
+      padding: 10px 10px;
+      font-size: 10.5px;
+    }
+    .bulk-table td {
+      padding: 8px 8px;
+      border-top: 1px solid var(--line-subtle);
+    }
+    .bulk-table input, .bulk-table select, .inline-edit-input, .inline-edit-select {
+      min-height: 36px;
+      padding: 6px 10px;
+      font-size: 12.5px;
+    }
+    .bulk-remove-btn {
+      min-height: 32px;
+      width: 32px;
+      padding: 0;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      font-size: 18px;
+      line-height: 1;
+      border-radius: 6px;
+      box-shadow: none;
+    }
+    .bulk-remove-btn:hover {
+      color: var(--error);
+      border-color: #fecdd3;
+      background: var(--error-bg);
+      transform: none;
+      box-shadow: none;
+    }
+
+    footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+    [hidden] { display: none !important; }
+
+    @media(max-width: 860px) {
+      main { padding: 18px 16px 56px; }
+      .portal-auth-card { grid-template-columns: 1fr; padding: 24px; gap: 30px; }
+      form { grid-template-columns: 1fr; }
+      .form-actions { grid-column: auto; }
+      .section-head { flex-direction: column; align-items: flex-start; }
+    }
   </style>
 </head>
 <body>
   <main>
+    <!-- Modern Top Navigation Bar -->
     <nav class="portal-topbar" aria-label="Portal navigation">
-      <div>
-        <span style="font-weight:600; letter-spacing:.04em; text-transform:uppercase; font-size:11px;">IRM Influencer Portal · Model 2 Network</span>
+      <div class="portal-brand">
+        <div class="portal-brand-logo">C</div>
+        <span class="portal-brand-text">Connectem</span>
+        <span class="portal-brand-badge">Partner Portal</span>
       </div>
       <div class="portal-topbar-links">
-        <a href="/marketplace.html">Vendor Marketplace <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
+        <a href="https://connectem.ai/marketplace.html">Vendor Marketplace <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
+        <a href="https://connectem.ai/">IRM Console <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
         <button type="button" class="btn-outline btn-sm" id="portal-signout-btn" hidden>Sign out</button>
       </div>
     </nav>
 
-    <header>
-      <p class="eyebrow">Influencer Partner Portal</p>
+    <!-- Hero Header -->
+    <header class="portal-hero">
+      <p class="eyebrow">Executive Influencer Network</p>
       <h1 id="partner-name">Influencer workspace</h1>
-      <p class="intro" id="partner-company">A trusted network, with clear next steps and rewards you can choose.</p>
+      <p class="intro" id="partner-company">A trusted partner network with verified milestone tracking, direct intro scheduling, and milestone rewards.</p>
     </header>
 
-    <!-- Clerk authentication and first-run onboarding -->
+    <!-- Clerk Authentication and First-Run Onboarding Card -->
     <section id="portal-auth-section" class="portal-auth-card">
       <div class="portal-auth-copy">
-        <p class="eyebrow">A trusted network, made measurable</p>
-        <h2>Turn the relationships you’ve built into meaningful impact.</h2>
-        <p>Manage permission-based introductions, follow verified milestones, and choose how to use the rewards you earn.</p>
+        <p class="eyebrow">Trusted Partner Network</p>
+        <h2>Turn relationships into verified impact.</h2>
+        <p>Coordinate permission-based executive introductions, monitor verified milestone progress, and redeem earned program rewards.</p>
         <ol class="onboarding-steps">
-          <li><span class="step-number">1</span><span><strong>Build your partner profile</strong>Tell us where you work and how to reach you.</span></li>
-          <li><span class="step-number">2</span><span><strong>Complete program review</strong>Your profile and program terms are reviewed before you participate.</span></li>
-          <li><span class="step-number">3</span><span><strong>Make introductions with consent</strong>Track verified progress and request cash or non-cash rewards.</span></li>
+          <li>
+            <span class="step-number">1</span>
+            <div><strong>Verified Partner Profile</strong>Share your executive background and industry domain expertise.</div>
+          </li>
+          <li>
+            <span class="step-number">2</span>
+            <div><strong>Partner Program Terms</strong>Review and sign the standardized Partner Network Agreement.</div>
+          </li>
+          <li>
+            <span class="step-number">3</span>
+            <div><strong>Warm Introductions &amp; Rewards</strong>Coordinate meetings with verified consent and earn points.</div>
+          </li>
         </ol>
       </div>
+
       <div class="portal-auth-panel">
         <div class="auth-tabs" id="portal-auth-tabs" role="tablist" aria-label="Account access">
           <button type="button" id="portal-tab-signin" class="active" role="tab" aria-selected="true">Sign in</button>
           <button type="button" id="portal-tab-signup" role="tab" aria-selected="false">Create account</button>
         </div>
+
         <div id="clerk-auth-mount"><div class="clerk-loading">Connecting secure sign-in…</div></div>
         <div id="clerk-signup-mount" hidden></div>
-        <p class="auth-switchline" id="portal-auth-switch-signin" hidden>Already have an account? <button type="button" id="portal-switch-to-signin">Sign in</button></p>
-        <p class="auth-switchline" id="portal-auth-switch-signup">New to the network? <button type="button" id="portal-switch-to-signup">Create an account</button></p>
+
+        <p class="auth-switchline" id="portal-auth-switch-signin" hidden>
+          Already have an account? <button type="button" id="portal-switch-to-signin">Sign in</button>
+        </p>
+        <p class="auth-switchline" id="portal-auth-switch-signup">
+          New to the network? <button type="button" id="portal-switch-to-signup">Create an account</button>
+        </p>
+
+        <!-- Onboarding Form for First-Time Logins -->
         <form id="portal-onboarding-form" class="setup-form" hidden>
           <div>
-            <p class="eyebrow" style="margin:0 0 5px;">Step 1 of 1 · Partner profile</p>
-            <h2 style="font-size:21px;">A little about your work</h2>
-            <p style="margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.55;">Your profile will be reviewed before vendor matching is enabled.</p>
+            <p class="eyebrow" style="margin:0 0 4px;">Step 1 of 1 · Partner profile</p>
+            <h2 style="font-size:20px;">Complete your partner profile</h2>
+            <p style="margin:6px 0 0; color:var(--muted); font-size:12.5px; line-height:1.5;">Your profile will be reviewed before marketplace matching is enabled.</p>
           </div>
-          <label>Full name<input name="fullName" autocomplete="name" required></label>
-          <label>Company or advisory<input name="company" autocomplete="organization" required></label>
-          <label>Role or title<input name="jobTitle" autocomplete="organization-title" placeholder="Industry advisor"></label>
-          <label>LinkedIn profile<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/your-name"></label>
-          <label>Location<input name="location" autocomplete="address-level2" placeholder="City, region"></label>
-          <div class="setup-note">You’ll review and sign the Partner Network Agreement separately. Creating an account does not enroll your contacts or automatically share your network.</div>
-          <div class="form-actions"><button type="submit" id="portal-onboarding-submit">Create partner profile</button><span id="portal-auth-feedback" role="status" aria-live="polite"></span></div>
+          <label>Full name<input name="fullName" autocomplete="name" placeholder="Jordan Vance" required></label>
+          <label>Company or advisory<input name="company" autocomplete="organization" placeholder="Pacific Advisory Partners" required></label>
+          <label>Role or title<input name="jobTitle" autocomplete="organization-title" placeholder="Managing Partner"></label>
+          <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
+          <label>Location<input name="location" autocomplete="address-level2" placeholder="San Diego, CA"></label>
+          <div class="setup-note">You will review and digitally sign the Partner Network Agreement once inside your workspace.</div>
+          <div class="form-actions">
+            <button type="submit" id="portal-onboarding-submit">Create partner profile</button>
+            <span id="portal-auth-feedback" role="status" aria-live="polite"></span>
+          </div>
         </form>
-        <p id="portal-auth-error" role="status" aria-live="polite" style="margin:12px 0 0;color:var(--error);font-size:12px;"></p>
+        <p id="portal-auth-error" role="status" aria-live="polite" style="margin:12px 0 0;"></p>
       </div>
     </section>
 
+    <!-- Workspace Dashboard View -->
     <div id="portal-workspace-content" hidden>
+      <!-- Summary Metrics Grid -->
       <section class="summary" aria-label="Referral summary">
         <p>Introductions<strong id="total-count">—</strong></p>
         <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
@@ -185,125 +902,188 @@
       <section id="partner-agreement-bar" class="agreement-bar">
         <div>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <strong style="font-size:13px;">IRM Partner Network Agreement</strong>
+            <strong style="font-size:14px; font-family:'Plus Jakarta Sans',sans-serif;">IRM Partner Network Agreement</strong>
             <span id="partner-agreement-badge" class="portal-badge warn">Agreement Pending</span>
           </div>
-          <span id="partner-agreement-desc" style="font-size:12px; color:var(--muted); display:block; margin-top:4px;">Sign the Partner Network Agreement to activate your profile and review program terms.</span>
+          <span id="partner-agreement-desc" style="font-size:12.5px; color:var(--muted); display:block; margin-top:4px;">Sign the Partner Network Agreement to activate your profile and program terms.</span>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <button type="button" class="btn-sm" id="partner-sign-agreement-btn">Sign Partner Agreement</button>
         </div>
       </section>
 
-      <section id="partner-calendly-bar" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:16px 18px; margin-top:16px; border:1px solid var(--line); border-radius:4px; background:var(--surface);">
+      <!-- Calendly Meeting Coordinator Card -->
+      <section id="partner-calendly-bar" class="calendly-card">
         <div>
-          <strong style="font-size:13px; display:block;">Schedule a GTM Meeting Directly</strong>
-          <span style="font-size:12px; color:var(--muted);">Share contacts only where you have permission. Marketplace points are awarded for verified milestones under published program terms.</span>
+          <strong style="font-size:14px; display:block; font-family:'Plus Jakarta Sans',sans-serif;">Schedule a GTM Meeting Directly</strong>
+          <span style="font-size:12.5px; color:var(--muted);">Share contacts only where you have permission. Verified meeting milestones award program points.</span>
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:40px; padding:0 15px; border-radius:8px; background:var(--accent); color:#fff; font-size:12px; text-decoration:none; font-weight:600;">Coordinate introduction <svg aria-hidden="true" viewBox="0 0 16 16" style="width:13px;height:13px;margin-left:8px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:38px; padding:0 16px; border-radius:var(--radius-sm); background:var(--accent); color:#fff; font-size:12.5px; text-decoration:none; font-weight:600;">Coordinate introduction <svg aria-hidden="true" viewBox="0 0 16 16" style="width:13px;height:13px;margin-left:8px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
           <button type="button" class="btn-outline btn-sm" id="partner-calendly-copy-btn">Copy coordination link</button>
         </div>
       </section>
 
+      <!-- Rewards & Points Redemption Section -->
       <section id="partner-rewards-section" class="rewards-card" aria-labelledby="partner-rewards-heading">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
-          <div><p class="eyebrow" style="margin:0 0 4px;">Influencer economy</p><h2 id="partner-rewards-heading" style="font-size:22px; margin:0;">Points and rewards</h2></div>
-          <span class="portal-badge" id="partner-reward-balance">0 available points</span>
+          <div>
+            <p class="eyebrow" style="margin:0 0 4px;">Influencer economy</p>
+            <h2 id="partner-rewards-heading" style="font-size:22px; margin:0;">Points and rewards</h2>
+          </div>
+          <span class="portal-badge ok" id="partner-reward-balance">0 available points</span>
         </div>
-        <p style="margin:0 0 14px; font-size:12.5px; color:var(--muted);">Proposed program values: warm introduction 200; qualified meeting 600; opportunity 1,000; customer close 5,000; expansion 2,500. Redemption requests are reviewed by IRM and do not guarantee cash or fulfillment until program terms are approved.</p>
-        <form id="partner-reward-redemption-form" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end; margin-bottom:12px;">
-          <label>Reward type<select id="partner-reward-type" required><option value="cash">Cash reward</option><option value="nonprofit_donation">Donate to nonprofit</option><option value="conference_sponsorship">Conference sponsorship</option><option value="products_services">Products or services</option><option value="executive_event">Executive event</option><option value="vip_dinner">VIP dinner</option><option value="research_sponsorship">Research sponsorship</option><option value="speaking_opportunity">Speaking opportunity</option><option value="content_collaboration">Content collaboration</option><option value="thought_leadership">Personal branding / thought leadership</option></select></label>
-          <label>Points<input id="partner-reward-points" type="number" min="1" step="1" required></label>
-          <label>Details (optional)<input id="partner-reward-details" type="text" maxlength="500" placeholder="Preference or fulfillment notes"></label>
+        <p style="margin:0 0 16px; font-size:13px; color:var(--muted); line-height:1.6;">
+          Standard milestone rewards: Warm introduction 200 pts · Qualified meeting 600 pts · Opportunity 1,000 pts · Customer close 5,000 pts.
+        </p>
+        <form id="partner-reward-redemption-form" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
+          <label>Reward type
+            <select id="partner-reward-type" required>
+              <option value="cash">Cash reward</option>
+              <option value="nonprofit_donation">Donate to nonprofit</option>
+              <option value="conference_sponsorship">Conference sponsorship</option>
+              <option value="products_services">Products or services</option>
+              <option value="executive_event">Executive event</option>
+              <option value="vip_dinner">VIP dinner</option>
+              <option value="research_sponsorship">Research sponsorship</option>
+              <option value="speaking_opportunity">Speaking opportunity</option>
+              <option value="content_collaboration">Content collaboration</option>
+              <option value="thought_leadership">Personal branding / thought leadership</option>
+            </select>
+          </label>
+          <label>Points<input id="partner-reward-points" type="number" min="1" step="1" placeholder="e.g. 500" required></label>
+          <label style="flex:1; min-width:200px;">Details (optional)<input id="partner-reward-details" type="text" maxlength="500" placeholder="Preference or payment notes"></label>
           <button type="submit" class="btn-sm">Request redemption</button>
         </form>
         <p id="partner-reward-feedback" role="status" aria-live="polite"></p>
-        <div class="table-wrap"><table><thead><tr><th>Reward</th><th>Points</th><th>Status</th><th>Requested</th></tr></thead><tbody id="partner-reward-redemptions"><tr><td colspan="4" class="empty">No redemption requests.</td></tr></tbody></table></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Reward</th><th>Points</th><th>Status</th><th>Requested</th></tr>
+            </thead>
+            <tbody id="partner-reward-redemptions">
+              <tr><td colspan="4" class="empty">No redemption requests yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section>
+      <!-- Referred Contacts Directory Section -->
+      <section style="margin-top:28px;">
         <header class="section-head">
-          <section><p class="eyebrow">Your network</p><h2>Referred contacts</h2></section>
+          <div>
+            <p class="eyebrow">Your network</p>
+            <h2>Referred contacts</h2>
+          </div>
           <div class="section-actions">
             <span class="contact-count" id="visible-count"></span>
             <button type="button" class="btn-outline btn-sm" id="toggle-multi-edit-btn">Multi-record edit</button>
           </div>
         </header>
-      <div id="multi-edit-bar" class="multi-edit-bar" hidden>
-        <span><strong>Multi-record edit mode:</strong> Update any fields below or add rows, then save all changes at once.</span>
-        <div class="section-actions">
-          <span id="multi-edit-feedback" role="status" aria-live="polite"></span>
-          <button type="button" class="btn-outline btn-sm" id="multi-edit-add-row-btn">Add row</button>
-          <button type="button" class="btn-outline btn-sm" id="multi-edit-cancel-btn">Cancel</button>
-          <button type="button" class="btn-sm" id="multi-edit-save-btn">Save all changes</button>
-        </div>
-      </div>
-      <section class="table-wrap"><table><thead><tr><th>Contact</th><th>Company &amp; role</th><th>Call status &amp; GTM scheduling</th></tr></thead><tbody id="contacts-body"><tr><td colspan="3" class="empty">Loading your workspace…</td></tr></tbody></table></section>
-    </section>
-    <section class="form-section" id="introduction-section">
-      <p class="eyebrow">Make an introduction</p><h2>Add referred contacts</h2>
-      <p>Your introductions will be shared with the team managing this workspace. Provide contact details for future conversion or schedule a GTM call with their company. Add contacts one at a time or switch to bulk entry.</p>
-      <div class="mode-switcher" role="tablist" aria-label="Introduction entry mode">
-        <button type="button" id="mode-single-btn" class="active" role="tab" aria-selected="true">One at a time</button>
-        <button type="button" id="mode-bulk-btn" role="tab" aria-selected="false">Bulk add (multiple contacts)</button>
-      </div>
-      <form id="referral-form">
-        <label>Full name<input name="fullName" autocomplete="name" required></label>
-        <label>Work email<input name="email" type="email" autocomplete="email" required></label>
-        <label>Company<input name="company" autocomplete="organization" required></label>
-        <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
-        <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
-        <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
-        <label>Call status<select name="status"><option value="pending">Not scheduled</option><option value="scheduled">Scheduled</option><option value="completed">Completed (requires buyer confirmation)</option></select></label>
-        <section class="form-actions"><button id="submit-button" type="submit">Save introduction</button><span id="feedback" role="status" aria-live="polite"></span></section>
-      </form>
 
-      <div id="bulk-referral-panel" hidden>
-        <div class="bulk-toolbar">
-          <div class="bulk-toolbar-buttons">
-            <button type="button" class="btn-outline btn-sm" id="bulk-add-row-btn">Add row</button>
-            <button type="button" class="btn-outline btn-sm" id="bulk-add-5-btn">Add 5 rows</button>
-          <button type="button" class="btn-outline btn-sm" id="bulk-paste-toggle-btn">Paste from spreadsheet</button>
-            <button type="button" class="btn-outline btn-sm" id="bulk-clear-btn">Reset rows</button>
-          </div>
-          <span class="contact-count" id="bulk-row-count">3 rows</span>
-        </div>
-        <div id="bulk-paste-box" class="bulk-paste-box" hidden>
-          <label for="bulk-paste-input">Paste spreadsheet or CSV lines (Full Name, Work Email, Company, Job Title, Phone, Call Status, LinkedIn URL)</label>
-          <textarea id="bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;Scheduled&#9;https://www.linkedin.com/in/jordan-vance&#10;Elena Rostova&#9;elena@redwoodcu.org&#9;Redwood Credit Union&#9;VP Lending&#9;+1 415 555 0148&#9;Completed&#9;https://www.linkedin.com/in/elena-rostova"></textarea>
-          <div class="bulk-toolbar-buttons">
-            <button type="button" class="btn-sm" id="bulk-parse-paste-btn">Add pasted rows</button>
-            <button type="button" class="btn-outline btn-sm" id="bulk-cancel-paste-btn">Cancel</button>
+        <div id="multi-edit-bar" class="multi-edit-bar" hidden>
+          <span><strong>Multi-record edit mode:</strong> Update inline values or add rows, then save all at once.</span>
+          <div class="section-actions">
+            <span id="multi-edit-feedback" role="status" aria-live="polite"></span>
+            <button type="button" class="btn-outline btn-sm" id="multi-edit-add-row-btn">Add row</button>
+            <button type="button" class="btn-outline btn-sm" id="multi-edit-cancel-btn">Cancel</button>
+            <button type="button" class="btn-sm" id="multi-edit-save-btn">Save all changes</button>
           </div>
         </div>
-        <div class="bulk-table-wrap">
-          <table class="bulk-table">
+
+        <div class="table-wrap">
+          <table>
             <thead>
-              <tr>
-                <th style="width:32px;">#</th>
-                <th>Full name *</th>
-                <th>Work email *</th>
-                <th>Company *</th>
-                <th>Job title</th>
-                <th>Phone</th>
-                <th>LinkedIn URL</th>
-                <th>Call status</th>
-                <th style="width:38px;"></th>
-              </tr>
+              <tr><th>Contact</th><th>Company &amp; role</th><th>Call status &amp; GTM scheduling</th></tr>
             </thead>
-            <tbody id="bulk-rows-body"></tbody>
+            <tbody id="contacts-body">
+              <tr><td colspan="3" class="empty">Loading your workspace…</td></tr>
+            </tbody>
           </table>
         </div>
-        <div class="form-actions">
-          <button type="button" id="bulk-submit-button">Save all introductions</button>
-          <span id="bulk-feedback" role="status" aria-live="polite"></span>
+      </section>
+
+      <!-- Add Introductions Form Section -->
+      <section class="form-section" id="introduction-section">
+        <p class="eyebrow">Make an introduction</p>
+        <h2>Add referred contacts</h2>
+        <p>Introduce executive contacts with verified consent. Add contacts individually or switch to bulk entry to paste from Excel/CSV.</p>
+
+        <div class="mode-switcher" role="tablist" aria-label="Introduction entry mode">
+          <button type="button" id="mode-single-btn" class="active" role="tab" aria-selected="true">One at a time</button>
+          <button type="button" id="mode-bulk-btn" role="tab" aria-selected="false">Bulk add (multiple contacts)</button>
         </div>
-      </div>
-    </section>
+
+        <form id="referral-form">
+          <label>Full name *<input name="fullName" autocomplete="name" placeholder="Jordan Vance" required></label>
+          <label>Work email *<input name="email" type="email" autocomplete="email" placeholder="jordan@pacificcu.org" required></label>
+          <label>Company *<input name="company" autocomplete="organization" placeholder="Pacific Crest Credit Union" required></label>
+          <label>Job title<input name="jobTitle" autocomplete="organization-title" placeholder="Chief Lending Officer"></label>
+          <label>Phone<input name="phone" type="tel" autocomplete="tel" placeholder="+1 415 555 0192"></label>
+          <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
+          <label style="grid-column:1/-1;">Call status
+            <select name="status">
+              <option value="pending">Not scheduled</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="completed">Completed (requires buyer confirmation)</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button id="submit-button" type="submit">Save introduction</button>
+            <span id="feedback" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+
+        <!-- Bulk Referral Panel -->
+        <div id="bulk-referral-panel" hidden>
+          <div class="bulk-toolbar">
+            <div class="bulk-toolbar-buttons">
+              <button type="button" class="btn-outline btn-sm" id="bulk-add-row-btn">+ Add row</button>
+              <button type="button" class="btn-outline btn-sm" id="bulk-add-5-btn">+ Add 5 rows</button>
+              <button type="button" class="btn-outline btn-sm" id="bulk-paste-toggle-btn">Paste from spreadsheet</button>
+              <button type="button" class="btn-outline btn-sm" id="bulk-clear-btn">Reset rows</button>
+            </div>
+            <span class="contact-count" id="bulk-row-count">3 rows</span>
+          </div>
+
+          <div id="bulk-paste-box" class="bulk-paste-box" hidden>
+            <label for="bulk-paste-input">Paste spreadsheet or CSV rows (Full Name, Work Email, Company, Job Title, Phone, Call Status, LinkedIn URL):</label>
+            <textarea id="bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;Scheduled&#9;https://www.linkedin.com/in/jordan-vance"></textarea>
+            <div class="bulk-toolbar-buttons">
+              <button type="button" class="btn-sm" id="bulk-parse-paste-btn">Add pasted rows</button>
+              <button type="button" class="btn-outline btn-sm" id="bulk-cancel-paste-btn">Cancel</button>
+            </div>
+          </div>
+
+          <div class="bulk-table-wrap">
+            <table class="bulk-table">
+              <thead>
+                <tr>
+                  <th style="width:36px;">#</th>
+                  <th>Full name *</th>
+                  <th>Work email *</th>
+                  <th>Company *</th>
+                  <th>Job title</th>
+                  <th>Phone</th>
+                  <th>LinkedIn URL</th>
+                  <th>Call status</th>
+                  <th style="width:40px;"></th>
+                </tr>
+              </thead>
+              <tbody id="bulk-rows-body"></tbody>
+            </table>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="bulk-submit-button">Save all introductions</button>
+            <span id="bulk-feedback" role="status" aria-live="polite"></span>
+          </div>
+        </div>
+      </section>
     </div>
+
     <p id="page-error" role="alert"></p>
-      <footer>IRM Influencer Relationship Management Portal · Partner referrals and rewards are governed by your Partner Network Agreement.</footer>
+    <footer>Connectem Influencer Relationship Management · Governed by the IRM Partner Network Agreement.</footer>
   </main>
   <script src="partner-portal.js"></script>
 </body>

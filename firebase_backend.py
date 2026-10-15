@@ -124,8 +124,13 @@ def _admin_app():
         try:
             return firebase_admin.get_app()
         except ValueError:
-            if str(os.environ.get("VERCEL") or "").lower() == "1":
+            is_vercel = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+            if is_vercel and os.environ.get("GCP_WORKLOAD_IDENTITY_POOL_ID"):
                 credential = _vercel_firebase_credential(firebase_admin)
+            elif is_vercel:
+                raise FirebaseBackendUnavailable(
+                    "Vercel Firestore access requires Google Workload Identity Federation settings."
+                )
             else:
                 credential = credentials.ApplicationDefault()
             return firebase_admin.initialize_app(

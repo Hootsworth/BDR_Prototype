@@ -4,13 +4,36 @@
   "outputDirectory": ".",
   "redirects": [
     {
-      "source": "/",
+      "source": "/partner-portal",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "https://go.connectem.ai/",
+      "permanent": false
+    },
+    {
+      "source": "/partner-portal.html",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "https://go.connectem.ai/",
+      "permanent": false
+    },
+    {
+      "source": "/partner-portal",
       "has": [{ "type": "host", "value": "go.connectem.ai" }],
-      "destination": "/partner-portal",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/partner-portal.html",
+      "has": [{ "type": "host", "value": "go.connectem.ai" }],
+      "destination": "/",
       "permanent": false
     }
   ],
   "rewrites": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "go.connectem.ai" }],
+      "destination": "/partner-portal.html"
+    },
     {
       "source": "/api/",
       "destination": "/api/index?route=health"

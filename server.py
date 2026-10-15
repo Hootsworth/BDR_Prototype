@@ -285,14 +285,20 @@ def db():
 
 def persist_state(key, value):
     if firestore_enabled() and key == 'database':
-        write_state_snapshot(key, value)
-        return
+        try:
+            write_state_snapshot(key, value)
+            return
+        except FirebaseBackendUnavailable:
+            pass
     with db() as connection:
         connection.execute('INSERT INTO app_state(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', (key, json.dumps(value), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))
 
 def read_state(key):
     if firestore_enabled() and key == 'database':
-        return read_state_snapshot(key)
+        try:
+            return read_state_snapshot(key)
+        except FirebaseBackendUnavailable:
+            pass
     with db() as connection:
         row = connection.execute('SELECT value FROM app_state WHERE key = ?', (key,)).fetchone()
         return json.loads(row['value']) if row else None
@@ -1142,34 +1148,44 @@ def clerk_user_for_claims(claims):
     """Resolve verified Clerk profile fields server-side; never trust profile email from the browser."""
     user_id = str((claims or {}).get('sub') or '').strip()
     secret = str(os.environ.get('CLERK_SECRET_KEY') or '').strip()
-    if not user_id or not secret:
+    if not user_id:
+        raise FirebaseTokenInvalid('A Clerk session token is required.')
+
+    clerk_user = {}
+    lookup_error = None
+    if secret:
+        url = 'https://api.clerk.com/v1/users/' + urllib.parse.quote(user_id, safe='')
+        request = urllib.request.Request(url, headers={
+            'Authorization': f'Bearer {secret}',
+            'Accept': 'application/json',
+            'User-Agent': 'BDR-Partner-Portal/1.0'
+        })
+        try:
+            with safe_urlopen(request, timeout=10) as response:
+                clerk_user = json.loads(response.read().decode('utf-8'))
+        except urllib.error.HTTPError as exc:
+            lookup_error = f'Clerk profile lookup failed with HTTP {exc.code}. Check the linked Clerk instance and secret key.'
+        except urllib.error.URLError as exc:
+            reason = type(getattr(exc, 'reason', None)).__name__ or 'connection error'
+            lookup_error = f'Could not reach Clerk to read the signed-in profile ({reason}).'
+        except Exception as exc:
+            lookup_error = f'Could not read the signed-in Clerk profile ({type(exc).__name__}).'
+    elif not (claims or {}).get('email'):
         raise FirebaseBackendUnavailable('Clerk user lookup is not configured. Set CLERK_SECRET_KEY.')
-    url = 'https://api.clerk.com/v1/users/' + urllib.parse.quote(user_id, safe='')
-    # Clerk's API edge rejects urllib's default Python signature; use an explicit app client UA.
-    request = urllib.request.Request(url, headers={
-        'Authorization': f'Bearer {secret}',
-        'Accept': 'application/json',
-        'User-Agent': 'BDR-Partner-Portal/1.0'
-    })
-    try:
-        with safe_urlopen(request, timeout=15) as response:
-            clerk_user = json.loads(response.read().decode('utf-8'))
-    except urllib.error.HTTPError as exc:
-        raise FirebaseBackendUnavailable(f'Clerk profile lookup failed with HTTP {exc.code}. Check the linked Clerk instance and secret key.') from exc
-    except urllib.error.URLError as exc:
-        reason = type(getattr(exc, 'reason', None)).__name__ or 'connection error'
-        raise FirebaseBackendUnavailable(f'Could not reach Clerk to read the signed-in profile ({reason}).') from exc
-    except Exception as exc:
-        raise FirebaseBackendUnavailable(f'Could not read the signed-in Clerk profile ({type(exc).__name__}).') from exc
+
     emails = clerk_user.get('email_addresses') or []
     primary_id = str(clerk_user.get('primary_email_address_id') or '')
-    email_record = next((entry for entry in emails if str(entry.get('id') or '') == primary_id), None)
-    email = str((email_record or {}).get('email_address') or '').strip().lower()
-    if not email or str((email_record or {}).get('verification', {}).get('status') or '').lower() != 'verified':
+    email_record = next((entry for entry in emails if str(entry.get('id') or '') == primary_id), emails[0] if emails else None)
+    email = str((email_record or {}).get('email_address') or (claims or {}).get('email') or (claims or {}).get('primary_email') or '').strip().lower()
+
+    if not email:
+        if lookup_error:
+            raise FirebaseBackendUnavailable(lookup_error)
         raise FirebaseTokenInvalid('Verify your primary email in Clerk before creating a partner profile.')
-    first = str(clerk_user.get('first_name') or '').strip()
-    last = str(clerk_user.get('last_name') or '').strip()
-    name = ' '.join(part for part in (first, last) if part).strip() or email.split('@', 1)[0]
+
+    first = str(clerk_user.get('first_name') or (claims or {}).get('first_name') or '').strip()
+    last = str(clerk_user.get('last_name') or (claims or {}).get('last_name') or '').strip()
+    name = ' '.join(part for part in (first, last) if part).strip() or str(clerk_user.get('username') or (claims or {}).get('name') or '').strip() or email.split('@', 1)[0]
     return {'id': user_id, 'email': email, 'fullName': name}
 
 def hosted_api_request_allowed(handler, method, path):
@@ -1703,8 +1719,11 @@ def build_workbook_snapshot(state):
 
 def write_workbook_state(state):
     if firestore_enabled():
-        persist_state('database', state)
-        return
+        try:
+            write_state_snapshot('database', state)
+            return
+        except FirebaseBackendUnavailable:
+            pass
     default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
     if WORKBOOK_PATH == default_wb_path:
         try:
@@ -2687,7 +2706,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 store_partner_share_record(influencer['id'], token_hash, created_at)
                 request_origin = self.headers.get('Origin') or f"http://{self.headers.get('Host', f'localhost:{PORT}')}"
                 share_base = configured_base or request_origin
-                share_url = f"{share_base}/partner-portal.html#token={urllib.parse.quote(token)}"
+                portal_path = '/' if 'go.connectem.ai' in share_base else '/partner-portal.html'
+                share_url = f"{share_base}{portal_path}#token={urllib.parse.quote(token)}"
                 json_response(self, 201, {'status': 'created', 'token': token, 'influencer': influencer.get('fullName'), 'shareUrl': share_url, 'publicBaseConfigured': bool(configured_base)})
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not create partner link: {ex}'})
