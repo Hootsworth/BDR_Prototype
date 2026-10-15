@@ -114,102 +114,102 @@ function ensureLemlistModalInDOM() {
   const modalDiv = document.createElement("div");
   modalDiv.id = "lemlist-onboarding-modal";
   modalDiv.className = "modal-overlay";
-  modalDiv.style.cssText = "display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.65); backdrop-filter: blur(2px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
+  modalDiv.style.cssText = "display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
   modalDiv.innerHTML = `
-    <div class="modal-container" style="width: 100%; max-width: 640px; padding: 0; overflow: hidden; background-color: #ffffff; color: #0f172a; border-radius: var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,0.25); border: 1px solid #e2e8f0;">
+    <div class="modal-container" style="width: 100%; max-width: 640px; padding: 0; overflow: hidden; background-color: var(--surface-card); color: var(--color-text-primary); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1px solid var(--color-border);">
 
       <!-- Wizard Header -->
-      <div style="padding: 1.25rem 1.5rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+      <div style="padding: 1.25rem 1.5rem; background: var(--surface-soft); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;"></div>
+          <div style="width: 32px; height: 32px; border-radius: var(--radius-xs); background: var(--color-primary); color: var(--color-on-accent); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;">⚡</div>
           <div>
-            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;" id="lem-modal-title">Lemlist MCP Connection Setup</h3>
-            <span style="font-size: 11.5px; color: #64748b;" id="lem-modal-step-indicator">Step 1 of 4</span>
+            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);" id="lem-modal-title">Lemlist MCP Connection Setup</h3>
+            <span style="font-size: 11.5px; color: var(--color-text-secondary);" id="lem-modal-step-indicator">Step 1 of 4</span>
           </div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="closeLemlistOnboardingModal()" style="padding: 4px 10px; background: #ffffff; color: #334155; border: 1px solid #cbd5e1; font-weight: 600;">✕ Close</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeLemlistOnboardingModal()" style="padding: 4px 10px; font-weight: 600;">✕ Close</button>
       </div>
 
       <!-- Step 1: Welcome Screen -->
-      <div id="lem-step-1" style="padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
-        <div style="font-size: 48px; margin-bottom: 0.75rem;"></div>
-        <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">YAY! Well Done!</h2>
-        <p style="font-size: 13.5px; color: #334155; max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
+      <div id="lem-step-1" style="padding: 2rem 1.5rem; text-align: center; background: var(--surface-card);">
+        <div style="font-size: 48px; margin-bottom: 0.75rem;">🚀</div>
+        <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--color-text-primary);">YAY! Well Done!</h2>
+        <p style="font-size: 13.5px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.5;">
           You're initializing the <strong>Lemlist Model Context Protocol (MCP)</strong> integration. In the next steps, we'll collect your credentials, explain why each item is needed, and send a <strong>live test email to your personal inbox</strong> to prove the connection works!
         </p>
 
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; max-width: 440px; margin: 0 auto 1.75rem auto; background: #f8fafc; padding: 1rem; border-radius: var(--radius-xs); border: 1px solid #e2e8f0; font-size: 12.5px; color: #0f172a;">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; text-align: left; max-width: 440px; margin: 0 auto 1.75rem auto; background: var(--surface-soft); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--color-border); font-size: 12.5px; color: var(--color-text-primary);">
           <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-            <span></span>
-            <span><strong style="color: #0f172a;">Automated Sequence Control:</strong> AI agents can enroll leads into your Lemlist campaigns automatically.</span>
+            <span>✓</span>
+            <span><strong style="color: var(--color-text-primary);">Automated Sequence Control:</strong> AI agents can enroll leads into your Lemlist campaigns automatically.</span>
           </div>
           <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-            <span></span>
-            <span><strong style="color: #0f172a;">Multi-Channel Dispatch:</strong> Send email sequences, track opens, and log prospect replies.</span>
+            <span>✓</span>
+            <span><strong style="color: var(--color-text-primary);">Multi-Channel Dispatch:</strong> Send email sequences, track opens, and log prospect replies.</span>
           </div>
           <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-            <span></span>
-            <span><strong style="color: #0f172a;">Secure MCP Protocol:</strong> Communication uses standard JSON-RPC transport.</span>
+            <span>✓</span>
+            <span><strong style="color: var(--color-text-primary);">Secure MCP Protocol:</strong> Communication uses standard JSON-RPC transport.</span>
           </div>
         </div>
 
-        <button class="btn btn-primary" onclick="setLemlistModalStep(2)" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: var(--radius-xs); cursor: pointer;">
+        <button class="btn btn-primary" onclick="setLemlistModalStep(2)" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; cursor: pointer;">
           Let's Begin: Configure Connection →
         </button>
       </div>
 
       <!-- Step 2: Credential Entry with Notes -->
-      <div id="lem-step-2" style="display: none; padding: 1.5rem; max-height: 480px; overflow-y: auto; background: #ffffff;">
-        <h3 style="margin: 0 0 0.25rem 0; font-size: 16px; font-weight: 700; color: #0f172a;">Step 2: Enter Lemlist Account &amp; API Credentials</h3>
-        <p style="font-size: 12px; color: #475569; margin: 0 0 1.25rem 0;">Provide your Lemlist details below. Notes explain why each value is required.</p>
+      <div id="lem-step-2" style="display: none; padding: 1.5rem; max-height: 480px; overflow-y: auto; background: var(--surface-card);">
+        <h3 style="margin: 0 0 0.25rem 0; font-size: 16px; font-weight: 700; color: var(--color-text-primary);">Step 2: Enter Lemlist Account &amp; API Credentials</h3>
+        <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 1.25rem 0;">Provide your Lemlist details below. Notes explain why each value is required.</p>
 
         <!-- Email Field -->
         <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">1. Lemlist Account Email *</label>
-          <input type="email" id="modal-lem-email" class="form-input" placeholder="user@company.com" style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
-          <div style="margin-top: 5px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #0284c7; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #0369a1;">
-             <strong style="color: #0369a1;">Why we need this:</strong> Your Lemlist login email identifies your sender account and ties outbound email sequences to your sending domain reputation.
+          <label style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary); display: block; margin-bottom: 4px;">1. Lemlist Account Email *</label>
+          <input type="email" id="modal-lem-email" class="form-input" placeholder="user@company.com" style="width: 100%; font-size: 13px;" />
+          <div style="margin-top: 5px; padding: 8px 12px; background: rgba(2, 132, 199, 0.08); border-left: 3px solid var(--color-accent-cyan, #0284c7); border-radius: 0 4px 4px 0; font-size: 11.5px; color: var(--color-text-primary);">
+             <strong style="color: var(--color-accent-cyan, #0284c7);">Why we need this:</strong> Your Lemlist login email identifies your sender account and ties outbound email sequences to your sending domain reputation.
           </div>
         </div>
 
         <!-- API Key Field -->
         <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">2. Lemlist API Key *</label>
-          <input type="password" id="modal-lem-api-key" class="form-input" placeholder="apiKey_..." style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
-          <div style="margin-top: 5px; padding: 8px 12px; background: #f0f9ff; border-left: 3px solid #0284c7; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #0369a1;">
-             <strong style="color: #0369a1;">Why we need this:</strong> The API key authorizes the Lemlist Model Context Protocol (MCP) server to query campaign templates and trigger automated sequence dispatches on your behalf.
+          <label style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary); display: block; margin-bottom: 4px;">2. Lemlist API Key *</label>
+          <input type="password" id="modal-lem-api-key" class="form-input" placeholder="apiKey_..." style="width: 100%; font-size: 13px;" />
+          <div style="margin-top: 5px; padding: 8px 12px; background: rgba(2, 132, 199, 0.08); border-left: 3px solid var(--color-accent-cyan, #0284c7); border-radius: 0 4px 4px 0; font-size: 11.5px; color: var(--color-text-primary);">
+             <strong style="color: var(--color-accent-cyan, #0284c7);">Why we need this:</strong> The API key authorizes the Lemlist Model Context Protocol (MCP) server to query campaign templates and trigger automated sequence dispatches on your behalf.
           </div>
         </div>
 
         <!-- MCP Command Field -->
         <div style="margin-bottom: 1.25rem;">
-          <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">3. MCP Server Command (Pre-configured)</label>
-          <input type="text" id="modal-lem-mcp-cmd" class="form-input" value="npx mcp-remote https://app.lemlist.com/mcp" style="width: 100%; font-size: 12px; font-family: var(--font-family-mono); background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
-          <div style="margin-top: 5px; padding: 8px 12px; background: #f8fafc; border-left: 3px solid #64748b; border-radius: 0 4px 4px 0; font-size: 11.5px; color: #334155;">
-             <strong style="color: #1e293b;">Why we need this:</strong> The Model Context Protocol (MCP) endpoint is the standard JSON-RPC interface through which our autonomous AI agents execute Lemlist tools.
+          <label style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary); display: block; margin-bottom: 4px;">3. MCP Server Command (Pre-configured)</label>
+          <input type="text" id="modal-lem-mcp-cmd" class="form-input" value="npx mcp-remote https://app.lemlist.com/mcp" style="width: 100%; font-size: 12px; font-family: var(--font-family-mono);" />
+          <div style="margin-top: 5px; padding: 8px 12px; background: var(--surface-soft); border-left: 3px solid var(--color-border); border-radius: 0 4px 4px 0; font-size: 11.5px; color: var(--color-text-secondary);">
+             <strong style="color: var(--color-text-primary);">Why we need this:</strong> The Model Context Protocol (MCP) endpoint is the standard JSON-RPC interface through which our autonomous AI agents execute Lemlist tools.
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-          <button class="btn btn-secondary btn-sm" onclick="setLemlistModalStep(1)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;">← Back</button>
-          <button class="btn btn-primary btn-sm" onclick="saveModalLemlistCredentialsAndNext()" style="background: #0f172a; color: #ffffff; border: none; padding: 6px 16px; border-radius: 6px; font-weight: 700; cursor: pointer;">Verify &amp; Continue →</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--color-border);">
+          <button class="btn btn-secondary btn-sm" onclick="setLemlistModalStep(1)" style="font-weight: 600; cursor: pointer;">← Back</button>
+          <button class="btn btn-primary btn-sm" onclick="saveModalLemlistCredentialsAndNext()" style="font-weight: 700; cursor: pointer;">Verify &amp; Continue →</button>
         </div>
       </div>
 
       <!-- Step 3: Live Personal Email Demo Setup -->
-      <div id="lem-step-3" style="display: none; padding: 1.5rem; background: #ffffff;">
-        <h3 style="margin: 0 0 0.25rem 0; font-size: 16px; font-weight: 700; color: #0f172a;">Step 3: Test Live Email Demo</h3>
-        <p style="font-size: 12px; color: #475569; margin: 0 0 1.25rem 0;">Send a real test email to your personal inbox right now to confirm the connection works!</p>
+      <div id="lem-step-3" style="display: none; padding: 1.5rem; background: var(--surface-card);">
+        <h3 style="margin: 0 0 0.25rem 0; font-size: 16px; font-weight: 700; color: var(--color-text-primary);">Step 3: Test Live Email Demo</h3>
+        <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 1.25rem 0;">Send a real test email to your personal inbox right now to confirm the connection works!</p>
 
         <div style="margin-bottom: 1rem;">
-          <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Your Personal Email Address *</label>
-          <input type="email" id="modal-lem-test-recipient" class="form-input" placeholder="e.g. aditya.dixit@gmail.com" style="width: 100%; font-size: 13px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: 6px; outline: none;" />
-          <span style="font-size: 11px; color: #64748b;">We will send a real test email to this inbox.</span>
+          <label style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Your Personal Email Address *</label>
+          <input type="email" id="modal-lem-test-recipient" class="form-input" placeholder="e.g. aditya.dixit@gmail.com" style="width: 100%; font-size: 13px;" />
+          <span style="font-size: 11px; color: var(--color-text-secondary);">We will send a real test email to this inbox.</span>
         </div>
 
         <div style="margin-bottom: 1rem;">
-          <label style="font-size: 12.5px; font-weight: 700; color: #0f172a; display: block; margin-bottom: 4px;">Select Demo Pitch Copy Template</label>
-          <select id="modal-lem-template-select" class="form-select" style="width: 100%; font-size: 12.5px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; border-radius: var(--radius-xs);" onchange="updateModalEmailPreview(this.value)">
+          <label style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Select Demo Pitch Copy Template</label>
+          <select id="modal-lem-template-select" class="form-select" style="width: 100%; font-size: 12.5px;" onchange="updateModalEmailPreview(this.value)">
             <option value="credit_union">Credit Union Innovation Hook (Data Platform Security)</option>
             <option value="ai_guardrails">AI Financial Compliance &amp; Query Guardrails</option>
             <option value="gtm_automation">GTM Pipeline Automation (15+ Eng Hours Saved)</option>
@@ -217,9 +217,9 @@ function ensureLemlistModalInDOM() {
         </div>
 
         <!-- Live Preview Box -->
-        <div style="border: 1px solid #e2e8f0; border-radius: var(--radius-xs); padding: 0.875rem; background: #f8fafc; font-size: 12px; margin-bottom: 1.25rem; color: #0f172a;">
-          <div style="margin-bottom: 4px; font-weight: 700; color: #0f172a;" id="modal-preview-subject">Subject: Securing data platforms &amp; automating member onboarding</div>
-          <div style="color: #334155; line-height: 1.5; white-space: pre-line;" id="modal-preview-body">Hi Aditya,
+        <div style="border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.875rem; background: var(--surface-soft); font-size: 12px; margin-bottom: 1.25rem; color: var(--color-text-primary);">
+          <div style="margin-bottom: 4px; font-weight: 700; color: var(--color-text-primary);" id="modal-preview-subject">Subject: Securing data platforms &amp; automating member onboarding</div>
+          <div style="color: var(--color-text-secondary); line-height: 1.5; white-space: pre-line;" id="modal-preview-body">Hi Aditya,
 
 Saw your recent initiatives in scaling financial data platforms. I was curious if your team is evaluating how to automate analytics pipelines without risking compliance.
 
@@ -229,28 +229,28 @@ Best,
 Autonomous GTM Copilot</div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-          <button class="btn btn-secondary btn-sm" onclick="setLemlistModalStep(2)" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: var(--radius-xs); font-weight: 600; cursor: pointer;">← Back</button>
-          <button class="btn btn-primary" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; background: #0f172a; color: #ffffff; border: none; padding: 0.625rem 1.25rem; border-radius: var(--radius-xs); cursor: pointer;"> Send Test Demo Email Now!</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--color-border);">
+          <button class="btn btn-secondary btn-sm" onclick="setLemlistModalStep(2)" style="font-weight: 600; cursor: pointer;">← Back</button>
+          <button class="btn btn-primary" onclick="sendLemlistTestDemoEmail()" style="font-weight: 700; cursor: pointer;"> Send Test Demo Email Now!</button>
         </div>
       </div>
 
       <!-- Step 4: Dispatch Confirmation & Success -->
-      <div id="lem-step-4" style="display: none; padding: 2rem 1.5rem; text-align: center; background: #ffffff;">
-        <div style="font-size: 48px; margin-bottom: 0.75rem;"></div>
-        <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: #0f172a;">Test Email Dispatched Successfully!</h2>
-        <p style="font-size: 13px; color: #334155; max-width: 480px; margin: 0 auto 1.25rem auto; line-height: 1.5;">
-          A live test email has been dispatched via Lemlist MCP to <strong id="modal-success-recipient-email" style="color: #0f172a;">your personal inbox</strong>!
+      <div id="lem-step-4" style="display: none; padding: 2rem 1.5rem; text-align: center; background: var(--surface-card);">
+        <div style="font-size: 48px; margin-bottom: 0.75rem;">🎉</div>
+        <h2 style="font-family: var(--font-family-heading); font-size: 20px; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--color-text-primary);">Test Email Dispatched Successfully!</h2>
+        <p style="font-size: 13px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto 1.25rem auto; line-height: 1.5;">
+          A live test email has been dispatched via Lemlist MCP to <strong id="modal-success-recipient-email" style="color: var(--color-text-primary);">your personal inbox</strong>!
         </p>
 
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-xs); padding: 1rem; text-align: left; max-width: 460px; margin: 0 auto 1.5rem auto; font-size: 11.5px; font-family: var(--font-family-mono); color: #0f172a;">
-          <div style="color: #16a34a; font-weight: 700; margin-bottom: 4px;">Status: 200 OK (Lemlist MCP Handshake Verified)</div>
-          <div style="color: #334155;">Campaign ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 2px;">cmp_lemlist_demo_9821</code></div>
-          <div style="color: #334155;">Message ID: <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 2px;">msg_live_dispatch_4812</code></div>
-          <div style="color: #334155;">Sender Account: <code id="modal-success-sender-email" style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 2px;">user@domain.com</code></div>
+        <div style="background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1rem; text-align: left; max-width: 460px; margin: 0 auto 1.5rem auto; font-size: 11.5px; font-family: var(--font-family-mono); color: var(--color-text-primary);">
+          <div style="color: var(--color-success, #22c55e); font-weight: 700; margin-bottom: 4px;">Status: 200 OK (Lemlist MCP Handshake Verified)</div>
+          <div style="color: var(--color-text-secondary);">Campaign ID: <code style="background: var(--color-background-muted); color: var(--color-text-primary); padding: 2px 6px; border-radius: 2px;">cmp_lemlist_demo_9821</code></div>
+          <div style="color: var(--color-text-secondary);">Message ID: <code style="background: var(--color-background-muted); color: var(--color-text-primary); padding: 2px 6px; border-radius: 2px;">msg_live_dispatch_4812</code></div>
+          <div style="color: var(--color-text-secondary);">Sender Account: <code id="modal-success-sender-email" style="background: var(--color-background-muted); color: var(--color-text-primary); padding: 2px 6px; border-radius: 2px;">user@domain.com</code></div>
         </div>
 
-        <button class="btn btn-primary" onclick="closeLemlistOnboardingModal()" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; background: #0f172a; color: #ffffff; border: none; border-radius: var(--radius-xs); cursor: pointer;">
+        <button class="btn btn-primary" onclick="closeLemlistOnboardingModal()" style="padding: 0.75rem 2rem; font-size: 14px; font-weight: 700; cursor: pointer;">
           Finish &amp; Explore Console
         </button>
       </div>
