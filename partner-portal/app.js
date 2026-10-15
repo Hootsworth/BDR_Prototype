@@ -1,5 +1,5 @@
 /**
- * CONNECTEM PARTNER PORTAL · FULL-SCREEN INTRODUCTION & SCHEDULING WORKSPACE
+ * CONNECTEM PARTNER PORTAL · REWARDS MARKETPLACE & WORKSPACE CONTROLLER
  * Pure Modern JS · Clean State Management · Uncluttered UX · 100% SVG Icons
  */
 
@@ -8,13 +8,149 @@
 
   const STORAGE_KEY_USER = 'connectem_partner_v3_user';
   const STORAGE_KEY_DATA = 'connectem_partner_v3_data';
+  const STORAGE_KEY_CART = 'connectem_partner_v3_cart';
   const API_BASE = window.PARTNER_API_BASE || (window.location.origin.includes('localhost') ? '' : 'https://connectem.ai');
+
+  // Rewards Marketplace Catalog
+  const CATALOG_ITEMS = [
+    {
+      id: 'amazon',
+      brand: 'AMZN',
+      category: 'Gift Cards',
+      title: 'Amazon E-Gift Card',
+      desc: 'Instant digital balance for electronics, books, office supplies, and team perks.',
+      denominations: [
+        { label: '$25 USD', pts: 250, usd: 25 },
+        { label: '$50 USD', pts: 500, usd: 50 },
+        { label: '$100 USD', pts: 1000, usd: 100 }
+      ]
+    },
+    {
+      id: 'apple',
+      brand: 'AAPL',
+      category: 'Gift Cards',
+      title: 'Apple Store & Services Card',
+      desc: 'Redeem for Apple hardware, accessories, App Store, iCloud, and developer tools.',
+      denominations: [
+        { label: '$50 USD', pts: 500, usd: 50 },
+        { label: '$100 USD', pts: 1000, usd: 100 },
+        { label: '$250 USD', pts: 2500, usd: 250 }
+      ]
+    },
+    {
+      id: 'uber',
+      brand: 'UBER',
+      category: 'Travel & Lifestyle',
+      title: 'Uber & Uber Eats Pass',
+      desc: 'Reliable executive rides, airport transfers, and team catering deliveries.',
+      denominations: [
+        { label: '$25 USD', pts: 250, usd: 25 },
+        { label: '$50 USD', pts: 500, usd: 50 },
+        { label: '$100 USD', pts: 1000, usd: 100 }
+      ]
+    },
+    {
+      id: 'airbnb',
+      brand: 'ABNB',
+      category: 'Travel & Lifestyle',
+      title: 'Airbnb Travel Voucher',
+      desc: 'Luxury stays and offsite accommodations worldwide for executive retreats.',
+      denominations: [
+        { label: '$100 USD', pts: 1000, usd: 100 },
+        { label: '$250 USD', pts: 2500, usd: 250 },
+        { label: '$500 USD', pts: 5000, usd: 500 }
+      ]
+    },
+    {
+      id: 'delta',
+      brand: 'DAL',
+      category: 'Travel & Lifestyle',
+      title: 'Delta Air Lines Travel Pass',
+      desc: 'Domestic and international flight bookings, seat upgrades, and Sky Club passes.',
+      denominations: [
+        { label: '$250 USD', pts: 2500, usd: 250 },
+        { label: '$500 USD', pts: 5000, usd: 500 }
+      ]
+    },
+    {
+      id: 'msf',
+      brand: 'MSF',
+      category: 'NGO Donations',
+      title: 'Doctors Without Borders (MSF)',
+      desc: 'Provide emergency medical humanitarian assistance to crisis and conflict zones.',
+      denominations: [
+        { label: '$50 Donation', pts: 500, usd: 50 },
+        { label: '$100 Donation', pts: 1000, usd: 100 },
+        { label: '$250 Donation', pts: 2500, usd: 250 }
+      ]
+    },
+    {
+      id: 'givedirectly',
+      brand: 'GIVE',
+      category: 'NGO Donations',
+      title: 'GiveDirectly Direct Aid',
+      desc: 'Send unconditional direct cash transfers to families in extreme poverty.',
+      denominations: [
+        { label: '$50 Donation', pts: 500, usd: 50 },
+        { label: '$100 Donation', pts: 1000, usd: 100 },
+        { label: '$250 Donation', pts: 2500, usd: 250 }
+      ]
+    },
+    {
+      id: 'wck',
+      brand: 'WCK',
+      category: 'NGO Donations',
+      title: 'World Central Kitchen (WCK)',
+      desc: 'First to the frontlines providing fresh chef-prepared meals in disaster zones.',
+      denominations: [
+        { label: '$50 Donation', pts: 500, usd: 50 },
+        { label: '$100 Donation', pts: 1000, usd: 100 }
+      ]
+    },
+    {
+      id: 'catf',
+      brand: 'CATF',
+      category: 'NGO Donations',
+      title: 'Clean Air Task Force',
+      desc: 'Catalyze zero-carbon energy technologies and high-impact global climate policies.',
+      denominations: [
+        { label: '$50 Donation', pts: 500, usd: 50 },
+        { label: '$100 Donation', pts: 1000, usd: 100 }
+      ]
+    },
+    {
+      id: 'ft_hbr',
+      brand: 'HBR',
+      category: 'Executive Perks',
+      title: 'Financial Times & HBR Digital',
+      desc: 'Annual executive subscriptions to premier global business and technology journalism.',
+      denominations: [
+        { label: '$75 (6 Mos)', pts: 750, usd: 75 },
+        { label: '$150 (1 Year)', pts: 1500, usd: 150 }
+      ]
+    },
+    {
+      id: 'ach_cash',
+      brand: 'ACH',
+      category: 'Direct Cash',
+      title: 'Direct ACH Bank Wire Transfer',
+      desc: 'Direct electronic cash transfer to your designated advisory or corporate checking account.',
+      denominations: [
+        { label: '$100 USD Wire', pts: 1000, usd: 100 },
+        { label: '$250 USD Wire', pts: 2500, usd: 250 },
+        { label: '$500 USD Wire', pts: 5000, usd: 500 },
+        { label: '$1,000 USD Wire', pts: 10000, usd: 1000 }
+      ]
+    }
+  ];
 
   // Application State
   const state = {
     user: null,
     intros: [],
     statement: [],
+    cart: [],
+    activeCategory: 'ALL',
     agreement: {
       signed: true,
       signedBy: 'Jordan Vance',
@@ -31,6 +167,8 @@
     signoutBtn: document.getElementById('btn-signout'),
     navBalancePill: document.getElementById('nav-balance-pill'),
     navPointsVal: document.getElementById('nav-points-val'),
+    btnNavCart: document.getElementById('btn-nav-cart'),
+    navCartCount: document.getElementById('nav-cart-count'),
 
     // Views
     viewAuth: document.getElementById('view-auth'),
@@ -61,11 +199,13 @@
     // Subtabs
     tabSubIntros: document.getElementById('tab-sub-intros'),
     tabSubEarnings: document.getElementById('tab-sub-earnings'),
+    tabSubMarketplace: document.getElementById('tab-sub-marketplace'),
     tabSubAgreement: document.getElementById('tab-sub-agreement'),
     tabIntrosCount: document.getElementById('tab-intros-count'),
 
     panelSubIntros: document.getElementById('subtab-panel-intros'),
     panelSubEarnings: document.getElementById('subtab-panel-earnings'),
+    panelSubMarketplace: document.getElementById('subtab-panel-marketplace'),
     panelSubAgreement: document.getElementById('subtab-panel-agreement'),
 
     // Introductions Roster
@@ -105,6 +245,11 @@
     btnOpenPayoutModal: document.getElementById('btn-open-payout-modal'),
     statementRowsContainer: document.getElementById('statement-rows-container'),
 
+    // Rewards Marketplace Elements
+    btnOpenCartHero: document.getElementById('btn-open-cart-hero'),
+    cartItemCount: document.getElementById('cart-item-count'),
+    marketplaceCatalogGrid: document.getElementById('marketplace-catalog-grid'),
+
     // Agreement Tab
     agreementPillBadge: document.getElementById('agreement-pill-badge'),
     agreementMetaSigner: document.getElementById('agreement-meta-signer'),
@@ -121,12 +266,23 @@
     agreementSignerField: document.getElementById('agreement-signer-field'),
     btnConfirmSignTerms: document.getElementById('btn-confirm-sign-terms'),
 
-    modalPayout: document.getElementById('modal-payout'),
-    payoutModalBalance: document.getElementById('payout-modal-balance'),
-    payoutAmountInput: document.getElementById('payout-amount-input'),
-    payoutMethodSelect: document.getElementById('payout-method-select'),
-    payoutDetailsText: document.getElementById('payout-details-text'),
-    btnConfirmPayout: document.getElementById('btn-confirm-payout'),
+    // Cart Checkout Modal
+    modalCartCheckout: document.getElementById('modal-cart-checkout'),
+    cartAvailableBalance: document.getElementById('cart-available-balance'),
+    cartTotalCost: document.getElementById('cart-total-cost'),
+    cartItemsList: document.getElementById('cart-items-list'),
+    cartDeliveryEmail: document.getElementById('cart-delivery-email'),
+    cartBankWireSection: document.getElementById('cart-bank-wire-section'),
+    cartBankDetails: document.getElementById('cart-bank-details'),
+    cartOrderNotes: document.getElementById('cart-order-notes'),
+    btnConfirmRedeemCart: document.getElementById('btn-confirm-redeem-cart'),
+    cartBtnPoints: document.getElementById('cart-btn-points'),
+
+    // Order Success Modal
+    modalOrderSuccess: document.getElementById('modal-order-success'),
+    receiptOrderHash: document.getElementById('receipt-order-hash'),
+    receiptPointsRedeemed: document.getElementById('receipt-points-redeemed'),
+    receiptNewBalance: document.getElementById('receipt-new-balance'),
 
     // Toast
     toastNotice: document.getElementById('toast-notice')
@@ -158,7 +314,6 @@
 
   // Full-Screen Workspace Controls
   function openFullscreenIntroWorkspace() {
-    // Set default proposed meeting date to tomorrow
     if (el.fsMeetingDate && !el.fsMeetingDate.value) {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -186,6 +341,7 @@
       agreement: state.agreement,
       points: state.points
     }));
+    localStorage.setItem(`${STORAGE_KEY_CART}_${state.user.email}`, JSON.stringify(state.cart));
   }
 
   function loadState() {
@@ -200,6 +356,10 @@
         state.statement = d.statement || [];
         state.agreement = d.agreement || state.agreement;
         state.points = d.points !== undefined ? d.points : state.points;
+      }
+      const rawCart = localStorage.getItem(`${STORAGE_KEY_CART}_${state.user.email}`);
+      if (rawCart) {
+        state.cart = JSON.parse(rawCart) || [];
       }
       return true;
     } catch (_) {
@@ -221,16 +381,19 @@
     }
   }
 
-  // Update UI Stats & Headers
+  // Update UI Stats, Headers & Cart Counters
   function updateUI() {
     const total = state.intros.length;
     const scheduled = state.intros.filter(i => ['Call Scheduled', 'Meeting Verified', 'Opportunity', 'Customer Closed'].includes(i.status)).length;
     const verified = state.intros.filter(i => ['Meeting Verified', 'Opportunity', 'Customer Closed'].includes(i.status)).length;
     const cashEst = (state.points * 0.1).toFixed(2);
+    const cartCount = state.cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
-    // Header pills
+    // Header pills & cart counts
     if (el.navPointsVal) el.navPointsVal.textContent = state.points.toLocaleString();
     if (el.tabIntrosCount) el.tabIntrosCount.textContent = total;
+    if (el.navCartCount) el.navCartCount.textContent = cartCount;
+    if (el.cartItemCount) el.cartItemCount.textContent = cartCount;
 
     // Stats Strip
     if (el.kpiTotal) el.kpiTotal.textContent = total;
@@ -242,7 +405,6 @@
     // Earnings Card
     if (el.earningsCardBalance) el.earningsCardBalance.textContent = `${state.points.toLocaleString()} pts`;
     if (el.earningsCardUsd) el.earningsCardUsd.textContent = `Estimated Cash Value: $${cashEst} USD`;
-    if (el.payoutModalBalance) el.payoutModalBalance.textContent = `${state.points.toLocaleString()} pts`;
 
     // Agreement Meta
     if (el.agreementMetaSigner) el.agreementMetaSigner.textContent = state.agreement.signedBy || 'Jordan Vance';
@@ -289,7 +451,7 @@
 
     el.introsContainer.innerHTML = filtered.map(intro => {
       const initial = (intro.name || 'C').charAt(0).toUpperCase();
-      const hasMeeting = intro.meetingDate ? `<span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); display:block; margin-top:3px;">📅 Proposed: ${escapeHTML(intro.meetingDate)} at ${escapeHTML(intro.meetingTime || '14:00')}</span>` : '';
+      const hasMeeting = intro.meetingDate ? `<span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono); display:block; margin-top:3px;">Proposed: ${escapeHTML(intro.meetingDate)} at ${escapeHTML(intro.meetingTime || '14:00')}</span>` : '';
       return `
         <div class="intro-card" data-id="${intro.id}">
           <div class="intro-info-col">
@@ -363,7 +525,252 @@
     `).join('');
   }
 
-  // Record Transaction
+  // ========================================================================
+  // REWARDS MARKETPLACE CATALOG & CART LOGIC
+  // ========================================================================
+
+  function renderMarketplaceCatalog() {
+    if (!el.marketplaceCatalogGrid) return;
+    const cat = state.activeCategory || 'ALL';
+
+    const filtered = CATALOG_ITEMS.filter(item => {
+      if (cat === 'ALL') return true;
+      if (cat === 'Gift Cards') return item.category === 'Gift Cards';
+      if (cat === 'NGO Donations') return item.category === 'NGO Donations';
+      if (cat === 'Travel & Lifestyle') return item.category === 'Travel & Lifestyle';
+      if (cat === 'Direct Cash') return item.category === 'Direct Cash';
+      return true;
+    });
+
+    el.marketplaceCatalogGrid.innerHTML = filtered.map(item => {
+      const defaultDenom = item.denominations[0];
+      const denomOptions = item.denominations.map((d, idx) => `
+        <option value="${idx}">${escapeHTML(d.label)} · ${d.pts} pts</option>
+      `).join('');
+
+      return `
+        <div class="reward-card" data-catalog-id="${item.id}">
+          <div>
+            <div class="reward-card-top">
+              <div class="reward-brand-icon">${escapeHTML(item.brand)}</div>
+              <span class="reward-card-cat">${escapeHTML(item.category)}</span>
+            </div>
+            <h3 class="reward-card-title">${escapeHTML(item.title)}</h3>
+            <p class="reward-card-desc">${escapeHTML(item.desc)}</p>
+          </div>
+
+          <div>
+            <div class="input-field-group" style="margin-bottom: 12px;">
+              <label class="input-label" style="font-size: 11px;">Select Value / Tier</label>
+              <select class="select-input reward-denom-select" style="height:34px; font-size:12px;" data-id="${item.id}">
+                ${denomOptions}
+              </select>
+            </div>
+
+            <div class="reward-card-pricing">
+              <div>
+                <div class="reward-pts-price" id="pts-display-${item.id}">${defaultDenom.pts} pts</div>
+                <div class="reward-usd-eq" id="usd-display-${item.id}">Valued at $${defaultDenom.usd}.00 USD</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm btn-add-to-cart" data-id="${item.id}">
+                Add to Cart +
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach listeners for denomination changes
+    el.marketplaceCatalogGrid.querySelectorAll('.reward-denom-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const catalogId = e.target.dataset.id;
+        const item = CATALOG_ITEMS.find(c => c.id === catalogId);
+        if (!item) return;
+        const selectedIndex = parseInt(e.target.value, 10);
+        const denom = item.denominations[selectedIndex];
+        if (denom) {
+          const ptsEl = document.getElementById(`pts-display-${catalogId}`);
+          const usdEl = document.getElementById(`usd-display-${catalogId}`);
+          if (ptsEl) ptsEl.textContent = `${denom.pts} pts`;
+          if (usdEl) usdEl.textContent = `Valued at $${denom.usd}.00 USD`;
+        }
+      });
+    });
+
+    // Attach listeners for Add to Cart
+    el.marketplaceCatalogGrid.querySelectorAll('.btn-add-to-cart').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const catalogId = e.target.dataset.id;
+        const item = CATALOG_ITEMS.find(c => c.id === catalogId);
+        if (!item) return;
+        const sel = el.marketplaceCatalogGrid.querySelector(`.reward-denom-select[data-id="${catalogId}"]`);
+        const idx = sel ? parseInt(sel.value, 10) : 0;
+        const denom = item.denominations[idx] || item.denominations[0];
+        addToCart(item, denom);
+      });
+    });
+  }
+
+  // Add Item to Cart
+  function addToCart(item, denom) {
+    const existing = state.cart.find(c => c.catalogId === item.id && c.pts === denom.pts);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      state.cart.push({
+        cartId: `${item.id}_${denom.pts}_${Date.now()}`,
+        catalogId: item.id,
+        title: item.title,
+        brand: item.brand,
+        category: item.category,
+        label: denom.label,
+        pts: denom.pts,
+        usd: denom.usd,
+        quantity: 1
+      });
+    }
+
+    saveState();
+    updateUI();
+    showToast(`Added ${item.title} (${denom.label}) to your cart.`);
+  }
+
+  // Update Cart Quantity
+  function updateCartQty(cartId, delta) {
+    const item = state.cart.find(c => c.cartId === cartId);
+    if (!item) return;
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+      state.cart = state.cart.filter(c => c.cartId !== cartId);
+    }
+    saveState();
+    updateUI();
+    renderCartModal();
+  }
+
+  // Remove Item from Cart
+  function removeCartItem(cartId) {
+    state.cart = state.cart.filter(c => c.cartId !== cartId);
+    saveState();
+    updateUI();
+    renderCartModal();
+  }
+
+  // Render Cart Modal
+  function renderCartModal() {
+    if (!el.cartItemsList) return;
+    const totalPts = state.cart.reduce((sum, item) => sum + (item.pts * item.quantity), 0);
+    const hasCashWire = state.cart.some(item => item.category === 'Direct Cash');
+
+    if (el.cartAvailableBalance) el.cartAvailableBalance.textContent = `${state.points.toLocaleString()} pts`;
+    if (el.cartTotalCost) el.cartTotalCost.textContent = `${totalPts.toLocaleString()} pts`;
+    if (el.cartBtnPoints) el.cartBtnPoints.textContent = `${totalPts.toLocaleString()} pts`;
+
+    // Show/hide bank wire section if ACH cash payout in cart
+    if (el.cartBankWireSection) {
+      el.cartBankWireSection.style.display = hasCashWire ? 'block' : 'none';
+    }
+
+    // Default email to user email
+    if (el.cartDeliveryEmail && !el.cartDeliveryEmail.value && state.user) {
+      el.cartDeliveryEmail.value = state.user.email || '';
+    }
+
+    if (state.cart.length === 0) {
+      el.cartItemsList.innerHTML = `
+        <div style="text-align: center; padding: 36px 16px; color: var(--text-muted); font-size: 13px;">
+          Your rewards cart is empty.<br>Browse the catalog above to select gift cards, NGO donations, or cash wire transfers.
+        </div>
+      `;
+      if (el.btnConfirmRedeemCart) el.btnConfirmRedeemCart.disabled = true;
+      return;
+    }
+
+    if (el.btnConfirmRedeemCart) el.btnConfirmRedeemCart.disabled = false;
+
+    el.cartItemsList.innerHTML = state.cart.map(item => `
+      <div class="cart-item-row">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">${escapeHTML(item.title)}</div>
+          <div style="font-size: 12px; color: var(--text-muted);">${escapeHTML(item.label)} · ${item.pts} pts each</div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div class="cart-qty-ctrl">
+            <button type="button" class="cart-qty-btn btn-cart-minus" data-id="${item.cartId}">–</button>
+            <span class="cart-qty-val">${item.quantity}</span>
+            <button type="button" class="cart-qty-btn btn-cart-plus" data-id="${item.cartId}">+</button>
+          </div>
+          <strong style="font-family: var(--font-mono); font-size: 13.5px; min-width: 70px; text-align: right;">
+            ${(item.pts * item.quantity).toLocaleString()} pts
+          </strong>
+          <button type="button" class="btn btn-subtle btn-sm btn-cart-del" data-id="${item.cartId}" title="Remove" style="padding: 0 6px; color: var(--text-faint);">✕</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Attach listeners
+    el.cartItemsList.querySelectorAll('.btn-cart-minus').forEach(btn => {
+      btn.addEventListener('click', (e) => updateCartQty(e.target.dataset.id, -1));
+    });
+    el.cartItemsList.querySelectorAll('.btn-cart-plus').forEach(btn => {
+      btn.addEventListener('click', (e) => updateCartQty(e.target.dataset.id, 1));
+    });
+    el.cartItemsList.querySelectorAll('.btn-cart-del').forEach(btn => {
+      btn.addEventListener('click', (e) => removeCartItem(e.target.dataset.id));
+    });
+  }
+
+  // Handle Confirm Cart Checkout
+  function handleConfirmCheckout() {
+    const totalPts = state.cart.reduce((sum, item) => sum + (item.pts * item.quantity), 0);
+    const email = el.cartDeliveryEmail.value.trim();
+    const hasCashWire = state.cart.some(item => item.category === 'Direct Cash');
+    const bankDetails = el.cartBankDetails.value.trim();
+
+    if (totalPts <= 0) {
+      alert('Your cart is empty. Please add items before checking out.');
+      return;
+    }
+
+    if (totalPts > state.points) {
+      alert(`Insufficient approved points. You have ${state.points.toLocaleString()} points, but your cart total is ${totalPts.toLocaleString()} points.`);
+      return;
+    }
+
+    if (!email) {
+      alert('Please enter a delivery email address for your electronic rewards and donation receipts.');
+      return;
+    }
+
+    if (hasCashWire && !bankDetails) {
+      alert('Please provide your bank routing and account number for the direct wire payout.');
+      return;
+    }
+
+    const orderHash = `#REW-${Math.floor(10000 + Math.random() * 90000)}-CONFIRMED`;
+    const summaryItems = state.cart.map(c => `${c.quantity}x ${c.title} (${c.label})`).join(', ');
+
+    // Record ledger entry
+    recordTransaction(`Rewards Redemption: ${state.cart.length} item(s)`, `${summaryItems} · Dispatched to ${email}`, -totalPts);
+
+    // Update receipt modal
+    if (el.receiptOrderHash) el.receiptOrderHash.textContent = orderHash;
+    if (el.receiptPointsRedeemed) el.receiptPointsRedeemed.textContent = `${totalPts.toLocaleString()} pts ($${(totalPts * 0.1).toFixed(2)})`;
+    if (el.receiptNewBalance) el.receiptNewBalance.textContent = `${state.points.toLocaleString()} pts`;
+
+    // Clear cart
+    state.cart = [];
+    saveState();
+    updateUI();
+
+    closeAllModals();
+    openModal(el.modalOrderSuccess);
+    showToast(`Rewards order ${orderHash} processed successfully!`);
+  }
+
+  // Record Transaction in Ledger
   function recordTransaction(title, prospect, amount) {
     state.statement.push({
       id: Date.now() + Math.random(),
@@ -378,7 +785,7 @@
     renderStatement();
   }
 
-  // Update Status & Award Milestone Points
+  // Update Intro Status & Award Milestone Points
   function updateIntroStatus(id, newStatus) {
     const intro = state.intros.find(i => String(i.id) === String(id));
     if (!intro || intro.status === newStatus) return;
@@ -426,6 +833,7 @@
     const tabs = [
       { name: 'intros', btn: el.tabSubIntros, panel: el.panelSubIntros },
       { name: 'earnings', btn: el.tabSubEarnings, panel: el.panelSubEarnings },
+      { name: 'marketplace', btn: el.tabSubMarketplace, panel: el.panelSubMarketplace },
       { name: 'agreement', btn: el.tabSubAgreement, panel: el.panelSubAgreement }
     ];
 
@@ -434,6 +842,10 @@
       if (t.btn) t.btn.classList.toggle('active', isActive);
       if (t.panel) t.panel.style.display = isActive ? 'block' : 'none';
     });
+
+    if (activeTabName === 'marketplace') {
+      renderMarketplaceCatalog();
+    }
   }
 
   // Handle Full-Screen Introduction Submission
@@ -530,11 +942,13 @@
     el.viewWorkspace.style.display = 'block';
     el.signoutBtn.style.display = 'inline-flex';
     el.navBalancePill.style.display = 'inline-flex';
+    el.btnNavCart.style.display = 'inline-flex';
 
     saveState();
     updateUI();
     renderIntros();
     renderStatement();
+    renderMarketplaceCatalog();
   }
 
   // Sign Out
@@ -545,6 +959,7 @@
     el.viewWorkspace.style.display = 'none';
     el.signoutBtn.style.display = 'none';
     el.navBalancePill.style.display = 'none';
+    el.btnNavCart.style.display = 'none';
     closeFullscreenIntroWorkspace();
   }
 
@@ -664,7 +1079,37 @@
     // Workspace Subtabs Switchers
     el.tabSubIntros.addEventListener('click', () => switchSubtab('intros'));
     el.tabSubEarnings.addEventListener('click', () => switchSubtab('earnings'));
+    el.tabSubMarketplace.addEventListener('click', () => switchSubtab('marketplace'));
     el.tabSubAgreement.addEventListener('click', () => switchSubtab('agreement'));
+
+    // Request Payout Button in Earnings Card directly opens Marketplace
+    el.btnOpenPayoutModal.addEventListener('click', () => {
+      switchSubtab('marketplace');
+      showToast('Welcome to the Rewards Marketplace. Pick your rewards and add to cart.');
+    });
+
+    // Marketplace Category Filters
+    document.querySelectorAll('.marketplace-cat-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.marketplace-cat-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        state.activeCategory = e.target.dataset.category || 'ALL';
+        renderMarketplaceCatalog();
+      });
+    });
+
+    // Open Cart Modals
+    el.btnNavCart.addEventListener('click', () => {
+      renderCartModal();
+      openModal(el.modalCartCheckout);
+    });
+    el.btnOpenCartHero.addEventListener('click', () => {
+      renderCartModal();
+      openModal(el.modalCartCheckout);
+    });
+
+    // Confirm Cart Checkout
+    el.btnConfirmRedeemCart.addEventListener('click', handleConfirmCheckout);
 
     // Search & Filter
     el.searchIntros.addEventListener('input', renderIntros);
@@ -683,7 +1128,6 @@
 
     // Modal Triggers
     el.btnOpenBulkModal.addEventListener('click', () => openModal(el.modalBulkCsv));
-    el.btnOpenPayoutModal.addEventListener('click', () => openModal(el.modalPayout));
     el.btnReReadAgreement.addEventListener('click', () => openModal(el.modalAgreement));
 
     // Close Modals
@@ -750,28 +1194,6 @@
       updateUI();
       closeAllModals();
       showToast('Partner Network Agreement executed and recorded.');
-    });
-
-    // Payout Confirm
-    el.btnConfirmPayout.addEventListener('click', () => {
-      const pts = parseInt(el.payoutAmountInput.value, 10);
-      const method = el.payoutMethodSelect.value;
-      const details = el.payoutDetailsText.value.trim();
-
-      if (isNaN(pts) || pts <= 0) {
-        alert('Please enter a valid points amount.');
-        return;
-      }
-      if (pts > state.points) {
-        alert(`You only have ${state.points} approved points available.`);
-        return;
-      }
-
-      recordTransaction(`Payout Request (${method})`, details || 'Direct payout', -pts);
-      el.payoutAmountInput.value = '';
-      el.payoutDetailsText.value = '';
-      closeAllModals();
-      showToast(`Payout request for $${(pts * 0.1).toFixed(2)} (${pts} pts) submitted.`);
     });
   }
 
