@@ -4,6 +4,10 @@
 <head>
   <script>
     (function() {
+      if (window.location.hostname === 'go.connectem.ai' || window.location.hostname.startsWith('go.')) {
+        window.location.replace('/partner-portal' + window.location.search + window.location.hash);
+        return;
+      }
       var savedTheme = localStorage.getItem('gtm_theme') || 'light';
       document.documentElement.setAttribute('data-theme', savedTheme);
       document.documentElement.setAttribute('data-astryx-theme', 'neutral');
