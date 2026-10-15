@@ -28,6 +28,30 @@
       "permanent": false
     },
     {
+      "source": "/admin",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "https://admin.connectem.ai/",
+      "permanent": false
+    },
+    {
+      "source": "/admin",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
+      "destination": "https://admin.connectem.ai/",
+      "permanent": false
+    },
+    {
+      "source": "/admin.html",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "https://admin.connectem.ai/",
+      "permanent": false
+    },
+    {
+      "source": "/admin.html",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
+      "destination": "https://admin.connectem.ai/",
+      "permanent": false
+    },
+    {
       "source": "/",
       "has": [{ "type": "host", "value": "go.connectem.ai" }],
       "destination": "/partner-portal",
@@ -41,6 +65,39 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/index.html",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/index.html",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "admin.connectem.ai" }],
+      "destination": "/index.html"
+    },
+    {
+      "source": "/landing",
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
     {
       "source": "/partner-portal",
       "destination": "/partner-portal.html"

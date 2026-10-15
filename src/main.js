@@ -407,7 +407,7 @@ function updateHeader(tabId) {
       subtitleEl.textContent = "Add & enrich contacts or influencers directly, or capture attendees and influencers from field events.";
       break;
     case 'campaign-outbound':
-      titleEl.textContent = "Campaign Outbound";
+      titleEl.textContent = "Connectem AI";
       subtitleEl.textContent = "Engage prospects and influencers across Email, LinkedIn, and Phone — and manage scheduled briefings.";
       break;
     case 'events-list':
@@ -652,7 +652,7 @@ function handleCommandPaletteSearch(query) {
   const q = query.trim().toLowerCase();
 
   const tabCommands = [
-    { title: "Campaign Outbound", subtitle: "Main workspace for prospects, influencers, and scheduled calls", tab: "campaign-outbound", icon: "" },
+    { title: "Connectem AI", subtitle: "Main workspace for prospects, influencers, and scheduled calls", tab: "campaign-outbound", icon: "" },
     { title: "Search", subtitle: "Natural language & relational search across all contacts, referrals, and events", tab: "dashboard", icon: "" },
     { title: "Import Contacts (Add & Enrich)", subtitle: "Add contacts directly, upload CSV datasets, and run AI enrichment", tab: "upload", icon: "" },
     { title: "Import Contacts via Events", subtitle: "Manage field events and capture event attendees into the database", tab: "events-list", icon: "" },

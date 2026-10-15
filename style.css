@@ -537,6 +537,8 @@ body {
 }
 
 .sidebar-panel.collapsed .brand-name,
+.sidebar-panel.collapsed .brand-title,
+.sidebar-panel.collapsed .brand-badge,
 .sidebar-panel.collapsed .nav-label,
 .sidebar-panel.collapsed .chevron-indicator,
 .sidebar-panel.collapsed .user-display-name,
@@ -567,6 +569,59 @@ body {
   gap: 0.625rem;
   cursor: pointer;
   min-width: 0;
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-symbol {
+  width: 28px;
+  height: 28px;
+  background: var(--color-text-primary, #09090b);
+  color: var(--color-bg-base, #ffffff);
+  border-radius: var(--radius-sm, 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-heading, var(--font-display, inherit));
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+[data-theme="dark"] .brand-symbol {
+  background: #fafafa;
+  color: #09090b;
+}
+
+.sidebar-brand-wrap:hover .brand-symbol {
+  transform: scale(1.05);
+}
+
+.brand-title {
+  font-family: var(--font-family-heading, var(--font-display, inherit));
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.brand-badge {
+  font-family: var(--font-family-mono, monospace);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  background: var(--color-background-muted, rgba(0,0,0,0.04));
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
 }
 
 .brand-spike {

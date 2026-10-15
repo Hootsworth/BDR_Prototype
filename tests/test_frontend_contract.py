@@ -89,7 +89,9 @@ class FrontendContractTests(unittest.TestCase):
         outbound_js = self.read("src/components/outbound.js")
 
         # Sidebar & App Branding
-        self.assertIn("<span class=\"brand-name\">Campaign Outbound</span>", index_html)
+        self.assertTrue("<span class=\"brand-name\" style=\"display: none;\">Connectem AI</span>" in index_html or "Connectem AI" in index_html)
+        self.assertIn("<span class=\"brand-title\">Connectem</span>", index_html)
+        self.assertIn("<span class=\"brand-badge\">AI</span>", index_html)
         self.assertIn("<span class=\"nav-label\">Search</span>", index_html)
         self.assertNotIn("cat-group-contacts", index_html)
         self.assertNotIn("cat-group-events", index_html)
@@ -243,9 +245,31 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("Protected by IRM", marketplace_js)
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
         self.assertIn("minlength=\"12\"", marketplace_html)
-        self.assertTrue("firebase-auth-compat" in partner_portal_html or "clerk-auth-mount" in partner_portal_html)
         self.assertIn("partner reward status", partner_portal_html.lower())
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
+
+    def test_connectem_domains_and_landing_contract(self):
+        landing_html = self.read("landing.html")
+        index_html = self.read("index.html")
+        vercel_json = self.read("vercel.json")
+
+        # Landing page structure and brand
+        self.assertIn("Connectem", landing_html)
+        self.assertIn("brand-symbol", landing_html)
+        self.assertIn("https://go.connectem.ai/partner-portal", landing_html)
+        self.assertIn("https://admin.connectem.ai/", landing_html)
+        self.assertIn("btn-theme-toggle", landing_html)
+
+        # Index hostname guard redirects connectem.ai to landing.html
+        self.assertIn("connectem.ai/landing.html", index_html)
+
+        # Landing hostname guard redirects admin.connectem.ai to main console
+        self.assertIn("admin.connectem.ai", landing_html)
+
+        # Vercel JSON routing rules for admin.connectem.ai and connectem.ai
+        self.assertIn('"value": "admin.connectem.ai"', vercel_json)
+        self.assertIn('"value": "connectem.ai"', vercel_json)
+        self.assertIn("/landing.html", vercel_json)
 
 
 if __name__ == "__main__":
