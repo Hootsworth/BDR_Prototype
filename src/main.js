@@ -368,7 +368,7 @@ function switchTab(tabId) {
     }
   } else if (tabId === 'influencers') {
     if (typeof renderInfluencersTable === "function") renderInfluencersTable();
-    if (typeof loadWorkbookFromServer === "function" && database.workbookMode) {
+    if (typeof loadWorkbookFromServer === "function") {
       loadWorkbookFromServer().then(() => {
         if (typeof renderInfluencersTable === "function") renderInfluencersTable();
       }).catch(() => {});

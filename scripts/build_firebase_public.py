@@ -7,11 +7,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 FILES = [
-    "index.html", "style.css", "app.js", "config.js", "marketplace.html",
-    "marketplace.js", "partner-portal.html", "partner-portal.js", "portal.html",
-    "login_bg.png",
+    "index.html", "admin.html", "landing.html", "style.css", "app.js", "config.js",
+    "marketplace.html", "marketplace.js", "partner-portal.html", "partner-portal.js",
+    "portal.html", "login_bg.png",
 ]
-DIRECTORIES = ["components", "src", "vendor"]
+DIRECTORIES = ["components", "src", "vendor", "partner-portal"]
 
 
 def main():
