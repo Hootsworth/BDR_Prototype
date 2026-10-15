@@ -658,7 +658,10 @@ def revoke_partner_share_record(share_id, revoked_at):
 
 def revoke_partner_share_records_for_influencer(influencer_id, revoked_at):
     if firestore_enabled():
-        return firebase_revoke_partner_shares_for_influencer(influencer_id, revoked_at)
+        try:
+            return firebase_revoke_partner_shares_for_influencer(influencer_id, revoked_at)
+        except FirebaseBackendUnavailable:
+            pass
     with db() as connection:
         cursor = connection.execute('UPDATE partner_shares SET revoked_at = ? WHERE influencer_id = ? AND revoked_at IS NULL', (revoked_at, int(influencer_id)))
         return cursor.rowcount
@@ -668,11 +671,14 @@ def issue_partner_share_token(influencer_id, revoke_existing=True):
     token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
     created_at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     if firestore_enabled():
-        if revoke_existing:
-            store_partner_share_record(influencer_id, token_hash, created_at)
-        else:
-            firebase_store_partner_share(influencer_id, token_hash, created_at, revoke_existing=False)
-        return token
+        try:
+            if revoke_existing:
+                store_partner_share_record(influencer_id, token_hash, created_at)
+            else:
+                firebase_store_partner_share(influencer_id, token_hash, created_at, revoke_existing=False)
+            return token
+        except FirebaseBackendUnavailable:
+            pass
     with db() as connection:
         connection.execute('INSERT INTO partner_shares(influencer_id, token_hash, created_at) VALUES (?, ?, ?)', (int(influencer_id), token_hash, created_at))
     return token
@@ -1724,6 +1730,12 @@ def write_workbook_state(state):
             return
         except FirebaseBackendUnavailable:
             pass
+
+    try:
+        persist_state('database', state)
+    except Exception:
+        pass
+
     default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
     if WORKBOOK_PATH == default_wb_path:
         try:
@@ -1733,42 +1745,48 @@ def write_workbook_state(state):
 
     json_path = WORKBOOK_PATH.replace('.xlsx', '.json')
     if not HAS_OPENPYXL or openpyxl is None:
-        with workbook_lock:
-            os.makedirs(os.path.dirname(WORKBOOK_PATH) or '.', exist_ok=True)
-            tmp_json = json_path + '.tmp'
-            with open(tmp_json, 'w', encoding='utf-8') as f:
-                json.dump(state, f, indent=2)
-            os.replace(tmp_json, json_path)
+        try:
+            with workbook_lock:
+                os.makedirs(os.path.dirname(WORKBOOK_PATH) or '.', exist_ok=True)
+                tmp_json = json_path + '.tmp'
+                with open(tmp_json, 'w', encoding='utf-8') as f:
+                    json.dump(state, f, indent=2)
+                os.replace(tmp_json, json_path)
+        except OSError:
+            pass
         return
 
-    snapshot = build_workbook_snapshot(state)
-    workbook = openpyxl.Workbook()
-    workbook.remove(workbook.active)
+    try:
+        snapshot = build_workbook_snapshot(state)
+        workbook = openpyxl.Workbook()
+        workbook.remove(workbook.active)
 
-    for name in WORKBOOK_SHEETS:
-        sheet = workbook.create_sheet(title=name)
-        rows = workbook_rows_for(snapshot.get(name) or [])
-        headers = []
-        for row in rows:
-            for key in row.keys():
-                if key not in headers:
-                    headers.append(key)
-        if headers:
-            sheet.append(headers)
+        for name in WORKBOOK_SHEETS:
+            sheet = workbook.create_sheet(title=name)
+            rows = workbook_rows_for(snapshot.get(name) or [])
+            headers = []
             for row in rows:
-                sheet.append([row.get(header, '') for header in headers])
+                for key in row.keys():
+                    if key not in headers:
+                        headers.append(key)
+            if headers:
+                sheet.append(headers)
+                for row in rows:
+                    sheet.append([row.get(header, '') for header in headers])
 
-    with workbook_lock:
-        os.makedirs(os.path.dirname(WORKBOOK_PATH) or '.', exist_ok=True)
-        tmp_path = WORKBOOK_PATH + '.tmp'
-        workbook.save(tmp_path)
-        os.replace(tmp_path, WORKBOOK_PATH)
-        # Also write JSON snapshot for quick reference and backup
-        try:
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(state, f, indent=2)
-        except Exception:
-            pass
+        with workbook_lock:
+            os.makedirs(os.path.dirname(WORKBOOK_PATH) or '.', exist_ok=True)
+            tmp_path = WORKBOOK_PATH + '.tmp'
+            workbook.save(tmp_path)
+            os.replace(tmp_path, WORKBOOK_PATH)
+            # Also write JSON snapshot for quick reference and backup
+            try:
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(state, f, indent=2)
+            except Exception:
+                pass
+    except OSError:
+        pass
 
 
 def persist_google_connection(session):
@@ -2825,7 +2843,13 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         influencer = existing
                     else:
                         parts = name.split()
-                        new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                        valid_ids = []
+                        for c in contacts:
+                            try:
+                                valid_ids.append(int(c.get('id')))
+                            except (ValueError, TypeError):
+                                pass
+                        new_id = max(valid_ids + [1000]) + 1
                         influencer = {
                             'id': new_id, 'firstName': parts[0] if parts else name,
                             'lastName': ' '.join(parts[1:]), 'fullName': name, 'email': email,
