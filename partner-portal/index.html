@@ -3,170 +3,124 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Partner Portal · Executive Influencer Workspace</title>
-  <meta name="description" content="Flat minimalistic material portal for executive advisors and partner network intros.">
+  <title>Partner Portal · Executive Advisory Network</title>
+  <meta name="description" content="Clean, uncluttered, human-friendly partner portal for executive introductions.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Top Navigation Bar -->
-  <header class="top-nav">
-    <div class="brand-group">
-      <div class="brand-logo">C</div>
-      <div class="brand-text">
-        CONNECTEM <span class="brand-badge">PARTNER</span>
-      </div>
+  <!-- Minimal Header -->
+  <header class="site-header">
+    <div class="brand-wrapper">
+      <div class="brand-symbol">C</div>
+      <span class="brand-title">Connectem</span>
+      <span class="brand-badge">Partner</span>
     </div>
-    <div class="nav-actions">
-      <div class="nav-status-indicator">
-        <span class="status-dot"></span>
-        <span id="nav-network-status">NETWORK LIVE</span>
+
+    <div class="header-right">
+      <!-- Balance indicator (when authenticated) -->
+      <div id="nav-balance-pill" class="balance-pill" style="display: none;">
+        <span>Approved Points:</span>
+        <strong id="nav-points-val">0</strong>
       </div>
-      <button type="button" id="btn-theme-toggle" class="btn btn-outline btn-sm" title="Toggle contrast mode">B / W</button>
+      <button type="button" id="btn-theme-toggle" class="btn btn-subtle btn-sm" title="Toggle theme">B / W</button>
       <button type="button" id="btn-signout" class="btn btn-secondary btn-sm" style="display: none;">Sign Out</button>
     </div>
   </header>
 
-  <main class="main-content">
+  <main class="app-container">
     
-    <!-- Global Notification Banner -->
-    <div id="global-alert" class="auth-message" style="margin-bottom: 24px;"></div>
-
     <!-- ====================================================================
-         UNAUTHENTICATED: AUTH & REGISTRATION VIEW
+         1. AUTHENTICATION VIEW (CLEAN, FOCUSED)
          ==================================================================== -->
-    <section id="view-auth" class="auth-wrapper">
-      
-      <!-- Left Hero Showcase -->
-      <div class="auth-hero-panel">
-        <div>
-          <span class="auth-hero-tag">Executive Advisor Network</span>
-          <h1 class="auth-hero-title">Turn trusted relationships into verified impact.</h1>
-          <p class="auth-hero-desc">
-            Coordinate permission-based executive introductions, monitor verified milestone progress, and earn transparent program rewards.
-          </p>
-
-          <ol class="auth-feature-list">
-            <li class="auth-feature-item">
-              <span class="auth-feature-num">1</span>
-              <div>
-                <strong>Advisory Profile</strong><br>
-                Establish your executive credentials and enterprise domain coverage.
-              </div>
-            </li>
-            <li class="auth-feature-item">
-              <span class="auth-feature-num">2</span>
-              <div>
-                <strong>Standardized Agreement</strong><br>
-                Execute the standard digital partner terms with transparent fee schedules.
-              </div>
-            </li>
-            <li class="auth-feature-item">
-              <span class="auth-feature-num">3</span>
-              <div>
-                <strong>Warm Introductions &amp; Points</strong><br>
-                Introduce targeted buyers, track call completions, and redeem points for cash.
-              </div>
-            </li>
-          </ol>
+    <section id="view-auth">
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <h2>Partner Workspace</h2>
+          <p>Access your executive advisory introductions and milestone earnings.</p>
         </div>
 
-        <div class="auth-hero-footer">
-          PROTECTED BY IRM · ENTERPRISE COMPLIANCE · AUDITED MILESTONES
-        </div>
-      </div>
-
-      <!-- Right Form Panel (Sign In & Sign Up Tabs) -->
-      <div class="auth-form-panel">
-        <div class="auth-tabs" role="tablist">
-          <button type="button" class="auth-tab-btn active" id="tab-btn-signin" role="tab">Sign In</button>
-          <button type="button" class="auth-tab-btn" id="tab-btn-signup" role="tab">Create Partner Account</button>
+        <div class="segmented-control" role="tablist">
+          <button type="button" class="active" id="tab-auth-signin" role="tab">Sign In</button>
+          <button type="button" id="tab-auth-signup" role="tab">Create Account</button>
         </div>
 
-        <!-- Feedback Box -->
-        <div id="auth-feedback" class="auth-message"></div>
+        <div id="auth-feedback" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 18px;"></div>
 
-        <!-- 1. SIGN IN FORM -->
-        <form id="form-signin" class="auth-form">
-          <div class="form-group">
-            <label class="form-label" for="signin-email">Work Email</label>
-            <input type="email" id="signin-email" class="form-input" placeholder="advisor@firm.com" required autocomplete="email">
+        <!-- Sign In Form -->
+        <form id="form-signin">
+          <div class="input-field-group">
+            <label class="input-label" for="signin-email">Work Email</label>
+            <input type="email" id="signin-email" class="text-input" placeholder="jordan@firm.com" required autocomplete="email">
           </div>
 
-          <div class="form-group">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label class="form-label" for="signin-password">Password</label>
-            </div>
-            <input type="password" id="signin-password" class="form-input" placeholder="••••••••••••" required autocomplete="current-password">
+          <div class="input-field-group">
+            <label class="input-label" for="signin-password">Password</label>
+            <input type="password" id="signin-password" class="text-input" placeholder="••••••••••••" required autocomplete="current-password">
           </div>
 
-          <button type="submit" id="btn-submit-signin" class="btn btn-primary btn-lg" style="margin-top: 12px;">
-            Sign In to Workspace &rarr;
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 10px;">
+            Sign In &rarr;
           </button>
 
-          <div style="text-align: center; margin-top: 8px;">
-            <button type="button" id="btn-quick-demo-login" class="btn btn-outline btn-sm" style="width: 100%;">
-              Continue as Demo Partner (Offline / Instant Access)
+          <div style="margin-top: 16px; text-align: center;">
+            <button type="button" id="btn-quick-demo" class="btn btn-subtle btn-sm" style="width: 100%;">
+              ⚡ Test Drive as Demo Partner (1-Click)
             </button>
           </div>
         </form>
 
-        <!-- 2. CREATE ACCOUNT FORM -->
-        <form id="form-signup" class="auth-form" style="display: none;">
-          <div class="form-group">
-            <label class="form-label" for="signup-name">Full Legal Name</label>
-            <input type="text" id="signup-name" class="form-input" placeholder="Jordan Vance" required autocomplete="name">
+        <!-- Sign Up Form -->
+        <form id="form-signup" style="display: none;">
+          <div class="input-field-group">
+            <label class="input-label" for="signup-name">Full Name</label>
+            <input type="text" id="signup-name" class="text-input" placeholder="Jordan Vance" required>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="form-group">
-              <label class="form-label" for="signup-company">Company / Advisory Firm</label>
-              <input type="text" id="signup-company" class="form-input" placeholder="Apex Advisory LLC" required autocomplete="organization">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-field-group">
+              <label class="input-label" for="signup-company">Advisory Firm / Company</label>
+              <input type="text" id="signup-company" class="text-input" placeholder="Pacific Advisory" required>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="signup-title">Title / Role</label>
-              <input type="text" id="signup-title" class="form-input" placeholder="Managing Partner" required>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="signup-email">Work Email</label>
-            <input type="email" id="signup-email" class="form-input" placeholder="jordan@apexadvisory.com" required autocomplete="email">
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="form-group">
-              <label class="form-label" for="signup-password">Create Password</label>
-              <input type="password" id="signup-password" class="form-input" placeholder="Min. 8 characters" minlength="8" required autocomplete="new-password">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="signup-location">Location</label>
-              <input type="text" id="signup-location" class="form-input" placeholder="New York, NY">
+            <div class="input-field-group">
+              <label class="input-label" for="signup-title">Title / Role</label>
+              <input type="text" id="signup-title" class="text-input" placeholder="Managing Partner" required>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="signup-linkedin">LinkedIn Profile URL</label>
-            <input type="url" id="signup-linkedin" class="form-input" placeholder="https://www.linkedin.com/in/username">
+          <div class="input-field-group">
+            <label class="input-label" for="signup-email">Work Email</label>
+            <input type="email" id="signup-email" class="text-input" placeholder="jordan@pacificadvisory.com" required autocomplete="email">
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="signup-domain">Domain Coverage</label>
-            <select id="signup-domain" class="form-select">
-              <option value="Enterprise SaaS">Enterprise SaaS &amp; Cloud</option>
-              <option value="Fintech & Banking">Fintech &amp; Banking</option>
-              <option value="Healthcare & Bio">Healthcare &amp; Life Sciences</option>
-              <option value="Cybersecurity">Cybersecurity &amp; Infra</option>
-              <option value="AI & Analytics">AI &amp; Data Infrastructure</option>
-            </select>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-field-group">
+              <label class="input-label" for="signup-password">Password</label>
+              <input type="password" id="signup-password" class="text-input" placeholder="Min. 8 chars" minlength="8" required>
+            </div>
+            <div class="input-field-group">
+              <label class="input-label" for="signup-domain">Industry Focus</label>
+              <select id="signup-domain" class="select-input">
+                <option value="Enterprise SaaS">Enterprise SaaS</option>
+                <option value="Fintech & Banking">Fintech &amp; Banking</option>
+                <option value="AI & Data Infrastructure">AI &amp; Data Infrastructure</option>
+                <option value="Cybersecurity">Cybersecurity</option>
+                <option value="Healthcare">Healthcare &amp; Life Sciences</option>
+              </select>
+            </div>
           </div>
 
-          <div style="margin: 4px 0 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 8px;">
-            <input type="checkbox" id="signup-terms" required style="margin-top: 2px;">
-            <label for="signup-terms">I agree to the Standard Partner Terms and confirm I will only submit permission-based warm introductions.</label>
+          <div class="input-field-group">
+            <label class="input-label" for="signup-linkedin">LinkedIn Profile (Optional)</label>
+            <input type="url" id="signup-linkedin" class="text-input" placeholder="https://linkedin.com/in/username">
           </div>
 
-          <button type="submit" id="btn-submit-signup" class="btn btn-primary btn-lg">
+          <div style="margin: 12px 0 16px; font-size: 12px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 8px;">
+            <input type="checkbox" id="signup-agreement" checked style="margin-top: 3px;">
+            <label for="signup-agreement">I agree to the Standard Partner Network Agreement and confirm my introductions are permission-based.</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
             Create Partner Account &rarr;
           </button>
         </form>
@@ -174,270 +128,184 @@
       </div>
     </section>
 
+
     <!-- ====================================================================
-         AUTHENTICATED: WORKSPACE DASHBOARD VIEW
+         2. WORKSPACE DASHBOARD VIEW (HUMAN-FRIENDLY & UNCLUTTERED)
          ==================================================================== -->
     <section id="view-workspace" style="display: none;">
       
-      <!-- Workspace Top Title & Actions -->
-      <div class="workspace-header">
-        <div class="workspace-title-group">
-          <span class="auth-hero-tag">Executive Advisor Workspace</span>
-          <h1 id="user-display-name">Jordan Vance</h1>
-          <p id="user-display-meta">Apex Advisory LLC · Managing Partner · Enterprise SaaS</p>
+      <!-- Greeting & Top Actions -->
+      <div class="workspace-hero">
+        <div class="hero-text">
+          <h1>Welcome back, <span id="user-first-name">Jordan</span></h1>
+          <p id="user-subtext">Pacific Advisory Partners · Managing Partner</p>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <a id="btn-calendly-link" href="https://calendly.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-            Open Introduction Scheduler ↗
+        <div class="hero-actions">
+          <a id="link-calendly-intro" href="https://calendly.com" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+            📅 Open Intro Calendar ↗
           </a>
-        </div>
-      </div>
-
-      <!-- Agreement Status Bar -->
-      <div class="agreement-banner">
-        <div class="agreement-banner-content">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-            <span id="badge-agreement-status" class="badge badge-filled">AGREEMENT SIGNED &amp; ACTIVE</span>
-            <span id="text-agreement-hash" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">HASH: #IRM-88214-VERIFIED</span>
-          </div>
-          <h3>Standardized Partner Network Agreement</h3>
-          <p>Defines commercial terms, commission schedules, milestone verification standards, and mutual non-disclosure.</p>
-        </div>
-        <div>
-          <button type="button" id="btn-view-agreement" class="btn btn-secondary btn-sm">
-            Review Agreement Terms
+          <button type="button" id="btn-open-add-modal" class="btn btn-primary">
+            + New Introduction
           </button>
         </div>
       </div>
 
-      <!-- Metrics Cards -->
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-card-header">
-            <span class="metric-label">Warm Intros</span>
-            <span class="badge">TOTAL</span>
-          </div>
-          <div class="metric-card-value" id="kpi-total-intros">0</div>
-          <div class="metric-footer">Submitted executive prospects</div>
+      <!-- Spacious Stats Strip -->
+      <div class="stats-strip">
+        <div class="stat-item">
+          <div class="stat-label">Introductions Submitted</div>
+          <div class="stat-value" id="kpi-total">0</div>
+          <div class="stat-subtext">Active in network</div>
         </div>
-
-        <div class="metric-card">
-          <div class="metric-card-header">
-            <span class="metric-label">Calls Scheduled</span>
-            <span class="badge">CALENDLY</span>
-          </div>
-          <div class="metric-card-value" id="kpi-calls-scheduled">0</div>
-          <div class="metric-footer">Meetings on the calendar</div>
+        <div class="stat-item">
+          <div class="stat-label">Calls Scheduled</div>
+          <div class="stat-value" id="kpi-scheduled">0</div>
+          <div class="stat-subtext">On the calendar</div>
         </div>
-
-        <div class="metric-card">
-          <div class="metric-card-header">
-            <span class="metric-label">Verified Completed</span>
-            <span class="badge">CONFIRMED</span>
-          </div>
-          <div class="metric-card-value" id="kpi-calls-completed">0</div>
-          <div class="metric-footer">Buyer verified interactions</div>
+        <div class="stat-item">
+          <div class="stat-label">Meetings Confirmed</div>
+          <div class="stat-value" id="kpi-verified">0</div>
+          <div class="stat-subtext">Verified buyer discussions</div>
         </div>
-
-        <div class="metric-card">
-          <div class="metric-card-header">
-            <span class="metric-label">Approved Points</span>
-            <span class="badge badge-filled">REWARDS</span>
-          </div>
-          <div class="metric-card-value" id="kpi-reward-points">0</div>
-          <div class="metric-footer">Available for immediate cashout</div>
+        <div class="stat-item">
+          <div class="stat-label">Approved Points</div>
+          <div class="stat-value" id="kpi-points">0</div>
+          <div class="stat-subtext" id="kpi-cash-est">≈ $0.00 USD</div>
         </div>
       </div>
 
-      <!-- Section: Executive Introductions & Referrals -->
-      <div class="panel-section">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Executive Introductions</div>
-            <div class="panel-subtitle">Submit and manage warm executive referrals with transparent audit tracking</div>
+      <!-- Workspace Navigation Subtabs -->
+      <div class="workspace-nav-tabs">
+        <button type="button" class="workspace-tab-btn active" id="tab-sub-intros">
+          Introductions (<span id="tab-intros-count">0</span>)
+        </button>
+        <button type="button" class="workspace-tab-btn" id="tab-sub-earnings">
+          Earnings &amp; Milestones
+        </button>
+        <button type="button" class="workspace-tab-btn" id="tab-sub-agreement">
+          Agreement &amp; Terms
+        </button>
+      </div>
+
+      <!-- SUBTAB 1: INTRODUCTIONS ROSTER -->
+      <div id="subtab-panel-intros">
+        
+        <!-- Action Toolbar -->
+        <div class="action-toolbar">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="7" cy="7" r="5"/>
+              <path d="m11 11 4 4"/>
+            </svg>
+            <input type="text" id="search-intros" class="search-input" placeholder="Search by name, company, or email...">
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" id="btn-mode-single" class="btn btn-secondary btn-sm">Single Intro</button>
-            <button type="button" id="btn-mode-bulk" class="btn btn-outline btn-sm">Bulk CSV Intake</button>
-          </div>
-        </div>
 
-        <div class="panel-body">
-          
-          <!-- Single Introduction Form -->
-          <form id="form-single-intro" style="margin-bottom: 32px; padding: 24px; border: 1px solid var(--border); background: var(--bg-subtle);">
-            <div style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 16px;">
-              Submit New Warm Introduction
-            </div>
-
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
-              <div class="form-group">
-                <label class="form-label" for="intro-name">Contact Full Name *</label>
-                <input type="text" id="intro-name" class="form-input" placeholder="Sarah Chen" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="intro-company">Company *</label>
-                <input type="text" id="intro-company" class="form-input" placeholder="Databricks" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="intro-title">Title / Role</label>
-                <input type="text" id="intro-title" class="form-input" placeholder="VP of Engineering">
-              </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
-              <div class="form-group">
-                <label class="form-label" for="intro-email">Work Email *</label>
-                <input type="email" id="intro-email" class="form-input" placeholder="sarah@databricks.com" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="intro-linkedin">LinkedIn Profile</label>
-                <input type="url" id="intro-linkedin" class="form-input" placeholder="https://linkedin.com/in/sarahchen">
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="intro-warmth">Relationship Context</label>
-                <select id="intro-warmth" class="form-select">
-                  <option value="Direct Former Colleague">Direct Former Colleague</option>
-                  <option value="Current Advisory Client">Current Advisory Client</option>
-                  <option value="Personal Industry Contact">Personal Industry Contact</option>
-                  <option value="Permission-Based Introduction">Permission-Based Introduction</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 16px;">
-              <label class="form-label" for="intro-notes">Introduction Angle &amp; Relevant Context</label>
-              <textarea id="intro-notes" class="form-textarea" placeholder="Describe the current initiative or why they are evaluating solutions right now..."></textarea>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end;">
-              <button type="submit" id="btn-submit-intro" class="btn btn-primary">
-                Submit Introduction (+200 pts)
-              </button>
-            </div>
-          </form>
-
-          <!-- Bulk CSV Form (Hidden by default) -->
-          <div id="panel-bulk-intake" style="display: none; margin-bottom: 32px; padding: 24px; border: 1px solid var(--border); background: var(--bg-subtle);">
-            <div style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 12px;">
+          <div class="toolbar-buttons">
+            <select id="filter-intro-status" class="filter-select">
+              <option value="ALL">All Statuses</option>
+              <option value="Intro Submitted">Intro Submitted</option>
+              <option value="Call Scheduled">Call Scheduled</option>
+              <option value="Meeting Verified">Meeting Verified</option>
+              <option value="Opportunity">Opportunity</option>
+              <option value="Customer Closed">Customer Closed</option>
+            </select>
+            <button type="button" id="btn-open-bulk-modal" class="btn btn-secondary btn-sm">
               Bulk CSV Intake
-            </div>
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-              Paste CSV or comma-separated rows with format: <code>FullName, Company, Title, Email, LinkedIn, Notes</code>
-            </p>
-            <textarea id="bulk-csv-input" class="form-textarea" style="min-height: 120px; font-family: var(--font-mono); font-size: 12px;" placeholder="Sarah Chen, Databricks, VP Engineering, sarah@databricks.com, https://linkedin.com/in/sarah, Evaluating Q3
-Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/alex, Warm peer"></textarea>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-              <span id="bulk-parse-count" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">0 rows detected</span>
-              <button type="button" id="btn-submit-bulk-csv" class="btn btn-primary">
-                Import Verified Rows
-              </button>
-            </div>
+            </button>
           </div>
-
-          <!-- Introductions Table -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <div style="display: flex; gap: 12px; align-items: center;">
-              <input type="text" id="filter-search" class="form-input" placeholder="Search by name, company, email..." style="width: 280px; height: 34px;">
-              <select id="filter-status" class="form-select" style="width: 180px; height: 34px;">
-                <option value="ALL">All Statuses</option>
-                <option value="Intro Submitted">Intro Submitted</option>
-                <option value="Call Scheduled">Call Scheduled</option>
-                <option value="Meeting Verified">Meeting Verified</option>
-                <option value="Opportunity">Opportunity</option>
-                <option value="Customer Closed">Customer Closed</option>
-              </select>
-            </div>
-            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
-              <span id="table-row-count">0</span> records
-            </div>
-          </div>
-
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Executive Name</th>
-                  <th>Company &amp; Title</th>
-                  <th>Email</th>
-                  <th>Relationship Warmth</th>
-                  <th>Status</th>
-                  <th>Points</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="table-intros-body">
-                <tr>
-                  <td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px;">
-                    No introductions submitted yet. Submit your first executive intro above.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
         </div>
+
+        <!-- Human-Friendly Contact Cards List -->
+        <div id="intros-container" class="intros-list"></div>
+
       </div>
 
-      <!-- Section: Points & Rewards Ledger -->
-      <div class="panel-section">
-        <div class="panel-header">
+      <!-- SUBTAB 2: EARNINGS & REWARDS -->
+      <div id="subtab-panel-earnings" style="display: none;">
+        
+        <div class="earnings-overview-card">
           <div>
-            <div class="panel-title">Points &amp; Rewards Ledger</div>
-            <div class="panel-subtitle">Milestone points audit trail and transparent fee schedule</div>
+            <div style="font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+              Available Approved Balance
+            </div>
+            <div class="earnings-balance-amount" id="earnings-card-balance">0 pts</div>
+            <div class="earnings-cash-est" id="earnings-card-usd">Estimated Cash Value: $0.00 USD</div>
           </div>
-          <button type="button" id="btn-open-redemption" class="btn btn-primary btn-sm">
-            Redeem Points for Payout &rarr;
+          <div>
+            <button type="button" id="btn-open-payout-modal" class="btn btn-primary btn-lg">
+              Request Payout &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- Milestone Values Grid -->
+        <div class="milestones-grid">
+          <div class="milestone-item">
+            <div class="milestone-title">Warm Introduction</div>
+            <div class="milestone-points">+200 pts</div>
+            <div class="milestone-desc">Awarded immediately upon verified intro submission.</div>
+          </div>
+          <div class="milestone-item">
+            <div class="milestone-title">Verified Meeting</div>
+            <div class="milestone-points">+600 pts</div>
+            <div class="milestone-desc">When buyer attends &amp; confirms intro call.</div>
+          </div>
+          <div class="milestone-item">
+            <div class="milestone-title">Active Opportunity</div>
+            <div class="milestone-points">+1,000 pts</div>
+            <div class="milestone-desc">Buyer enters formal product evaluation.</div>
+          </div>
+          <div class="milestone-item">
+            <div class="milestone-title">Customer Closed</div>
+            <div class="milestone-points">+5,000 pts</div>
+            <div class="milestone-desc">Enterprise contract executed and closed.</div>
+          </div>
+        </div>
+
+        <!-- Activity Statement -->
+        <div class="statement-card">
+          <div class="statement-header">Recent Transaction Statement</div>
+          <div id="statement-rows-container">
+            <div style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              No earnings transactions recorded yet.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SUBTAB 3: AGREEMENT & TERMS -->
+      <div id="subtab-panel-agreement" style="display: none;">
+        
+        <div class="agreement-card">
+          <div class="agreement-status-pill" id="agreement-pill-badge">
+            ✓ AGREEMENT EXECUTED
+          </div>
+          <h2 class="agreement-title">Partner Network Standard Terms</h2>
+          <p class="agreement-summary-text">
+            Governs mutual confidentiality, permission-based executive introduction standards, milestone verification timelines, and commercial payout schedules.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">EXECUTED BY</div>
+              <strong id="agreement-meta-signer">Jordan Vance</strong>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">TIMESTAMP</div>
+              <strong id="agreement-meta-date">Oct 15, 2026</strong>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">AUDIT HASH</div>
+              <strong id="agreement-meta-hash">#IRM-88214-VERIFIED</strong>
+            </div>
+          </div>
+
+          <button type="button" id="btn-re-read-agreement" class="btn btn-secondary">
+            Read Full Agreement Terms
           </button>
         </div>
-        <div class="panel-body">
-          
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; padding: 16px; border: 1px solid var(--border); background: var(--bg-subtle);">
-            <div>
-              <div class="metric-label">Warm Intro</div>
-              <div style="font-family: var(--font-display); font-size: 20px; font-weight: 700;">200 pts</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Upon verified submission</div>
-            </div>
-            <div>
-              <div class="metric-label">Qualified Meeting</div>
-              <div style="font-family: var(--font-display); font-size: 20px; font-weight: 700;">600 pts</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Call attended &amp; confirmed</div>
-            </div>
-            <div>
-              <div class="metric-label">Sales Opportunity</div>
-              <div style="font-family: var(--font-display); font-size: 20px; font-weight: 700;">1,000 pts</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Qualified pipeline deal</div>
-            </div>
-            <div>
-              <div class="metric-label">Customer Close</div>
-              <div style="font-family: var(--font-display); font-size: 20px; font-weight: 700;">5,000 pts</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Contract signed</div>
-            </div>
-          </div>
 
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Date &amp; Time</th>
-                  <th>Milestone / Activity</th>
-                  <th>Prospect</th>
-                  <th>Points</th>
-                  <th>Audit Status</th>
-                </tr>
-              </thead>
-              <tbody id="table-ledger-body">
-                <tr>
-                  <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px;">
-                    No ledger transactions recorded yet.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        </div>
       </div>
 
     </section>
@@ -445,75 +313,156 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
   </main>
 
   <!-- ====================================================================
-       MODALS
+       FOCUSED MODALS (NO SCREEN CLUTTER)
        ==================================================================== -->
-  
-  <!-- 1. AGREEMENT MODAL -->
-  <div id="modal-agreement" class="modal-overlay" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title">Partner Network Agreement</div>
-        <button type="button" class="btn btn-outline btn-sm modal-close">&times;</button>
+
+  <!-- 1. ADD SINGLE INTRODUCTION MODAL -->
+  <div id="modal-add-intro" class="modal-backdrop" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-top">
+        <div class="modal-heading">New Executive Introduction</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
       </div>
-      <div class="modal-body">
-        <div class="legal-doc">
-          <h4>1. Purpose and Scope</h4>
-          <p>This Partner Network Agreement ("Agreement") establishes the terms governing the submission, qualification, and compensation of warm executive introductions provided by Partner to Enterprise buyers.</p>
-
-          <h4>2. Introduction Standards &amp; Permission</h4>
-          <p>Partner represents and warrants that all introductions submitted through the Partner Workspace are permission-based, with prior consent obtained from the target executive.</p>
-
-          <h4>3. Milestone Fee Schedule &amp; Rewards</h4>
-          <p>Points and reward compensation are earned upon verified operational milestones:
-          <br>&bull; Warm Introduction Verification: 200 points
-          <br>&bull; Completed Executive Discussion: 600 points
-          <br>&bull; Active Pipeline Opportunity: 1,000 points
-          <br>&bull; Executed Enterprise Contract: 5,000 points</p>
-
-          <h4>4. Confidentiality &amp; Mutual Non-Disclosure</h4>
-          <p>Each party agrees to maintain strict confidentiality of executive contact details, commercial opportunities, and proprietary methodology.</p>
-        </div>
-
-        <div style="border-top: 1px solid var(--border); padding-top: 16px;">
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label" for="agreement-signer-name">Full Legal Name (Digital Signature)</label>
-            <input type="text" id="agreement-signer-name" class="form-input" placeholder="Jordan Vance">
+      <form id="form-modal-add-intro">
+        <div class="modal-content-area">
+          <div class="input-field-group">
+            <label class="input-label" for="add-name">Executive Full Name *</label>
+            <input type="text" id="add-name" class="text-input" placeholder="Sarah Chen" required>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
-            <input type="checkbox" id="agreement-consent" checked>
-            <label for="agreement-consent">I execute this digital signature and agree to all terms outlined above.</label>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-field-group">
+              <label class="input-label" for="add-company">Company *</label>
+              <input type="text" id="add-company" class="text-input" placeholder="Databricks" required>
+            </div>
+            <div class="input-field-group">
+              <label class="input-label" for="add-title">Title / Role</label>
+              <input type="text" id="add-title" class="text-input" placeholder="VP of Platform">
+            </div>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="add-email">Work Email *</label>
+            <input type="email" id="add-email" class="text-input" placeholder="sarah@databricks.com" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-field-group">
+              <label class="input-label" for="add-linkedin">LinkedIn Profile URL</label>
+              <input type="url" id="add-linkedin" class="text-input" placeholder="https://linkedin.com/in/sarahchen">
+            </div>
+            <div class="input-field-group">
+              <label class="input-label" for="add-warmth">Relationship Warmth</label>
+              <select id="add-warmth" class="select-input">
+                <option value="Direct Former Colleague">Direct Former Colleague</option>
+                <option value="Advisory Client">Advisory Client</option>
+                <option value="Personal Industry Peer">Personal Industry Peer</option>
+                <option value="Permission-Based Referral">Permission-Based Referral</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="add-notes">Context / Opportunity Angle</label>
+            <textarea id="add-notes" class="textarea-input" placeholder="Why are they currently evaluating solutions?"></textarea>
           </div>
         </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit &amp; Earn +200 pts</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. BULK CSV INTAKE MODAL -->
+  <div id="modal-bulk-csv" class="modal-backdrop" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-top">
+        <div class="modal-heading">Bulk CSV Intake</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline btn-sm modal-close">Cancel</button>
-        <button type="button" id="btn-sign-agreement-confirm" class="btn btn-primary btn-sm">Confirm &amp; Sign Digitally</button>
+      <div class="modal-content-area">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+          Paste rows formatted as: <code>FullName, Company, Title, Email, LinkedIn, Notes</code>
+        </p>
+        <textarea id="bulk-paste-text" class="textarea-input" style="min-height: 140px; font-family: var(--font-mono); font-size: 12px;" placeholder="Sarah Chen, Databricks, VP Engineering, sarah@databricks.com, https://linkedin.com/in/sarah, Evaluating Q3
+Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/alex, Warm peer"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+        <button type="button" id="btn-confirm-bulk" class="btn btn-primary">Import Verified Records</button>
       </div>
     </div>
   </div>
 
-  <!-- 2. POINTS REDEMPTION MODAL -->
-  <div id="modal-redemption" class="modal-overlay" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title">Redeem Approved Points</div>
-        <button type="button" class="btn btn-outline btn-sm modal-close">&times;</button>
+  <!-- 3. AGREEMENT TERMS MODAL -->
+  <div id="modal-agreement" class="modal-backdrop" style="display: none;">
+    <div class="modal-window" style="max-width: 620px;">
+      <div class="modal-top">
+        <div class="modal-heading">Partner Network Agreement</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
       </div>
-      <div class="modal-body">
-        <div style="margin-bottom: 20px; padding: 16px; border: 1px solid var(--border); background: var(--bg-subtle);">
-          <div class="metric-label">Available Balance</div>
-          <div style="font-family: var(--font-display); font-size: 32px; font-weight: 700;" id="modal-redeem-balance">0 pts</div>
-          <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">Conversion rate: 100 points = $10.00 USD</div>
+      <div class="modal-content-area">
+        <div class="legal-scroll-box">
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">1. Scope &amp; Purpose</h4>
+          <p style="margin-bottom: 12px;">This Agreement sets forth the terms under which Partner provides permission-based executive introductions to Enterprise buyers in exchange for milestone-based rewards.</p>
+
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">2. Permission &amp; Integrity</h4>
+          <p style="margin-bottom: 12px;">Partner represents that all introductions are submitted with the prior permission and warm interest of the target executive contact.</p>
+
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">3. Milestone Fee Schedule</h4>
+          <p style="margin-bottom: 12px;">
+            &bull; Verified Introduction Submission: 200 pts<br>
+            &bull; Completed Executive Discussion: 600 pts<br>
+            &bull; Active Pipeline Opportunity: 1,000 pts<br>
+            &bull; Closed Enterprise Contract: 5,000 pts
+          </p>
+
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">4. Confidentiality &amp; Mutual Non-Disclosure</h4>
+          <p>Both parties agree that contact identities, commercial terms, and deal discussions remain strictly confidential.</p>
         </div>
 
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="form-label" for="redeem-points-amount">Points to Redeem</label>
-          <input type="number" id="redeem-points-amount" class="form-input" min="100" step="100" placeholder="e.g. 500">
+        <div style="border-top: 1px solid var(--border-light); padding-top: 16px;">
+          <div class="input-field-group">
+            <label class="input-label" for="agreement-signer-field">Digital Signature (Legal Name)</label>
+            <input type="text" id="agreement-signer-field" class="text-input" placeholder="Jordan Vance">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+            <input type="checkbox" id="agreement-modal-consent" checked>
+            <label for="agreement-modal-consent">I confirm my digital signature and agree to these terms.</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary modal-close">Close</button>
+        <button type="button" id="btn-confirm-sign-terms" class="btn btn-primary">Sign &amp; Verify Terms</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. PAYOUT / REDEMPTION MODAL -->
+  <div id="modal-payout" class="modal-backdrop" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-top">
+        <div class="modal-heading">Request Payout</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
+      </div>
+      <div class="modal-content-area">
+        <div style="padding: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle); margin-bottom: 18px;">
+          <div style="font-size: 12px; color: var(--text-muted); font-weight: 500;">Available Approved Points</div>
+          <div style="font-family: var(--font-display); font-size: 28px; font-weight: 700;" id="payout-modal-balance">0 pts</div>
+          <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">Payout rate: 100 points = $10.00 USD</div>
         </div>
 
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="form-label" for="redeem-method">Payout Method</label>
-          <select id="redeem-method" class="form-select">
+        <div class="input-field-group">
+          <label class="input-label" for="payout-amount-input">Points to Redeem</label>
+          <input type="number" id="payout-amount-input" class="text-input" min="100" step="100" placeholder="e.g. 500">
+        </div>
+
+        <div class="input-field-group">
+          <label class="input-label" for="payout-method-select">Payout Option</label>
+          <select id="payout-method-select" class="select-input">
             <option value="Direct ACH / Bank Wire">Direct ACH / Bank Wire (USD)</option>
             <option value="Prepaid Corporate Card">Prepaid Corporate Card</option>
             <option value="Charitable Contribution">Charitable Contribution</option>
@@ -521,17 +470,20 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
           </select>
         </div>
 
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="form-label" for="redeem-details">Payout Account Details</label>
-          <textarea id="redeem-details" class="form-textarea" placeholder="Routing / Account # or recipient email address..."></textarea>
+        <div class="input-field-group">
+          <label class="input-label" for="payout-details-text">Payout Account / Wire Details</label>
+          <textarea id="payout-details-text" class="textarea-input" placeholder="Bank routing / account number or recipient email..."></textarea>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline btn-sm modal-close">Cancel</button>
-        <button type="button" id="btn-confirm-redeem" class="btn btn-primary btn-sm">Process Redemption Request</button>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+        <button type="button" id="btn-confirm-payout" class="btn btn-primary">Submit Payout Request</button>
       </div>
     </div>
   </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-notice" class="toast-notice"></div>
 
   <script src="app.js"></script>
 </body>
