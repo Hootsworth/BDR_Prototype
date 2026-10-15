@@ -10,8 +10,20 @@
       "permanent": false
     },
     {
+      "source": "/partner-portal",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
+      "destination": "https://go.connectem.ai/partner-portal",
+      "permanent": false
+    },
+    {
       "source": "/partner-portal.html",
       "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "https://go.connectem.ai/partner-portal",
+      "permanent": false
+    },
+    {
+      "source": "/partner-portal.html",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
       "destination": "https://go.connectem.ai/partner-portal",
       "permanent": false
     },
