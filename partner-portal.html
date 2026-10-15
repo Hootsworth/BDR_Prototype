@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script>
@@ -8,1090 +8,980 @@
       }
     })();
   </script>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="referrer" content="no-referrer">
-  <meta name="robots" content="noindex,nofollow">
-  <meta name="theme-color" content="#ffffff">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="/app-config.js"></script>
-  <script src="config.js"></script>
-  <script src="src/clerk-api.js"></script>
-  <title>Influencer Partner Workspace — Connectem</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f8fafc;
-      --surface: #ffffff;
-      --surface-subtle: #f1f5f9;
-      --line: #e2e8f0;
-      --line-subtle: #edf2f7;
-      --ink: #0f172a;
-      --muted: #64748b;
-      --accent: #0d9488;
-      --accent-hover: #0f766e;
-      --accent-subtle: #f0fdfa;
-      --accent-border: #ccfbf1;
-      --ok: #16a34a;
-      --ok-bg: #f0fdf4;
-      --ok-border: #bbf7d0;
-      --warn: #d97706;
-      --warn-bg: #fffbeb;
-      --warn-border: #fde68a;
-      --error: #e11d48;
-      --error-bg: #fff1f2;
-      --radius-sm: 8px;
-      --radius: 14px;
-      --radius-lg: 20px;
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
-      --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.08), 0 4px 8px -2px rgb(0 0 0 / 0.04);
-      --shadow-xl: 0 24px 48px -12px rgb(0 0 0 / 0.12);
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: radial-gradient(circle at 50% 0%, #f0fdfa 0%, var(--bg) 60%);
-      color: var(--ink);
-      min-height: 100vh;
-      line-height: 1.5;
-    }
-    main {
-      max-width: 1240px;
-      margin: 0 auto;
-      padding: 24px 32px 80px;
-    }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Portal · Executive Advisory Network</title>
+  <meta name="description" content="Clean, uncluttered, human-friendly partner portal for executive introductions.">
+  <link rel="stylesheet" href="/partner-portal/style.css">
 
-    /* Top Navigation Bar */
-    .portal-topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 32px;
-      padding: 12px 20px;
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-    }
-    .portal-brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .portal-brand-logo {
-      width: 28px;
-      height: 28px;
-      background: linear-gradient(135deg, var(--accent), #047857);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 800;
-      font-size: 14px;
-      box-shadow: 0 2px 6px rgba(13, 148, 136, 0.35);
-    }
-    .portal-brand-text {
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      letter-spacing: -0.01em;
-      color: var(--ink);
-    }
-    .portal-brand-badge {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--accent-subtle);
-      color: var(--accent);
-      border: 1px solid var(--accent-border);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .portal-topbar-links {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .portal-topbar-links a {
-      color: var(--muted);
-      text-decoration: none;
-      padding: 7px 14px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: #ffffff;
-      font-size: 12px;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all .16s ease;
-    }
-    .portal-topbar-links a:hover {
-      color: var(--accent);
-      border-color: var(--accent-border);
-      background: var(--accent-subtle);
-      transform: translateY(-1px);
-    }
-    .portal-topbar-links svg {
-      width: 12px;
-      height: 12px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    /* Header */
-    header.portal-hero {
-      padding: 10px 0 32px;
-      border-bottom: 1px solid var(--line);
-    }
-    .eyebrow {
-      margin: 0 0 10px;
-      color: var(--accent);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .eyebrow::before {
-      content: "";
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent);
-    }
-    h1 {
-      margin: 0;
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-size: clamp(32px, 4vw, 44px);
-      font-weight: 800;
-      letter-spacing: -.03em;
-      line-height: 1.15;
-      color: var(--ink);
-    }
-    .intro {
-      max-width: 680px;
-      margin: 12px 0 0;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.6;
-    }
-
-    /* Auth Screen Card */
-    .portal-auth-card {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(360px, 460px);
-      gap: 40px;
-      max-width: 1080px;
-      margin: 40px auto 60px;
-      padding: 44px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background: var(--surface);
-      box-shadow: var(--shadow-xl);
-      position: relative;
-      overflow: hidden;
-    }
-    .portal-auth-card::before {
-      content: "";
-      position: absolute;
-      top: -80px;
-      left: -80px;
-      width: 260px;
-      height: 260px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(13, 148, 136, 0.12) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .portal-auth-copy {
-      align-self: center;
-      padding-right: 10px;
-    }
-    .portal-auth-copy h2 {
-      margin: 0;
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-size: 34px;
-      font-weight: 800;
-      letter-spacing: -.03em;
-      line-height: 1.2;
-      color: var(--ink);
-    }
-    .portal-auth-copy > p:not(.eyebrow) {
-      margin: 14px 0 28px;
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.65;
-    }
-    .onboarding-steps {
-      display: grid;
-      gap: 16px;
-      padding: 0;
-      margin: 0;
-      list-style: none;
-    }
-    .onboarding-steps li {
-      display: grid;
-      grid-template-columns: 36px 1fr;
-      gap: 14px;
-      align-items: start;
-      font-size: 13.5px;
-      line-height: 1.5;
-      padding: 12px 14px;
-      background: var(--surface-subtle);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--line-subtle);
-    }
-    .step-number {
-      display: grid;
-      width: 32px;
-      height: 32px;
-      place-items: center;
-      background: #ffffff;
-      border: 1px solid var(--accent-border);
-      border-radius: 50%;
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 800;
-      box-shadow: var(--shadow-sm);
-    }
-    .onboarding-steps strong {
-      display: block;
-      margin-bottom: 2px;
-      font-size: 13.5px;
-      font-weight: 700;
-      color: var(--ink);
-    }
-
-    .portal-auth-panel {
-      padding: 30px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: #ffffff;
-      box-shadow: var(--shadow-md);
-    }
-    .auth-tabs {
-      display: flex;
-      gap: 6px;
-      padding: 5px;
-      border-radius: 10px;
-      background: var(--surface-subtle);
-      border: 1px solid var(--line);
-    }
-    .auth-tabs button {
-      width: 50%;
-      min-height: 38px;
-      padding: 0 12px;
-      border: 0;
-      border-radius: 7px;
-      background: transparent;
-      color: var(--muted);
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: none;
-      transition: all .16s ease;
-    }
-    .auth-tabs button.active {
-      background: #ffffff;
-      color: var(--ink);
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-    }
-    .auth-switchline {
-      margin: 16px 0 0;
-      color: var(--muted);
-      text-align: center;
-      font-size: 12.5px;
-    }
-    .auth-switchline button {
-      width: auto;
-      min-height: unset;
-      padding: 0;
-      border: 0;
-      background: none;
-      color: var(--accent);
-      font-size: 12.5px;
-      font-weight: 700;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      cursor: pointer;
-    }
-    .auth-switchline button:hover {
-      color: var(--accent-hover);
-    }
-    #clerk-auth-mount, #clerk-signup-mount {
-      min-height: 340px;
-      padding-top: 14px;
-    }
-    .clerk-loading {
-      padding: 70px 16px;
-      color: var(--muted);
-      text-align: center;
-      font-size: 13.5px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-    }
-    .clerk-loading::before {
-      content: "";
-      width: 24px;
-      height: 24px;
-      border: 3px solid var(--line);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .setup-form {
-      display: grid;
-      gap: 14px;
-      margin-top: 18px;
-    }
-    .setup-note {
-      padding: 12px 14px;
-      border: 1px solid var(--accent-border);
-      border-radius: var(--radius-sm);
-      background: var(--accent-subtle);
-      color: #0f766e;
-      font-size: 11.5px;
-      line-height: 1.5;
-    }
-
-    /* Metric Cards Grid */
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 16px;
-      padding: 24px 0 28px;
-      border-bottom: 1px solid var(--line);
-    }
-    .summary p {
-      margin: 0;
-      padding: 20px;
-      color: var(--muted);
-      font-size: 11.5px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #ffffff;
-      box-shadow: var(--shadow-sm);
-      position: relative;
-      overflow: hidden;
-      transition: transform .18s ease, box-shadow .18s ease;
-    }
-    .summary p:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
-    .summary p::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent), #34d399);
-    }
-    .summary strong {
-      display: block;
-      margin-top: 10px;
-      color: var(--ink);
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -.03em;
-      line-height: 1.1;
-    }
-
-    /* Agreement & Quick Action Bars */
-    .agreement-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      padding: 20px 24px;
-      margin-top: 20px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #ffffff;
-      box-shadow: var(--shadow-sm);
-    }
-    .calendly-card {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      padding: 20px 24px;
-      margin-top: 16px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #ffffff;
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* Badges */
-    .portal-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      background: var(--surface-subtle);
-      color: var(--ink);
-      border: 1px solid var(--line);
-    }
-    .portal-badge.ok {
-      background: var(--ok-bg);
-      color: var(--ok);
-      border-color: var(--ok-border);
-    }
-    .portal-badge.warn {
-      background: var(--warn-bg);
-      color: var(--warn);
-      border-color: var(--warn-border);
-    }
-
-    /* Section Headers */
-    .section-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 20px;
-      padding: 36px 0 16px;
-      border: 0;
-    }
-    h2 {
-      margin: 0;
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-size: 24px;
-      font-weight: 750;
-      letter-spacing: -.025em;
-      color: var(--ink);
-    }
-    .contact-count {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    /* Cards and Form Sections */
-    .rewards-card, .form-section {
-      margin-top: 24px;
-      padding: 28px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #ffffff;
-      box-shadow: var(--shadow-sm);
-    }
-    .form-section > p {
-      max-width: 680px;
-      margin: 8px 0 22px;
-      color: var(--muted);
-      font-size: 13.5px;
-      line-height: 1.6;
-    }
-
-    /* Forms & Inputs */
-    form {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px 20px;
-      max-width: 960px;
-    }
-    label {
-      display: grid;
-      gap: 6px;
-      color: var(--ink);
-      font-size: 12px;
-      font-weight: 600;
-    }
-    input, select, textarea {
-      width: 100%;
-      min-height: 42px;
-      padding: 10px 14px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: #ffffff;
-      color: var(--ink);
-      font-family: inherit;
-      font-size: 13px;
-      transition: all .16s ease;
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
-    }
-    input::placeholder, textarea::placeholder {
-      color: #94a3b8;
-    }
-
-    /* Buttons */
-    button {
-      min-height: 40px;
-      width: max-content;
-      padding: 0 18px;
-      border: 0;
-      border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: white;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      box-shadow: 0 2px 4px rgba(13, 148, 136, 0.25);
-      transition: all .16s ease;
-    }
-    button:hover:not(:disabled) {
-      background: var(--accent-hover);
-      box-shadow: 0 4px 10px rgba(13, 148, 136, 0.35);
-      transform: translateY(-1px);
-    }
-    button.btn-outline {
-      background: #ffffff;
-      color: var(--ink);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow-sm);
-    }
-    button.btn-outline:hover {
-      background: var(--surface-subtle);
-      border-color: #cbd5e1;
-      box-shadow: var(--shadow-sm);
-    }
-    button.btn-sm {
-      min-height: 34px;
-      padding: 0 14px;
-      font-size: 12px;
-    }
-    button:disabled {
-      opacity: .6;
-      cursor: wait;
-    }
-    .form-actions {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      grid-column: 1 / -1;
-      flex-wrap: wrap;
-      margin-top: 6px;
-    }
-
-    /* Status & Feedback Messages */
-    #feedback, #bulk-feedback, #multi-edit-feedback, #portal-auth-feedback, #partner-reward-feedback {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 500;
-    }
-    #feedback.error, #bulk-feedback.error, #multi-edit-feedback.error, #portal-auth-feedback.error, #portal-auth-error {
-      color: var(--error);
-      background: var(--error-bg);
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #fecdd3;
-    }
-    #feedback.success, #bulk-feedback.success, #multi-edit-feedback.success, #portal-auth-feedback.success {
-      color: var(--ok);
-      background: var(--ok-bg);
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--ok-border);
-    }
-    #page-error {
-      display: none;
-      margin-top: 32px;
-      padding: 14px 18px;
-      border-radius: var(--radius-sm);
-      background: var(--error-bg);
-      border: 1px solid #fecdd3;
-      color: var(--error);
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    /* Mode Switcher Tabs */
-    .mode-switcher {
-      display: inline-flex;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      overflow: hidden;
-      background: var(--surface-subtle);
-      margin: 6px 0 22px;
-      padding: 4px;
-      gap: 4px;
-    }
-    .mode-switcher button {
-      min-height: 36px;
-      padding: 0 16px;
-      border: 0;
-      border-radius: 7px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 12.5px;
-      font-weight: 600;
-      box-shadow: none;
-    }
-    .mode-switcher button.active {
-      background: #ffffff;
-      color: var(--ink);
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-    }
-
-    /* Tables */
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: #ffffff;
-      box-shadow: var(--shadow-sm);
-    }
-    table {
-      width: 100%;
-      min-width: 680px;
-      border-collapse: collapse;
-      text-align: left;
-    }
-    th {
-      padding: 13px 16px;
-      color: var(--muted);
-      background: #f8fafc;
-      border-bottom: 1px solid var(--line);
-      font-size: 10.5px;
-      font-weight: 750;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-    td {
-      padding: 15px 16px;
-      border-top: 1px solid var(--line-subtle);
-      font-size: 13px;
-      vertical-align: top;
-    }
-    tr:hover td {
-      background: #fcfdfe;
-    }
-    td small {
-      display: block;
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 11.5px;
-    }
-    .empty {
-      padding: 44px 16px;
-      color: var(--muted);
-      text-align: center;
-      font-size: 13px;
-    }
-
-    /* Bulk & Multi-Edit Panels */
-    .bulk-toolbar, .multi-edit-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-      padding: 12px 16px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: var(--surface-subtle);
-      font-size: 12.5px;
-    }
-    .bulk-toolbar-buttons, .section-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .bulk-paste-box {
-      margin-bottom: 16px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: #ffffff;
-    }
-    .bulk-paste-box textarea {
-      width: 100%;
-      margin: 8px 0 12px;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-    }
-    .bulk-table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: #ffffff;
-      margin-bottom: 16px;
-    }
-    .bulk-table {
-      width: 100%;
-      min-width: 820px;
-      border-collapse: collapse;
-    }
-    .bulk-table th {
-      background: var(--surface-subtle);
-      padding: 10px 10px;
-      font-size: 10.5px;
-    }
-    .bulk-table td {
-      padding: 8px 8px;
-      border-top: 1px solid var(--line-subtle);
-    }
-    .bulk-table input, .bulk-table select, .inline-edit-input, .inline-edit-select {
-      min-height: 36px;
-      padding: 6px 10px;
-      font-size: 12.5px;
-    }
-    .bulk-remove-btn {
-      min-height: 32px;
-      width: 32px;
-      padding: 0;
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid transparent;
-      font-size: 18px;
-      line-height: 1;
-      border-radius: 6px;
-      box-shadow: none;
-    }
-    .bulk-remove-btn:hover {
-      color: var(--error);
-      border-color: #fecdd3;
-      background: var(--error-bg);
-      transform: none;
-      box-shadow: none;
-    }
-
-    footer {
-      margin-top: 60px;
-      padding-top: 20px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 12px;
-      text-align: center;
-    }
-    [hidden] { display: none !important; }
-
-    @media(max-width: 860px) {
-      main { padding: 18px 16px 56px; }
-      .portal-auth-card { grid-template-columns: 1fr; padding: 24px; gap: 30px; }
-      form { grid-template-columns: 1fr; }
-      .form-actions { grid-column: auto; }
-      .section-head { flex-direction: column; align-items: flex-start; }
-    }
-  </style>
+  <!-- Firebase App & Auth SDK (v10 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 </head>
 <body>
-  <main>
-    <!-- Modern Top Navigation Bar -->
-    <nav class="portal-topbar" aria-label="Portal navigation">
-      <div class="portal-brand">
-        <div class="portal-brand-logo">C</div>
-        <span class="portal-brand-text">Connectem</span>
-        <span class="portal-brand-badge">Partner Portal</span>
-      </div>
-      <div class="portal-topbar-links">
-        <a href="https://connectem.ai/marketplace.html">Vendor Marketplace <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
-        <a href="https://connectem.ai/">IRM Console <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
-        <button type="button" class="btn-outline btn-sm" id="portal-signout-btn" hidden>Sign out</button>
-      </div>
-    </nav>
 
-    <!-- Hero Header -->
-    <header class="portal-hero">
-      <p class="eyebrow">Executive Influencer Network</p>
-      <h1 id="partner-name">Influencer workspace</h1>
-      <p class="intro" id="partner-company">A trusted partner network with verified milestone tracking, direct intro scheduling, and milestone rewards.</p>
-    </header>
+  <!-- Minimal Header -->
+  <header class="site-header">
+    <div class="brand-wrapper">
+      <div class="brand-symbol">C</div>
+      <span class="brand-title">Connectem</span>
+      <span class="brand-badge">Partner</span>
+    </div>
 
-    <!-- Clerk Authentication and First-Run Onboarding Card -->
-    <section id="portal-auth-section" class="portal-auth-card">
-      <div class="portal-auth-copy">
-        <p class="eyebrow">Trusted Partner Network</p>
-        <h2>Turn relationships into verified impact.</h2>
-        <p>Coordinate permission-based executive introductions, monitor verified milestone progress, and redeem earned program rewards.</p>
-        <ol class="onboarding-steps">
-          <li>
-            <span class="step-number">1</span>
-            <div><strong>Verified Partner Profile</strong>Share your executive background and industry domain expertise.</div>
-          </li>
-          <li>
-            <span class="step-number">2</span>
-            <div><strong>Partner Program Terms</strong>Review and sign the standardized Partner Network Agreement.</div>
-          </li>
-          <li>
-            <span class="step-number">3</span>
-            <div><strong>Warm Introductions &amp; Rewards</strong>Coordinate meetings with verified consent and earn points.</div>
-          </li>
-        </ol>
+    <div class="header-right">
+      <!-- Balance indicator (when authenticated) -->
+      <div id="nav-balance-pill" class="balance-pill" style="display: none;">
+        <span>Approved Points:</span>
+        <strong id="nav-points-val">0</strong>
       </div>
+      <button type="button" id="btn-nav-cart" class="btn btn-secondary btn-sm" style="display: none;">
+        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Cart (<span id="nav-cart-count">0</span>)
+      </button>
+      <button type="button" id="btn-theme-toggle" class="btn btn-subtle btn-sm" title="Toggle theme">B / W</button>
+      <button type="button" id="btn-signout" class="btn btn-secondary btn-sm" style="display: none;">Sign Out</button>
+    </div>
+  </header>
 
-      <div class="portal-auth-panel">
-        <div class="auth-tabs" id="portal-auth-tabs" role="tablist" aria-label="Account access">
-          <button type="button" id="portal-tab-signin" class="active" role="tab" aria-selected="true">Sign in</button>
-          <button type="button" id="portal-tab-signup" role="tab" aria-selected="false">Create account</button>
+  <main class="app-container">
+    
+    <!-- ====================================================================
+         1. AUTHENTICATION VIEW (CLEAN, FOCUSED)
+         ==================================================================== -->
+    <section id="view-auth" class="portal-auth-section">
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <h2>Partner Workspace</h2>
+          <p>Access your executive advisory introductions and milestone earnings.</p>
         </div>
 
-        <div id="clerk-auth-mount"><div class="clerk-loading">Connecting secure sign-in…</div></div>
-        <div id="clerk-signup-mount" hidden></div>
+        <!-- Google Single Sign-On Button -->
+        <div class="oauth-buttons" style="margin-bottom: 20px;">
+          <button type="button" id="btn-google-auth" class="btn btn-secondary btn-lg" style="width: 100%; justify-content: center; gap: 10px; font-weight: 600; font-family: var(--font-display); height: 48px; border: 1px solid var(--border); background: var(--surface);">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.76-2.1-6.7-4.93H1.27v3.15C3.25 21.31 7.31 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.3 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.03-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.69 1.27 6.58l4.03 3.15c.94-2.83 3.58-4.98 6.7-4.98z"/>
+            </svg>
+            Continue with Google
+          </button>
+        </div>
 
-        <p class="auth-switchline" id="portal-auth-switch-signin" hidden>
-          Already have an account? <button type="button" id="portal-switch-to-signin">Sign in</button>
-        </p>
-        <p class="auth-switchline" id="portal-auth-switch-signup">
-          New to the network? <button type="button" id="portal-switch-to-signup">Create an account</button>
-        </p>
+        <div class="auth-divider">
+          <span>or continue with email</span>
+        </div>
 
-        <!-- Onboarding Form for First-Time Logins -->
-        <form id="portal-onboarding-form" class="setup-form" hidden>
-          <div>
-            <p class="eyebrow" style="margin:0 0 4px;">Step 1 of 1 · Partner profile</p>
-            <h2 style="font-size:20px;">Complete your partner profile</h2>
-            <p style="margin:6px 0 0; color:var(--muted); font-size:12.5px; line-height:1.5;">Your profile will be reviewed before marketplace matching is enabled.</p>
+        <div class="segmented-control" role="tablist">
+          <button type="button" class="active" id="tab-auth-signin" role="tab">Sign In</button>
+          <button type="button" id="tab-auth-signup" role="tab">Create Account</button>
+        </div>
+
+        <div id="auth-feedback" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 18px;"></div>
+
+        <!-- Sign In Form -->
+        <form id="form-signin">
+          <div class="input-field-group">
+            <label class="input-label" for="signin-email">Work Email</label>
+            <input type="email" id="signin-email" class="text-input" placeholder="jordan@firm.com" required autocomplete="email">
           </div>
-          <label>Full name<input name="fullName" autocomplete="name" placeholder="Jordan Vance" required></label>
-          <label>Company or advisory<input name="company" autocomplete="organization" placeholder="Pacific Advisory Partners" required></label>
-          <label>Role or title<input name="jobTitle" autocomplete="organization-title" placeholder="Managing Partner"></label>
-          <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
-          <label>Location<input name="location" autocomplete="address-level2" placeholder="San Diego, CA"></label>
-          <div class="setup-note">You will review and digitally sign the Partner Network Agreement once inside your workspace.</div>
-          <div class="form-actions">
-            <button type="submit" id="portal-onboarding-submit">Create partner profile</button>
-            <span id="portal-auth-feedback" role="status" aria-live="polite"></span>
+
+          <div class="input-field-group">
+            <label class="input-label" for="signin-password">Password</label>
+            <input type="password" id="signin-password" class="text-input" placeholder="••••••••••••" required autocomplete="current-password">
+          </div>
+
+          <button type="submit" id="btn-submit-signin" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 10px;">
+            Sign In with Email
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+
+          <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+            <button type="button" id="btn-forgot-password" class="btn btn-subtle btn-sm" style="font-size: 12px; padding: 4px 8px; color: var(--text-muted);">
+              Forgot password?
+            </button>
           </div>
         </form>
-        <p id="portal-auth-error" role="status" aria-live="polite" style="margin:12px 0 0;"></p>
+
+        <!-- Sign Up Form -->
+        <form id="form-signup" style="display: none;">
+          <div class="input-field-group">
+            <label class="input-label" for="signup-name">Full Name</label>
+            <input type="text" id="signup-name" class="text-input" placeholder="Jordan Vance" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-field-group">
+              <label class="input-label" for="signup-company">Advisory Firm / Company</label>
+              <input type="text" id="signup-company" class="text-input" placeholder="Pacific Advisory" required>
+            </div>
+            <div class="input-field-group">
+              <label class="input-label" for="signup-title">Title / Role</label>
+              <input type="text" id="signup-title" class="text-input" placeholder="Managing Partner" required>
+            </div>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="signup-email">Work Email</label>
+            <input type="email" id="signup-email" class="text-input" placeholder="jordan@pacificadvisory.com" required autocomplete="email">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="input-field-group">
+              <label class="input-label" for="signup-password">Password</label>
+              <input type="password" id="signup-password" class="text-input" placeholder="Min. 8 chars" minlength="8" required>
+            </div>
+            <div class="input-field-group">
+              <label class="input-label" for="signup-domain">Industry Focus</label>
+              <select id="signup-domain" class="select-input">
+                <option value="Enterprise SaaS">Enterprise SaaS</option>
+                <option value="Fintech & Banking">Fintech &amp; Banking</option>
+                <option value="AI & Data Infrastructure">AI &amp; Data Infrastructure</option>
+                <option value="Cybersecurity">Cybersecurity</option>
+                <option value="Healthcare">Healthcare &amp; Life Sciences</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="signup-linkedin">LinkedIn Profile (Optional)</label>
+            <input type="url" id="signup-linkedin" class="text-input" placeholder="https://linkedin.com/in/username">
+          </div>
+
+          <div style="margin: 12px 0 16px; font-size: 12px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 8px;">
+            <input type="checkbox" id="signup-agreement" checked style="margin-top: 3px;">
+            <label for="signup-agreement">I agree to the Standard Partner Network Agreement and confirm my introductions are permission-based.</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+            Create Partner Account
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </form>
+
       </div>
     </section>
 
-    <!-- Workspace Dashboard View -->
-    <div id="portal-workspace-content" hidden>
-      <!-- Summary Metrics Grid -->
-      <section class="summary" aria-label="Referral summary">
-        <p>Introductions<strong id="total-count">—</strong></p>
-        <p>Calls scheduled<strong id="scheduled-count">—</strong></p>
-        <p>Calls completed<strong id="completed-count">—</strong></p>
-        <p>Approved points<strong id="partner-credits">—</strong></p>
-        <p>Partner reward status<strong id="partner-payout">Manual review</strong></p>
-      </section>
 
-      <!-- Partner Network Agreement Bar -->
-      <section id="partner-agreement-bar" class="agreement-bar">
-        <div>
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <strong style="font-size:14px; font-family:'Plus Jakarta Sans',sans-serif;">IRM Partner Network Agreement</strong>
-            <span id="partner-agreement-badge" class="portal-badge warn">Agreement Pending</span>
+    <!-- ====================================================================
+         2. WORKSPACE DASHBOARD VIEW (HUMAN-FRIENDLY & UNCLUTTERED)
+         ==================================================================== -->
+    <section id="view-workspace" style="display: none;">
+      
+      <!-- Greeting & Top Actions -->
+      <div class="workspace-hero">
+        <div class="hero-text">
+          <h1>Welcome back, <span id="user-first-name">Partner</span></h1>
+          <p id="user-subtext">Enterprise Advisory · Managing Partner</p>
+        </div>
+        <div class="hero-actions">
+          <button type="button" id="btn-goto-marketplace-hero" class="btn btn-secondary">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            Rewards Marketplace ↗
+          </button>
+          <a id="link-calendly-intro" href="https://calendly.com" target="_blank" rel="noopener noreferrer" class="btn btn-secondary partner-calendly-bar">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Intro Calendar
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-left: 2px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+          <button type="button" id="btn-open-add-fullscreen" class="btn btn-primary">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Introduction
+          </button>
+        </div>
+      </div>
+
+      <!-- Spacious Stats Strip -->
+      <div class="stats-strip">
+        <div class="stat-item">
+          <div class="stat-label">Introductions Submitted</div>
+          <div class="stat-value" id="kpi-total">0</div>
+          <div class="stat-subtext">Active in network</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Calls Scheduled</div>
+          <div class="stat-value" id="kpi-scheduled">0</div>
+          <div class="stat-subtext">On the calendar</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Meetings Confirmed</div>
+          <div class="stat-value" id="kpi-verified">0</div>
+          <div class="stat-subtext">Verified buyer discussions</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Approved Points (Partner Reward Status)</div>
+          <div class="stat-value" id="kpi-points">0</div>
+          <div class="stat-subtext" id="kpi-cash-est">≈ $0.00 USD</div>
+        </div>
+      </div>
+
+      <!-- Workspace Navigation Subtabs -->
+      <div class="workspace-nav-tabs">
+        <button type="button" class="workspace-tab-btn active" id="tab-sub-intros">
+          Introductions (<span id="tab-intros-count">0</span>)
+        </button>
+        <button type="button" class="workspace-tab-btn" id="tab-sub-earnings">
+          Earnings &amp; Milestones
+        </button>
+        <button type="button" class="workspace-tab-btn" id="tab-sub-agreement">
+          Agreement &amp; Terms
+        </button>
+        <button type="button" class="workspace-tab-btn" id="btn-open-marketplace-tab" style="margin-left: auto; border: 1px solid var(--border-dark); font-weight: 600;">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          Rewards Marketplace ↗
+        </button>
+      </div>
+
+      <!-- SUBTAB 1: INTRODUCTIONS ROSTER -->
+      <div id="subtab-panel-intros">
+        
+        <!-- Action Toolbar -->
+        <div class="action-toolbar">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="7" cy="7" r="5"/>
+              <path d="m11 11 4 4"/>
+            </svg>
+            <input type="text" id="search-intros" class="search-input" placeholder="Search by name, company, or email...">
           </div>
-          <span id="partner-agreement-desc" style="font-size:12.5px; color:var(--muted); display:block; margin-top:4px;">Sign the Partner Network Agreement to activate your profile and program terms.</span>
-        </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button type="button" class="btn-sm" id="partner-sign-agreement-btn">Sign Partner Agreement</button>
-        </div>
-      </section>
 
-      <!-- Calendly Meeting Coordinator Card -->
-      <section id="partner-calendly-bar" class="calendly-card">
-        <div>
-          <strong style="font-size:14px; display:block; font-family:'Plus Jakarta Sans',sans-serif;">Schedule a GTM Meeting Directly</strong>
-          <span style="font-size:12.5px; color:var(--muted);">Share contacts only where you have permission. Verified meeting milestones award program points.</span>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <a id="partner-calendly-open-link" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; min-height:38px; padding:0 16px; border-radius:var(--radius-sm); background:var(--accent); color:#fff; font-size:12.5px; text-decoration:none; font-weight:600;">Coordinate introduction <svg aria-hidden="true" viewBox="0 0 16 16" style="width:13px;height:13px;margin-left:8px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M5 3h8v8M13 3 4 12"/></svg></a>
-          <button type="button" class="btn-outline btn-sm" id="partner-calendly-copy-btn">Copy coordination link</button>
-        </div>
-      </section>
-
-      <!-- Rewards & Points Redemption Section -->
-      <section id="partner-rewards-section" class="rewards-card" aria-labelledby="partner-rewards-heading">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
-          <div>
-            <p class="eyebrow" style="margin:0 0 4px;">Influencer economy</p>
-            <h2 id="partner-rewards-heading" style="font-size:22px; margin:0;">Points and rewards</h2>
-          </div>
-          <span class="portal-badge ok" id="partner-reward-balance">0 available points</span>
-        </div>
-        <p style="margin:0 0 16px; font-size:13px; color:var(--muted); line-height:1.6;">
-          Standard milestone rewards: Warm introduction 200 pts · Qualified meeting 600 pts · Opportunity 1,000 pts · Customer close 5,000 pts.
-        </p>
-        <form id="partner-reward-redemption-form" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
-          <label>Reward type
-            <select id="partner-reward-type" required>
-              <option value="cash">Cash reward</option>
-              <option value="nonprofit_donation">Donate to nonprofit</option>
-              <option value="conference_sponsorship">Conference sponsorship</option>
-              <option value="products_services">Products or services</option>
-              <option value="executive_event">Executive event</option>
-              <option value="vip_dinner">VIP dinner</option>
-              <option value="research_sponsorship">Research sponsorship</option>
-              <option value="speaking_opportunity">Speaking opportunity</option>
-              <option value="content_collaboration">Content collaboration</option>
-              <option value="thought_leadership">Personal branding / thought leadership</option>
+          <div class="toolbar-buttons">
+            <select id="filter-intro-status" class="filter-select">
+              <option value="ALL">All Statuses</option>
+              <option value="Intro Submitted">Intro Submitted</option>
+              <option value="Call Scheduled">Call Scheduled</option>
+              <option value="Meeting Verified">Meeting Verified</option>
+              <option value="Opportunity">Opportunity</option>
+              <option value="Customer Closed">Customer Closed</option>
             </select>
-          </label>
-          <label>Points<input id="partner-reward-points" type="number" min="1" step="1" placeholder="e.g. 500" required></label>
-          <label style="flex:1; min-width:200px;">Details (optional)<input id="partner-reward-details" type="text" maxlength="500" placeholder="Preference or payment notes"></label>
-          <button type="submit" class="btn-sm">Request redemption</button>
-        </form>
-        <p id="partner-reward-feedback" role="status" aria-live="polite"></p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Reward</th><th>Points</th><th>Status</th><th>Requested</th></tr>
-            </thead>
-            <tbody id="partner-reward-redemptions">
-              <tr><td colspan="4" class="empty">No redemption requests yet.</td></tr>
-            </tbody>
-          </table>
+            <button type="button" id="btn-open-bulk-modal" class="btn btn-secondary btn-sm">
+              Bulk CSV Intake
+            </button>
+          </div>
         </div>
-      </section>
 
-      <!-- Referred Contacts Directory Section -->
-      <section style="margin-top:28px;">
-        <header class="section-head">
+        <!-- Human-Friendly Contact Cards List -->
+        <div id="intros-container" class="intros-list"></div>
+
+      </div>
+
+      <!-- SUBTAB 2: EARNINGS & REWARDS -->
+      <div id="subtab-panel-earnings" style="display: none;">
+        
+        <div class="earnings-overview-card">
           <div>
-            <p class="eyebrow">Your network</p>
-            <h2>Referred contacts</h2>
-          </div>
-          <div class="section-actions">
-            <span class="contact-count" id="visible-count"></span>
-            <button type="button" class="btn-outline btn-sm" id="toggle-multi-edit-btn">Multi-record edit</button>
-          </div>
-        </header>
-
-        <div id="multi-edit-bar" class="multi-edit-bar" hidden>
-          <span><strong>Multi-record edit mode:</strong> Update inline values or add rows, then save all at once.</span>
-          <div class="section-actions">
-            <span id="multi-edit-feedback" role="status" aria-live="polite"></span>
-            <button type="button" class="btn-outline btn-sm" id="multi-edit-add-row-btn">Add row</button>
-            <button type="button" class="btn-outline btn-sm" id="multi-edit-cancel-btn">Cancel</button>
-            <button type="button" class="btn-sm" id="multi-edit-save-btn">Save all changes</button>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Contact</th><th>Company &amp; role</th><th>Call status &amp; GTM scheduling</th></tr>
-            </thead>
-            <tbody id="contacts-body">
-              <tr><td colspan="3" class="empty">Loading your workspace…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Add Introductions Form Section -->
-      <section class="form-section" id="introduction-section">
-        <p class="eyebrow">Make an introduction</p>
-        <h2>Add referred contacts</h2>
-        <p>Introduce executive contacts with verified consent. Add contacts individually or switch to bulk entry to paste from Excel/CSV.</p>
-
-        <div class="mode-switcher" role="tablist" aria-label="Introduction entry mode">
-          <button type="button" id="mode-single-btn" class="active" role="tab" aria-selected="true">One at a time</button>
-          <button type="button" id="mode-bulk-btn" role="tab" aria-selected="false">Bulk add (multiple contacts)</button>
-        </div>
-
-        <form id="referral-form">
-          <label>Full name *<input name="fullName" autocomplete="name" placeholder="Jordan Vance" required></label>
-          <label>Work email *<input name="email" type="email" autocomplete="email" placeholder="jordan@pacificcu.org" required></label>
-          <label>Company *<input name="company" autocomplete="organization" placeholder="Pacific Crest Credit Union" required></label>
-          <label>Job title<input name="jobTitle" autocomplete="organization-title" placeholder="Chief Lending Officer"></label>
-          <label>Phone<input name="phone" type="tel" autocomplete="tel" placeholder="+1 415 555 0192"></label>
-          <label>LinkedIn profile URL<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/username"></label>
-          <label style="grid-column:1/-1;">Call status
-            <select name="status">
-              <option value="pending">Not scheduled</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="completed">Completed (requires buyer confirmation)</option>
-            </select>
-          </label>
-          <div class="form-actions">
-            <button id="submit-button" type="submit">Save introduction</button>
-            <span id="feedback" role="status" aria-live="polite"></span>
-          </div>
-        </form>
-
-        <!-- Bulk Referral Panel -->
-        <div id="bulk-referral-panel" hidden>
-          <div class="bulk-toolbar">
-            <div class="bulk-toolbar-buttons">
-              <button type="button" class="btn-outline btn-sm" id="bulk-add-row-btn">+ Add row</button>
-              <button type="button" class="btn-outline btn-sm" id="bulk-add-5-btn">+ Add 5 rows</button>
-              <button type="button" class="btn-outline btn-sm" id="bulk-paste-toggle-btn">Paste from spreadsheet</button>
-              <button type="button" class="btn-outline btn-sm" id="bulk-clear-btn">Reset rows</button>
+            <div style="font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+              Available Approved Balance
             </div>
-            <span class="contact-count" id="bulk-row-count">3 rows</span>
+            <div class="earnings-balance-amount" id="earnings-card-balance">0 pts</div>
+            <div class="earnings-cash-est" id="earnings-card-usd">Estimated Cash Value: $0.00 USD</div>
           </div>
+          <div>
+            <button type="button" id="btn-open-payout-modal" class="btn btn-primary btn-lg">
+              Request Payout
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </button>
+          </div>
+        </div>
 
-          <div id="bulk-paste-box" class="bulk-paste-box" hidden>
-            <label for="bulk-paste-input">Paste spreadsheet or CSV rows (Full Name, Work Email, Company, Job Title, Phone, Call Status, LinkedIn URL):</label>
-            <textarea id="bulk-paste-input" rows="4" placeholder="Jordan Vance&#9;jordan@pacificcu.org&#9;Pacific Crest CU&#9;CLO&#9;+1 415 555 0192&#9;Scheduled&#9;https://www.linkedin.com/in/jordan-vance"></textarea>
-            <div class="bulk-toolbar-buttons">
-              <button type="button" class="btn-sm" id="bulk-parse-paste-btn">Add pasted rows</button>
-              <button type="button" class="btn-outline btn-sm" id="bulk-cancel-paste-btn">Cancel</button>
+        <!-- Milestone Values Grid -->
+        <div class="milestones-grid">
+          <div class="milestone-item">
+            <div class="milestone-title">Warm Introduction</div>
+            <div class="milestone-points">+200 pts</div>
+            <div class="milestone-desc">Awarded immediately upon verified intro submission.</div>
+          </div>
+          <div class="milestone-item">
+            <div class="milestone-title">Verified Meeting</div>
+            <div class="milestone-points">+600 pts</div>
+            <div class="milestone-desc">When buyer attends &amp; confirms intro call.</div>
+          </div>
+          <div class="milestone-item">
+            <div class="milestone-title">Active Opportunity</div>
+            <div class="milestone-points">+1,000 pts</div>
+            <div class="milestone-desc">Buyer enters formal product evaluation.</div>
+          </div>
+          <div class="milestone-item">
+            <div class="milestone-title">Customer Closed</div>
+            <div class="milestone-points">+5,000 pts</div>
+            <div class="milestone-desc">Enterprise contract executed and closed.</div>
+          </div>
+        </div>
+
+        <!-- Activity Statement -->
+        <div class="statement-card">
+          <div class="statement-header">Recent Transaction Statement</div>
+          <div id="statement-rows-container">
+            <div style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              No earnings transactions recorded yet.
             </div>
           </div>
+        </div>
 
-          <div class="bulk-table-wrap">
-            <table class="bulk-table">
-              <thead>
-                <tr>
-                  <th style="width:36px;">#</th>
-                  <th>Full name *</th>
-                  <th>Work email *</th>
-                  <th>Company *</th>
-                  <th>Job title</th>
-                  <th>Phone</th>
-                  <th>LinkedIn URL</th>
-                  <th>Call status</th>
-                  <th style="width:40px;"></th>
-                </tr>
-              </thead>
-              <tbody id="bulk-rows-body"></tbody>
-            </table>
+      </div>
+
+      <!-- SUBTAB 3: AGREEMENT & TERMS -->
+      <div id="subtab-panel-agreement" class="partner-agreement-bar" style="display: none;">
+        
+        <div class="agreement-card">
+          <div class="agreement-status-pill" id="agreement-pill-badge">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;"><polyline points="20 6 9 17 4 12"/></svg>
+            AGREEMENT EXECUTED
+          </div>
+          <h2 class="agreement-title">Partner Network Standard Terms</h2>
+          <p class="agreement-summary-text">
+            Governs mutual confidentiality, permission-based executive introduction standards, milestone verification timelines, and commercial payout schedules.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">EXECUTED BY</div>
+              <strong id="agreement-meta-signer">Verified Partner</strong>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">TIMESTAMP</div>
+              <strong id="agreement-meta-date">Oct 15, 2026</strong>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">AUDIT HASH</div>
+              <strong id="agreement-meta-hash">#IRM-88214-VERIFIED</strong>
+            </div>
           </div>
 
-          <div class="form-actions">
-            <button type="button" id="bulk-submit-button">Save all introductions</button>
-            <span id="bulk-feedback" role="status" aria-live="polite"></span>
+          <button type="button" id="btn-re-read-agreement" class="btn btn-secondary">
+            Read Full Agreement Terms
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ====================================================================
+       FULL-SCREEN EXECUTIVE INTRODUCTION & SCHEDULING WORKSPACE
+       ==================================================================== -->
+  <section id="view-fullscreen-intro" class="fullscreen-intro-workspace" style="display: none;">
+    
+    <!-- Top Navigation Bar for Workspace -->
+    <header class="fullscreen-topbar">
+      <div class="fullscreen-topbar-left">
+        <button type="button" id="btn-close-fullscreen" class="btn btn-subtle btn-sm">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back to Dashboard
+        </button>
+        <span class="fullscreen-title">New Executive Introduction &amp; Meeting Coordination</span>
+      </div>
+    </header>
+
+    <div class="fullscreen-body">
+      
+      <!-- LEFT COLUMN: Executive Dossier & Context Intelligence -->
+      <div>
+        
+        <!-- 1. Target Executive Identity -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Target Executive Intelligence
+          </div>
+          <div class="workspace-card-subtitle">
+            Provide the decision-maker profile for this warm enterprise introduction.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-name">Executive Full Name *</label>
+              <input type="text" id="fs-name" class="text-input" placeholder="Sarah Chen" required>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-company">Current Company / Organization *</label>
+              <input type="text" id="fs-company" class="text-input" placeholder="Databricks" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-title">Executive Title / Role *</label>
+              <input type="text" id="fs-title" class="text-input" placeholder="VP of Platform Engineering" required>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-seniority">Seniority Level</label>
+              <select id="fs-seniority" class="select-input">
+                <option value="C-Level / Executive Suite">C-Level / Executive Suite (CTO, CIO, CISO)</option>
+                <option value="Vice President / Head of">Vice President / Head of Department</option>
+                <option value="Director / Senior Director">Director / Senior Director</option>
+                <option value="Board Member / Advisor">Board Member / Investor</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-email">Direct Work Email *</label>
+              <input type="email" id="fs-email" class="text-input" placeholder="sarah.chen@databricks.com" required>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-phone">Direct Phone (Optional)</label>
+              <input type="tel" id="fs-phone" class="text-input" placeholder="+1 (415) 555-0192">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-linkedin">LinkedIn Profile URL</label>
+              <input type="url" id="fs-linkedin" class="text-input" placeholder="https://www.linkedin.com/in/sarahchen">
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-location">Location / Timezone</label>
+              <input type="text" id="fs-location" class="text-input" placeholder="San Francisco, CA (PT)">
+            </div>
           </div>
         </div>
-      </section>
+
+        <!-- 2. Relationship Warmth & Prior History -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Relationship Warmth &amp; History
+          </div>
+          <div class="workspace-card-subtitle">
+            Establishing the strength of your relationship builds buyer trust and boosts conversion.
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-warmth">Connection Type</label>
+              <select id="fs-warmth" class="select-input">
+                <option value="Direct Former Colleague">Direct Former Colleague / Peer</option>
+                <option value="Active Advisory Client">Active Advisory Client</option>
+                <option value="Former Manager / Leader">Former Manager / Leader</option>
+                <option value="Close Industry Peer">Close Personal Industry Peer</option>
+                <option value="Board / Investor Network">Board / Investor Network</option>
+              </select>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-strength">Relationship Warmth Level</label>
+              <select id="fs-strength" class="select-input">
+                <option value="Very Close (Regular contact)">Very Close (Regular contact)</option>
+                <option value="Strong Colleague (High trust)">Strong Colleague (High trust)</option>
+                <option value="Warm Network (Re-engaged)">Warm Network (Re-engaged)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="fs-history">How do you know this executive?</label>
+            <textarea id="fs-history" class="textarea-input" placeholder="e.g. Worked closely together at Databricks for 4 years on infrastructure scaling. Maintained monthly catchups since."></textarea>
+          </div>
+        </div>
+
+        <!-- 3. Strategic Fit & Buying Context -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            Strategic Intent &amp; Pain Points
+          </div>
+          <div class="workspace-card-subtitle">
+            Why is this buyer evaluating solutions now?
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-eval-role">Decision-Making Role</label>
+              <select id="fs-eval-role" class="select-input">
+                <option value="Final Budget Approver">Final Budget Approver</option>
+                <option value="Primary Technical Evaluator">Primary Technical Evaluator</option>
+                <option value="Internal Executive Champion">Internal Executive Champion</option>
+              </select>
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-budget">Estimated Initiative Budget</label>
+              <select id="fs-budget" class="select-input">
+                <option value="$100k - $250k">$100k – $250k ARR</option>
+                <option value="$250k - $500k">$250k – $500k ARR</option>
+                <option value="$500k+">$500k+ Enterprise ARR</option>
+                <option value="Discovery Phase">Discovery Phase / TBD</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="fs-context">Current Pain Point &amp; Priority Triggers</label>
+            <textarea id="fs-context" class="textarea-input" placeholder="e.g. Currently re-architecting modern data pipeline; dissatisfied with current vendor pricing and looking to migrate in Q3."></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Direct Meeting Coordination & Milestone Incentive -->
+      <div>
+        
+        <!-- 4. Meeting Coordination -->
+        <div class="workspace-card">
+          <div class="workspace-card-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Meeting Coordination &amp; Scheduling
+          </div>
+          <div class="workspace-card-subtitle">
+            Coordinate the introductory discussion directly with this executive.
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="fs-meeting-date">Proposed Meeting Date</label>
+            <input type="date" id="fs-meeting-date" class="text-input">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-meeting-time">Proposed Time Slot</label>
+              <input type="time" id="fs-meeting-time" class="text-input" value="14:00">
+            </div>
+            <div class="input-field-group" style="margin-bottom: 0;">
+              <label class="input-label" for="fs-meeting-duration">Call Duration</label>
+              <select id="fs-meeting-duration" class="select-input">
+                <option value="30 Minutes">30 Minutes (Recommended)</option>
+                <option value="20 Minutes">20 Minutes (Brief Intro)</option>
+                <option value="45 Minutes">45 Minutes (Deep Dive)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="fs-meeting-platform">Meeting Platform</label>
+            <select id="fs-meeting-platform" class="select-input">
+              <option value="Google Meet">Google Meet</option>
+              <option value="Zoom">Zoom</option>
+              <option value="Microsoft Teams">Microsoft Teams</option>
+            </select>
+          </div>
+
+          <div class="input-field-group">
+            <label class="input-label" for="fs-partner-attendance">Will you join this intro call?</label>
+            <select id="fs-partner-attendance" class="select-input">
+              <option value="Yes, I will attend and introduce both parties">Yes, I will attend and introduce both parties (Recommended)</option>
+              <option value="No, direct email introduction handover">No, direct email introduction handover</option>
+            </select>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="fs-briefing">Pre-Meeting Briefing Note for Team</label>
+            <textarea id="fs-briefing" class="textarea-input" style="min-height: 70px;" placeholder="Any specific sensitivities or executive communication preferences?"></textarea>
+          </div>
+
+          <!-- Compliance Confirmation Checkbox -->
+          <div style="margin-top: 20px; padding: 14px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
+            <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px;">
+              <input type="checkbox" id="fs-consent" checked style="margin-top: 3px;">
+              <label for="fs-consent">
+                <strong>Permission-Based Confirmation:</strong> I confirm I have communicated with this executive and have their explicit consent to coordinate this introductory discussion.
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Incentive Rewards Box -->
+        <div class="incentive-box">
+          <div style="font-family: var(--font-display); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <span>Milestone Rewards</span>
+            <span class="status-badge verified">+200 pts earned now</span>
+          </div>
+
+          <div class="incentive-tier-row">
+            <span>Warm Intro Submitted</span>
+            <strong>+200 pts ($20.00)</strong>
+          </div>
+          <div class="incentive-tier-row">
+            <span>Intro Call Completed</span>
+            <strong>+600 pts ($60.00)</strong>
+          </div>
+          <div class="incentive-tier-row">
+            <span>Opportunity Pipeline</span>
+            <strong>+1,000 pts ($100.00)</strong>
+          </div>
+          <div class="incentive-tier-row">
+            <span>Enterprise Deal Closed</span>
+            <strong>+5,000 pts ($500.00)</strong>
+          </div>
+
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 12px; font-family: var(--font-mono);">
+            Points are automatically deposited to your balance upon milestone verification.
+          </div>
+        </div>
+
+        <!-- Spacious Bottom Submit Action Block -->
+        <div style="margin-top: 36px; padding: 28px 0 60px; border-top: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 14px;">
+          <button type="button" id="btn-submit-intro-bottom" class="btn btn-primary btn-lg" style="width: 100%; height: 50px; font-size: 14px; justify-content: center; box-shadow: var(--shadow-sm);">
+            Submit Introduction &amp; Meeting (+200 pts)
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+          <div style="text-align: center;">
+            <button type="button" id="btn-cancel-intro-bottom" class="btn btn-subtle btn-sm">
+              Cancel &amp; Return to Dashboard
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       3. DEDICATED E-COMMERCE REWARDS MARKETPLACE SCREEN
+       ==================================================================== -->
+  <section id="view-marketplace-store" class="marketplace-store-screen" style="display: none;">
+
+    <!-- Dedicated E-Commerce Store Top Navigation Bar -->
+    <header class="store-topbar">
+      <div class="store-topbar-left">
+        <button type="button" id="btn-back-to-dashboard" class="btn btn-secondary btn-sm store-back-btn">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Back to Dashboard
+        </button>
+        <div class="store-topbar-divider"></div>
+        <div class="store-branding">
+          <div class="brand-symbol">C</div>
+          <div>
+            <div class="store-name">Connectem Rewards</div>
+            <div class="store-badge">Partner Exchange</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Search in Header -->
+      <div class="store-search-box">
+        <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="7" cy="7" r="5"/>
+          <path d="m11 11 4 4"/>
+        </svg>
+        <input type="text" id="store-search-input" class="store-search-field" placeholder="Search gift cards, NGO causes, flights, ACH wire...">
+      </div>
+
+      <!-- Live Wallet Balance & Cart Drawer Trigger -->
+      <div class="store-topbar-right">
+        <div class="store-wallet-pill" id="store-wallet-pill" title="Your Approved Rewards Balance">
+          <span class="store-wallet-label">Available:</span>
+          <strong id="store-header-points">0 pts</strong>
+          <span class="store-wallet-usd" id="store-header-usd">≈ $0.00 USD</span>
+        </div>
+
+        <button type="button" id="btn-open-store-cart" class="btn btn-primary store-cart-trigger">
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          Cart (<span id="store-header-cart-count">0</span>)
+        </button>
+
+        <button type="button" id="btn-store-theme-toggle" class="btn btn-subtle btn-sm" title="Toggle theme">B / W</button>
+      </div>
+    </header>
+
+    <!-- Store Screen Main Content -->
+    <div class="store-main-layout">
+      
+      <!-- Store Hero Promotional Strip -->
+      <div class="store-hero">
+        <div class="store-hero-left">
+          <div class="store-hero-eyebrow">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Official Partner Rewards Exchange
+          </div>
+          <h1 class="store-hero-heading">Redeem Milestone Points for Direct Cash, Global Perks &amp; NGO Donations</h1>
+          <p class="store-hero-subtext">
+            Convert your warm executive introductions and verified meeting milestone rewards into direct ACH bank wires, 501(c)(3) charitable donations, corporate gift cards, or executive travel vouchers. <strong>Fixed rate: 10 points = $1.00 USD.</strong>
+          </p>
+        </div>
+
+        <!-- 4-Feature Trust Strip -->
+        <div class="store-trust-badges">
+          <div class="trust-badge-item">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <div>
+              <strong>Instant Digital Codes</strong>
+              <span>Dispatched within seconds to email</span>
+            </div>
+          </div>
+          <div class="trust-badge-item">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <div>
+              <strong>Verified 501(c)(3) NGOs</strong>
+              <span>Official tax-deductible donor receipts</span>
+            </div>
+          </div>
+          <div class="trust-badge-item">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <div>
+              <strong>Direct ACH Bank Wire</strong>
+              <span>Deposited to advisory checking</span>
+            </div>
+          </div>
+          <div class="trust-badge-item">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <div>
+              <strong>100% Guaranteed</strong>
+              <span>No redemption fees or deductions</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter Bar & Sorting Dropdown -->
+      <div class="store-filter-toolbar">
+        <div class="store-filter-pills" id="store-cat-filters">
+          <button type="button" class="store-pill active" data-category="ALL">All Rewards (11)</button>
+          <button type="button" class="store-pill" data-category="NGO Donations">Donate to NGOs (4)</button>
+          <button type="button" class="store-pill" data-category="Gift Cards">Gift Cards &amp; Tech (2)</button>
+          <button type="button" class="store-pill" data-category="Travel & Lifestyle">Travel &amp; Flights (3)</button>
+          <button type="button" class="store-pill" data-category="Direct Cash">Direct Cash Wire (1)</button>
+          <button type="button" class="store-pill" data-category="Executive Perks">Subscriptions (1)</button>
+        </div>
+
+        <div class="store-sort-box">
+          <label for="store-sort-dropdown" class="store-sort-label">Sort:</label>
+          <select id="store-sort-dropdown" class="store-sort-select">
+            <option value="featured">Featured &amp; Popular</option>
+            <option value="pts-asc">Points: Low to High</option>
+            <option value="pts-desc">Points: High to Low</option>
+            <option value="alpha">Name: A to Z</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Results Count & Active Filters Indicator -->
+      <div class="store-catalog-meta">
+        <span id="store-catalog-count-text">Showing 11 rewards</span>
+        <button type="button" id="btn-clear-store-search" class="btn btn-subtle btn-sm" style="display: none;">
+          Clear search &times;
+        </button>
+      </div>
+
+      <!-- E-Commerce Product Cards Grid -->
+      <div id="store-catalog-grid" class="store-product-grid"></div>
+
     </div>
 
-    <p id="page-error" role="alert"></p>
-    <footer>Connectem Influencer Relationship Management · Governed by the IRM Partner Network Agreement.</footer>
-  </main>
-  <script src="partner-portal.js"></script>
+    <!-- Slide-Over Cart Drawer -->
+    <div id="store-cart-drawer" class="cart-drawer-overlay" style="display: none;">
+      <div class="cart-drawer-panel">
+        <div class="cart-drawer-header">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <h3 style="font-family: var(--font-display); font-size: 17px; font-weight: 700;">Your Rewards Cart</h3>
+          </div>
+          <button type="button" id="btn-close-cart-drawer" class="btn btn-subtle btn-sm" style="font-size: 18px; line-height: 1;">&times;</button>
+        </div>
+
+        <div class="cart-drawer-body" id="cart-drawer-body">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="cart-drawer-footer">
+          <!-- Balance Summary Strip -->
+          <div class="cart-drawer-balance-summary">
+            <div class="cart-summary-line">
+              <span>Your Available Points:</span>
+              <strong id="drawer-bal-available">0 pts</strong>
+            </div>
+            <div class="cart-summary-line highlight">
+              <span>Cart Total Cost:</span>
+              <strong id="drawer-bal-cost">0 pts</strong>
+            </div>
+            <div class="cart-summary-line subtext">
+              <span>USD Cash Value:</span>
+              <span id="drawer-bal-usd">$0.00 USD</span>
+            </div>
+            <div id="drawer-bal-diff-notice" class="cart-balance-notice"></div>
+          </div>
+
+          <!-- Recipient & Delivery Input -->
+          <div class="cart-drawer-fulfillment">
+            <div class="input-field-group" style="margin-bottom: 12px;">
+              <label class="input-label" for="drawer-input-email">Fulfillment / Dedication Email *</label>
+              <input type="email" id="drawer-input-email" class="text-input" placeholder="partner@firm.com" required>
+            </div>
+
+            <div id="drawer-ach-fields" style="display: none; margin-bottom: 12px;" class="input-field-group">
+              <label class="input-label" for="drawer-input-bank">ACH Wire Routing &amp; Account Number *</label>
+              <textarea id="drawer-input-bank" class="textarea-input" style="min-height: 56px; font-size: 12px;" placeholder="Bank Name: JP Morgan Chase&#10;Routing #: 021000021&#10;Account #: 9876543210"></textarea>
+            </div>
+
+            <div class="input-field-group" style="margin-bottom: 16px;">
+              <label class="input-label" for="drawer-input-notes">Dedication Name or Special Instructions (Optional)</label>
+              <input type="text" id="drawer-input-notes" class="text-input" placeholder="e.g. In honor of Climate Action Fund">
+            </div>
+          </div>
+
+          <!-- Checkout Action -->
+          <button type="button" id="btn-drawer-redeem-submit" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; height: 48px; box-shadow: var(--shadow-sm);">
+            Complete Redemption &amp; Dispatch
+            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ====================================================================
+       MODALS
+       ==================================================================== -->
+
+  <!-- 1. BULK CSV INTAKE MODAL -->
+  <div id="modal-bulk-csv" class="modal-backdrop" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-top">
+        <div class="modal-heading">Bulk CSV Intake</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
+      </div>
+      <div class="modal-content-area">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+          Paste rows formatted as: <code>FullName, Company, Title, Email, LinkedIn, Notes</code>
+        </p>
+        <textarea id="bulk-paste-text" class="textarea-input" style="min-height: 140px; font-family: var(--font-mono); font-size: 12px;" placeholder="Sarah Chen, Databricks, VP Engineering, sarah@databricks.com, https://linkedin.com/in/sarah, Evaluating Q3
+Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/alex, Warm peer"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+        <button type="button" id="btn-confirm-bulk" class="btn btn-primary">Import Verified Records</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. AGREEMENT TERMS MODAL -->
+  <div id="modal-agreement" class="modal-backdrop" style="display: none;">
+    <div class="modal-window" style="max-width: 620px;">
+      <div class="modal-top">
+        <div class="modal-heading">Partner Network Agreement</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
+      </div>
+      <div class="modal-content-area">
+        <div class="legal-scroll-box">
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">1. Scope &amp; Purpose</h4>
+          <p style="margin-bottom: 12px;">This Agreement sets forth the terms under which Partner provides permission-based executive introductions to Enterprise buyers in exchange for milestone-based rewards.</p>
+
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">2. Permission &amp; Integrity</h4>
+          <p style="margin-bottom: 12px;">Partner represents that all introductions are submitted with the prior permission and warm interest of the target executive contact.</p>
+
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">3. Milestone Fee Schedule</h4>
+          <p style="margin-bottom: 12px;">
+            &bull; Verified Introduction Submission: 200 pts<br>
+            &bull; Completed Executive Discussion: 600 pts<br>
+            &bull; Active Pipeline Opportunity: 1,000 pts<br>
+            &bull; Closed Enterprise Contract: 5,000 pts
+          </p>
+
+          <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 6px;">4. Confidentiality &amp; Mutual Non-Disclosure</h4>
+          <p>Both parties agree that contact identities, commercial terms, and deal discussions remain strictly confidential.</p>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-light); padding-top: 16px;">
+          <div class="input-field-group">
+            <label class="input-label" for="agreement-signer-field">Digital Signature (Legal Name)</label>
+            <input type="text" id="agreement-signer-field" class="text-input" placeholder="Your Legal Name">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+            <input type="checkbox" id="agreement-modal-consent" checked>
+            <label for="agreement-modal-consent">I confirm my digital signature and agree to these terms.</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary modal-close">Close</button>
+        <button type="button" id="btn-confirm-sign-terms" class="btn btn-primary">Sign &amp; Verify Terms</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. CART & REWARDS CHECKOUT MODAL -->
+  <div id="modal-cart-checkout" class="modal-backdrop" style="display: none;">
+    <div class="modal-window cart-drawer-card">
+      <div class="modal-top">
+        <div class="modal-heading">Redeem Rewards Cart</div>
+        <button type="button" class="btn btn-subtle btn-sm modal-close">&times;</button>
+      </div>
+      <div class="modal-content-area">
+        <!-- Balance comparison bar -->
+        <div style="padding: 14px 18px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">Your Available Balance</div>
+            <strong style="font-size: 18px; font-family: var(--font-display);" id="cart-available-balance">0 pts</strong>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">Total Cart Cost</div>
+            <strong style="font-size: 18px; font-family: var(--font-display);" id="cart-total-cost">0 pts</strong>
+          </div>
+        </div>
+
+        <!-- Cart items list -->
+        <div id="cart-items-list" style="margin-bottom: 24px;"></div>
+
+        <!-- Recipient & Delivery Details Form -->
+        <div id="cart-checkout-details" style="border-top: 1px solid var(--border-light); padding-top: 18px;">
+          <h4 style="font-family: var(--font-display); font-size: 14px; font-weight: 700; margin-bottom: 12px;">Delivery &amp; Fulfillment Details</h4>
+          
+          <div class="input-field-group">
+            <label class="input-label" for="cart-delivery-email">Fulfillment Email Address (for e-gift cards &amp; NGO donation receipts) *</label>
+            <input type="email" id="cart-delivery-email" class="text-input" placeholder="partner@firm.com" required>
+          </div>
+
+          <div id="cart-bank-wire-section" style="display: none;" class="input-field-group">
+            <label class="input-label" for="cart-bank-details">Direct ACH / Wire Details (Routing &amp; Account Number) *</label>
+            <textarea id="cart-bank-details" class="textarea-input" placeholder="Bank Name: JP Morgan Chase&#10;Routing #: 021000021&#10;Account #: 9876543210"></textarea>
+          </div>
+
+          <div class="input-field-group" style="margin-bottom: 0;">
+            <label class="input-label" for="cart-order-notes">Order Notes or Dedication (Optional)</label>
+            <input type="text" id="cart-order-notes" class="text-input" placeholder="e.g. In honor of Q3 Advisory Cohort">
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary modal-close">Continue Browsing</button>
+        <button type="button" id="btn-confirm-redeem-cart" class="btn btn-primary">
+          Confirm &amp; Redeem (<span id="cart-btn-points">0 pts</span>)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. REDEMPTION SUCCESS RECEIPT MODAL -->
+  <div id="modal-order-success" class="modal-backdrop" style="display: none;">
+    <div class="modal-window" style="max-width: 480px; text-align: center;">
+      <div class="modal-content-area" style="padding: 36px 28px;">
+        <div style="width: 56px; height: 56px; border-radius: var(--radius-pill); background: var(--black); color: var(--white); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+          <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h3 style="font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-bottom: 8px;">Redemption Confirmed</h3>
+        <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px;" id="order-success-desc">
+          Your rewards order has been processed. Electronic vouchers and donation receipts have been dispatched to your delivery email.
+        </p>
+
+        <div style="padding: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle); margin-bottom: 24px; font-family: var(--font-mono); font-size: 12px; text-align: left;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted);">ORDER HASH</span>
+            <strong id="receipt-order-hash">#REW-99124-CONFIRMED</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted);">POINTS REDEEMED</span>
+            <strong id="receipt-points-redeemed">0 pts</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">NEW BALANCE</span>
+            <strong id="receipt-new-balance">0 pts</strong>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary modal-close" style="width: 100%;">
+          Done &amp; Return to Workspace
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-notice" class="toast-notice"></div>
+
+  <script src="/partner-portal/app.js"></script>
 </body>
 </html>

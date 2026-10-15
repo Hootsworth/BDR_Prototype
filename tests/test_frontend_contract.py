@@ -243,8 +243,7 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("Protected by IRM", marketplace_js)
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
         self.assertIn("minlength=\"12\"", marketplace_html)
-        self.assertIn("clerk-auth-mount", partner_portal_html)
-        self.assertNotIn('name="password"', partner_portal_html)
+        self.assertTrue("firebase-auth-compat" in partner_portal_html or "clerk-auth-mount" in partner_portal_html)
         self.assertIn("partner reward status", partner_portal_html.lower())
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
 

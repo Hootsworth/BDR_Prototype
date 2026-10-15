@@ -42,6 +42,10 @@
   ],
   "rewrites": [
     {
+      "source": "/partner-portal",
+      "destination": "/partner-portal.html"
+    },
+    {
       "source": "/api/",
       "destination": "/api/index?route=health"
     },
