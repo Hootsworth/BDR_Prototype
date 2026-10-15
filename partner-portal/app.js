@@ -605,7 +605,12 @@
     if (el.viewWorkspace) el.viewWorkspace.style.display = 'none';
     const mainHeader = document.querySelector('.site-header');
     if (mainHeader) mainHeader.style.display = 'none';
-    if (el.viewMarketplaceStore) el.viewMarketplaceStore.style.display = 'block';
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer) appContainer.style.display = 'none';
+    if (el.viewMarketplaceStore) {
+      el.viewMarketplaceStore.style.display = 'flex';
+      el.viewMarketplaceStore.scrollTop = 0;
+    }
     renderStoreCatalog();
     updateUI();
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -613,6 +618,8 @@
 
   function closeMarketplaceScreen() {
     if (el.viewMarketplaceStore) el.viewMarketplaceStore.style.display = 'none';
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer) appContainer.style.display = 'block';
     if (el.viewWorkspace) el.viewWorkspace.style.display = 'block';
     const mainHeader = document.querySelector('.site-header');
     if (mainHeader) mainHeader.style.display = 'flex';
@@ -1389,10 +1396,16 @@
     localStorage.removeItem(STORAGE_KEY_USER);
     if (el.viewAuth) el.viewAuth.style.display = 'block';
     if (el.viewWorkspace) el.viewWorkspace.style.display = 'none';
+    if (el.viewMarketplaceStore) el.viewMarketplaceStore.style.display = 'none';
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer) appContainer.style.display = 'block';
+    const mainHeader = document.querySelector('.site-header');
+    if (mainHeader) mainHeader.style.display = 'flex';
     if (el.signoutBtn) el.signoutBtn.style.display = 'none';
     if (el.navBalancePill) el.navBalancePill.style.display = 'none';
     if (el.btnNavCart) el.btnNavCart.style.display = 'none';
     closeFullscreenIntroWorkspace();
+    closeCartDrawer();
   }
 
   // Activate Workspace for User
