@@ -174,6 +174,10 @@
     statement: [],
     cart: [],
     activeCategory: 'ALL',
+    storeCategory: 'ALL',
+    storeSearch: '',
+    storeSort: 'featured',
+    cardSelections: {}, // catalogId -> { denomIndex: number, qty: number }
     agreement: {
       signed: true,
       signedBy: 'Verified Partner',
@@ -197,6 +201,39 @@
     viewAuth: document.getElementById('view-auth'),
     viewWorkspace: document.getElementById('view-workspace'),
     viewFullscreenIntro: document.getElementById('view-fullscreen-intro'),
+    viewMarketplaceStore: document.getElementById('view-marketplace-store'),
+
+    // Dedicated Store Screen Elements
+    btnBackToDashboard: document.getElementById('btn-back-to-dashboard'),
+    storeSearchInput: document.getElementById('store-search-input'),
+    storeHeaderPoints: document.getElementById('store-header-points'),
+    storeHeaderUsd: document.getElementById('store-header-usd'),
+    btnOpenStoreCart: document.getElementById('btn-open-store-cart'),
+    storeHeaderCartCount: document.getElementById('store-header-cart-count'),
+    btnStoreThemeToggle: document.getElementById('btn-store-theme-toggle'),
+    storeCatFilters: document.getElementById('store-cat-filters'),
+    storeSortDropdown: document.getElementById('store-sort-dropdown'),
+    storeCatalogCountText: document.getElementById('store-catalog-count-text'),
+    btnClearStoreSearch: document.getElementById('btn-clear-store-search'),
+    storeCatalogGrid: document.getElementById('store-catalog-grid'),
+
+    // Store Slide-Over Cart Drawer
+    storeCartDrawer: document.getElementById('store-cart-drawer'),
+    btnCloseCartDrawer: document.getElementById('btn-close-cart-drawer'),
+    cartDrawerBody: document.getElementById('cart-drawer-body'),
+    drawerBalAvailable: document.getElementById('drawer-bal-available'),
+    drawerBalCost: document.getElementById('drawer-bal-cost'),
+    drawerBalUsd: document.getElementById('drawer-bal-usd'),
+    drawerBalDiffNotice: document.getElementById('drawer-bal-diff-notice'),
+    drawerInputEmail: document.getElementById('drawer-input-email'),
+    drawerAchFields: document.getElementById('drawer-ach-fields'),
+    drawerInputBank: document.getElementById('drawer-input-bank'),
+    drawerInputNotes: document.getElementById('drawer-input-notes'),
+    btnDrawerRedeemSubmit: document.getElementById('btn-drawer-redeem-submit'),
+
+    // Dashboard Buttons that open store
+    btnGotoMarketplaceHero: document.getElementById('btn-goto-marketplace-hero'),
+    btnOpenMarketplaceTab: document.getElementById('btn-open-marketplace-tab'),
 
     // Auth Forms, Google SSO & Tabs
     tabAuthSignin: document.getElementById('tab-auth-signin'),
@@ -225,13 +262,11 @@
     // Subtabs
     tabSubIntros: document.getElementById('tab-sub-intros'),
     tabSubEarnings: document.getElementById('tab-sub-earnings'),
-    tabSubMarketplace: document.getElementById('tab-sub-marketplace'),
     tabSubAgreement: document.getElementById('tab-sub-agreement'),
     tabIntrosCount: document.getElementById('tab-intros-count'),
 
     panelSubIntros: document.getElementById('subtab-panel-intros'),
     panelSubEarnings: document.getElementById('subtab-panel-earnings'),
-    panelSubMarketplace: document.getElementById('subtab-panel-marketplace'),
     panelSubAgreement: document.getElementById('subtab-panel-agreement'),
 
     // Introductions Roster
@@ -427,6 +462,11 @@
     if (el.navCartCount) el.navCartCount.textContent = cartCount;
     if (el.cartItemCount) el.cartItemCount.textContent = cartCount;
 
+    // Store Header Wallet & Cart Counters
+    if (el.storeHeaderPoints) el.storeHeaderPoints.textContent = `${state.points.toLocaleString()} pts`;
+    if (el.storeHeaderUsd) el.storeHeaderUsd.textContent = `≈ $${cashEst} USD`;
+    if (el.storeHeaderCartCount) el.storeHeaderCartCount.textContent = cartCount;
+
     // Stats Strip
     if (el.kpiTotal) el.kpiTotal.textContent = total;
     if (el.kpiScheduled) el.kpiScheduled.textContent = scheduled;
@@ -558,54 +598,172 @@
   }
 
   // ========================================================================
-  // REWARDS MARKETPLACE CATALOG & CART LOGIC
+  // DEDICATED E-COMMERCE REWARDS MARKETPLACE & CART DRAWER
   // ========================================================================
 
-  function renderMarketplaceCatalog() {
-    if (!el.marketplaceCatalogGrid) return;
-    const cat = state.activeCategory || 'ALL';
+  function openMarketplaceScreen() {
+    if (el.viewWorkspace) el.viewWorkspace.style.display = 'none';
+    const mainHeader = document.querySelector('.site-header');
+    if (mainHeader) mainHeader.style.display = 'none';
+    if (el.viewMarketplaceStore) el.viewMarketplaceStore.style.display = 'block';
+    renderStoreCatalog();
+    updateUI();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
 
-    const filtered = CATALOG_ITEMS.filter(item => {
-      if (cat === 'ALL') return true;
-      if (cat === 'Gift Cards') return item.category === 'Gift Cards';
-      if (cat === 'NGO Donations') return item.category === 'NGO Donations';
-      if (cat === 'Travel & Lifestyle') return item.category === 'Travel & Lifestyle';
-      if (cat === 'Direct Cash') return item.category === 'Direct Cash';
+  function closeMarketplaceScreen() {
+    if (el.viewMarketplaceStore) el.viewMarketplaceStore.style.display = 'none';
+    if (el.viewWorkspace) el.viewWorkspace.style.display = 'block';
+    const mainHeader = document.querySelector('.site-header');
+    if (mainHeader) mainHeader.style.display = 'flex';
+    updateUI();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function openCartDrawer() {
+    if (!el.storeCartDrawer) return;
+    renderCartDrawer();
+    el.storeCartDrawer.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCartDrawer() {
+    if (!el.storeCartDrawer) return;
+    el.storeCartDrawer.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  // Render E-Commerce Store Catalog
+  function renderStoreCatalog() {
+    if (!el.storeCatalogGrid) return;
+    const cat = state.storeCategory || 'ALL';
+    const query = (state.storeSearch || '').trim().toLowerCase();
+    const sort = state.storeSort || 'featured';
+
+    let list = CATALOG_ITEMS.filter(item => {
+      // Category filter
+      if (cat !== 'ALL' && item.category !== cat) return false;
+      // Search filter
+      if (query) {
+        const text = `${item.title} ${item.desc} ${item.brand} ${item.category}`.toLowerCase();
+        if (!text.includes(query)) return false;
+      }
       return true;
     });
 
-    el.marketplaceCatalogGrid.innerHTML = filtered.map(item => {
-      const defaultDenom = item.denominations[0];
-      const denomOptions = item.denominations.map((d, idx) => `
-        <option value="${idx}">${escapeHTML(d.label)} · ${d.pts} pts</option>
+    // Sorting
+    if (sort === 'pts-asc') {
+      list.sort((a, b) => (a.denominations[0]?.pts || 0) - (b.denominations[0]?.pts || 0));
+    } else if (sort === 'pts-desc') {
+      list.sort((a, b) => {
+        const maxA = a.denominations[a.denominations.length - 1]?.pts || 0;
+        const maxB = b.denominations[b.denominations.length - 1]?.pts || 0;
+        return maxB - maxA;
+      });
+    } else if (sort === 'alpha') {
+      list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    // Update count text & clear search button
+    if (el.storeCatalogCountText) {
+      el.storeCatalogCountText.textContent = `Showing ${list.length} reward${list.length === 1 ? '' : 's'}${query ? ` matching "${query}"` : ''}`;
+    }
+    if (el.btnClearStoreSearch) {
+      el.btnClearStoreSearch.style.display = query ? 'inline-block' : 'none';
+    }
+
+    if (list.length === 0) {
+      el.storeCatalogGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; padding: 64px 20px; text-align: center; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-lg);">
+          <div style="font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px;">No rewards found</div>
+          <div style="font-size: 13px;">No rewards matched your filter or search query. Try clearing filters or searching for "NGO", "Amazon", or "ACH".</div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-empty-reset-store" style="margin-top: 16px;">
+            Reset Catalog Filters
+          </button>
+        </div>
+      `;
+      const btnReset = document.getElementById('btn-empty-reset-store');
+      if (btnReset) {
+        btnReset.addEventListener('click', () => {
+          state.storeCategory = 'ALL';
+          state.storeSearch = '';
+          if (el.storeSearchInput) el.storeSearchInput.value = '';
+          if (el.storeCatFilters) {
+            el.storeCatFilters.querySelectorAll('.store-pill').forEach(b => {
+              b.classList.toggle('active', b.dataset.category === 'ALL');
+            });
+          }
+          renderStoreCatalog();
+        });
+      }
+      return;
+    }
+
+    el.storeCatalogGrid.innerHTML = list.map(item => {
+      // Ensure selection state exists
+      if (!state.cardSelections[item.id]) {
+        state.cardSelections[item.id] = { denomIndex: 0, qty: 1 };
+      }
+      const sel = state.cardSelections[item.id];
+      const denomIndex = Math.min(sel.denomIndex || 0, item.denominations.length - 1);
+      const activeDenom = item.denominations[denomIndex] || item.denominations[0];
+      const cardQty = sel.qty || 1;
+      const totalPts = activeDenom.pts * cardQty;
+      const totalUsd = (activeDenom.usd * cardQty).toFixed(2);
+
+      const denomPills = item.denominations.map((d, dIdx) => `
+        <button type="button" class="store-card-denom-pill ${dIdx === denomIndex ? 'selected' : ''}" data-item-id="${item.id}" data-denom-index="${dIdx}">
+          ${escapeHTML(d.label)}
+        </button>
       `).join('');
 
+      // Monogram or brand badge
+      const monogram = escapeHTML(item.brand || item.title.slice(0, 3).toUpperCase());
+
+      // Fulfillment badge label
+      let fulfillmentBadge = 'Instant Digital Code';
+      if (item.category === 'NGO Donations') fulfillmentBadge = '501(c)(3) Receipt';
+      if (item.category === 'Direct Cash') fulfillmentBadge = 'Direct ACH Wire';
+      if (item.category === 'Executive Perks') fulfillmentBadge = 'Annual Sub';
+
       return `
-        <div class="reward-card" data-catalog-id="${item.id}">
+        <div class="store-card" data-item-id="${item.id}">
           <div>
-            <div class="reward-card-top">
-              <div class="reward-brand-icon">${escapeHTML(item.brand)}</div>
-              <span class="reward-card-cat">${escapeHTML(item.category)}</span>
+            <div class="store-card-header">
+              <div class="store-card-monogram">${monogram}</div>
+              <div class="store-card-badges">
+                <span class="store-card-category-tag">${escapeHTML(item.category)}</span>
+                <span class="store-card-fulfillment-badge">${fulfillmentBadge}</span>
+              </div>
             </div>
-            <h3 class="reward-card-title">${escapeHTML(item.title)}</h3>
-            <p class="reward-card-desc">${escapeHTML(item.desc)}</p>
+
+            <h3 class="store-card-title">${escapeHTML(item.title)}</h3>
+            <p class="store-card-desc">${escapeHTML(item.desc)}</p>
+
+            <div class="store-card-denom-label">Select Denomination / Tier</div>
+            <div class="store-card-denoms">
+              ${denomPills}
+            </div>
           </div>
 
           <div>
-            <div class="input-field-group" style="margin-bottom: 12px;">
-              <label class="input-label" style="font-size: 11px;">Select Value / Tier</label>
-              <select class="select-input reward-denom-select" style="height:34px; font-size:12px;" data-id="${item.id}">
-                ${denomOptions}
-              </select>
+            <div class="store-card-pricing-row">
+              <div class="store-card-pricing-left">
+                <div class="store-card-pts">${totalPts.toLocaleString()} pts</div>
+                <div class="store-card-usd">Valued at $${totalUsd} USD</div>
+              </div>
             </div>
 
-            <div class="reward-card-pricing">
-              <div>
-                <div class="reward-pts-price" id="pts-display-${item.id}">${defaultDenom.pts} pts</div>
-                <div class="reward-usd-eq" id="usd-display-${item.id}">Valued at $${defaultDenom.usd}.00 USD</div>
+            <div class="store-card-actions">
+              <div class="store-card-qty">
+                <button type="button" class="store-card-qty-btn btn-store-minus" data-item-id="${item.id}" title="Decrease quantity">&ndash;</button>
+                <span class="store-card-qty-val">${cardQty}</span>
+                <button type="button" class="store-card-qty-btn btn-store-plus" data-item-id="${item.id}" title="Increase quantity">+</button>
               </div>
-              <button type="button" class="btn btn-primary btn-sm btn-add-to-cart" data-id="${item.id}">
-                Add to Cart +
+
+              <button type="button" class="btn btn-primary store-card-add-btn btn-store-add" data-item-id="${item.id}">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                Add to Cart
               </button>
             </div>
           </div>
@@ -613,42 +771,63 @@
       `;
     }).join('');
 
-    // Attach listeners for denomination changes
-    el.marketplaceCatalogGrid.querySelectorAll('.reward-denom-select').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const catalogId = e.target.dataset.id;
-        const item = CATALOG_ITEMS.find(c => c.id === catalogId);
-        if (!item) return;
-        const selectedIndex = parseInt(e.target.value, 10);
-        const denom = item.denominations[selectedIndex];
-        if (denom) {
-          const ptsEl = document.getElementById(`pts-display-${catalogId}`);
-          const usdEl = document.getElementById(`usd-display-${catalogId}`);
-          if (ptsEl) ptsEl.textContent = `${denom.pts} pts`;
-          if (usdEl) usdEl.textContent = `Valued at $${denom.usd}.00 USD`;
+    // Attach listeners for denomination selection
+    el.storeCatalogGrid.querySelectorAll('.store-card-denom-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const itemId = e.target.dataset.itemId;
+        const dIdx = parseInt(e.target.dataset.denomIndex, 10);
+        if (!state.cardSelections[itemId]) {
+          state.cardSelections[itemId] = { denomIndex: 0, qty: 1 };
         }
+        state.cardSelections[itemId].denomIndex = dIdx;
+        renderStoreCatalog();
+      });
+    });
+
+    // Attach listeners for Qty minus
+    el.storeCatalogGrid.querySelectorAll('.btn-store-minus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const itemId = e.currentTarget.dataset.itemId;
+        if (!state.cardSelections[itemId]) {
+          state.cardSelections[itemId] = { denomIndex: 0, qty: 1 };
+        }
+        state.cardSelections[itemId].qty = Math.max(1, (state.cardSelections[itemId].qty || 1) - 1);
+        renderStoreCatalog();
+      });
+    });
+
+    // Attach listeners for Qty plus
+    el.storeCatalogGrid.querySelectorAll('.btn-store-plus').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const itemId = e.currentTarget.dataset.itemId;
+        if (!state.cardSelections[itemId]) {
+          state.cardSelections[itemId] = { denomIndex: 0, qty: 1 };
+        }
+        state.cardSelections[itemId].qty = Math.min(10, (state.cardSelections[itemId].qty || 1) + 1);
+        renderStoreCatalog();
       });
     });
 
     // Attach listeners for Add to Cart
-    el.marketplaceCatalogGrid.querySelectorAll('.btn-add-to-cart').forEach(btn => {
+    el.storeCatalogGrid.querySelectorAll('.btn-store-add').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const catalogId = e.target.dataset.id;
-        const item = CATALOG_ITEMS.find(c => c.id === catalogId);
+        const itemId = e.currentTarget.dataset.itemId;
+        const item = CATALOG_ITEMS.find(c => c.id === itemId);
         if (!item) return;
-        const sel = el.marketplaceCatalogGrid.querySelector(`.reward-denom-select[data-id="${catalogId}"]`);
-        const idx = sel ? parseInt(sel.value, 10) : 0;
-        const denom = item.denominations[idx] || item.denominations[0];
-        addToCart(item, denom);
+        const sel = state.cardSelections[itemId] || { denomIndex: 0, qty: 1 };
+        const denom = item.denominations[sel.denomIndex] || item.denominations[0];
+        const qty = sel.qty || 1;
+        addToCart(item, denom, qty);
+        openCartDrawer();
       });
     });
   }
 
   // Add Item to Cart
-  function addToCart(item, denom) {
+  function addToCart(item, denom, qty = 1) {
     const existing = state.cart.find(c => c.catalogId === item.id && c.pts === denom.pts);
     if (existing) {
-      existing.quantity += 1;
+      existing.quantity += qty;
     } else {
       state.cart.push({
         cartId: `${item.id}_${denom.pts}_${Date.now()}`,
@@ -659,13 +838,14 @@
         label: denom.label,
         pts: denom.pts,
         usd: denom.usd,
-        quantity: 1
+        quantity: qty
       });
     }
 
     saveState();
     updateUI();
-    showToast(`Added ${item.title} (${denom.label}) to your cart.`);
+    renderCartDrawer();
+    showToast(`Added ${qty}x ${item.title} (${denom.label}) to cart.`);
   }
 
   // Update Cart Quantity
@@ -678,7 +858,7 @@
     }
     saveState();
     updateUI();
-    renderCartModal();
+    renderCartDrawer();
   }
 
   // Remove Item from Cart
@@ -686,80 +866,107 @@
     state.cart = state.cart.filter(c => c.cartId !== cartId);
     saveState();
     updateUI();
-    renderCartModal();
+    renderCartDrawer();
   }
 
-  // Render Cart Modal
-  function renderCartModal() {
-    if (!el.cartItemsList) return;
+  // Render Slide-Over Cart Drawer
+  function renderCartDrawer() {
+    if (!el.cartDrawerBody) return;
     const totalPts = state.cart.reduce((sum, item) => sum + (item.pts * item.quantity), 0);
+    const totalUsd = (totalPts * 0.1).toFixed(2);
     const hasCashWire = state.cart.some(item => item.category === 'Direct Cash');
 
-    if (el.cartAvailableBalance) el.cartAvailableBalance.textContent = `${state.points.toLocaleString()} pts`;
-    if (el.cartTotalCost) el.cartTotalCost.textContent = `${totalPts.toLocaleString()} pts`;
-    if (el.cartBtnPoints) el.cartBtnPoints.textContent = `${totalPts.toLocaleString()} pts`;
+    if (el.drawerBalAvailable) el.drawerBalAvailable.textContent = `${state.points.toLocaleString()} pts`;
+    if (el.drawerBalCost) el.drawerBalCost.textContent = `${totalPts.toLocaleString()} pts`;
+    if (el.drawerBalUsd) el.drawerBalUsd.textContent = `≈ $${totalUsd} USD`;
 
     // Show/hide bank wire section if ACH cash payout in cart
-    if (el.cartBankWireSection) {
-      el.cartBankWireSection.style.display = hasCashWire ? 'block' : 'none';
+    if (el.drawerAchFields) {
+      el.drawerAchFields.style.display = hasCashWire ? 'block' : 'none';
     }
 
     // Default email to user email
-    if (el.cartDeliveryEmail && !el.cartDeliveryEmail.value && state.user) {
-      el.cartDeliveryEmail.value = state.user.email || '';
+    if (el.drawerInputEmail && !el.drawerInputEmail.value && state.user) {
+      el.drawerInputEmail.value = state.user.email || '';
+    }
+
+    // Balance notice & checkout button state
+    if (el.drawerBalDiffNotice) {
+      if (state.cart.length === 0) {
+        el.drawerBalDiffNotice.innerHTML = '';
+        el.drawerBalDiffNotice.className = 'cart-balance-notice';
+        if (el.btnDrawerRedeemSubmit) el.btnDrawerRedeemSubmit.disabled = true;
+      } else if (state.points >= totalPts) {
+        const rem = state.points - totalPts;
+        el.drawerBalDiffNotice.className = 'cart-balance-notice ok';
+        el.drawerBalDiffNotice.innerHTML = `✓ Sufficient balance. <strong>${rem.toLocaleString()} pts</strong> will remain in your balance.`;
+        if (el.btnDrawerRedeemSubmit) el.btnDrawerRedeemSubmit.disabled = false;
+      } else {
+        const short = totalPts - state.points;
+        el.drawerBalDiffNotice.className = 'cart-balance-notice danger';
+        el.drawerBalDiffNotice.innerHTML = `⚠ Insufficient balance. You need <strong>${short.toLocaleString()} more pts</strong> ($${(short * 0.1).toFixed(2)}) to redeem this cart.`;
+        if (el.btnDrawerRedeemSubmit) el.btnDrawerRedeemSubmit.disabled = true;
+      }
     }
 
     if (state.cart.length === 0) {
-      el.cartItemsList.innerHTML = `
-        <div style="text-align: center; padding: 36px 16px; color: var(--text-muted); font-size: 13px;">
-          Your rewards cart is empty.<br>Browse the catalog above to select gift cards, NGO donations, or cash wire transfers.
+      el.cartDrawerBody.innerHTML = `
+        <div class="cart-drawer-empty">
+          <div class="cart-drawer-empty-icon">
+            <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          </div>
+          <div class="cart-drawer-empty-title">Your Rewards Cart is Empty</div>
+          <div class="cart-drawer-empty-desc">
+            Browse the marketplace catalog to select corporate gift cards, donate to vetted NGOs, or request direct ACH bank wires.
+          </div>
         </div>
       `;
-      if (el.btnConfirmRedeemCart) el.btnConfirmRedeemCart.disabled = true;
       return;
     }
 
-    if (el.btnConfirmRedeemCart) el.btnConfirmRedeemCart.disabled = false;
-
-    el.cartItemsList.innerHTML = state.cart.map(item => `
-      <div class="cart-item-row">
-        <div>
-          <div style="font-weight: 600; font-size: 14px;">${escapeHTML(item.title)}</div>
-          <div style="font-size: 12px; color: var(--text-muted);">${escapeHTML(item.label)} · ${item.pts} pts each</div>
+    el.cartDrawerBody.innerHTML = state.cart.map(item => `
+      <div class="cart-drawer-item" data-cart-id="${item.cartId}">
+        <div class="cart-drawer-item-top">
+          <div>
+            <div class="cart-drawer-item-title">${escapeHTML(item.title)}</div>
+            <div class="cart-drawer-item-meta">${escapeHTML(item.label)} &middot; ${item.pts.toLocaleString()} pts each</div>
+          </div>
+          <button type="button" class="btn btn-subtle btn-sm btn-drawer-del" data-cart-id="${item.cartId}" title="Remove item" style="padding: 0 6px; color: var(--text-faint); font-size: 16px;">&times;</button>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 16px;">
-          <div class="cart-qty-ctrl">
-            <button type="button" class="cart-qty-btn btn-cart-minus" data-id="${item.cartId}">–</button>
-            <span class="cart-qty-val">${item.quantity}</span>
-            <button type="button" class="cart-qty-btn btn-cart-plus" data-id="${item.cartId}">+</button>
+        <div class="cart-drawer-item-bottom">
+          <div class="store-card-qty" style="height: 30px;">
+            <button type="button" class="store-card-qty-btn btn-drawer-minus" data-cart-id="${item.cartId}" style="width: 24px; height: 30px;">&ndash;</button>
+            <span class="store-card-qty-val" style="width: 28px; font-size: 12px;">${item.quantity}</span>
+            <button type="button" class="store-card-qty-btn btn-drawer-plus" data-cart-id="${item.cartId}" style="width: 24px; height: 30px;">+</button>
           </div>
-          <strong style="font-family: var(--font-mono); font-size: 13.5px; min-width: 70px; text-align: right;">
+
+          <div class="cart-drawer-item-subtotal">
             ${(item.pts * item.quantity).toLocaleString()} pts
-          </strong>
-          <button type="button" class="btn btn-subtle btn-sm btn-cart-del" data-id="${item.cartId}" title="Remove" style="padding: 0 6px; color: var(--text-faint);">✕</button>
+          </div>
         </div>
       </div>
     `).join('');
 
     // Attach listeners
-    el.cartItemsList.querySelectorAll('.btn-cart-minus').forEach(btn => {
-      btn.addEventListener('click', (e) => updateCartQty(e.target.dataset.id, -1));
+    el.cartDrawerBody.querySelectorAll('.btn-drawer-minus').forEach(btn => {
+      btn.addEventListener('click', (e) => updateCartQty(e.currentTarget.dataset.cartId, -1));
     });
-    el.cartItemsList.querySelectorAll('.btn-cart-plus').forEach(btn => {
-      btn.addEventListener('click', (e) => updateCartQty(e.target.dataset.id, 1));
+    el.cartDrawerBody.querySelectorAll('.btn-drawer-plus').forEach(btn => {
+      btn.addEventListener('click', (e) => updateCartQty(e.currentTarget.dataset.cartId, 1));
     });
-    el.cartItemsList.querySelectorAll('.btn-cart-del').forEach(btn => {
-      btn.addEventListener('click', (e) => removeCartItem(e.target.dataset.id));
+    el.cartDrawerBody.querySelectorAll('.btn-drawer-del').forEach(btn => {
+      btn.addEventListener('click', (e) => removeCartItem(e.currentTarget.dataset.cartId));
     });
   }
 
-  // Handle Confirm Cart Checkout
-  function handleConfirmCheckout() {
+  // Handle Cart Redemption via Drawer
+  function handleDrawerCheckoutSubmit() {
     const totalPts = state.cart.reduce((sum, item) => sum + (item.pts * item.quantity), 0);
-    const email = el.cartDeliveryEmail.value.trim();
+    const email = (el.drawerInputEmail?.value || '').trim();
     const hasCashWire = state.cart.some(item => item.category === 'Direct Cash');
-    const bankDetails = el.cartBankDetails.value.trim();
+    const bankDetails = (el.drawerInputBank?.value || '').trim();
+    const notes = (el.drawerInputNotes?.value || '').trim();
 
     if (totalPts <= 0) {
       alert('Your cart is empty. Please add items before checking out.');
@@ -773,11 +980,13 @@
 
     if (!email) {
       alert('Please enter a delivery email address for your electronic rewards and donation receipts.');
+      if (el.drawerInputEmail) el.drawerInputEmail.focus();
       return;
     }
 
     if (hasCashWire && !bankDetails) {
       alert('Please provide your bank routing and account number for the direct wire payout.');
+      if (el.drawerInputBank) el.drawerInputBank.focus();
       return;
     }
 
@@ -785,7 +994,7 @@
     const summaryItems = state.cart.map(c => `${c.quantity}x ${c.title} (${c.label})`).join(', ');
 
     // Record ledger entry
-    recordTransaction(`Rewards Redemption: ${state.cart.length} item(s)`, `${summaryItems} · Dispatched to ${email}`, -totalPts);
+    recordTransaction(`Rewards Redemption: ${state.cart.length} item(s)`, `${summaryItems} · Dispatched to ${email}${notes ? ` · Note: ${notes}` : ''}`, -totalPts);
 
     // Update receipt modal
     if (el.receiptOrderHash) el.receiptOrderHash.textContent = orderHash;
@@ -797,10 +1006,21 @@
     saveState();
     updateUI();
 
+    closeCartDrawer();
     closeAllModals();
     openModal(el.modalOrderSuccess);
     showToast(`Rewards order ${orderHash} processed successfully!`);
   }
+
+  // Legacy Cart Modal Checkout (delegates to same handler)
+  function handleConfirmCheckout() {
+    handleDrawerCheckoutSubmit();
+  }
+
+  function renderMarketplaceCatalog() {
+    renderStoreCatalog();
+  }
+
 
   // Record Transaction in Ledger
   function recordTransaction(title, prospect, amount) {
@@ -865,7 +1085,6 @@
     const tabs = [
       { name: 'intros', btn: el.tabSubIntros, panel: el.panelSubIntros },
       { name: 'earnings', btn: el.tabSubEarnings, panel: el.panelSubEarnings },
-      { name: 'marketplace', btn: el.tabSubMarketplace, panel: el.panelSubMarketplace },
       { name: 'agreement', btn: el.tabSubAgreement, panel: el.panelSubAgreement }
     ];
 
@@ -874,10 +1093,6 @@
       if (t.btn) t.btn.classList.toggle('active', isActive);
       if (t.panel) t.panel.style.display = isActive ? 'block' : 'none';
     });
-
-    if (activeTabName === 'marketplace') {
-      renderMarketplaceCatalog();
-    }
   }
 
   // Handle Full-Screen Introduction Submission
@@ -1291,39 +1506,110 @@
     el.signoutBtn.addEventListener('click', signout);
 
     // Workspace Subtabs Switchers
-    el.tabSubIntros.addEventListener('click', () => switchSubtab('intros'));
-    el.tabSubEarnings.addEventListener('click', () => switchSubtab('earnings'));
-    el.tabSubMarketplace.addEventListener('click', () => switchSubtab('marketplace'));
-    el.tabSubAgreement.addEventListener('click', () => switchSubtab('agreement'));
+    if (el.tabSubIntros) el.tabSubIntros.addEventListener('click', () => switchSubtab('intros'));
+    if (el.tabSubEarnings) el.tabSubEarnings.addEventListener('click', () => switchSubtab('earnings'));
+    if (el.tabSubAgreement) el.tabSubAgreement.addEventListener('click', () => switchSubtab('agreement'));
 
-    // Request Payout Button in Earnings Card directly opens Marketplace
-    el.btnOpenPayoutModal.addEventListener('click', () => {
-      switchSubtab('marketplace');
-      showToast('Welcome to the Rewards Marketplace. Pick your rewards and add to cart.');
-    });
-
-    // Marketplace Category Filters
-    document.querySelectorAll('.marketplace-cat-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.marketplace-cat-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        state.activeCategory = e.target.dataset.category || 'ALL';
-        renderMarketplaceCatalog();
+    // Dedicated Marketplace Screen Triggers
+    if (el.btnBackToDashboard) {
+      el.btnBackToDashboard.addEventListener('click', closeMarketplaceScreen);
+    }
+    if (el.btnGotoMarketplaceHero) {
+      el.btnGotoMarketplaceHero.addEventListener('click', openMarketplaceScreen);
+    }
+    if (el.btnOpenMarketplaceTab) {
+      el.btnOpenMarketplaceTab.addEventListener('click', openMarketplaceScreen);
+    }
+    if (el.btnOpenPayoutModal) {
+      el.btnOpenPayoutModal.addEventListener('click', () => {
+        openMarketplaceScreen();
+        showToast('Welcome to the Rewards Marketplace. Pick your rewards and add to cart.');
       });
-    });
+    }
 
-    // Open Cart Modals
-    el.btnNavCart.addEventListener('click', () => {
-      renderCartModal();
-      openModal(el.modalCartCheckout);
-    });
-    el.btnOpenCartHero.addEventListener('click', () => {
-      renderCartModal();
-      openModal(el.modalCartCheckout);
-    });
+    // Store Cart Drawer Triggers
+    if (el.btnOpenStoreCart) {
+      el.btnOpenStoreCart.addEventListener('click', openCartDrawer);
+    }
+    if (el.btnNavCart) {
+      el.btnNavCart.addEventListener('click', () => {
+        if (el.viewMarketplaceStore && el.viewMarketplaceStore.style.display !== 'none') {
+          openCartDrawer();
+        } else {
+          openMarketplaceScreen();
+          openCartDrawer();
+        }
+      });
+    }
+    if (el.btnOpenCartHero) {
+      el.btnOpenCartHero.addEventListener('click', () => {
+        openMarketplaceScreen();
+        openCartDrawer();
+      });
+    }
+    if (el.btnCloseCartDrawer) {
+      el.btnCloseCartDrawer.addEventListener('click', closeCartDrawer);
+    }
+    if (el.storeCartDrawer) {
+      el.storeCartDrawer.addEventListener('click', (e) => {
+        if (e.target === el.storeCartDrawer) {
+          closeCartDrawer();
+        }
+      });
+    }
 
-    // Confirm Cart Checkout
-    el.btnConfirmRedeemCart.addEventListener('click', handleConfirmCheckout);
+    // Store Cart Redemption
+    if (el.btnDrawerRedeemSubmit) {
+      el.btnDrawerRedeemSubmit.addEventListener('click', handleDrawerCheckoutSubmit);
+    }
+    if (el.btnConfirmRedeemCart) {
+      el.btnConfirmRedeemCart.addEventListener('click', handleDrawerCheckoutSubmit);
+    }
+
+    // Store Live Search
+    if (el.storeSearchInput) {
+      el.storeSearchInput.addEventListener('input', (e) => {
+        state.storeSearch = e.target.value;
+        renderStoreCatalog();
+      });
+    }
+    if (el.btnClearStoreSearch) {
+      el.btnClearStoreSearch.addEventListener('click', () => {
+        state.storeSearch = '';
+        if (el.storeSearchInput) el.storeSearchInput.value = '';
+        renderStoreCatalog();
+      });
+    }
+
+    // Store Sorting
+    if (el.storeSortDropdown) {
+      el.storeSortDropdown.addEventListener('change', (e) => {
+        state.storeSort = e.target.value;
+        renderStoreCatalog();
+      });
+    }
+
+    // Store Category Filter Pills
+    if (el.storeCatFilters) {
+      el.storeCatFilters.querySelectorAll('.store-pill').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          el.storeCatFilters.querySelectorAll('.store-pill').forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          state.storeCategory = e.currentTarget.dataset.category || 'ALL';
+          renderStoreCatalog();
+        });
+      });
+    }
+
+    // Store Theme Toggle
+    if (el.btnStoreThemeToggle) {
+      el.btnStoreThemeToggle.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = cur === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('partner_theme_v3', next);
+      });
+    }
 
     // Search & Filter
     el.searchIntros.addEventListener('input', renderIntros);
