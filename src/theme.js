@@ -10,7 +10,7 @@ function setTheme(themeName) {
   document.documentElement.setAttribute("data-astryx-theme", "neutral");
   localStorage.setItem("gtm_theme", theme);
   updateThemeUI(theme);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#f5f5f5" : "#171614");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#ffffff" : "#09090b");
   document.dispatchEvent(new CustomEvent("gtm-theme-change", { detail: { theme } }));
 }
 
