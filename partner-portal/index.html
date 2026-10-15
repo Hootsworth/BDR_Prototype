@@ -6,6 +6,10 @@
   <title>Partner Portal · Executive Advisory Network</title>
   <meta name="description" content="Clean, uncluttered, human-friendly partner portal for executive introductions.">
   <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase App & Auth SDK (v10 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -44,6 +48,23 @@
           <p>Access your executive advisory introductions and milestone earnings.</p>
         </div>
 
+        <!-- Google Single Sign-On Button -->
+        <div class="oauth-buttons" style="margin-bottom: 20px;">
+          <button type="button" id="btn-google-auth" class="btn btn-secondary btn-lg" style="width: 100%; justify-content: center; gap: 10px; font-weight: 600; font-family: var(--font-display); height: 48px; border: 1px solid var(--border); background: var(--surface);">
+            <svg class="icon icon-sm" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.15z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.76-2.1-6.7-4.93H1.27v3.15C3.25 21.31 7.31 24 12 24z"/>
+              <path fill="#FBBC05" d="M5.3 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.27C.46 8.2 0 10.04 0 12s.46 3.8 1.27 5.42l4.03-3.15z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.69 1.27 6.58l4.03 3.15c.94-2.83 3.58-4.98 6.7-4.98z"/>
+            </svg>
+            Continue with Google
+          </button>
+        </div>
+
+        <div class="auth-divider">
+          <span>or continue with email</span>
+        </div>
+
         <div class="segmented-control" role="tablist">
           <button type="button" class="active" id="tab-auth-signin" role="tab">Sign In</button>
           <button type="button" id="tab-auth-signup" role="tab">Create Account</button>
@@ -63,15 +84,14 @@
             <input type="password" id="signin-password" class="text-input" placeholder="••••••••••••" required autocomplete="current-password">
           </div>
 
-          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 10px;">
-            Sign In
+          <button type="submit" id="btn-submit-signin" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 10px;">
+            Sign In with Email
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
 
-          <div style="margin-top: 16px; text-align: center;">
-            <button type="button" id="btn-quick-demo" class="btn btn-subtle btn-sm" style="width: 100%;">
-              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Test Drive as Demo Partner (1-Click)
+          <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+            <button type="button" id="btn-forgot-password" class="btn btn-subtle btn-sm" style="font-size: 12px; padding: 4px 8px; color: var(--text-muted);">
+              Forgot password?
             </button>
           </div>
         </form>
@@ -144,8 +164,8 @@
       <!-- Greeting & Top Actions -->
       <div class="workspace-hero">
         <div class="hero-text">
-          <h1>Welcome back, <span id="user-first-name">Jordan</span></h1>
-          <p id="user-subtext">Pacific Advisory Partners · Managing Partner</p>
+          <h1>Welcome back, <span id="user-first-name">Partner</span></h1>
+          <p id="user-subtext">Enterprise Advisory · Managing Partner</p>
         </div>
         <div class="hero-actions">
           <a id="link-calendly-intro" href="https://calendly.com" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
@@ -334,7 +354,7 @@
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; padding: 18px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-subtle);">
             <div>
               <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">EXECUTED BY</div>
-              <strong id="agreement-meta-signer">Jordan Vance</strong>
+              <strong id="agreement-meta-signer">Verified Partner</strong>
             </div>
             <div>
               <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">TIMESTAMP</div>
@@ -681,7 +701,7 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
         <div style="border-top: 1px solid var(--border-light); padding-top: 16px;">
           <div class="input-field-group">
             <label class="input-label" for="agreement-signer-field">Digital Signature (Legal Name)</label>
-            <input type="text" id="agreement-signer-field" class="text-input" placeholder="Jordan Vance">
+            <input type="text" id="agreement-signer-field" class="text-input" placeholder="Your Legal Name">
           </div>
           <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
             <input type="checkbox" id="agreement-modal-consent" checked>
@@ -725,7 +745,7 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
           
           <div class="input-field-group">
             <label class="input-label" for="cart-delivery-email">Fulfillment Email Address (for e-gift cards &amp; NGO donation receipts) *</label>
-            <input type="email" id="cart-delivery-email" class="text-input" placeholder="jordan@pacificadvisory.com" required>
+            <input type="email" id="cart-delivery-email" class="text-input" placeholder="partner@firm.com" required>
           </div>
 
           <div id="cart-bank-wire-section" style="display: none;" class="input-field-group">

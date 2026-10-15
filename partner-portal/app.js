@@ -11,6 +11,29 @@
   const STORAGE_KEY_CART = 'connectem_partner_v3_cart';
   const API_BASE = window.PARTNER_API_BASE || (window.location.origin.includes('localhost') ? '' : 'https://connectem.ai');
 
+  // Official Firebase Project Config for 'bdrcreek'
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBYND-VnhlE9GY7ePGpCM50IdnggfZKqao",
+    authDomain: "bdrcreek.firebaseapp.com",
+    projectId: "bdrcreek",
+    storageBucket: "bdrcreek.firebasestorage.app",
+    messagingSenderId: "963692172559",
+    appId: "1:963692172559:web:b64288c9c84637b310da7a",
+    measurementId: "G-EJCHQLTSNQ"
+  };
+
+  let auth = null;
+  if (typeof window !== 'undefined' && window.firebase && typeof window.firebase.initializeApp === 'function') {
+    try {
+      if (!window.firebase.apps || !window.firebase.apps.length) {
+        window.firebase.initializeApp(FIREBASE_CONFIG);
+      }
+      auth = window.firebase.auth();
+    } catch (err) {
+      console.warn("Firebase Auth initialization:", err);
+    }
+  }
+
   // Rewards Marketplace Catalog
   const CATALOG_ITEMS = [
     {
@@ -153,11 +176,11 @@
     activeCategory: 'ALL',
     agreement: {
       signed: true,
-      signedBy: 'Jordan Vance',
+      signedBy: 'Verified Partner',
       signedAt: 'Oct 15, 2026',
       hash: '#IRM-88214-VERIFIED'
     },
-    points: 1200
+    points: 0
   };
 
   // DOM Elements Cache
@@ -175,12 +198,15 @@
     viewWorkspace: document.getElementById('view-workspace'),
     viewFullscreenIntro: document.getElementById('view-fullscreen-intro'),
 
-    // Auth Forms & Tabs
+    // Auth Forms, Google SSO & Tabs
     tabAuthSignin: document.getElementById('tab-auth-signin'),
     tabAuthSignup: document.getElementById('tab-auth-signup'),
     formSignin: document.getElementById('form-signin'),
     formSignup: document.getElementById('form-signup'),
-    btnQuickDemo: document.getElementById('btn-quick-demo'),
+    btnGoogleAuth: document.getElementById('btn-google-auth'),
+    btnForgotPassword: document.getElementById('btn-forgot-password'),
+    btnSubmitSignin: document.getElementById('btn-submit-signin'),
+    btnSubmitSignup: document.getElementById('btn-submit-signup'),
     authFeedback: document.getElementById('auth-feedback'),
 
     // Workspace Hero & Header
@@ -334,32 +360,38 @@
   // Local Storage Persistence
   function saveState() {
     if (!state.user) return;
+    const keyId = state.user.uid || state.user.email;
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(state.user));
-    localStorage.setItem(`${STORAGE_KEY_DATA}_${state.user.email}`, JSON.stringify({
+    localStorage.setItem(`${STORAGE_KEY_DATA}_${keyId}`, JSON.stringify({
       intros: state.intros,
       statement: state.statement,
       agreement: state.agreement,
       points: state.points
     }));
-    localStorage.setItem(`${STORAGE_KEY_CART}_${state.user.email}`, JSON.stringify(state.cart));
+    localStorage.setItem(`${STORAGE_KEY_CART}_${keyId}`, JSON.stringify(state.cart));
   }
 
-  function loadState() {
+  function loadState(uid, email) {
     try {
-      const rawUser = localStorage.getItem(STORAGE_KEY_USER);
-      if (!rawUser) return false;
-      state.user = JSON.parse(rawUser);
-      const rawData = localStorage.getItem(`${STORAGE_KEY_DATA}_${state.user.email}`);
+      const keyId = uid || email || state.user?.uid || state.user?.email;
+      if (!keyId) return false;
+      const rawData = localStorage.getItem(`${STORAGE_KEY_DATA}_${keyId}`);
       if (rawData) {
         const d = JSON.parse(rawData);
         state.intros = d.intros || [];
         state.statement = d.statement || [];
         state.agreement = d.agreement || state.agreement;
-        state.points = d.points !== undefined ? d.points : state.points;
+        state.points = d.points !== undefined ? d.points : 0;
+      } else {
+        state.intros = [];
+        state.statement = [];
+        state.points = 0;
       }
-      const rawCart = localStorage.getItem(`${STORAGE_KEY_CART}_${state.user.email}`);
+      const rawCart = localStorage.getItem(`${STORAGE_KEY_CART}_${keyId}`);
       if (rawCart) {
         state.cart = JSON.parse(rawCart) || [];
+      } else {
+        state.cart = [];
       }
       return true;
     } catch (_) {
@@ -930,12 +962,230 @@
     showToast(`Introduction for ${name} submitted (+200 pts). Meeting coordination initiated.`);
   }
 
+  // Auth Feedback Messaging
+  function showAuthFeedback(msg, type = 'error') {
+    if (!el.authFeedback) return;
+    el.authFeedback.textContent = msg;
+    el.authFeedback.style.display = 'block';
+    if (type === 'error') {
+      el.authFeedback.style.background = 'rgba(239, 68, 68, 0.08)';
+      el.authFeedback.style.color = '#ef4444';
+      el.authFeedback.style.border = '1px solid #ef4444';
+    } else {
+      el.authFeedback.style.background = 'var(--bg-subtle)';
+      el.authFeedback.style.color = 'var(--text)';
+      el.authFeedback.style.border = '1px solid var(--border)';
+    }
+  }
+
+  function clearAuthFeedback() {
+    if (el.authFeedback) {
+      el.authFeedback.textContent = '';
+      el.authFeedback.style.display = 'none';
+    }
+  }
+
+  function getFriendlyAuthError(err) {
+    if (!err) return 'Authentication error occurred.';
+    const code = err.code || '';
+    switch (code) {
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        return 'Incorrect work email or password. Please verify your credentials.';
+      case 'auth/email-already-in-use':
+        return 'An account with this email address already exists. Please switch to Sign In.';
+      case 'auth/weak-password':
+        return 'Password must be at least 6 characters.';
+      case 'auth/invalid-email':
+        return 'Please enter a valid work email address.';
+      case 'auth/popup-closed-by-user':
+        return 'Google sign-in was cancelled.';
+      case 'auth/popup-blocked':
+        return 'Sign-in popup was blocked by your browser. Please allow popups for this domain.';
+      case 'auth/unauthorized-domain':
+        return 'Domain is not in the Firebase authorized list. Please open this app at http://localhost:8080 or use Email Sign In.';
+      case 'auth/too-many-requests':
+        return 'Too many sign-in attempts. Please wait a moment and try again.';
+      default:
+        return err.message || 'Authentication failed. Please try again.';
+    }
+  }
+
+  // Firebase Auth Operations
+  async function signInWithGoogle() {
+    clearAuthFeedback();
+    if (!auth) {
+      showAuthFeedback('Firebase Auth service is unavailable.', 'error');
+      return;
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    try {
+      if (el.btnGoogleAuth) {
+        el.btnGoogleAuth.disabled = true;
+        el.btnGoogleAuth.style.opacity = '0.7';
+      }
+      await auth.signInWithPopup(provider);
+      // onAuthStateChanged triggers handleFirebaseUserSignedIn
+    } catch (err) {
+      console.error('Google Auth error:', err);
+      showAuthFeedback(getFriendlyAuthError(err), 'error');
+    } finally {
+      if (el.btnGoogleAuth) {
+        el.btnGoogleAuth.disabled = false;
+        el.btnGoogleAuth.style.opacity = '1';
+      }
+    }
+  }
+
+  async function signInWithEmail(email, password) {
+    clearAuthFeedback();
+    if (!auth) {
+      showAuthFeedback('Firebase Auth service is unavailable.', 'error');
+      return;
+    }
+    const btn = el.btnSubmitSignin || el.formSignin?.querySelector('button[type="submit"]');
+    try {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+      }
+      await auth.signInWithEmailAndPassword(email, password);
+      // onAuthStateChanged triggers handleFirebaseUserSignedIn
+    } catch (err) {
+      console.error('Email sign-in error:', err);
+      showAuthFeedback(getFriendlyAuthError(err), 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `
+          Sign In with Email
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        `;
+      }
+    }
+  }
+
+  async function signUpWithEmail(profileData) {
+    clearAuthFeedback();
+    if (!auth) {
+      showAuthFeedback('Firebase Auth service is unavailable.', 'error');
+      return;
+    }
+    const btn = el.btnSubmitSignup || el.formSignup?.querySelector('button[type="submit"]');
+    try {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Creating account...';
+      }
+      const cred = await auth.createUserWithEmailAndPassword(profileData.email, profileData.password);
+      if (cred.user && profileData.fullName) {
+        await cred.user.updateProfile({ displayName: profileData.fullName });
+      }
+      // Save custom profile metadata locally
+      localStorage.setItem(`connectem_partner_meta_${cred.user.uid}`, JSON.stringify({
+        fullName: profileData.fullName,
+        company: profileData.company,
+        jobTitle: profileData.jobTitle,
+        domain: profileData.domain,
+        linkedin: profileData.linkedin
+      }));
+      // onAuthStateChanged triggers handleFirebaseUserSignedIn
+    } catch (err) {
+      console.error('Email sign-up error:', err);
+      showAuthFeedback(getFriendlyAuthError(err), 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `
+          Create Partner Account
+          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        `;
+      }
+    }
+  }
+
+  async function handleForgotPassword() {
+    clearAuthFeedback();
+    const emailField = document.getElementById('signin-email');
+    const email = (emailField ? emailField.value : '').trim();
+    if (!email) {
+      showAuthFeedback('Please enter your work email address in the field above first.', 'error');
+      if (emailField) emailField.focus();
+      return;
+    }
+    if (!auth) {
+      showAuthFeedback('Firebase Auth service is unavailable.', 'error');
+      return;
+    }
+    try {
+      await auth.sendPasswordResetEmail(email);
+      showAuthFeedback(`A password reset link has been dispatched to ${email}.`, 'info');
+      showToast('Password reset link sent.');
+    } catch (err) {
+      showAuthFeedback(getFriendlyAuthError(err), 'error');
+    }
+  }
+
+  function handleFirebaseUserSignedIn(firebaseUser) {
+    clearAuthFeedback();
+    const uid = firebaseUser.uid;
+    const email = firebaseUser.email || '';
+
+    let meta = null;
+    try {
+      const raw = localStorage.getItem(`connectem_partner_meta_${uid}`);
+      if (raw) meta = JSON.parse(raw);
+    } catch (_) {}
+
+    const fullName = meta?.fullName || firebaseUser.displayName || email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Executive Partner';
+    const company = meta?.company || 'Advisory Partner';
+    const jobTitle = meta?.jobTitle || 'Executive Partner';
+    const domain = meta?.domain || 'Enterprise SaaS';
+
+    const partnerUser = {
+      uid,
+      email,
+      fullName,
+      company,
+      jobTitle,
+      domain,
+      photoURL: firebaseUser.photoURL || ''
+    };
+
+    loadState(uid, email);
+
+    if (!state.agreement || !state.agreement.signedBy || state.agreement.signedBy === 'Jordan Vance') {
+      state.agreement = {
+        signed: true,
+        signedBy: fullName,
+        signedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        hash: `#IRM-${uid.slice(0, 8).toUpperCase()}-VERIFIED`
+      };
+    }
+
+    activateWorkspace(partnerUser);
+  }
+
+  function handleFirebaseUserSignedOut() {
+    state.user = null;
+    localStorage.removeItem(STORAGE_KEY_USER);
+    if (el.viewAuth) el.viewAuth.style.display = 'block';
+    if (el.viewWorkspace) el.viewWorkspace.style.display = 'none';
+    if (el.signoutBtn) el.signoutBtn.style.display = 'none';
+    if (el.navBalancePill) el.navBalancePill.style.display = 'none';
+    if (el.btnNavCart) el.btnNavCart.style.display = 'none';
+    closeFullscreenIntroWorkspace();
+  }
+
   // Activate Workspace for User
   function activateWorkspace(user) {
     state.user = user;
-    const firstName = (user.fullName || 'Jordan').split(' ')[0];
+    const firstName = (user.fullName || user.email?.split('@')[0] || 'Partner').split(' ')[0];
     if (el.userFirstName) el.userFirstName.textContent = firstName;
-    if (el.userSubtext) el.userSubtext.textContent = `${user.company || 'Pacific Advisory'} · ${user.jobTitle || 'Managing Partner'} · ${user.domain || 'Enterprise SaaS'}`;
+    if (el.userSubtext) el.userSubtext.textContent = `${user.company || 'Advisory Partner'} · ${user.jobTitle || 'Executive Partner'} · ${user.domain || 'Enterprise SaaS'}`;
     if (el.agreementSignerField) el.agreementSignerField.value = user.fullName || '';
 
     el.viewAuth.style.display = 'none';
@@ -952,21 +1202,23 @@
   }
 
   // Sign Out
-  function signout() {
-    state.user = null;
-    localStorage.removeItem(STORAGE_KEY_USER);
-    el.viewAuth.style.display = 'block';
-    el.viewWorkspace.style.display = 'none';
-    el.signoutBtn.style.display = 'none';
-    el.navBalancePill.style.display = 'none';
-    el.btnNavCart.style.display = 'none';
-    closeFullscreenIntroWorkspace();
+  async function signout() {
+    if (auth) {
+      try {
+        await auth.signOut();
+      } catch (err) {
+        console.warn('Sign out error:', err);
+      }
+    }
+    handleFirebaseUserSignedOut();
+    showToast('Signed out successfully.');
   }
 
   // Setup Event Listeners
   function initEvents() {
     // Auth Tab Switch
     el.tabAuthSignin.addEventListener('click', () => {
+      clearAuthFeedback();
       el.tabAuthSignin.classList.add('active');
       el.tabAuthSignup.classList.remove('active');
       el.formSignin.style.display = 'block';
@@ -974,90 +1226,33 @@
     });
 
     el.tabAuthSignup.addEventListener('click', () => {
+      clearAuthFeedback();
       el.tabAuthSignup.classList.add('active');
       el.tabAuthSignin.classList.remove('active');
       el.formSignup.style.display = 'block';
       el.formSignin.style.display = 'none';
     });
 
-    // 1-Click Demo Login
-    el.btnQuickDemo.addEventListener('click', () => {
-      activateWorkspace({
-        fullName: 'Jordan Vance',
-        company: 'Pacific Advisory Partners',
-        jobTitle: 'Managing Partner',
-        email: 'jordan@pacificadvisory.com',
-        domain: 'Enterprise SaaS'
-      });
-      // Pre-populate calm demo entries if empty
-      if (state.intros.length === 0) {
-        state.intros = [
-          {
-            id: 1,
-            name: 'Sarah Chen',
-            company: 'Databricks',
-            title: 'VP of Platform Engineering',
-            email: 'sarah.chen@databricks.com',
-            linkedin: 'https://linkedin.com',
-            warmth: 'Direct Former Colleague',
-            meetingDate: '2026-10-18',
-            meetingTime: '14:00',
-            status: 'Meeting Verified',
-            pointsAwarded: 800
-          },
-          {
-            id: 2,
-            name: 'Marcus Brody',
-            company: 'Snowflake',
-            title: 'Head of Enterprise Sales Infra',
-            email: 'm.brody@snowflake.com',
-            linkedin: 'https://linkedin.com',
-            warmth: 'Advisory Client',
-            meetingDate: '2026-10-21',
-            meetingTime: '11:30',
-            status: 'Call Scheduled',
-            pointsAwarded: 200
-          },
-          {
-            id: 3,
-            name: 'Elena Rostova',
-            company: 'Figma',
-            title: 'Director of Security Architecture',
-            email: 'elena@figma.com',
-            linkedin: 'https://linkedin.com',
-            warmth: 'Close Industry Peer',
-            status: 'Intro Submitted',
-            pointsAwarded: 200
-          }
-        ];
-        state.statement = [
-          { id: 1, title: 'Warm Intro Submission', prospect: 'Sarah Chen (Databricks)', amount: 200, date: 'Oct 12, 10:30 AM' },
-          { id: 2, title: 'Milestone: Meeting Verified', prospect: 'Sarah Chen (Databricks)', amount: 600, date: 'Oct 14, 02:15 PM' },
-          { id: 3, title: 'Warm Intro Submission', prospect: 'Marcus Brody (Snowflake)', amount: 200, date: 'Oct 15, 09:00 AM' },
-          { id: 4, title: 'Warm Intro Submission', prospect: 'Elena Rostova (Figma)', amount: 200, date: 'Oct 15, 10:00 AM' }
-        ];
-        state.points = 1200;
-        saveState();
-        updateUI();
-        renderIntros();
-        renderStatement();
-      }
-      showToast('Welcome to your partner workspace, Jordan.');
-    });
+    // Google Single Sign-On
+    if (el.btnGoogleAuth) {
+      el.btnGoogleAuth.addEventListener('click', signInWithGoogle);
+    }
+
+    // Forgot Password Trigger
+    if (el.btnForgotPassword) {
+      el.btnForgotPassword.addEventListener('click', handleForgotPassword);
+    }
 
     // Form Signin Submit
     el.formSignin.addEventListener('submit', (e) => {
       e.preventDefault();
       const email = document.getElementById('signin-email').value.trim();
-      const name = email.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase());
-      activateWorkspace({
-        fullName: name,
-        company: 'Advisory Partners',
-        jobTitle: 'Executive Partner',
-        email,
-        domain: 'Enterprise SaaS'
-      });
-      showToast(`Signed in as ${name}.`);
+      const password = document.getElementById('signin-password').value;
+      if (!email || !password) {
+        showAuthFeedback('Please enter both work email and password.', 'error');
+        return;
+      }
+      signInWithEmail(email, password);
     });
 
     // Form Signup Submit
@@ -1067,10 +1262,29 @@
       const company = document.getElementById('signup-company').value.trim();
       const jobTitle = document.getElementById('signup-title').value.trim();
       const email = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
       const domain = document.getElementById('signup-domain').value;
+      const linkedin = document.getElementById('signup-linkedin') ? document.getElementById('signup-linkedin').value.trim() : '';
+      const agree = document.getElementById('signup-agreement').checked;
 
-      activateWorkspace({ fullName: name, company, jobTitle, email, domain });
-      showToast(`Partner account created for ${name}.`);
+      if (!agree) {
+        showAuthFeedback('You must agree to the Standard Partner Network Agreement to create an account.', 'error');
+        return;
+      }
+      if (password.length < 6) {
+        showAuthFeedback('Password must be at least 6 characters long.', 'error');
+        return;
+      }
+
+      signUpWithEmail({
+        fullName: name,
+        company,
+        jobTitle,
+        email,
+        password,
+        domain,
+        linkedin
+      });
     });
 
     // Sign Out
@@ -1202,8 +1416,16 @@
     initTheme();
     initEvents();
 
-    if (loadState()) {
-      activateWorkspace(state.user);
+    if (auth) {
+      auth.onAuthStateChanged((firebaseUser) => {
+        if (firebaseUser) {
+          handleFirebaseUserSignedIn(firebaseUser);
+        } else {
+          handleFirebaseUserSignedOut();
+        }
+      });
+    } else {
+      handleFirebaseUserSignedOut();
     }
   }
 

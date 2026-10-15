@@ -11,10 +11,11 @@ A flat, minimalistic black-and-white material workspace designed specifically fo
 
 ## Features
 
-1. **Executive Sign In & Sign Up**:
-   - Tabbed authentication switcher between Sign In and Create Partner Account.
-   - Comprehensive onboarding fields: Full Legal Name, Company / Advisory Firm, Title, Work Email, Password, Location, LinkedIn Profile, and Industry Domain.
-   - One-click instant **Demo Partner Access** for immediate offline testing.
+1. **Executive Sign In & Sign Up (Firebase Auth)**:
+   - **Google Single Sign-On**: 1-click authentication using official Firebase Google OAuth provider.
+   - **Work Email & Password**: Real account creation (`createUserWithEmailAndPassword`) and sign in (`signInWithEmailAndPassword`) with password reset dispatch (`sendPasswordResetEmail`).
+   - Seamless session persistence through `onAuthStateChanged`.
+   - Comprehensive onboarding fields: Full Legal Name, Company / Advisory Firm, Title, Work Email, Password, LinkedIn Profile, and Industry Focus.
 2. **Standardized Partner Network Agreement**:
    - Digital agreement preview modal with terms, commercial fee schedule, confidentiality, and mutual NDA.
    - Digital signature capture with cryptographic verification hash generation (`#IRM-XXXXX-VERIFIED`).

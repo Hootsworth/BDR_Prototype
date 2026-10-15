@@ -303,6 +303,29 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.auth-divider span {
+  padding: 0 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ==========================================================================
    DASHBOARD HEADER & GREETING
    ========================================================================== */
