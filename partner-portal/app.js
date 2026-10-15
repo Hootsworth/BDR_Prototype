@@ -392,7 +392,7 @@
     }
   }
 
-  // Local Storage Persistence
+  // Local Storage & Backend Persistence
   function saveState() {
     if (!state.user) return;
     const keyId = state.user.uid || state.user.email;
@@ -404,6 +404,96 @@
       points: state.points
     }));
     localStorage.setItem(`${STORAGE_KEY_CART}_${keyId}`, JSON.stringify(state.cart));
+    syncPartnerWithBackend();
+  }
+
+  // Backend Synchronization (Registers Influencer & Intros in Admin Console)
+  async function syncPartnerWithBackend() {
+    if (!state.user || !state.user.email) return;
+    try {
+      const payload = {
+        partner: {
+          uid: state.user.uid || '',
+          fullName: state.user.fullName || '',
+          email: state.user.email || '',
+          company: state.user.company || 'Advisory Partner',
+          jobTitle: state.user.jobTitle || 'Executive Partner',
+          domain: state.user.domain || 'Enterprise SaaS',
+          linkedin: state.user.linkedin || '',
+          phone: state.user.phone || '',
+          location: state.user.location || '',
+          photoURL: state.user.photoURL || '',
+          points: state.points || 0
+        },
+        intros: (state.intros || []).map(intro => ({
+          id: intro.id,
+          name: intro.name || '',
+          company: intro.company || '',
+          title: intro.title || '',
+          email: intro.email || '',
+          phone: intro.phone || '',
+          linkedin: intro.linkedin || '',
+          location: intro.location || '',
+          warmth: intro.warmth || '',
+          strength: intro.strength || '',
+          status: intro.status || 'Intro Submitted',
+          meetingDate: intro.meetingDate || '',
+          meetingTime: intro.meetingTime || '',
+          meetingPlatform: intro.meetingPlatform || '',
+          context: intro.context || '',
+          briefing: intro.briefing || '',
+          pointsAwarded: intro.pointsAwarded || 200,
+          createdAt: intro.createdAt || ''
+        }))
+      };
+
+      const res = await fetch('/api/partner-portal/sync-partner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[Partner Portal] Synced partner and intros with admin console:', data);
+      }
+    } catch (err) {
+      console.warn('[Partner Portal] Backend sync warning:', err);
+    }
+  }
+
+  async function fetchPartnerFromServer(email) {
+    if (!email) return;
+    try {
+      const res = await fetch(`/api/partner-portal/sync-partner?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.influencer) {
+          if (data.influencer.referralCredits && data.influencer.referralCredits > state.points) {
+            state.points = data.influencer.referralCredits;
+            updateUI();
+          }
+          if (Array.isArray(data.referrals) && data.referrals.length > 0 && state.intros.length === 0) {
+            state.intros = data.referrals.map(r => ({
+              id: r.id,
+              name: r.fullName,
+              company: r.company,
+              title: r.jobTitle,
+              email: r.email,
+              phone: r.phone,
+              linkedin: r.linkedinUrl,
+              location: r.location,
+              status: r.hasTakenCall ? 'Meeting Verified' : r.hasScheduledCall ? 'Call Scheduled' : 'Intro Submitted',
+              meetingDate: r.date,
+              pointsAwarded: 200,
+              createdAt: r.date
+            }));
+            renderIntros();
+            updateUI();
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   function loadState(uid, email) {
@@ -1374,6 +1464,9 @@
       company,
       jobTitle,
       domain,
+      linkedin: meta?.linkedin || '',
+      phone: meta?.phone || '',
+      location: meta?.location || '',
       photoURL: firebaseUser.photoURL || ''
     };
 
@@ -1427,6 +1520,9 @@
     renderIntros();
     renderStatement();
     renderMarketplaceCatalog();
+    if (user.email) {
+      fetchPartnerFromServer(user.email);
+    }
   }
 
   // Sign Out

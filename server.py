@@ -2240,6 +2240,32 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not load partner profile: {ex}'})
             return
 
+        if clean_path == '/api/partner-portal/sync-partner':
+            query = urllib.parse.parse_qs(parsed_url.query)
+            email = str((query.get('email') or [''])[0]).strip().lower()
+            uid = str((query.get('uid') or [''])[0]).strip()
+            state = read_workbook_state()
+            contacts = state.get('contacts', [])
+            influencer = next((
+                c for c in contacts
+                if c.get('isInfluencer') and (
+                    (email and str(c.get('email') or '').strip().lower() == email)
+                    or (uid and str(c.get('firebaseUid') or '') == uid)
+                )
+            ), None)
+            if not influencer:
+                json_response(self, 404, {'error': 'Partner profile not found.'})
+                return
+            referrals = [
+                c for c in contacts
+                if not c.get('isInfluencer') and (
+                    str(c.get('influencerId')) == str(influencer['id'])
+                    or (c.get('referredByEmail') and str(c.get('referredByEmail')).lower() == influencer.get('email', '').lower())
+                )
+            ]
+            json_response(self, 200, {'influencer': influencer, 'referrals': referrals})
+            return
+
         if clean_path == '/portal':
             query = urllib.parse.parse_qs(parsed_url.query)
             email = (query.get('email') or [''])[0]
@@ -2875,6 +2901,196 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         if self.path in ('/api/partner-portal/signup', '/api/partner-portal/login'):
             json_response(self, 410, {'error': 'Partner accounts now use Clerk. Sign in through the Influencer Portal.'})
+            return
+
+        if self.path == '/api/partner-portal/sync-partner':
+            try:
+                partner_data = payload.get('partner') or payload or {}
+                name = str(partner_data.get('fullName') or partner_data.get('name') or '').strip()
+                email = str(partner_data.get('email') or '').strip().lower()
+                company = str(partner_data.get('company') or 'Advisory Partner').strip()
+                job_title = str(partner_data.get('jobTitle') or partner_data.get('title') or 'Executive Partner').strip()
+                domain = str(partner_data.get('domain') or partner_data.get('industry') or 'Enterprise SaaS').strip()
+                linkedin_url = normalize_linkedin_url(partner_data.get('linkedin') or partner_data.get('linkedinUrl') or '')
+                phone = str(partner_data.get('phone') or '').strip()
+                location = str(partner_data.get('location') or '').strip()
+                firebase_uid = str(partner_data.get('uid') or partner_data.get('firebaseUid') or '').strip()
+                points = int(partner_data.get('points') or 0)
+                intros = payload.get('intros') or []
+
+                if not email:
+                    json_response(self, 400, {'error': 'Email is required to register or sync partner.'})
+                    return
+
+                if not name:
+                    name = email.split('@')[0].replace('.', ' ').replace('_', ' ').replace('-', ' ').title()
+
+                state = read_workbook_state()
+                contacts = state.setdefault('contacts', [])
+
+                influencer = next((
+                    c for c in contacts
+                    if c.get('isInfluencer') and (
+                        str(c.get('email') or '').strip().lower() == email
+                        or (firebase_uid and str(c.get('firebaseUid') or '') == firebase_uid)
+                    )
+                ), None)
+
+                if influencer:
+                    if name: influencer['fullName'] = name
+                    if company: influencer['company'] = company
+                    if job_title: influencer['jobTitle'] = job_title
+                    if domain: influencer['domain'] = domain
+                    if linkedin_url: influencer['linkedinUrl'] = linkedin_url
+                    if phone: influencer['phone'] = phone
+                    if location: influencer['location'] = location
+                    if firebase_uid: influencer['firebaseUid'] = firebase_uid
+                    influencer['isInfluencer'] = True
+                    influencer.setdefault('referrals', [])
+                    influencer.setdefault('agreements', [])
+                    if points > (influencer.get('referralCredits') or 0):
+                        influencer['referralCredits'] = points
+                else:
+                    existing = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
+                    if existing:
+                        existing['isInfluencer'] = True
+                        existing['fullName'] = name or existing.get('fullName')
+                        existing['company'] = company or existing.get('company')
+                        existing['jobTitle'] = job_title or existing.get('jobTitle')
+                        existing['domain'] = domain or existing.get('domain', 'Enterprise SaaS')
+                        if linkedin_url: existing['linkedinUrl'] = linkedin_url
+                        if phone: existing['phone'] = phone
+                        if location: existing['location'] = location
+                        if firebase_uid: existing['firebaseUid'] = firebase_uid
+                        existing['influencerStatus'] = 'active'
+                        existing.setdefault('referrals', [])
+                        existing.setdefault('agreements', [])
+                        existing.setdefault('referralCredits', points)
+                        influencer = existing
+                    else:
+                        parts = name.split()
+                        valid_ids = []
+                        for c in contacts:
+                            try:
+                                valid_ids.append(int(c.get('id')))
+                            except (ValueError, TypeError):
+                                pass
+                        new_id = max(valid_ids + [1000]) + 1
+                        influencer = {
+                            'id': new_id,
+                            'firstName': parts[0] if parts else name,
+                            'lastName': ' '.join(parts[1:]) if len(parts) > 1 else '',
+                            'fullName': name,
+                            'email': email,
+                            'company': company,
+                            'jobTitle': job_title,
+                            'domain': domain,
+                            'linkedinUrl': linkedin_url,
+                            'phone': phone,
+                            'location': location,
+                            'firebaseUid': firebase_uid,
+                            'isInfluencer': True,
+                            'influencerStatus': 'active',
+                            'referralCredits': points,
+                            'referrals': [],
+                            'agreements': [
+                                {
+                                    'id': f"agr_{int(time.time() * 1000)}",
+                                    'name': 'Standard Partner Network Agreement',
+                                    'type': 'Signed Partner Agreement',
+                                    'signerName': name,
+                                    'signedAt': time.strftime('%Y-%m-%d %H:%M:%SZ', time.gmtime()),
+                                    'hash': f"#IRM-{firebase_uid[:8].upper() if firebase_uid else 'VERIFIED'}"
+                                }
+                            ],
+                            'sourceFile': 'Partner Portal Registration'
+                        }
+                        contacts.append(influencer)
+
+                if isinstance(intros, list) and intros:
+                    for intro in intros:
+                        ref_name = str(intro.get('name') or intro.get('fullName') or '').strip()
+                        ref_email = str(intro.get('email') or '').strip().lower()
+                        if not ref_name:
+                            continue
+                        existing_ref = next((
+                            c for c in contacts
+                            if not c.get('isInfluencer') and (
+                                (ref_email and str(c.get('email') or '').strip().lower() == ref_email)
+                                or (str(c.get('id')) == str(intro.get('id')))
+                            )
+                        ), None)
+
+                        has_scheduled = intro.get('status') == 'Call Scheduled' or bool(intro.get('meetingDate'))
+                        has_taken = intro.get('status') in ('Meeting Verified', 'Customer Closed')
+
+                        if existing_ref:
+                            existing_ref['fullName'] = ref_name
+                            if ref_email: existing_ref['email'] = ref_email
+                            if intro.get('company'): existing_ref['company'] = str(intro.get('company')).strip()
+                            if intro.get('title'): existing_ref['jobTitle'] = str(intro.get('title')).strip()
+                            if intro.get('phone'): existing_ref['phone'] = str(intro.get('phone')).strip()
+                            if intro.get('linkedin'): existing_ref['linkedinUrl'] = normalize_linkedin_url(intro.get('linkedin'))
+                            if intro.get('location'): existing_ref['location'] = str(intro.get('location')).strip()
+                            if has_scheduled: existing_ref['hasScheduledCall'] = True
+                            if has_taken: existing_ref['hasTakenCall'] = True
+                            existing_ref['referredBy'] = influencer['fullName']
+                            existing_ref['referredByEmail'] = influencer['email']
+                            existing_ref['influencerId'] = influencer['id']
+                            existing_ref['influencerEmail'] = influencer['email']
+                        else:
+                            valid_ids = []
+                            for c in contacts:
+                                try:
+                                    valid_ids.append(int(c.get('id')))
+                                except (ValueError, TypeError):
+                                    pass
+                            ref_id = max(valid_ids + [2000]) + 1
+                            parts = ref_name.split()
+                            new_ref = {
+                                'id': ref_id,
+                                'firstName': parts[0] if parts else ref_name,
+                                'lastName': ' '.join(parts[1:]) if len(parts) > 1 else '',
+                                'fullName': ref_name,
+                                'email': ref_email or f"contact-{ref_id}@referral.invalid",
+                                'company': str(intro.get('company') or 'Executive Referral').strip(),
+                                'jobTitle': str(intro.get('title') or 'Decision Maker').strip(),
+                                'phone': str(intro.get('phone') or '').strip(),
+                                'linkedinUrl': normalize_linkedin_url(intro.get('linkedin') or ''),
+                                'location': str(intro.get('location') or '').strip(),
+                                'isInfluencer': False,
+                                'referredBy': influencer['fullName'],
+                                'referredByEmail': influencer['email'],
+                                'influencerId': influencer['id'],
+                                'influencerEmail': influencer['email'],
+                                'hasScheduledCall': has_scheduled,
+                                'hasTakenCall': has_taken,
+                                'date': intro.get('meetingDate') or time.strftime('%Y-%m-%d', time.gmtime()),
+                                'warmth': str(intro.get('warmth') or 'Warm Referral'),
+                                'notes': str(intro.get('context') or intro.get('briefing') or ''),
+                                'sourceFile': f"Referred by {influencer['fullName']}"
+                            }
+                            contacts.append(new_ref)
+                            if 'referrals' in influencer:
+                                if not any(r.get('id') == ref_id or (ref_email and r.get('email') == ref_email) for r in influencer['referrals']):
+                                    influencer['referrals'].append({
+                                        'id': ref_id,
+                                        'fullName': ref_name,
+                                        'email': ref_email,
+                                        'company': new_ref['company'],
+                                        'jobTitle': new_ref['jobTitle'],
+                                        'status': intro.get('status', 'Intro Submitted'),
+                                        'date': new_ref['date']
+                                    })
+
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'synced',
+                    'influencer': influencer,
+                    'referralCount': len([c for c in contacts if str(c.get('influencerId')) == str(influencer['id']) or (c.get('referredByEmail') and c.get('referredByEmail').lower() == email)])
+                })
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Partner sync failed: {ex}'})
             return
 
         if self.path == '/api/partner-share/agreement':

@@ -366,8 +366,13 @@ function switchTab(tabId) {
     } else if (typeof filterOutboundTable === "function") {
       filterOutboundTable();
     }
-  } else if (tabId === 'influencers' && typeof renderInfluencersTable === "function") {
-    renderInfluencersTable();
+  } else if (tabId === 'influencers') {
+    if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+    if (typeof loadWorkbookFromServer === "function" && database.workbookMode) {
+      loadWorkbookFromServer().then(() => {
+        if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+      }).catch(() => {});
+    }
   } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {
     filterFunnelSegment(document.getElementById("funnel-industry-filter")?.value || "all");
   } else if (tabId === 'agent-mode' && typeof initAgentAutocomplete === "function") {

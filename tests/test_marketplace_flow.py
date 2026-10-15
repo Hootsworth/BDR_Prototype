@@ -236,6 +236,74 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertEqual(approved[0], 200)
         self.assertEqual(approved[1]["vendor"]["agreementStatus"], "none")
 
+    def test_partner_portal_sync_partner_and_intros_show_up_in_admin_influencer_portal(self):
+        # 1. Partner registers and submits intros in partner portal
+        status, res = self.request("/api/partner-portal/sync-partner", "POST", {
+            "partner": {
+                "uid": "fb_user_9988",
+                "fullName": "Elena Rostova",
+                "email": "elena.rostova@advisorycapital.test",
+                "company": "Rostova Capital Advisory",
+                "jobTitle": "Managing Partner & FinTech Lead",
+                "domain": "Fintech & Banking",
+                "linkedin": "https://linkedin.com/in/elena-rostova",
+                "phone": "+1 (415) 555-9876",
+                "location": "San Francisco, CA",
+                "points": 400
+            },
+            "intros": [
+                {
+                    "id": 17290001,
+                    "name": "Marcus Vance",
+                    "company": "Apex Global Bank",
+                    "title": "Chief Technology Officer",
+                    "email": "marcus.vance@apexbank.test",
+                    "phone": "+1 415 555 4321",
+                    "linkedin": "https://linkedin.com/in/marcus-vance",
+                    "location": "New York, NY",
+                    "status": "Call Scheduled",
+                    "meetingDate": "2026-10-25",
+                    "meetingTime": "14:00",
+                    "context": "Direct introduction for enterprise LLM guardrails.",
+                    "pointsAwarded": 200
+                }
+            ]
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(res["status"], "synced")
+        influencer = res["influencer"]
+        self.assertEqual(influencer["fullName"], "Elena Rostova")
+        self.assertEqual(influencer["company"], "Rostova Capital Advisory")
+        self.assertEqual(influencer["jobTitle"], "Managing Partner & FinTech Lead")
+        self.assertEqual(influencer["domain"], "Fintech & Banking")
+        self.assertEqual(influencer["phone"], "+1 (415) 555-9876")
+        self.assertEqual(influencer["location"], "San Francisco, CA")
+        self.assertEqual(influencer["linkedinUrl"], "https://linkedin.com/in/elena-rostova")
+        self.assertTrue(influencer["isInfluencer"])
+
+        # 2. Verify state in workbook / DB for admin console
+        state = server.read_workbook_state()
+        admin_influencer = next((c for c in state["contacts"] if c.get("isInfluencer") and c.get("email") == "elena.rostova@advisorycapital.test"), None)
+        self.assertIsNotNone(admin_influencer)
+        self.assertEqual(admin_influencer["domain"], "Fintech & Banking")
+        self.assertEqual(admin_influencer["phone"], "+1 (415) 555-9876")
+        self.assertEqual(admin_influencer["location"], "San Francisco, CA")
+
+        # 3. Verify referred contact exists with correct referral linkage
+        referred_contact = next((c for c in state["contacts"] if c.get("email") == "marcus.vance@apexbank.test"), None)
+        self.assertIsNotNone(referred_contact)
+        self.assertEqual(referred_contact["referredBy"], "Elena Rostova")
+        self.assertEqual(referred_contact["referredByEmail"], "elena.rostova@advisorycapital.test")
+        self.assertEqual(referred_contact["influencerId"], admin_influencer["id"])
+        self.assertTrue(referred_contact["hasScheduledCall"])
+
+        # 4. Verify GET /api/partner-portal/sync-partner returns partner & referrals
+        status_get, res_get = self.request("/api/partner-portal/sync-partner?email=elena.rostova@advisorycapital.test", "GET")
+        self.assertEqual(status_get, 200)
+        self.assertEqual(res_get["influencer"]["fullName"], "Elena Rostova")
+        self.assertEqual(len(res_get["referrals"]), 1)
+        self.assertEqual(res_get["referrals"][0]["fullName"], "Marcus Vance")
+
 
 if __name__ == "__main__":
     unittest.main()

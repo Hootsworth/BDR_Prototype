@@ -173,14 +173,19 @@ function renderConsolePortalReferrals() {
     if (el) el.textContent = value;
   };
   const initials = (activeInf.fullName || "Partner").split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
-  setText("inf-portal-active-name", activeInf.fullName || "Partner");
-  setText("inf-portal-active-company", `${activeInf.jobTitle || "Partner"} · ${activeInf.company || "Advisory"}`);
+  const companyParts = [activeInf.jobTitle || "Executive Partner", activeInf.company || "Advisory"];
+  if (activeInf.domain) companyParts.push(activeInf.domain);
+  setText("inf-portal-active-company", companyParts.join(" · "));
   const partnerContact = document.getElementById("inf-portal-active-email");
   if (partnerContact) {
-    const emailLink = activeInf.email ? `<a href="mailto:${escapePartnerHTML(activeInf.email)}">${escapePartnerHTML(activeInf.email)}</a>` : "";
+    const lines = [];
+    if (activeInf.email) lines.push(`<a href="mailto:${escapePartnerHTML(activeInf.email)}" style="font-weight:600;">${escapePartnerHTML(activeInf.email)}</a>`);
+    if (activeInf.phone) lines.push(`<span style="color:var(--color-text-secondary);">${escapePartnerHTML(activeInf.phone)}</span>`);
+    const metaParts = [activeInf.location, activeInf.sourceFile].filter(Boolean);
+    if (metaParts.length) lines.push(`<span style="color:var(--color-text-secondary); font-size:12px;">${metaParts.map(escapePartnerHTML).join(' · ')}</span>`);
     const linkedinUrl = safePartnerUrl(activeInf.linkedinUrl);
-    const linkedinLink = linkedinUrl ? `<a href="${escapePartnerHTML(linkedinUrl)}" target="_blank" rel="noopener noreferrer">LinkedIn profile ↗</a>` : "";
-    partnerContact.innerHTML = [emailLink, linkedinLink].filter(Boolean).join("<br>") || "No contact channels yet";
+    if (linkedinUrl) lines.push(`<a href="${escapePartnerHTML(linkedinUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;">LinkedIn profile ↗</a>`);
+    partnerContact.innerHTML = lines.join("<br>") || "No contact channels yet";
   }
   setText("inf-portal-avatar", initials);
   setText("inf-portal-kpi-referrals", referrals.length);
