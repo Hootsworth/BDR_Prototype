@@ -1118,7 +1118,7 @@
     // Full-Screen Workspace Trigger & Close
     el.btnOpenAddFullscreen.addEventListener('click', openFullscreenIntroWorkspace);
     el.btnCloseFullscreen.addEventListener('click', closeFullscreenIntroWorkspace);
-    el.btnSubmitIntroFullscreen.addEventListener('click', handleSubmitFullscreenIntro);
+    if (el.btnSubmitIntroFullscreen) el.btnSubmitIntroFullscreen.addEventListener('click', handleSubmitFullscreenIntro);
 
     const btnSubmitBottom = document.getElementById('btn-submit-intro-bottom');
     if (btnSubmitBottom) btnSubmitBottom.addEventListener('click', handleSubmitFullscreenIntro);
