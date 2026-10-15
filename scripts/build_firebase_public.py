@@ -7,9 +7,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 FILES = [
-    "index.html", "style.css", "app.js", "config.js", "marketplace.html",
+    "index.html", "admin.html", "landing.html", "style.css", "app.js", "config.js", "marketplace.html",
     "marketplace.js", "partner-portal.html", "partner-portal.js", "portal.html",
-    "login_bg.png",
+    "login_bg.png", "partner-portal/connected.css",
 ]
 DIRECTORIES = ["components", "src", "vendor"]
 
@@ -21,7 +21,9 @@ def main():
     for filename in FILES:
         source = ROOT / filename
         if source.exists():
-            shutil.copy2(source, PUBLIC / filename)
+            destination = PUBLIC / filename
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
     for dirname in DIRECTORIES:
         source = ROOT / dirname
         if source.exists():

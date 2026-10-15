@@ -89,7 +89,7 @@
       <input type="hidden" id="referral-influencer-email" value="">
       <input type="hidden" id="referral-influencer-id" value="">
       <div class="modal-body">
-        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Affiliated with <strong id="reward-target-name">Influencer</strong> (Awards partner credits).</p>
+        <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: 1rem;">Affiliated with <strong id="reward-target-name">Influencer</strong>. This records legacy CRM referral credits only; redeemable points require an IRM-approved marketplace milestone.</p>
         <div class="form-group">
           <label class="form-label" for="ref-name">Full Name</label>
           <input type="text" class="form-input" id="ref-name" placeholder="Sarah Jenkins" required>
@@ -115,7 +115,7 @@
           <input type="url" class="form-input" id="ref-linkedin" placeholder="https://www.linkedin.com/in/sarah-jenkins">
         </div>
         <div class="form-group">
-          <label class="form-label" for="ref-credits">Credits to Award</label>
+          <label class="form-label" for="ref-credits">Legacy CRM referral credits</label>
           <input type="number" class="form-input" id="ref-credits" value="10" min="0">
         </div>
       </div>
@@ -144,7 +144,7 @@
               <th>Job Title</th>
               <th>Company</th>
               <th>Email</th>
-              <th>Credits Granted</th>
+              <th>Legacy CRM credits</th>
             </tr>
           </thead>
           <tbody id="referrals-view-table-body">
@@ -153,7 +153,7 @@
         </table>
       </div>
       <div style="font-size: var(--font-size-xs); text-align: right; margin-top: 1rem;">
-        Total Credits Earned: <strong id="referrals-view-total-credits">0</strong>
+        Total Legacy CRM Credits: <strong id="referrals-view-total-credits">0</strong>
       </div>
     </div>
     <div class="modal-footer">
@@ -485,7 +485,7 @@
                   <button type="button" class="btn btn-secondary btn-xs" onclick="insertOutboundModalCalendlyLink()" title="Insert customer Calendly / scheduling link into message">
                     + Insert Calendly Link
                   </button>
-                  <button type="button" class="btn btn-secondary btn-xs" onclick="scheduleCallFromOutboundModal()" title="Schedule a GTM call &amp; award +15 referral credits if affiliated">
+                  <button type="button" class="btn btn-secondary btn-xs" onclick="scheduleCallFromOutboundModal()" title="Schedule a GTM call; reward points require IRM milestone approval">
                     Schedule GTM Call
                   </button>
                 </div>
@@ -531,7 +531,7 @@
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-hangup-call" onclick="stopSimulatedAICall()">Hang Up</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="scheduleCallFromOutboundModal()">Schedule GTM Call</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="markCallCompletedFromOutboundModal()">Mark Call Completed (+25 pts)</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="markCallCompletedFromOutboundModal()">Mark call complete · buyer confirmation required</button>
               </div>
             </div>
 
@@ -939,44 +939,44 @@ Autonomous GTM Copilot</div>
   </div>
 </dialog>
 
-<!-- ═══ DIALOG: Partner Earnings & Credits Ledger View (Placeholder for Payment Settlement) ═══ -->
+<!-- ═══ DIALOG: Approved Partner Reward Points Ledger ═══ -->
 <dialog id="influencer-earnings-modal" style="border: none; background: transparent; padding: 0;">
   <div class="modal-container" style="max-width: 780px; width: 95vw;">
     <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
       <div>
         <div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #0d9488;">PARTNER EARNINGS &amp; REWARDS</div>
-        <h3 style="margin: 0;" id="earnings-modal-partner-name">Partner Credits &amp; Earnings</h3>
+        <h3 style="margin: 0;" id="earnings-modal-partner-name">Partner Points &amp; Rewards</h3>
       </div>
       <button class="btn btn-secondary btn-sm" type="button" onclick="closeInfluencerEarningsModal()">×</button>
     </div>
     <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
-      <!-- Credit Formula Banner -->
+      <!-- Approved milestone reward schedule -->
       <div style="padding: 0.65rem 0.9rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-xs); font-size: 12px; color: var(--color-text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-        <span><strong>Credit Schedule:</strong> +10 pts per contact shared · +15 pts when GTM call scheduled (25 pts) · +25 pts when GTM call completed (50 pts)</span>
-        <span class="badge" style="background: rgba(13, 148, 136, 0.14); color: #0d9488; font-weight: 700;">1 pt = $10 Est. Reward</span>
+        <span><strong>IRM-approved milestones:</strong> Warm introduction 200 pts · Qualified meeting 600 pts · Opportunity 1,000 pts · Closed customer 5,000 pts · Customer expansion 2,500 pts</span>
+        <span class="badge" style="background: rgba(13, 148, 136, 0.14); color: #0d9488; font-weight: 700;">Requests are reviewed manually</span>
       </div>
 
       <!-- KPI Strip -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
         <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
-          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Total Credits</div>
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Total points</div>
           <div id="earnings-kpi-total-credits" style="font-size: 1.35rem; font-weight: 700; color: var(--color-text-primary);">0 pts</div>
         </div>
         <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
-          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Approved (Call Taken)</div>
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Approved points</div>
           <div id="earnings-kpi-approved-credits" style="font-size: 1.35rem; font-weight: 700; color: #0d9488;">0 pts</div>
         </div>
         <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
-          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Pending Conversion</div>
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Pending points</div>
           <div id="earnings-kpi-pending-credits" style="font-size: 1.35rem; font-weight: 700; color: #d97706;">0 pts</div>
         </div>
         <div style="padding: 0.75rem 1rem; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
-          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Est. Payout Value</div>
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--color-text-secondary); font-weight: 700;">Payout status</div>
           <div id="earnings-kpi-payout-usd" style="font-size: 1.35rem; font-weight: 700; color: var(--color-text-primary);">Not configured</div>
         </div>
       </div>
 
-      <!-- Itemized Referral Credit Ledger -->
+      <!-- Itemized reward point ledger -->
       <div style="max-height: 260px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
         <table class="data-table" style="margin: 0;">
           <thead>
@@ -984,8 +984,8 @@ Autonomous GTM Copilot</div>
               <th>Referred Contact</th>
               <th>Organization</th>
               <th>GTM Call Status</th>
-              <th>Credit Breakdown</th>
-              <th style="text-align: right;">Credits</th>
+              <th>Milestone detail</th>
+              <th style="text-align: right;">Approved points</th>
             </tr>
           </thead>
           <tbody id="earnings-ledger-tbody">
@@ -997,8 +997,8 @@ Autonomous GTM Copilot</div>
       <!-- Payout Settlement Placeholder -->
       <div style="padding: 0.85rem 1rem; background: rgba(13, 148, 136, 0.06); border: 1px dashed rgba(13, 148, 136, 0.35); border-radius: var(--radius-xs); display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
         <div>
-          <div style="font-size: 12px; font-weight: 700; color: var(--color-text-primary);">Partner Payout &amp; Settlement (Placeholder)</div>
-          <div style="font-size: 11.5px; color: var(--color-text-secondary);">Automated ACH / Stripe Connect disbursement will settle approved partner credits at quarter close.</div>
+          <div style="font-size: 12px; font-weight: 700; color: var(--color-text-primary);">Reward fulfillment</div>
+          <div style="font-size: 11.5px; color: var(--color-text-secondary);">There is no automatic cash payout. Requests are fulfilled manually after IRM review.</div>
         </div>
         <span class="badge" style="background: var(--surface-card); border: 1px solid var(--color-border); color: var(--color-text-primary); font-weight: 600;" id="earnings-payment-status-badge">Settlement Pending (Placeholder)</span>
       </div>
@@ -1252,7 +1252,7 @@ Autonomous GTM Copilot</div>
       <div>
         <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Influencer eligibility review</div>
         <div style="max-height: 180px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-xs);">
-          <table class="data-table" style="margin: 0;"><thead><tr><th>Influencer</th><th>Email</th><th>Organization</th><th>Status</th><th>Action</th></tr></thead><tbody id="irm-influencers-tbody"><tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--color-text-secondary);">No influencer profiles.</td></tr></tbody></table>
+          <table class="data-table" style="margin: 0;"><thead><tr><th>Influencer</th><th>Email</th><th>Organization</th><th>Status</th><th>Referrals</th><th>Approved points</th><th>Action</th></tr></thead><tbody id="irm-influencers-tbody"><tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--color-text-secondary);">No influencer profiles.</td></tr></tbody></table>
         </div>
       </div>
       <div>

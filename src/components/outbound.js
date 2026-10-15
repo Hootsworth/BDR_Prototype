@@ -202,7 +202,7 @@ function changeOutboundPage(page) {
               <div class="influencer-row-more-menu" role="group" aria-label="Partner actions">
                 <button type="button" onclick="openOutboundModal(${c.id}, 'email'); this.closest('details').open = false">Start outreach</button>
                 <button type="button" onclick="openAddProspectForInfluencer(${c.id}); this.closest('details').open = false">Add referral</button>
-                <button type="button" onclick="openInfluencerEarningsModal(${c.id}); this.closest('details').open = false">Earnings &amp; credits</button>
+                <button type="button" onclick="openInfluencerEarningsModal(${c.id}); this.closest('details').open = false">Approved rewards</button>
                 <button type="button" onclick="openInfluencerAgreementsModal(${c.id}); this.closest('details').open = false">Agreements (${agreementsCount})</button>
                 ${affiliated.length ? `<button type="button" onclick="toggleExpandInfluencerReferrals(${c.id}); this.closest('details').open = false">${isExpanded ? 'Hide' : 'Show'} ${affiliated.length} referrals</button>` : ''}
                 <button type="button" onclick="openPartnerProfileEditorById(${c.id}); this.closest('details').open = false">Edit partner</button>
@@ -225,7 +225,7 @@ function changeOutboundPage(page) {
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <strong style="font-size: 12px; color: var(--color-text-primary);">No Affiliated Prospects Yet</strong>
-                <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-secondary);">Add prospects referred by ${c.fullName} to coordinate intro outreach and award partner credits.</p>
+                <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-secondary);">Add referrals for ${c.fullName}. Approved reward points are recorded after IRM validates marketplace milestones.</p>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})" style="font-size: 11px;">+ Add Referred Prospect</button>
             </div>
@@ -402,7 +402,7 @@ function loadOutboundDrawer(contact, initialChannel = 'email') {
       <div class="meta-row"><span class="meta-label">Lifecycle Stage:</span><span class="meta-value">${contact.leadTemp || "Warm Lead"}</span></div>
       <div class="meta-row"><span class="meta-label">Phone:</span><span class="meta-value">${contact.phone || "N/A"}</span></div>
       <div class="meta-row"><span class="meta-label">Email:</span><span class="meta-value">${contact.email || "N/A"}</span></div>
-      ${contact.isInfluencer ? `<div class="meta-row"><span class="meta-label">Credits Awarded:</span><span class="meta-value" style="color:var(--brand-teal); font-weight:600;">${contact.referralCredits || 0} Credits</span></div>` : ""}
+      ${contact.isInfluencer ? `<div class="meta-row"><span class="meta-label">Approved Reward Points:</span><span class="meta-value" style="color:var(--brand-teal); font-weight:600;">${Number(contact.rewardPoints ?? getInfluencerApprovedRewardPoints?.(contact) ?? 0).toLocaleString()} pts</span></div>` : ""}
     </div>
 
     <div class="drawer-tab-strip">

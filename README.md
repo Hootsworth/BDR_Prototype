@@ -136,11 +136,11 @@ The web console connects to **one active local `.xlsx` workbook** (`gtm-console-
 
 Manage influencer profiles and referrals from **Influencer Portal**. Import CSV contacts under the selected influencer, edit or remove partner/contact records, and detect duplicate email addresses during import. A private link opens a separate partner page with only that influencer's contact details and call status; internal notes and outreach history remain private. Links can be revoked, and replacing a link revokes the prior link.
 
-For sharing outside the local computer, configure `GTM_PUBLIC_BASE_URL` in `.env` with an HTTPS address routed to the same persistent local server. A `localhost` link is only reachable from that machine. The current Vercel adapter uses temporary storage, so sharing and database-owner operations are disabled there until a durable shared database is configured.
+Hosted partner sharing uses Firestore-backed API state and Clerk authorization. Before promoting the connected portal, configure the Vercel production admin allowlist and hosted API security flags. The retired `partner-portal/` demo is not a separate deployable product; it redirects to the canonical portal.
 
 ### Model 2 Marketplace launch boundary
 
-The Vendor Marketplace and self-serve Influencer Portal currently require the local Python server and its persistent database. Vendor signup, influencer signup, agreements, network access, and introduction requests deliberately return `503` on Vercel because this deployment has no durable shared storage. Do not publish the Marketplace as a Vercel-backed signup flow until the server has been moved to a persistent database-backed deployment and the Marketplace and Portal routes are configured to that service.
+The Vendor Marketplace and self-serve Influencer Portal use the hosted Python API and Firestore. Vendor signup no longer returns the old Vercel `503`; hosted signup and the marketplace lifecycle are covered by server tests. The current production portal still needs the connected release promoted, an allowlisted admin Clerk ID, and verified live authenticated reads/writes.
 
 The Marketplace only exposes real, active network contacts affiliated with an Influencer who has signed the Partner Network Agreement. Seeded demo contacts are excluded. Vendors must sign the Marketplace Agreement, and each introduction request must target a specific eligible contact; contact email, phone, and profile links remain masked until the Influencer accepts.
 

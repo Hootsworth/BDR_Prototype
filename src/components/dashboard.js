@@ -147,15 +147,14 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
   }
 
   tbody.innerHTML = results.map(c => {
-    const earnings = c.isInfluencer && typeof getInfluencerEarningsSummary === "function"
-      ? getInfluencerEarningsSummary(c)
-      : null;
-    const refCount = earnings ? earnings.totalReferrals : ((c.referrals || []).length || 0);
-    const creditsCount = earnings ? earnings.totalCredits : (c.referralCredits || 0);
+    const refCount = c.isInfluencer ? getInfluencerReferralsList(c).length : 0;
+    const approvedPoints = c.isInfluencer
+      ? Number(c.rewardPoints ?? (typeof getInfluencerApprovedRewardPoints === "function" ? getInfluencerApprovedRewardPoints(c) : 0)) || 0
+      : 0;
     const agreementsCount = Array.isArray(c.agreements) ? c.agreements.length : 0;
 
     const roleTag = c.isInfluencer
-      ? `<span class="badge" style="font-size:10px; background:rgba(99,102,241,0.12); color:#4f46e5;">Influencer (${refCount} refs · ${creditsCount} cr)</span>`
+      ? `<span class="badge" style="font-size:10px; background:rgba(99,102,241,0.12); color:#4f46e5;">Influencer (${refCount} referrals · ${approvedPoints.toLocaleString()} approved pts)</span>`
       : `<span class="badge" style="font-size:10px; background:rgba(13,148,136,0.12); color:#0d9488;">Contact</span>`;
 
     const refEdge = c.referredBy
@@ -210,7 +209,7 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
             ${c.isInfluencer
               ? `
                 <button class="btn btn-secondary btn-xs" onclick="openInfluencerPortal('${safeEmail}')">Portal</button>
-                <button class="btn btn-secondary btn-xs" onclick="openInfluencerEarningsModal(${c.id})">Earnings (${creditsCount} cr)</button>
+                <button class="btn btn-secondary btn-xs" onclick="openInfluencerEarningsModal(${c.id})">Rewards (${approvedPoints.toLocaleString()} pts)</button>
                 <button class="btn btn-secondary btn-xs" onclick="openInfluencerAgreementsModal(${c.id})">Agreements</button>
               `
               : `

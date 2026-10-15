@@ -2284,6 +2284,60 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not read the database: {ex}'})
             return
 
+        if clean_path == '/api/admin/influencers':
+            if not is_irm_admin_request(self):
+                json_response(self, 403, {'error': 'Valid IRM administrator authentication is required.'})
+                return
+            try:
+                state = read_workbook_state()
+                contacts = [c for c in (state.get('contacts') or []) if isinstance(c, dict)]
+                influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
+                prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
+                influencer_by_id = {str(c.get('id')): c for c in influencers}
+                influencer_by_email = {str(c.get('email') or '').strip().lower(): c for c in influencers if c.get('email')}
+                influencer_by_name = {str(c.get('fullName') or '').strip().lower(): c for c in influencers if c.get('fullName')}
+                referral_rows = []
+                for contact in prospects:
+                    owner = (influencer_by_id.get(str(contact.get('influencerId') or ''))
+                             or influencer_by_email.get(str(contact.get('influencerEmail') or contact.get('referredByEmail') or '').strip().lower())
+                             or influencer_by_name.get(str(contact.get('referredBy') or '').strip().lower()))
+                    referral_rows.append({
+                        **partner_safe_contact(contact),
+                        'influencerId': owner.get('id') if owner else contact.get('influencerId'),
+                        'influencerEmail': owner.get('email') if owner else (contact.get('influencerEmail') or ''),
+                        'influencerName': owner.get('fullName') if owner else (contact.get('referredBy') or ''),
+                        'referredByEmail': contact.get('referredByEmail') or '',
+                        'hasScheduledCall': bool(contact.get('hasScheduledCall')),
+                        'hasTakenCall': bool(contact.get('hasTakenCall')),
+                        'credits': compute_contact_referral_credits(contact)
+                    })
+                json_response(self, 200, {
+                    'influencers': [
+                        {
+                            **influencer,
+                            'totalReferrals': len(partner_contacts_for_influencer(state, influencer)),
+                            'referralCredits': sum(compute_contact_referral_credits(referral) for referral in partner_contacts_for_influencer(state, influencer)),
+                            'rewardPoints': reward_points_for_influencer(state, influencer.get('id'))
+                        }
+                        for influencer in influencers
+                    ],
+                    # Admin clients need the complete contact records here because this
+                    # view shares the workspace with CRM/referral tooling that can save
+                    # the loaded database back to the canonical state document.
+                    'contacts': contacts,
+                    'referrals': referral_rows,
+                    'rewardLedger': [e for e in ensure_reward_ledger(state) if isinstance(e, dict)],
+                    'rewardRedemptions': [r for r in (state.get('rewardRedemptions') or []) if isinstance(r, dict)],
+                    'marketplaceRequests': [r for r in (state.get('marketplaceRequests') or []) if isinstance(r, dict)],
+                    'vendors': [vendor_safe_dict(v) for v in (state.get('vendors') or []) if isinstance(v, dict)],
+                    'database': 'firestore' if firestore_enabled() else 'sqlite3'
+                })
+            except FirebaseBackendUnavailable as ex:
+                json_response(self, 503, {'error': str(ex)})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not load influencer data: {ex}'})
+            return
+
         if clean_path == '/api/state' and os.environ.get('VERCEL'):
             json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
             return
@@ -2500,13 +2554,39 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 contacts = state.get('contacts') or []
                 influencers = [c for c in contacts if c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
                 prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt') and not c.get('isDemoData')]
+                reward_ledger = ensure_reward_ledger(state)
                 json_response(self, 200, {
                     'vendors': vendors,
                     'marketplaceRequests': requests_list,
                     'influencers': [
-                        {'id': c.get('id'), 'fullName': c.get('fullName'), 'email': c.get('email'),
-                         'company': c.get('company'), 'influencerStatus': c.get('influencerStatus', 'approved')}
+                        {
+                            'id': c.get('id'), 'fullName': c.get('fullName'), 'email': c.get('email'),
+                            'company': c.get('company'), 'jobTitle': c.get('jobTitle'),
+                            'influencerStatus': c.get('influencerStatus', 'approved'),
+                            'referrals': [
+                                {**partner_safe_contact(r), 'hasScheduledCall': bool(r.get('hasScheduledCall')),
+                                 'hasTakenCall': bool(r.get('hasTakenCall'))}
+                                for r in partner_contacts_for_influencer(state, c)
+                            ],
+                            'totalReferrals': len(partner_contacts_for_influencer(state, c)),
+                            'rewardPoints': reward_points_for_influencer(state, c.get('id')),
+                            'referralCredits': sum(compute_contact_referral_credits(r) for r in partner_contacts_for_influencer(state, c)),
+                            'hasSignedAgreement': any(str(a.get('status') or '').lower() == 'signed' for a in (c.get('agreements') or []) if isinstance(a, dict)),
+                            'createdAt': c.get('createdAt') or c.get('onboardedAt') or '',
+                            'sourceFile': c.get('sourceFile') or ''
+                        }
                         for c in influencers
+                    ],
+                    'rewardLedger': [e for e in reward_ledger if isinstance(e, dict)],
+                    'rewardRedemptions': [r for r in (state.get('rewardRedemptions') or []) if isinstance(r, dict)],
+                    'referrals': [
+                        {**partner_safe_contact(c), 'influencerId': c.get('influencerId'),
+                         'influencerEmail': c.get('influencerEmail') or '',
+                         'influencerName': c.get('referredBy') or '', 'referredByEmail': c.get('referredByEmail') or '',
+                         'referredDate': c.get('referredDate') or '',
+                         'hasScheduledCall': bool(c.get('hasScheduledCall')), 'hasTakenCall': bool(c.get('hasTakenCall')),
+                         'credits': compute_contact_referral_credits(c)}
+                        for c in prospects
                     ],
                     'summary': {
                         'totalVendors': len(vendors),
@@ -2704,9 +2784,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
                 return
-            if os.environ.get('VERCEL'):
-                json_response(self, 503, {'error': 'Partner sharing requires a persistent database. The current serverless deployment stores data on temporary disk.'})
-                return
             try:
                 state = read_workbook_state()
                 influencer_id = str(payload.get('influencerId') or '')
@@ -2732,7 +2809,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/revoke':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             token = str(payload.get('token') or '').strip()
@@ -2745,7 +2822,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/partner-shares/revoke-influencer':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             try:
@@ -2897,18 +2974,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 agr_entry = {
                     'id': f"agr_{int(time.time() * 1000)}",
                     'name': doc_name,
-                    'type': 'Signed Partner Agreement',
-                    'status': 'Signed',
-                    'signedBy': signer_name,
+                    'type': 'Partner Agreement Acknowledgement',
+                    'status': 'acknowledged',
+                    'acknowledgedBy': signer_name,
                     'uploadedAt': time.strftime('%Y-%m-%d', time.gmtime()),
-                    'notes': str(payload.get('notes') or f'Digitally signed by {signer_name} via Influencer Portal.'),
+                    'notes': str(payload.get('notes') or f'{signer_name} acknowledged reviewing the partner terms in the Influencer Portal. This is not an executed agreement.'),
                     'dataUrl': str(payload.get('dataUrl') or '')
                 }
                 agreements = influencer.setdefault('agreements', [])
                 agreements.insert(0, agr_entry)
                 write_workbook_state(state)
                 json_response(self, 200, {
-                    'status': 'signed',
+                    'status': 'acknowledged',
                     'agreement': {k: v for k, v in agr_entry.items() if k != 'dataUrl'},
                     'agreements': [{k: v for k, v in a.items() if k != 'dataUrl'} for a in agreements if isinstance(a, dict)]
                 })
@@ -3020,9 +3097,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/marketplace/vendors/signup':
-            if os.environ.get('VERCEL'):
-                json_response(self, 503, {'error': 'Vendor Marketplace signup requires persistent storage.'})
-                return
             try:
                 state = read_workbook_state()
                 vendors = state.setdefault('vendors', [])
@@ -3283,7 +3357,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path == '/api/irm/influencers/manage':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM administrator can manage influencer eligibility.'})
                 return
             state = read_workbook_state()
@@ -3430,7 +3504,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete', '/api/influencers/bulk-create', '/api/influencers/convert', '/api/influencers/agreements'):
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Influencer management is available to the local app owner only.'})
                 return
             try:

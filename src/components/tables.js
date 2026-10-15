@@ -212,7 +212,7 @@ function changeInfluencersPage(page) {
       <td><span class="badge-match-score ${matchClass}" style="border: 1px solid var(--hairline); box-shadow: 1px 1px 0 var(--hairline); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;">${c.matchPercentage}%</span></td>
       <td>
         <span class="referral-count-label" onclick="viewReferralsDetails('${c.email}')" style="cursor:pointer; text-decoration:underline; font-weight:700; color:var(--brand-pink); font-size: 13px;">
-          ${referrals.length} referrals (${credits} credits)
+          ${referrals.length} referrals (${credits} legacy CRM credits)
         </span>
       </td>
       <td>

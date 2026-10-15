@@ -4,13 +4,13 @@
 
 The Vercel project serves the existing app at connectem.ai. A host-conditional redirect sends / on go.connectem.ai to the Influencer Portal page while keeping the go.connectem.ai host. API calls continue through the Python function. /app-config.js is routed through that function so the Clerk publishable key can be supplied at runtime.
 
-The checkout is linked to Vercel project `bdr-prototype`. Its project Root Directory must be the repository root (the folder containing `vercel.json`, `index.html`, and `api/`). `vercel.json` sets the output directory to `.`. The Vercel framework preset was changed to Other after the Python preset caused Vercel to expose a directory listing for `/api/`. The fresh preview at `https://bdr-prototype-2wcxgnm14-aditya-p-dixit-s-projects.vercel.app` serves the app and `/partner-portal`; the earlier `bdr-prototype-henna` preview is an older deployment and still shows the listing. The current preview deployment is protected by Vercel authentication. Add connectem.ai and go.connectem.ai to that project under Settings → Domains, then apply the DNS records Vercel shows. Domain activation and DNS are left for the owner; neither domain is live until Vercel verifies it.
+**Release check (2026-10-15):** Vercel CLI confirms `bdr-prototype` is linked and its production aliases include `connectem.ai`, `www.connectem.ai`, and `go.connectem.ai`. `admin.connectem.ai` responds. Production `/api/health` returns 200, but its `/partner-portal` is still the retired Firebase/localStorage implementation. The connected portal is deployed to Preview at `https://bdr-prototype-bryahieql-aditya-p-dixit-s-projects.vercel.app`; the page, API health, Clerk sign-in UI, and unauthenticated admin denial have been checked. Production promotion is held until the operator allowlist and other launch gates below are resolved.
 
-The repository does not yet contain a separate public marketing landing page: connectem.ai/ currently serves the existing application console. The Vendor Marketplace remains at /marketplace.html.
+`connectem.ai` redirects to `www.connectem.ai`, which serves the existing `landing.html`; `admin.connectem.ai` serves the main console, and the Vendor Marketplace remains at `/marketplace.html`.
 
 ## Firestore source of truth
 
-The API uses Firebase Admin on the server. Browser code must not access Firestore directly; firestore.rules denies all client reads and writes. firebase.json and firestore.indexes.json make the existing default Firestore database rules/index configuration deployable with the Firebase CLI. The app currently expects the (default) database and stores its compatibility snapshot in Firestore. It is not yet a normalized multi-tenant schema.
+The API uses Firebase Admin on the server. Browser code must not access Firestore directly; firestore.rules denies all client reads and writes. firebase.json and firestore.indexes.json make the existing default Firestore database rules/index configuration deployable with the Firebase CLI. The app currently expects the (default) database and stores its compatibility snapshot in Firestore. It is not yet a normalized multi-tenant schema. Snapshot writes use compare-and-swap, so a competing stale write receives 409 and must reload; prior versions are retained for 24 hours so in-flight readers can finish.
 
 The Firebase Web App config supplied for `bdrcreek` is public client configuration (API key, auth domain, project ID, app ID, and measurement ID), not a backend credential. It is recorded in `.env.example` as `FIREBASE_*` values for future Firebase client SDK features. The current product does not initialize the Firebase browser SDK or Firebase Analytics: Clerk remains the authentication provider, and the backend uses Firebase Admin for Firestore. Never put a service-account private key or other server secret in browser code or a `NEXT_PUBLIC_` variable.
 
@@ -40,7 +40,7 @@ The `bdr-prototype` Vercel project is configured with Google Workload Identity F
 
 Vercel's OIDC token is available to its Node request context, not the Python request handler. `api/oidc.js` uses the official `@vercel/oidc` SDK and forwards the short-lived token server-to-server to the Python API using an application-specific request header. `firebase_backend.py` keeps the latest token in process memory so Firestore's gRPC auth callback can read it from its worker thread. No token or service-account key is persisted. Local development continues to use Application Default Credentials.
 
-End-to-end Preview verification succeeded on 2026-10-14 at `https://bdr-prototype-onvaparpb-aditya-p-dixit-s-projects.vercel.app`: `/api/health` returned 200, the Clerk config endpoint exposed only the publishable key, and `/api/marketplace/vendor/me` returned the expected 401 for a missing vendor login after successfully reading Firestore state. A direct request to the internal Python path returned 404 without the private bridge secret. Production has not been redeployed.
+End-to-end Preview verification succeeded on 2026-10-15 at `https://bdr-prototype-bryahieql-aditya-p-dixit-s-projects.vercel.app`: `/api/health` returned 200, `/app-config.js` served runtime Clerk configuration, `/api/marketplace/vendor/me` returned 401 without a vendor session, and `/api/admin/influencers` returned 403 without an admin session. Production has not yet received this release.
 
 ## Vercel environment variables
 
@@ -64,7 +64,7 @@ Set these as server-side Vercel variables (do not use public/client prefixes):
 | GTM_PUBLIC_BASE_URL | https://go.connectem.ai |
 | TOKEN_ENCRYPTION_KEY | A new Fernet key for encrypted integration tokens |
 
-The Clerk Production publishable key, secret key, and issuer are staged in Vercel Production. The issuer encoded by the supplied live publishable key is `https://clerk.connectem.ai`; the Clerk secret is stored as a sensitive Vercel variable. Preview retains the development instance values. On 2026-10-14, public DNS returned no record for `clerk.connectem.ai`, so the Production deployment has not been redeployed. Add/verify the Clerk-provided DNS record and confirm the issuer's JWKS endpoint resolves before promotion. Allow the Vercel preview origin during setup and `go.connectem.ai` after its custom domain is verified.
+The production Clerk publishable key, secret key, and issuer are configured in Vercel Production. The production issuer is `https://clerk.connectem.ai`. Preview sign-in UI rendered successfully. Verify production Clerk DNS/JWKS and allowed origins with an authenticated account before promotion.
 
 ## Firestore backups
 
@@ -81,8 +81,8 @@ Backup storage is billable. A read-only check found no schedule, and the Firesto
 
 ## Deployment checklist
 
-1. Confirm the project Root Directory is the repository root. The current Preview verifies the app, `/partner-portal`, `/api/health`, and the Firestore read path.
-2. Verify the Clerk Production hostname/DNS and add the authorized IRM admin user IDs in Vercel. Preview currently uses the Clerk development instance; do not reuse its test secret in Production.
+1. Confirm the project Root Directory is the repository root. The current Preview verifies the connected portal, `/api/health`, and its unauthenticated API access controls.
+2. Verify the Clerk Production hostname/DNS and add the authorized IRM admin user IDs in Vercel.
 3. Verify the preview app-config response contains only the Clerk publishable key; verify API calls reach the Python function and Firestore.
 4. Add both custom domains in Vercel and apply the Vercel-provided DNS records when ready.
 5. Verify https://connectem.ai/, https://go.connectem.ai/, partner sign-in/onboarding, API authorization, and that private local database files are absent from the deployment.
@@ -90,8 +90,10 @@ Backup storage is billable. A read-only check found no schedule, and the Firesto
 
 ## Remaining launch work
 
-- Add/verify the Clerk DNS record for `clerk.connectem.ai`, allow the final app domains, and add the intended IRM administrator user IDs before enabling admin-only workflows.
+- Add `CLERK_BACKEND_AUTH_REQUIRED=true`, `HOSTED_API_ONLY=true`, and `GTM_PUBLIC_BASE_URL=https://go.connectem.ai` to Vercel Production. `CLERK_ADMIN_USER_IDS` is absent and must contain the intended operator's Clerk user ID; do not guess or use a partner's ID.
+- Verify the production Clerk hostname/JWKS and allowed origins with an authenticated account.
 - Promote the verified application code to Production after Clerk DNS resolves; verify authenticated API reads and writes there.
-- Add and verify the two custom domains and configure the Clerk allowed origins.
 - Confirm scheduled Firestore backups and complete a restore rehearsal before real pilot data is entered.
+- Replace whole-state snapshot storage with tenant-scoped transactional records before broad external access; concurrent edits currently use compare-and-swap and require a reload/retry on conflict.
+- Obtain legal approval and executed partner/vendor agreements. The portal does not provide a legally qualified signature or process payouts.
 - The project still needs a public marketing landing page if connectem.ai is intended to be a customer-facing website rather than the existing app console.

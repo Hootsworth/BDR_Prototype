@@ -10,11 +10,13 @@
 
 **Phase 3 preparation update (10 October 2026):** a closed-pilot operating runbook and weekly scorecard have been added in [`PHASE_3_CLOSED_PILOT_RUNBOOK.md`](PHASE_3_CLOSED_PILOT_RUNBOOK.md). The pilot has not started; the Phase 2 hosted-staging gate and external buyer/Influencer commitments remain prerequisites.
 
+**Superseding release update (15 October 2026):** Vercel Production is serving the previous portal; the new Clerk partner portal and admin integration are deployed to Preview. Vendor signup now uses Firestore instead of returning the old Vercel 503. Production has its Clerk and Firestore/WIF credentials, but the admin allowlist and hosted API security flags were absent (the flags and canonical portal URL are now staged, pending the next deployment). A production operator Clerk ID, live authenticated workflow verification, scheduled backups/restore rehearsal, approved agreements, and a real pilot are still outstanding.
+
 ## 1. Executive assessment
 
 The business thesis is clear: turn trusted relationships and industry influence into a measurable customer acquisition channel. The current product contains useful building blocks for that thesis—partner and vendor profiles, a masked network directory, introduction requests, human review, referral credits, and an IRM console—but it is still a local-first prototype with adjacent BDR/outbound functionality. It is not ready to launch as a public hosted marketplace.
 
-The most important launch blockers are not visual polish. They are durable shared storage, real server-side identity and authorization, tenant isolation, a consistent approval and request state machine, verified participant onboarding, and trustworthy attribution/reward records. The Vercel adapter currently documents and enforces a 503 for signup and Marketplace flows because the app has no durable shared database there. The UI therefore cannot become a reliable public service just by publishing the current frontend.
+The most important launch blockers are not visual polish. They are production operator access, tenant isolation, concurrency-safe product records, verified participant onboarding, operational recovery, and trustworthy attribution/reward records. The Vercel API now uses Firestore and the portal/admin share its referral and reward data; the release remains in Preview while production authorization and account-level verification are completed.
 
 **Recommended sequence:** keep the current direction—Marketplace and Vendor onboarding first, Influencers in the Portal, IRM operations behind them—then earn the right to expand into the Model 1 relationship-management system. Start with a managed, human-reviewed marketplace pilot in one narrow vertical, demonstrate qualified introductions and repeatable outcomes, then productize deeper CRM and automation. Do not position the existing app as autonomous BDR software in the investor pitch.
 
@@ -185,13 +187,13 @@ The goal is to go from the current local prototype to a trustworthy hosted pilot
 
 ### First deployment recommendation
 
-The current Vercel setup can serve static assets and lightweight stateless endpoints, but it is not the data plane for this product today: signup and Marketplace routes explicitly return 503 there, and the handler uses temporary storage. The smallest sound first hosted service is one managed web/API deployment connected to managed PostgreSQL, object storage, and a managed identity provider, with separate staging/production. Keep deployment simple and observable. Select a provider after confirming team skills, region/data residency, database backup/restore options, and cost envelope. A Vercel frontend may remain if it calls the real persistent API; do not treat `/tmp` or per-function local state as product storage.
+Vercel currently serves the UI and API; Clerk handles identity, and Firestore stores the shared hosted state through workload identity federation. The product still stores most records in a compressed whole-state snapshot for compatibility, with compare-and-swap writes and reload/retry on conflicts. Keep it restricted to a controlled pilot while migrating to tenant-owned transactional records and proving backup restoration, monitoring, and support ownership.
 
 ## 5. Codebase audit: gaps against the business and production standard
 
 ### Critical before any public participant launch
 
-1. **Hosted Marketplace is disabled by design.** The Vercel adapter points to the local server, but vendor signup, influencer signup, and Marketplace operations return 503 because the server has no durable shared data store. This is correctly documented in `README.md`; hosting the current frontend alone will not launch the service.
+1. **Production release is not promoted.** The connected partner portal and shared admin projection are in Preview. Production still serves the retired portal. Deploy after an operator Clerk ID is allowlisted and authenticated reads/writes are verified; a local HTTP test does not prove a successful production signup.
 2. **No complete organization authorization model.** Clerk now provides the application identity and server-verified sessions for operator APIs. The pilot still needs organization membership, tenant scoping, vendor/influencer role mapping, and production admin IDs configured. Browser sign-in alone does not grant API permissions.
 3. **No tenant isolation model.** Vendor data is filtered by vendor id in some handlers, but there is no first-class tenant across buyers, operators, influencers, records, files, logs, or billing. SaaS isolation must be explicit and tested; AWS guidance distinguishes tenant isolation from authentication/authorization.
 4. **Vendor approval is now enforced server-side.** Network access and new introduction requests require explicit IRM approval in addition to a signed agreement. Continue to exercise this gate in staging and document operator review criteria.
