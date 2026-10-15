@@ -368,11 +368,6 @@ function switchTab(tabId) {
     }
   } else if (tabId === 'influencers' && typeof renderInfluencersTable === "function") {
     renderInfluencersTable();
-    if (typeof refreshAdminInfluencerData === "function" && window.Clerk?.user) {
-      refreshAdminInfluencerData().catch(error => {
-        console.warn("Could not refresh shared influencer data:", error.message);
-      });
-    }
   } else if (tabId === 'analyse' && typeof filterFunnelSegment === "function") {
     filterFunnelSegment(document.getElementById("funnel-industry-filter")?.value || "all");
   } else if (tabId === 'agent-mode' && typeof initAgentAutocomplete === "function") {

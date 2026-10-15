@@ -2,11 +2,9 @@
 
 ## Model 2 marketplace operating controls
 
-Keep the workflow human-reviewed: the IRM operator reviews vendors and partner records; the Vendor executes its approved Marketplace Agreement through the legal process; the IRM operator routes or declines requests; and the Influencer decides whether to accept and schedule. The portal records an acknowledgement only, not an Influencer signature. An IRM operator can mark a call complete only after it is scheduled. Admin approval must never be treated as a substitute for a participant's agreement or response.
+Keep the workflow human-reviewed: the IRM operator reviews vendors and partner records; a Vendor signs its own Marketplace Agreement; an Influencer signs its own Partner Network Agreement; the IRM operator routes or declines requests; and the Influencer decides whether to accept and schedule. An IRM operator can mark a call complete only after it is scheduled. Admin approval must never be treated as a substitute for a participant's signature or response.
 
-The canonical hosted partner page uses Clerk for sign-in and the same Firestore-backed API state as the admin Marketplace. New partner profiles, introductions, status, approved reward points, and redemption requests share one source of truth. A standalone legacy portal is retired and redirects to the canonical page. The separate local demo portal files must not be deployed as another app.
-
-The portal records agreement acknowledgements separately from executed agreements. It does not provide legally qualified electronic signatures, identity or organization verification, invoicing, or payout processing. Obtain and store executed agreements through the approved legal process and manually fulfill reward requests until those workflows are implemented. Live Vendor signup uses the Firestore-backed state path; end-to-end creation against production data still needs a controlled account test.
+The current app records agreement metadata and referral-credit totals only. It does not provide legally qualified electronic signatures, identity or organization verification, invoicing, or payout processing. Store the executed agreement through your approved legal process and manually reconcile credits/payouts until those workflows are implemented. Vendor and Influencer signup/Marketplace APIs remain local-server-only until durable hosted storage is configured.
 
 ## Managing partner records
 
@@ -16,9 +14,11 @@ Removing a partner retains their contact records and clears the partner relation
 
 ## Private partner links
 
-Create or revoke private partner links from the admin console. A link is a bearer credential: anyone who receives it can view that partner's real contact name, work email, company, title, phone, and call status, and can submit referrals. Known synthetic seed contacts are excluded. The API returns only those allowlisted fields; internal notes, email/LinkedIn content, outreach history, and other partners' contacts are not included. The raw random token is stored in Firestore only as a SHA-256 hash. Only one link remains active per partner; creating a replacement revokes the previous link.
+Create a private link from the local console. It is a bearer link: anyone who receives it can view that partner's real contact name, work email, company, title, phone, and call status, and can submit referrals. Known synthetic seed contacts are excluded. The API returns only those allowlisted fields; internal notes, email/LinkedIn content, outreach history, and other partners' contacts are not included. The raw random token is stored in the database only as a SHA-256 hash. Only one link remains active per partner; creating a replacement revokes the previous link, and the owner can revoke it from the local console at any time.
 
-Vercel uses Firestore for shared application state and partner-link token hashes. Admin list/link management requires an allowlisted Clerk operator. The current production environment is missing that allowlist and the `CLERK_BACKEND_AUTH_REQUIRED` / `HOSTED_API_ONLY` settings; the connected implementation is in Preview until those are set and verified.
+The local SQLite database must remain on a reachable, persistent server. A `localhost` link works only on the computer running the app. To share with someone elsewhere, set `GTM_PUBLIC_BASE_URL` in `.env` to the HTTPS address that routes to this same persistent local server. Keep the server and secure reverse proxy running. Forward the original client address in `X-Forwarded-For`; owner-only database and management APIs reject requests that arrive from non-loopback clients. Only one link remains active per influencer; creating a replacement revokes the previous link, and the owner can revoke it from the local console at any time.
+
+The current Vercel adapter uses temporary `/tmp` storage and is not suitable for durable shared contact data. Link creation and owner CRUD therefore return an explanatory error on Vercel rather than pretending the records are safely persisted. A hosted deployment needs a durable shared database and authenticated owner-management endpoints before these features can be enabled there.
 
 ## Separate referral charts
 

@@ -46,7 +46,7 @@ function openPortalContactOutreach(contactIdOrIdx, channel = "email") {
 }
 
 function renderInfluencersTable() {
-  const influencers = (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt && !c.isDemoData);
+  const influencers = (database.contacts || []).filter(c => c.isInfluencer);
   const selectEl = document.getElementById("console-portal-influencer-select");
   renderPartnerDirectory();
 
@@ -75,7 +75,7 @@ function renderPartnerDirectory() {
   const list = document.getElementById("partner-directory-list");
   const count = document.getElementById("partner-directory-count");
   if (!list) return;
-  const partners = (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt && !c.isDemoData);
+  const partners = (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt);
   const query = String(document.getElementById("partner-directory-search")?.value || "").trim().toLowerCase();
   const visible = partners.filter(partner => !query || [partner.fullName, partner.company, partner.jobTitle, partner.email].some(value => String(value || "").toLowerCase().includes(query)));
   if (count) count.textContent = String(partners.length);
@@ -87,9 +87,9 @@ function renderPartnerDirectory() {
     const key = partner.email || partner.fullName;
     const active = String(key).toLowerCase() === String(activeConsolePortalInfluencerEmail || "").toLowerCase();
     const referrals = getInfluencerReferralsList(partner);
-    const points = Number(partner.rewardPoints ?? getInfluencerApprovedRewardPoints(partner)) || 0;
+    const points = getInfluencerEarningsSummary?.(partner)?.totalCredits ?? partner.referralCredits ?? 0;
     const initials = String(partner.fullName || "P").split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase();
-    return `<button type="button" class="partner-directory-item ${active ? "is-active" : ""}" role="option" aria-selected="${active}" onclick="selectConsolePortalInfluencer('${escapePartnerHTML(key)}')"><span class="partner-directory-avatar">${escapePartnerHTML(initials)}</span><span class="partner-directory-copy"><strong>${escapePartnerHTML(partner.fullName || "Unnamed partner")}</strong><small>${escapePartnerHTML(partner.company || partner.jobTitle || "Partner")}</small><small>${referrals.length} referrals · ${Number(points).toLocaleString()} approved pts · ${escapePartnerHTML(partner.influencerStatus || "approved")}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>`;
+    return `<button type="button" class="partner-directory-item ${active ? "is-active" : ""}" role="option" aria-selected="${active}" onclick="selectConsolePortalInfluencer('${escapePartnerHTML(key)}')"><span class="partner-directory-avatar">${escapePartnerHTML(initials)}</span><span class="partner-directory-copy"><strong>${escapePartnerHTML(partner.fullName || "Unnamed partner")}</strong><small>${escapePartnerHTML(partner.company || partner.jobTitle || "Partner")}</small><small>${referrals.length} referrals · ${Number(points).toLocaleString()} pts</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>`;
   }).join("");
 }
 
@@ -98,19 +98,12 @@ function getInfluencerReferralsList(influencer) {
   const infNameLower = (influencer.fullName || "").toLowerCase();
   const infEmailLower = (influencer.email || "").toLowerCase();
   return (database.contacts || []).filter(c => {
-    if (c.isInfluencer || c.archivedAt || c.isDemoData) return false;
+    if (c.isInfluencer || c.archivedAt) return false;
     const refBy = (c.referredBy || "").toLowerCase();
     const refEmail = (c.referredByEmail || "").toLowerCase();
     const influencerEmail = (c.influencerEmail || "").toLowerCase();
     return String(c.influencerId || '') === String(influencer.id) || (infNameLower && refBy === infNameLower) || (infEmailLower && (refEmail === infEmailLower || influencerEmail === infEmailLower));
   });
-}
-
-function getInfluencerApprovedRewardPoints(influencer) {
-  if (!influencer) return 0;
-  const id = String(influencer.id);
-  return (database.rewardLedger || []).filter(event => String(event.influencerId) === id && event.status === "approved")
-    .reduce((sum, event) => sum + (Number(event.points) || 0), 0);
 }
 
 function escapePartnerHTML(value) {
@@ -152,7 +145,7 @@ function selectConsolePortalInfluencer(emailOrName) {
 }
 
 function renderConsolePortalReferrals() {
-  const influencers = (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt && !c.isDemoData);
+  const influencers = (database.contacts || []).filter(c => c.isInfluencer);
   const activeInf = influencers.find(i =>
     (i.email || "").toLowerCase() === (activeConsolePortalInfluencerEmail || "").toLowerCase() ||
     (i.fullName || "").toLowerCase() === (activeConsolePortalInfluencerEmail || "").toLowerCase()
@@ -172,7 +165,8 @@ function renderConsolePortalReferrals() {
   renderPartnerDirectory();
   const callsScheduled = referrals.filter(r => r.hasScheduledCall && !r.hasTakenCall).length;
   const callsCompleted = referrals.filter(r => r.hasTakenCall).length;
-  const approvedPoints = Number(activeInf.rewardPoints ?? getInfluencerApprovedRewardPoints(activeInf)) || 0;
+  const earningsSummary = typeof getInfluencerEarningsSummary === "function" ? getInfluencerEarningsSummary(activeInf) : null;
+  const credits = earningsSummary ? earningsSummary.totalCredits : (activeInf.referralCredits || 0);
 
   const setText = (id, value) => {
     const el = document.getElementById(id);
@@ -192,7 +186,7 @@ function renderConsolePortalReferrals() {
   setText("inf-portal-kpi-referrals", referrals.length);
   setText("inf-portal-kpi-calls", callsScheduled);
   setText("inf-portal-kpi-enriched", callsCompleted);
-  setText("inf-portal-kpi-credits", `${approvedPoints.toLocaleString()} pts`);
+  setText("inf-portal-kpi-credits", `${credits} pts`);
   setText("inf-portal-form-partner", activeInf.fullName || "this partner");
   setText("inf-portal-bulk-partner", activeInf.fullName || "this partner");
   setText("inf-portal-table-title", "Referred contacts");
@@ -1120,8 +1114,7 @@ function resolveInfluencerByIdOrActive(influencerId) {
   return currentPartner();
 }
 
-async function openInfluencerEarningsModal(influencerId) {
-  try { await refreshAdminInfluencerData(); } catch (_) { /* keep last loaded local data visible */ }
+function openInfluencerEarningsModal(influencerId) {
   const influencer = resolveInfluencerByIdOrActive(influencerId);
   if (!influencer) {
     alert("Select or add an Influencer Partner first.");
@@ -1129,7 +1122,7 @@ async function openInfluencerEarningsModal(influencerId) {
   }
 
   if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
-  const legacySummary = typeof getInfluencerEarningsSummary === "function"
+  const summary = typeof getInfluencerEarningsSummary === "function"
     ? getInfluencerEarningsSummary(influencer)
     : {
         totalCredits: influencer.referralCredits || 0,
@@ -1139,14 +1132,6 @@ async function openInfluencerEarningsModal(influencerId) {
         paymentStatus: "Settlement Pending (Placeholder)",
         referrals: []
       };
-  // The redeemable balance is the IRM-approved milestone ledger. Historical
-  // per-referral credits remain in CRM, but are not spendable reward points.
-  const influencerLedger = (database.rewardLedger || []).filter(event => String(event.influencerId) === String(influencer.id));
-  const approvedPoints = influencerLedger.filter(event => event.status === "approved").reduce((sum, event) => sum + (Number(event.points) || 0), 0);
-  const pendingPoints = influencerLedger.filter(event => event.status === "pending").reduce((sum, event) => sum + (Number(event.points) || 0), 0);
-  const summary = influencerLedger.length
-    ? { ...legacySummary, totalCredits: approvedPoints + pendingPoints, approvedCredits: approvedPoints, pendingCredits: pendingPoints, paymentStatus: "Manual reward review" }
-    : { ...legacySummary, totalCredits: Number(influencer.rewardPoints) || 0, approvedCredits: Number(influencer.rewardPoints) || 0, pendingCredits: 0, paymentStatus: "Manual reward review" };
 
   const titleEl = document.getElementById("earnings-modal-partner-name");
   const totalEl = document.getElementById("earnings-kpi-total-credits");
@@ -1169,12 +1154,7 @@ async function openInfluencerEarningsModal(influencerId) {
       tbodyEl.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1.5rem; color: var(--color-text-secondary);">No referrals recorded yet for ${escapePartnerHTML(influencer.fullName)}.</td></tr>`;
     } else {
       tbodyEl.innerHTML = referrals.map(r => {
-        const contactId = String(r.id || "");
-        const pts = influencerLedger.filter(event => {
-          const request = (database.marketplaceRequests || []).find(item => String(item.id) === String(event.requestId));
-          return event.status === "approved" && String(event.targetContactId || request?.targetContactId || "") === contactId;
-        })
-          .reduce((sum, event) => sum + (Number(event.points) || 0), 0);
+        const pts = 0;
         const statusText = r.hasTakenCall
           ? `<span class="badge badge-success" style="font-size: 10px;">Meeting reported · verify milestone</span>`
           : r.hasScheduledCall
@@ -1724,7 +1704,8 @@ function renderRelationshipGraph() {
   // Render Influencer Nodes
   infPositions.forEach((pos, id) => {
     const inf = pos.data;
-    const pts = Number(inf.rewardPoints ?? getInfluencerApprovedRewardPoints(inf)) || 0;
+    const summary = typeof getInfluencerEarningsSummary === "function" ? getInfluencerEarningsSummary(inf) : null;
+    const pts = summary ? summary.totalCredits : (inf.referralCredits || 0);
     svgHtml += `
       <g style="cursor: pointer;" onclick="inspectGraphNode('influencer', '${escapePartnerHTML(id)}')">
         <circle cx="${pos.x}" cy="${pos.y}" r="18" fill="#0d9488" stroke="#ffffff" stroke-width="2.5"></circle>
@@ -1774,8 +1755,8 @@ function inspectGraphNode(nodeType, nodeKey) {
   if (nodeType === "influencer") {
     const inf = (database.contacts || []).find(c => String(c.id) === String(nodeKey));
     if (!inf) return;
+    const summary = typeof getInfluencerEarningsSummary === "function" ? getInfluencerEarningsSummary(inf) : null;
     const refs = getInfluencerReferralsList(inf);
-    const approvedPoints = Number(inf.rewardPoints ?? getInfluencerApprovedRewardPoints(inf)) || 0;
     const orgs = new Set(refs.map(r => r.company).filter(Boolean));
     inspector.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 0.65rem;">
@@ -1787,7 +1768,7 @@ function inspectGraphNode(nodeType, nodeKey) {
         <div style="padding: 0.6rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-xs); font-size: 11.5px;">
           <div><strong>Referred Contacts:</strong> ${refs.length}</div>
           <div><strong>Organizations Reached:</strong> ${orgs.size}</div>
-          <div><strong>Approved Reward Points:</strong> <span style="color: #0d9488; font-weight: 700;">${approvedPoints.toLocaleString()} pts</span></div>
+          <div><strong>Total Partner Credits:</strong> <span style="color: #0d9488; font-weight: 700;">${summary ? summary.totalCredits : (inf.referralCredits || 0)} pts</span></div>
           <div><strong>Agreements Attached:</strong> ${(inf.agreements || []).length}</div>
         </div>
         <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
@@ -1882,15 +1863,6 @@ async function refreshIrmMarketplaceModal() {
       if (Array.isArray(data.marketplaceRequests)) database.marketplaceRequests = data.marketplaceRequests;
       if (Array.isArray(data.rewardLedger)) database.rewardLedger = data.rewardLedger;
       if (Array.isArray(data.rewardRedemptions)) database.rewardRedemptions = data.rewardRedemptions;
-      if (Array.isArray(data.influencers)) {
-        const otherContacts = (database.contacts || []).filter(c => !c.isInfluencer);
-        const updatedInfluencers = data.influencers.map(i => ({
-          ...((database.contacts || []).find(c => String(c.id) === String(i.id)) || {}),
-          ...i,
-          isInfluencer: true
-        }));
-        database.contacts = [...updatedInfluencers, ...otherContacts];
-      }
       renderIrmMarketplaceModal(data);
       return;
     }
@@ -1903,43 +1875,6 @@ async function refreshIrmMarketplaceModal() {
     influencersCount: (database.contacts || []).filter(c => c.isInfluencer && !c.archivedAt).length,
     referralsCount: (database.contacts || []).filter(c => !c.isInfluencer && !c.archivedAt).length
   });
-}
-
-async function refreshAdminInfluencerData() {
-  const response = await fetch("/api/admin/influencers");
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Could not refresh influencer data (${response.status})`);
-  const influencers = Array.isArray(payload.influencers) ? payload.influencers : [];
-  if (Array.isArray(payload.contacts)) {
-    // Keep complete CRM/contact records: a later workspace save must not replace
-    // them with the reduced public-safe referral projection.
-    const influencerById = new Map(influencers.map(influencer => [String(influencer.id), influencer]));
-    database.contacts = payload.contacts.map(contact => {
-      if (!contact.isInfluencer) return contact;
-      const projection = influencerById.get(String(contact.id));
-      return projection ? {
-        ...contact,
-        totalReferrals: projection.totalReferrals,
-        referralCredits: projection.referralCredits,
-        rewardPoints: projection.rewardPoints,
-        influencerStatus: projection.influencerStatus || contact.influencerStatus || "approved"
-      } : contact;
-    });
-  } else {
-    const currentById = new Map((database.contacts || []).map(contact => [String(contact.id), contact]));
-    influencers.forEach(influencer => {
-      const current = currentById.get(String(influencer.id)) || {};
-      currentById.set(String(influencer.id), { ...current, ...influencer, isInfluencer: true });
-    });
-    database.contacts = Array.from(currentById.values());
-  }
-  database.rewardLedger = Array.isArray(payload.rewardLedger) ? payload.rewardLedger : [];
-  database.rewardRedemptions = Array.isArray(payload.rewardRedemptions) ? payload.rewardRedemptions : [];
-  database.marketplaceRequests = Array.isArray(payload.marketplaceRequests) ? payload.marketplaceRequests : [];
-  database.vendors = Array.isArray(payload.vendors) ? payload.vendors : [];
-  renderInfluencersTable();
-  renderPartnerDirectory();
-  return payload;
 }
 
 function renderIrmMarketplaceModal(payload = {}) {
@@ -2007,8 +1942,9 @@ function renderIrmMarketplaceModal(payload = {}) {
 
   const influencerTbody = document.getElementById("irm-influencers-tbody");
   if (influencerTbody) {
-    if (!influencers.length) influencerTbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--color-text-secondary);">No influencers registered yet.</td></tr>`;
-    else influencerTbody.innerHTML = influencers.map(i => `<tr><td>${escapePartnerHTML(i.fullName || "Influencer")}<div style="font-size:11px;color:var(--color-text-secondary);">${escapePartnerHTML(i.jobTitle || "")}</div></td><td>${escapePartnerHTML(i.email || "")}</td><td>${escapePartnerHTML(i.company || "")}</td><td>${escapePartnerHTML(i.influencerStatus || "approved")}</td><td>${Number(i.totalReferrals || 0).toLocaleString()}</td><td>${Number(i.rewardPoints || 0).toLocaleString()} pts</td><td>${i.influencerStatus !== "approved" ? `<button class="btn btn-primary btn-xs" onclick="manageIrmInfluencer('${escapePartnerHTML(i.id)}','approve')">Approve</button>` : ""}<button class="btn btn-secondary btn-xs" onclick="manageIrmInfluencer('${escapePartnerHTML(i.id)}','suspend')">Suspend</button></td></tr>`).join("");
+    const pendingInfluencers = influencers.filter(i => i.influencerStatus !== "approved");
+    if (!pendingInfluencers.length) influencerTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--color-text-secondary);">No influencer reviews pending.</td></tr>`;
+    else influencerTbody.innerHTML = pendingInfluencers.map(i => `<tr><td>${escapePartnerHTML(i.fullName || "Influencer")}</td><td>${escapePartnerHTML(i.email || "")}</td><td>${escapePartnerHTML(i.company || "")}</td><td>${escapePartnerHTML(i.influencerStatus || "pending_review")}</td><td><button class="btn btn-primary btn-xs" onclick="manageIrmInfluencer('${escapePartnerHTML(i.id)}','approve')">Approve</button><button class="btn btn-secondary btn-xs" onclick="manageIrmInfluencer('${escapePartnerHTML(i.id)}','suspend')">Suspend</button></td></tr>`).join("");
   }
 
   const reqTbody = document.getElementById("irm-requests-tbody");
@@ -2144,7 +2080,6 @@ async function manageIrmMarketplaceRequest(requestId, status) {
 }
 
 window.renderInfluencersTable = renderInfluencersTable;
-window.refreshAdminInfluencerData = refreshAdminInfluencerData;
 window.renderPartnerDirectory = renderPartnerDirectory;
 window.selectConsolePortalInfluencer = selectConsolePortalInfluencer;
 window.renderConsolePortalReferrals = renderConsolePortalReferrals;
@@ -2205,7 +2140,6 @@ window.inspectGraphNode = inspectGraphNode;
 window.openIrmMarketplaceModal = openIrmMarketplaceModal;
 window.closeIrmMarketplaceModal = closeIrmMarketplaceModal;
 window.refreshIrmMarketplaceModal = refreshIrmMarketplaceModal;
-window.getInfluencerApprovedRewardPoints = getInfluencerApprovedRewardPoints;
 window.renderIrmMarketplaceModal = renderIrmMarketplaceModal;
 window.manageIrmVendor = manageIrmVendor;
 window.manageIrmMarketplaceRequest = manageIrmMarketplaceRequest;

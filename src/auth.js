@@ -102,7 +102,6 @@ async function initClerkAuth(publishableKey) {
             if (typeof filterOutboundTable === "function") filterOutboundTable();
             if (typeof renderDashboard === "function") renderDashboard();
             if (typeof renderInfluencersTable === "function") renderInfluencersTable();
-            if (typeof refreshAdminInfluencerData === "function") refreshAdminInfluencerData().catch(error => console.warn("Could not refresh shared influencer data:", error.message));
             if (typeof renderEventsList === "function") renderEventsList();
             if (typeof renderPartnerDirectory === "function") renderPartnerDirectory();
           }).catch(error => {

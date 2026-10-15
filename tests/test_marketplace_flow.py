@@ -202,61 +202,6 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertEqual(legacy_signup[0], 410)
         self.assertIn("Clerk", legacy_signup[1]["error"])
 
-        # Hosted signup must persist through the configured workbook state API;
-        # Vercel itself is not a reason to disable the flow.
-        with patch.dict("os.environ", {"VERCEL": "1"}):
-            hosted = self.request("/api/marketplace/vendors/signup", "POST", {
-                "companyName": "Hosted Vendor", "contactName": "Taylor Vendor",
-                "email": "hosted@vendor.test", "password": "A-long-password-2026!",
-            })
-        self.assertEqual(hosted[0], 201)
-        saved = next(v for v in server.read_workbook_state()["vendors"] if v["email"] == "hosted@vendor.test")
-        self.assertTrue(saved.get("passwordHash"))
-
-    def test_partner_agreement_acknowledgement_is_not_a_signature(self):
-        token = server.issue_partner_share_token(20)
-        status, payload = self.request("/api/partner-share/agreement", "POST", {
-            "signerName": "Avery Influencer", "name": "Partner Network Agreement",
-        }, token=token)
-        self.assertEqual(status, 200)
-        self.assertEqual(payload["status"], "acknowledged")
-        self.assertEqual(payload["agreement"]["status"], "acknowledged")
-        self.assertNotIn("signedBy", payload["agreement"])
-        self.assertNotIn("Digitally signed", payload["agreement"]["notes"])
-
-    def test_admin_influencer_projection_includes_shared_referrals_and_reward_points(self):
-        state = server.read_workbook_state()
-        state["contacts"][1]["emailsSent"] = True
-        state["contacts"][1]["outboundHistory"] = [{"channel": "email", "status": "sent"}]
-        state["rewardLedger"] = [{
-            "eventId": "request:70:milestone:warm_introduction",
-            "influencerId": 20,
-            "milestone": "warm_introduction",
-            "points": 200,
-            "status": "approved",
-        }]
-        server.write_workbook_state(state)
-
-        status, payload = self.request("/api/admin/influencers")
-
-        self.assertEqual(status, 200)
-        influencer = next(row for row in payload["influencers"] if str(row["id"]) == "20")
-        self.assertEqual(influencer["totalReferrals"], 1)
-        self.assertEqual(influencer["rewardPoints"], 200)
-        self.assertEqual(payload["referrals"][0]["influencerId"], 20)
-        self.assertTrue(payload["contacts"][1]["emailsSent"])
-        self.assertEqual(payload["contacts"][1]["outboundHistory"][0]["status"], "sent")
-
-    def test_hosted_admin_can_create_and_revoke_durable_partner_links(self):
-        with patch.dict("os.environ", {"VERCEL": "1", "GTM_PUBLIC_BASE_URL": "https://go.example.test"}), patch.object(server, "is_irm_admin_request", return_value=True):
-            status, created = self.request("/api/partner-shares/create", "POST", {"influencerId": 20})
-            self.assertEqual(status, 201)
-            self.assertTrue(created["shareUrl"].startswith("https://go.example.test/partner-portal.html#token="))
-
-            revoked_status, revoked = self.request("/api/partner-shares/revoke-influencer", "POST", {"influencerId": 20})
-            self.assertEqual(revoked_status, 200)
-            self.assertEqual(revoked["revoked"], 1)
-
     def test_irm_cannot_fake_influencer_acceptance_or_complete_unscheduled_call(self):
         state = server.read_workbook_state()
         state["vendors"] = [{

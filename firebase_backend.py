@@ -280,7 +280,6 @@ class FirestoreStateStore:
             "chunkCount": chunk_count,
             "uncompressedBytes": len(raw),
             "sha256": hashlib.sha256(compressed).hexdigest(),
-            "createdAtEpoch": time.time(),
         })
         batch.commit()
 
@@ -308,14 +307,11 @@ class FirestoreStateStore:
             raise FirebaseBackendUnavailable("Could not activate the new Firebase state snapshot.") from exc
 
         self._version_map()[key] = version_id
-        # Keep recent versions so an overlapping serverless request can finish
-        # reading the snapshot it observed before the pointer swap. Prune only
-        # versions older than one day; compare-and-swap still rejects stale writes.
-        cleanup_before = time.time() - 24 * 60 * 60
+        # Retain only the active snapshot after a successful pointer swap.
+        # Cloud Run is configured with one instance and concurrency one for this
+        # compatibility store, so no request can still be reading an old version.
         for old_version in manifest_ref.collection("versions").stream():
             if old_version.id == version_id:
-                continue
-            if float((old_version.to_dict() or {}).get("createdAtEpoch") or 0) > cleanup_before:
                 continue
             old_ref = old_version.reference
             old_chunks = old_ref.collection("chunks").stream()

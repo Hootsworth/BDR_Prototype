@@ -153,7 +153,7 @@ function selectCalendarDate(year, month, day, meetings) {
         </div>
         <div class="meeting-info-row">
           <span>Referring Partner:</span>
-          <span style="font-weight:600; color:var(--brand-teal);">${meet.influencerName} (${meet.influencerCredits} legacy CRM credits)</span>
+          <span style="font-weight:600; color:var(--brand-teal);">${meet.influencerName} (${meet.influencerCredits} credits)</span>
         </div>
         <div style="margin-top: 12px; display:flex; gap: 6px;">
           <a class="btn btn-primary btn-sm" href="${meet.meetingUrl}" target="_blank" style="flex:1.2; text-align:center; height:30px; padding:0; display:flex; align-items:center; justify-content:center; font-size:12px;">Join Meeting</a>
@@ -306,7 +306,7 @@ function dispatchLiveBackendSync(meet, dt, notes) {
 
   if (database.slackWebhookUrl) {
     const slackPayload = {
-      text: `*New Briefing Scheduled!*\n*Prospect:* ${meet.contactName} (${meet.contactTitle || 'N/A'})\n*Company:* ${meet.contactCompany}\n*Platform:* ${meet.platform}\n*Time:* ${meet.timeString}\n*Referred By:* ${meet.influencerName} (${meet.influencerCredits} legacy CRM credits)\n*Join Link:* ${meet.meetingUrl}`
+      text: `*New Briefing Scheduled!*\n*Prospect:* ${meet.contactName} (${meet.contactTitle || 'N/A'})\n*Company:* ${meet.contactCompany}\n*Platform:* ${meet.platform}\n*Time:* ${meet.timeString}\n*Referred By:* ${meet.influencerName} (${meet.influencerCredits} credits awarded)\n*Join Link:* ${meet.meetingUrl}`
     };
 
     fetch(database.slackWebhookUrl, {
@@ -351,7 +351,7 @@ function openBriefingConsole(meetId) {
         <h4 style="margin: 0 0 0.5rem 0; font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-primary);">Partner Referral Dossier</h4>
         <div style="font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text-primary);">
           <div style="margin-bottom: 0.5rem;"><strong>Referral Partner:</strong> ${meet.influencerName}</div>
-          <div style="margin-bottom: 0.5rem;"><strong>Legacy CRM Credits Recorded:</strong> <span style="color: var(--color-success); font-weight: 700;">${meet.influencerCredits} credits</span></div>
+          <div style="margin-bottom: 0.5rem;"><strong>Credits Redeemed:</strong> <span style="color: var(--color-success); font-weight: 700;">${meet.influencerCredits} credits</span></div>
           <div style="margin-bottom: 0.5rem;"><strong>Partner Relationship:</strong> Elite Technology Advisor</div>
           <p style="margin: 0.5rem 0 0 0; padding-top: 0.5rem; border-top: 1px solid var(--color-border); font-style: italic; color: var(--color-text-secondary);">"${meet.notes}"</p>
         </div>

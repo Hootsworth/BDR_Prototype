@@ -25,28 +25,6 @@
   const clerkSignupMount = document.getElementById('clerk-signup-mount');
   const onboardingForm = document.getElementById('portal-onboarding-form');
   const authTabs = document.getElementById('portal-auth-tabs');
-  const journalAuthSection = document.getElementById('portal-auth-section');
-  const journalScreens = Array.from(document.querySelectorAll('.journal-screen'));
-  let activeJournalScreen = 1;
-  function setJournalScreen(step, options = {}) {
-    activeJournalScreen = Number(step) || 1;
-    journalScreens.forEach(screen => {
-      const isActive = Number(screen.dataset.screen) === activeJournalScreen;
-      screen.classList.toggle('is-active', isActive);
-      screen.setAttribute('aria-hidden', String(!isActive));
-      screen.inert = !isActive;
-    });
-    document.querySelectorAll('[data-step-marker]').forEach(marker => {
-      const markerStep = Number(marker.dataset.stepMarker);
-      marker.classList.toggle('is-current', markerStep === activeJournalScreen || (activeJournalScreen === 4 && markerStep === 3));
-      marker.classList.toggle('is-complete', markerStep < activeJournalScreen);
-    });
-    const pageNumber = document.getElementById('journal-page-number');
-    if (pageNumber) pageNumber.textContent = `${String(Math.min(activeJournalScreen, 3)).padStart(2, '0')} / 03`;
-    if (!options.keepScroll) journalAuthSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  document.querySelectorAll('.journal-next').forEach(control => control.addEventListener('click', () => setJournalScreen(control.dataset.next)));
-  document.querySelectorAll('.journal-back').forEach(control => control.addEventListener('click', () => setJournalScreen(control.dataset.back)));
   let clerkListenerAdded = false;
   let selectedAuthMode = 'signin';
 
@@ -232,21 +210,18 @@
     const descEl = document.getElementById('partner-agreement-desc');
     const signBtn = document.getElementById('partner-sign-agreement-btn');
     const hasSigned = Boolean(partner && partner.hasSignedAgreement);
-    const hasAcknowledged = Array.isArray(partner?.agreements) && partner.agreements.some(a => String(a?.status || '').toLowerCase() === 'acknowledged');
     if (badgeEl) {
       badgeEl.className = `portal-badge ${hasSigned ? 'ok' : 'warn'}`;
-      badgeEl.textContent = hasSigned ? 'Executed agreement on file' : hasAcknowledged ? 'Review acknowledged' : 'Agreement pending';
+      badgeEl.textContent = hasSigned ? 'Signed & Active' : 'Agreement Pending';
     }
     if (descEl) {
       const latestAgr = Array.isArray(partner?.agreements) && partner.agreements.length ? partner.agreements[0] : null;
       descEl.textContent = hasSigned
-        ? `${latestAgr?.name || 'IRM Partner Network Agreement'} · Executed agreement recorded ${latestAgr?.uploadedAt || ''}.`
-        : hasAcknowledged
-          ? 'Review noted. This acknowledgement is not an executed contract; contact your Connectem program manager for the approved agreement.'
-          : 'An executed agreement is not on file. Contact your Connectem program manager for the approved agreement and signing process.';
+        ? `${latestAgr?.name || 'IRM Partner Network Agreement'} · Active since ${latestAgr?.uploadedAt || '2026'}. Your partner profile is active.`
+        : 'Review and sign the Partner Network Agreement to activate your partner profile.';
     }
     if (signBtn) {
-      signBtn.hidden = true;
+      signBtn.hidden = hasSigned;
     }
   }
 
@@ -343,10 +318,9 @@
   });
 
   async function request(path, options = {}) {
-    const authToken = token || (window.Clerk?.session ? await window.Clerk.session.getToken() : '');
     const response = await fetch(path, {
       ...options,
-      headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
@@ -397,7 +371,6 @@
     signinSwitchline.hidden = isSignin;
     signupSwitchline.hidden = !isSignin;
     mountClerkAuth(mode);
-    setJournalScreen(2, { keepScroll: true });
   }
   tabSignin?.addEventListener('click', () => chooseAuthMode('signin'));
   tabSignup?.addEventListener('click', () => chooseAuthMode('signup'));
@@ -459,10 +432,8 @@
           signinSwitchline.hidden = true;
           signupSwitchline.hidden = true;
           onboardingForm.hidden = false;
-          setJournalScreen(4, { keepScroll: true });
           const currentName = session.user?.fullName || window.Clerk.user.fullName || '';
           onboardingForm.elements.fullName.value = currentName;
-          document.getElementById('portal-onboarding-submit')?.focus({ preventScroll: true });
           return;
         }
         chooseAuthMode(selectedAuthMode);

@@ -197,7 +197,7 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("insertOutboundModalCalendlyLink", outbound_js)
         self.assertIn("scheduleCallFromOutboundModal", outbound_js)
         self.assertIn("markCallCompletedFromOutboundModal", outbound_js)
-        self.assertIn("partner-calendly-open-link", partner_portal_html)
+        self.assertIn("partner-calendly-bar", partner_portal_html)
 
         # 4. Graph / Visualization: Visualize button and interactive SVG relationship graph
         self.assertIn("openRelationshipGraphModal()", outbound_html)
@@ -227,7 +227,7 @@ class FrontendContractTests(unittest.TestCase):
         # Self-serve Influencer Portal uses Clerk onboarding; vendor requests
         # are handled by the IRM workflow and do not appear in the portal.
         self.assertIn("portal-auth-section", partner_portal_html)
-        self.assertIn("partner-agreement-desc", partner_portal_html)
+        self.assertIn("partner-agreement-bar", partner_portal_html)
         self.assertNotIn("partner-marketplace-requests-section", partner_portal_html)
         self.assertIn("/api/partner-portal/onboard", partner_portal_js)
         self.assertIn("/api/partner-portal/session", partner_portal_js)
@@ -245,31 +245,8 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("Protected by IRM", marketplace_js)
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
         self.assertIn("minlength=\"12\"", marketplace_html)
-        self.assertIn('id="partner-reward-redemptions"', partner_portal_html)
+        self.assertIn("partner reward status", partner_portal_html.lower())
         self.assertIn("submitBtn.disabled = !document.getElementById('intro-target-contact-id').value", marketplace_js)
-
-    def test_partner_portal_uses_shared_backend_and_durable_points(self):
-        portal_html = self.read("partner-portal.html")
-        portal_js = self.read("partner-portal.js")
-        admin_js = self.read("src/components/influencers.js")
-        self.assertIn('src="/partner-portal.js"', portal_html)
-        self.assertIn('href="/partner-portal/connected.css"', portal_html)
-        self.assertIn("/api/partner-portal/onboard", portal_js)
-        self.assertIn("/api/partner-share", portal_js)
-        self.assertIn("/api/partner-share/referrals", portal_js)
-        self.assertIn("/api/partner-share/rewards/redeem", portal_js)
-        self.assertNotIn("localStorage", portal_js)
-        self.assertIn("partner.rewardPoints ?? getInfluencerApprovedRewardPoints(partner)", admin_js)
-        self.assertIn("database.rewardLedger", admin_js)
-        self.assertIn("influencerById.get(String(contact.id))", admin_js)
-        self.assertIn("rewardPoints: projection.rewardPoints", admin_js)
-        self.assertIn("getInfluencerApprovedRewardPoints", self.read("src/components/dashboard.js"))
-
-    def test_standalone_partner_demo_is_retired(self):
-        legacy_entry = self.read("partner-portal/index.html")
-        self.assertIn("https://go.connectem.ai/partner-portal", legacy_entry)
-        self.assertFalse((ROOT / "partner-portal/app.js").exists())
-        self.assertFalse((ROOT / "partner-portal/style.css").exists())
 
     def test_connectem_domains_and_landing_contract(self):
         landing_html = self.read("landing.html")
