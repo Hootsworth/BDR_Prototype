@@ -67,7 +67,7 @@
 
         <div class="auth-login-header" style="margin-bottom: 1rem;">
           <h2 id="fb-auth-title" style="margin: 0 0 4px 0;">Welcome to Connectem AI</h2>
-          <p id="fb-auth-subtitle" style="margin: 0; font-size: 13px; color: var(--color-text-secondary);">Sign in or create an account to get started</p>
+          <p id="fb-auth-subtitle" style="margin: 0; font-size: 13px; color: var(--color-text-secondary);">Sign in with your Connectem administrator account</p>
         </div>
 
         <div id="clerk-auth-unconfigured" class="auth-sso-unavailable" role="status" hidden>
@@ -76,11 +76,7 @@
         </div>
 
         <div id="clerk-auth-controls">
-        <!-- Auth Mode Toggle Tabs -->
-        <div style="display: flex; background: var(--surface-soft, #f1f5f9); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); margin-bottom: 1.25rem;">
-          <button type="button" class="btn btn-sm" id="tab-fb-signin" onclick="triggerClerkSignIn()" style="flex: 1; font-weight: 700; background: var(--color-background-surface); color: var(--color-text-primary); border-radius: var(--radius-xs); box-shadow: none; border: 1px solid var(--color-border);">Sign In</button>
-          <button type="button" class="btn btn-sm" id="tab-fb-signup" onclick="triggerClerkSignUp()" style="flex: 1; font-weight: 600; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-xs); border: 1px solid transparent;">Create Account</button>
-        </div>
+          <p style="margin: 0 0 1.25rem; font-size: 12px; color: var(--color-text-secondary);">Administrator accounts are provisioned internally. Contact your Connectem administrator if you need access.</p>
 
         <!-- Error Notification Banner -->
         <div id="clerk-auth-error-banner" style="display: none; padding: 8px 12px; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: var(--radius-xs); font-size: 12px; color: #b91c1c; margin-bottom: 1rem;"></div>

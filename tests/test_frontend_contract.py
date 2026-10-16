@@ -19,6 +19,16 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("Demo Mode Auto-Unlock", auth)
         self.assertIn("A configured Clerk instance must authenticate", auth)
 
+    def test_admin_entry_points_are_login_only(self):
+        for page in ("index.html", "admin.html"):
+            source = self.read(page)
+            self.assertIn("Sign in with your Connectem administrator account", source)
+            self.assertIn("Administrator accounts are provisioned internally", source)
+            self.assertNotIn('id="tab-fb-signup"', source)
+        auth = self.read("src/auth.js")
+        signup = auth.split("function triggerClerkSignUp()", 1)[1].split("function showClerkAuthError", 1)[0]
+        self.assertNotIn("openSignUp", signup)
+
     def test_partner_portal_points_require_verified_milestones_and_bulk_csv_parser(self):
         portal = self.read("partner-portal.js")
         self.assertIn("Meeting completion pending buyer confirmation", portal)

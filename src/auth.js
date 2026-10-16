@@ -231,11 +231,7 @@ function triggerClerkSignIn() {
 }
 
 function triggerClerkSignUp() {
-  if (window.Clerk && typeof window.Clerk.openSignUp === "function") {
-    window.Clerk.openSignUp({ afterSignUpUrl: window.location.href, afterSignInUrl: window.location.href });
-  } else {
-    showClerkAuthError("Clerk is not configured. Add the Clerk publishable key to config.js.");
-  }
+  showClerkAuthError("Administrator accounts are provisioned internally. Contact your Connectem administrator if you need access.");
 }
 
 function showClerkAuthError(message) {
