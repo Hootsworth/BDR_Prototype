@@ -978,8 +978,76 @@ function openAddReferralModal(influencerIndex) {
   }
 }
 
+function generatePartnerPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 4; i++) {
+    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const pwd = `Connectem!${suffix}`;
+  const input = document.getElementById("manual-inf-password");
+  if (input) input.value = pwd;
+  return pwd;
+}
+window.generatePartnerPassword = generatePartnerPassword;
+
+function copyPartnerPassword() {
+  const input = document.getElementById("manual-inf-password");
+  if (!input) return;
+  navigator.clipboard.writeText(input.value).then(() => {
+    if (typeof showToast === "function") showToast("Password copied to clipboard.");
+    else alert("Password copied to clipboard: " + input.value);
+  }).catch(() => {
+    input.select();
+    document.execCommand("copy");
+    alert("Password copied: " + input.value);
+  });
+}
+window.copyPartnerPassword = copyPartnerPassword;
+
+function showInfluencerCredentialsModal(name, email, password) {
+  const dlg = document.getElementById("influencer-credentials-dialog");
+  const nameEl = document.getElementById("cred-partner-name");
+  const emailEl = document.getElementById("cred-partner-email");
+  const pwdEl = document.getElementById("cred-partner-password");
+  if (nameEl) nameEl.textContent = name;
+  if (emailEl) emailEl.textContent = email;
+  if (pwdEl) pwdEl.textContent = password;
+  if (dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.style.display = "block";
+  }
+}
+window.showInfluencerCredentialsModal = showInfluencerCredentialsModal;
+
+function closeInfluencerCredentialsModal() {
+  const dlg = document.getElementById("influencer-credentials-dialog");
+  if (dlg) {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.style.display = "none";
+  }
+}
+window.closeInfluencerCredentialsModal = closeInfluencerCredentialsModal;
+
+function copyAllPartnerCredentials() {
+  const name = document.getElementById("cred-partner-name")?.textContent || "";
+  const email = document.getElementById("cred-partner-email")?.textContent || "";
+  const pwd = document.getElementById("cred-partner-password")?.textContent || "";
+  const text = `Connectem AI Partner Portal Credentials\nPartner: ${name}\nPortal: https://go.connectem.ai/partner-portal\nLogin Email: ${email}\nPassword: ${pwd}`;
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Login credentials copied to clipboard!");
+  }).catch(() => {
+    prompt("Copy login credentials below:", text);
+  });
+}
+window.copyAllPartnerCredentials = copyAllPartnerCredentials;
+
 function openAddInfluencerModal() {
   const dlg = document.getElementById("add-influencer-dialog");
+  const pwdInput = document.getElementById("manual-inf-password");
+  if (pwdInput && !pwdInput.value) {
+    generatePartnerPassword();
+  }
   if (dlg) {
     if (typeof dlg.showModal === "function") dlg.showModal();
     else dlg.style.display = "block";
@@ -1006,6 +1074,7 @@ async function handleManualInfluencerSubmit(e) {
   const agreementTitle = (document.getElementById("manual-inf-agreement")?.value || "").trim();
   const leadTemp = document.getElementById("manual-inf-temp")?.value || "Hot Lead";
   const matchPercentage = Number(document.getElementById("manual-inf-match")?.value || 95);
+  const password = (document.getElementById("manual-inf-password")?.value || generatePartnerPassword()).trim();
 
   if (!fullName || !email) {
     alert("Full Name and Email Address are required.");
@@ -1055,7 +1124,8 @@ async function handleManualInfluencerSubmit(e) {
       referredBy: "",
       referrals: [],
       agreements: initialAgreements,
-      referralCredits: 0
+      referralCredits: 0,
+      defaultPassword: password
     };
     database.contacts.unshift(contact);
   } else {
@@ -1069,6 +1139,7 @@ async function handleManualInfluencerSubmit(e) {
     contact.matchPercentage = matchPercentage || contact.matchPercentage || 95;
     contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
     contact.agreements = Array.isArray(contact.agreements) ? contact.agreements : [];
+    contact.defaultPassword = password;
     if (initialAgreements.length > 0) {
       contact.agreements.push(...initialAgreements);
     }
@@ -1081,6 +1152,18 @@ async function handleManualInfluencerSubmit(e) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        profile: {
+          fullName: contact.fullName,
+          email: contact.email,
+          jobTitle: contact.jobTitle,
+          company: contact.company,
+          phone: contact.phone,
+          linkedinUrl: contact.linkedinUrl || "",
+          agreements: contact.agreements || [],
+          industry: contact.industry || "Credit Union",
+          password: password,
+          defaultPassword: password
+        },
         fullName: contact.fullName,
         email: contact.email,
         jobTitle: contact.jobTitle,
@@ -1088,7 +1171,9 @@ async function handleManualInfluencerSubmit(e) {
         phone: contact.phone,
         linkedinUrl: contact.linkedinUrl || "",
         agreements: contact.agreements || [],
-        industry: contact.industry || "Credit Union"
+        industry: contact.industry || "Credit Union",
+        password: password,
+        defaultPassword: password
       })
     });
   } catch (_) {}
@@ -1102,6 +1187,13 @@ async function handleManualInfluencerSubmit(e) {
   const form = document.getElementById("manual-influencer-form");
   if (form) form.reset();
   closeAddInfluencerModal();
+
+  // Show credentials dialog so admin can copy login details for the partner
+  showInfluencerCredentialsModal(contact.fullName, contact.email, password);
+
+  if (typeof addLogConsole === "function") {
+    addLogConsole("enrich", `[INFLUENCER PORTAL] Provisioned ${contact.fullName} (${contact.company}) with portal login.`, "success");
+  }
 
   if (typeof addLogConsole === "function") {
     addLogConsole("enrich", `[INFLUENCER PORTAL] Added ${contact.fullName} (${contact.company}) as an Influencer Partner.`, "success");

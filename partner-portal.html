@@ -72,9 +72,10 @@
           <span>or continue with email</span>
         </div>
 
-        <div class="segmented-control" role="tablist">
-          <button type="button" class="active" id="tab-auth-signin" role="tab">Sign In</button>
-          <button type="button" id="tab-auth-signup" role="tab">Create Account</button>
+        <div style="text-align: center; margin-bottom: 18px;">
+          <span style="display: inline-block; padding: 4px 12px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-pill); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+            Executive Partner Sign In
+          </span>
         </div>
 
         <div id="auth-feedback" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 18px;"></div>
@@ -96,69 +97,13 @@
             <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
 
-          <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+          <div style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 11.5px; color: var(--text-muted);">Accounts provisioned by administrator</span>
             <button type="button" id="btn-forgot-password" class="btn btn-subtle btn-sm" style="font-size: 12px; padding: 4px 8px; color: var(--text-muted);">
               Forgot password?
             </button>
           </div>
         </form>
-
-        <!-- Sign Up Form -->
-        <form id="form-signup" style="display: none;">
-          <div class="input-field-group">
-            <label class="input-label" for="signup-name">Full Name</label>
-            <input type="text" id="signup-name" class="text-input" placeholder="Jordan Vance" required>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="input-field-group">
-              <label class="input-label" for="signup-company">Advisory Firm / Company</label>
-              <input type="text" id="signup-company" class="text-input" placeholder="Pacific Advisory" required>
-            </div>
-            <div class="input-field-group">
-              <label class="input-label" for="signup-title">Title / Role</label>
-              <input type="text" id="signup-title" class="text-input" placeholder="Managing Partner" required>
-            </div>
-          </div>
-
-          <div class="input-field-group">
-            <label class="input-label" for="signup-email">Work Email</label>
-            <input type="email" id="signup-email" class="text-input" placeholder="jordan@pacificadvisory.com" required autocomplete="email">
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="input-field-group">
-              <label class="input-label" for="signup-password">Password</label>
-              <input type="password" id="signup-password" class="text-input" placeholder="Min. 8 chars" minlength="8" required>
-            </div>
-            <div class="input-field-group">
-              <label class="input-label" for="signup-domain">Industry Focus</label>
-              <select id="signup-domain" class="select-input">
-                <option value="Enterprise SaaS">Enterprise SaaS</option>
-                <option value="Fintech & Banking">Fintech &amp; Banking</option>
-                <option value="AI & Data Infrastructure">AI &amp; Data Infrastructure</option>
-                <option value="Cybersecurity">Cybersecurity</option>
-                <option value="Healthcare">Healthcare &amp; Life Sciences</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="input-field-group">
-            <label class="input-label" for="signup-linkedin">LinkedIn Profile (Optional)</label>
-            <input type="url" id="signup-linkedin" class="text-input" placeholder="https://linkedin.com/in/username">
-          </div>
-
-          <div style="margin: 12px 0 16px; font-size: 12px; color: var(--text-muted); display: flex; align-items: flex-start; gap: 8px;">
-            <input type="checkbox" id="signup-agreement" checked style="margin-top: 3px;">
-            <label for="signup-agreement">I agree to the Standard Partner Network Agreement and confirm my introductions are permission-based.</label>
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-            Create Partner Account
-            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </button>
-        </form>
-
       </div>
     </section>
 

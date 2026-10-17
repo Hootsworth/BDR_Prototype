@@ -190,6 +190,17 @@
           <label class="form-label" for="manual-inf-email">Email Address</label>
           <input type="email" class="form-input" id="manual-inf-email" placeholder="john.doe@summitcu.org" required>
         </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" for="manual-inf-password" style="margin-bottom: 0;">Portal Password (Auto-Generated)</label>
+            <button type="button" class="btn btn-subtle btn-xs" onclick="generatePartnerPassword()" style="font-size: 11px; padding: 2px 6px;">↻ Regenerate</button>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="text" class="form-input" id="manual-inf-password" value="Partner!2026" required style="font-family: var(--font-family-mono); font-weight: 600; letter-spacing: 0.5px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyPartnerPassword()" title="Copy password" style="flex-shrink: 0;">Copy</button>
+          </div>
+          <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px;">Account will be created automatically. The partner uses this email &amp; password to sign in at <strong style="color: var(--color-text-primary);">go.connectem.ai</strong>.</div>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
           <div class="form-group">
             <label class="form-label" for="manual-inf-phone">Phone (Optional)</label>
@@ -223,6 +234,52 @@
         <button type="submit" class="btn btn-primary btn-sm">Add Influencer</button>
       </div>
     </form>
+  </div>
+</dialog>
+
+<!-- DIALOG: Influencer Created Credentials Modal -->
+<dialog id="influencer-credentials-dialog" style="border: none; background: transparent; padding: 0;">
+  <div class="modal-container" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        Partner Account Created
+      </h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeInfluencerCredentialsModal()">×</button>
+    </div>
+    <div class="modal-body" style="padding: 1.25rem;">
+      <p style="margin: 0 0 1rem; font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.5;">
+        The executive partner account has been created. Share these login details with the partner to access their workspace:
+      </p>
+
+      <div style="background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 13px;">
+          <span style="color: var(--color-text-secondary);">Partner Name:</span>
+          <strong id="cred-partner-name" style="color: var(--color-text-primary);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 13px;">
+          <span style="color: var(--color-text-secondary);">Portal Email:</span>
+          <strong id="cred-partner-email" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 13px;">
+          <span style="color: var(--color-text-secondary);">Default Password:</span>
+          <strong id="cred-partner-password" style="color: #0d9488; font-family: var(--font-family-mono);">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px;">
+          <span style="color: var(--color-text-secondary);">Portal URL:</span>
+          <a id="cred-partner-url" href="https://go.connectem.ai/partner-portal" target="_blank" style="color: var(--color-primary); font-weight: 600;">https://go.connectem.ai/partner-portal</a>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button type="button" class="btn btn-primary" onclick="copyAllPartnerCredentials()" style="flex: 1; justify-content: center;">
+          📋 Copy Login Credentials
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="closeInfluencerCredentialsModal()">
+          Done
+        </button>
+      </div>
+    </div>
   </div>
 </dialog>
 

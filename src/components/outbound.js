@@ -56,7 +56,8 @@ window.openInfluencerPortal = openInfluencerPortal;
 
 function toggleExpandInfluencerReferrals(infId) {
   database.expandedInfluencerRows = database.expandedInfluencerRows || {};
-  database.expandedInfluencerRows[infId] = !database.expandedInfluencerRows[infId];
+  const current = database.expandedInfluencerRows[infId] !== undefined ? database.expandedInfluencerRows[infId] : true;
+  database.expandedInfluencerRows[infId] = !current;
   changeOutboundPage(database.currentOutboundPage || 1);
 }
 window.toggleExpandInfluencerReferrals = toggleExpandInfluencerReferrals;
@@ -166,10 +167,14 @@ function changeOutboundPage(page) {
     `;
 
     if (isInfluencersTab) {
-      const isExpanded = Boolean(database.expandedInfluencerRows && database.expandedInfluencerRows[c.id]);
+      const isExpanded = database.expandedInfluencerRows && database.expandedInfluencerRows[c.id] !== undefined 
+        ? Boolean(database.expandedInfluencerRows[c.id]) 
+        : true;
       const affiliated = (database.contacts || []).filter(p => !p.isInfluencer && (
         (p.referredBy && p.referredBy.trim().toLowerCase() === c.fullName.trim().toLowerCase()) ||
+        (p.referredByEmail && String(c.email || '').trim() && p.referredByEmail.trim().toLowerCase() === String(c.email).trim().toLowerCase()) ||
         (p.influencerId && String(p.influencerId) === String(c.id)) ||
+        (p.influencerEmail && String(c.email || '').trim() && String(p.influencerEmail).trim().toLowerCase() === String(c.email).trim().toLowerCase()) ||
         (c.referrals && c.referrals.some(r => (r.email && p.email && r.email.trim().toLowerCase() === p.email.trim().toLowerCase()) || (r.fullName && p.fullName && r.fullName.trim().toLowerCase() === p.fullName.trim().toLowerCase())))
       ));
       const agreementsCount = Array.isArray(c.agreements) ? c.agreements.length : 0;
@@ -225,7 +230,7 @@ function changeOutboundPage(page) {
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <strong style="font-size: 12px; color: var(--color-text-primary);">No Affiliated Prospects Yet</strong>
-                <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-secondary);">Add prospects referred by ${c.fullName} to coordinate intro outreach and award partner credits.</p>
+                <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--color-text-secondary);">Add prospects referred by ${escapePartnerHTML(c.fullName)} to coordinate intro outreach and award partner credits.</p>
               </div>
               <button class="btn btn-secondary btn-sm" onclick="openAddProspectForInfluencer(${c.id})" style="font-size: 11px;">+ Add Referred Prospect</button>
             </div>
@@ -237,46 +242,66 @@ function changeOutboundPage(page) {
 
         const rowsHtml = visibleAffiliated.map(p => {
           const pBadge = p.leadTemp === "Hot Lead" ? "badge-success" : "badge";
-          const pEmail = p.emailsSent 
-            ? `<span style="color:var(--color-success); font-weight:600; display: inline-flex; align-items: center; gap: 3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Email</span>`
-            : `<span style="color:var(--color-text-disabled); font-size: 11px;">Email Pending</span>`;
-          const pLi = p.linkedinSent
-            ? `<span style="color:var(--color-success); font-weight:600; display: inline-flex; align-items: center; gap: 3px; margin-left: 6px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>LinkedIn</span>`
+          const pEmail = p.email
+            ? `<div style="font-size: 11px;"><a href="mailto:${escapePartnerHTML(p.email)}" style="color: var(--color-primary); font-family: var(--font-family-mono); font-weight: 500;">${escapePartnerHTML(p.email)}</a></div>`
+            : `<span style="color:var(--color-text-disabled); font-size: 11px;">No email</span>`;
+          const pPhone = p.phone
+            ? `<div style="font-size: 10.5px; color: var(--color-text-secondary); margin-top: 2px;">📞 ${escapePartnerHTML(p.phone)}</div>`
+            : "";
+          const pLi = p.linkedinUrl
+            ? `<div style="margin-top: 2px;"><a href="${escapePartnerHTML(p.linkedinUrl)}" target="_blank" rel="noopener noreferrer" style="font-size: 10.5px; color: #0284c7; display: inline-flex; align-items: center; gap: 3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>LinkedIn Profile</a></div>`
+            : "";
+          const pMeeting = p.hasScheduledCall || p.date
+            ? `<div style="font-size: 11px; color: #0d9488; font-weight: 600; margin-top: 2px;">📅 Meeting: ${escapePartnerHTML(p.date || 'Scheduled')}</div>`
+            : "";
+          const pNotes = p.notes
+            ? `<div style="font-size: 10.5px; color: var(--color-text-secondary); margin-top: 3px; max-width: 320px; line-height: 1.3;" title="${escapePartnerHTML(p.notes)}"><em>"${escapePartnerHTML(p.notes.slice(0, 90))}${p.notes.length > 90 ? '...' : ''}"</em></div>`
             : "";
           const pCallTaken = p.hasTakenCall || (p.callsMade && p.callsMade.length > 0);
           const pCallBadge = pCallTaken
             ? `<span class="badge badge-success" style="font-size: 10px;">✓ Call Taken</span>`
-            : `<span style="color:var(--color-text-disabled); font-size: 11px;">Pending Call</span>`;
+            : (p.hasScheduledCall ? `<span class="badge" style="font-size: 10px; background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);">Call Scheduled</span>` : `<span style="color:var(--color-text-disabled); font-size: 11px;">Intro Submitted</span>`);
+
           return `
             <tr style="border-bottom: 1px solid var(--color-border); background: var(--color-background-surface);">
-              <td style="padding: 0.45rem 0.875rem;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <div style="width: 24px; height: 24px; border-radius: 50%; background: ${getAvatarColor(p.fullName)}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0;">
+              <td style="padding: 0.6rem 0.875rem;">
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                  <div style="width: 26px; height: 26px; border-radius: 50%; background: ${getAvatarColor(p.fullName)}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px;">
                     ${getInitials(p.fullName)}
                   </div>
-                  <strong>${escapePartnerHTML(p.fullName)}</strong>
-                  <span class="badge" style="font-size: 10px;">Affiliated</span>
+                  <div>
+                    <strong style="color: var(--color-text-primary); font-size: 12.5px;">${escapePartnerHTML(p.fullName)}</strong>
+                    <span class="badge" style="font-size: 9.5px; margin-left: 4px; vertical-align: middle;">Referred</span>
+                    ${pNotes}
+                  </div>
                 </div>
               </td>
-              <td style="padding: 0.45rem 0.875rem;">
-                <span style="font-weight: 500;">${p.jobTitle || 'Decision Maker'}</span> 
-                <span style="color: var(--color-text-secondary); font-size: 11px;">(${p.company || 'N/A'})</span>
+              <td style="padding: 0.6rem 0.875rem;">
+                <div style="font-weight: 500; color: var(--color-text-primary); font-size: 12px;">${escapePartnerHTML(p.jobTitle || 'Decision Maker')}</div>
+                <div style="font-size: 11px; color: var(--color-text-secondary);">${escapePartnerHTML(p.company || 'Enterprise')}</div>
+                ${p.location ? `<div style="font-size: 10px; color: var(--color-text-muted);">📍 ${escapePartnerHTML(p.location)}</div>` : ''}
               </td>
-              <td style="padding: 0.45rem 0.875rem;"><span class="badge ${pBadge}">${p.leadTemp || 'Warm Lead'}</span></td>
-              <td style="padding: 0.45rem 0.875rem;">${pCallBadge}</td>
-              <td style="padding: 0.45rem 0.875rem;">${pEmail}${pLi}</td>
-              <td style="padding: 0.45rem 0.875rem; text-align: right;">
+              <td style="padding: 0.6rem 0.875rem;">
+                ${pEmail}
+                ${pPhone}
+                ${pLi}
+              </td>
+              <td style="padding: 0.6rem 0.875rem;">
+                ${pCallBadge}
+                ${pMeeting}
+              </td>
+              <td style="padding: 0.6rem 0.875rem; text-align: right;">
                 <button class="btn btn-primary btn-xs" onclick="openOutboundModal(${p.id}, 'email')">Outreach</button>
               </td>
             </tr>
           `;
         }).join("");
 
-        const expandBtnHtml = affiliated.length > 0 ? `
+        const expandBtnHtml = `
           <button class="btn btn-secondary btn-xs" onclick="toggleExpandInfluencerReferrals(${c.id})" style="font-size: 11px;">
             ${isExpanded ? 'Hide Referrals' : `Show ${affiliated.length} Referrals`}
           </button>
-        ` : '';
+        `;
 
         affiliatedContent = `
           <div style="background: var(--color-background-surface); border: 1px solid var(--color-border); border-left: 3px solid #0d9488; border-radius: var(--radius-sm); overflow: hidden;">
@@ -285,20 +310,20 @@ function changeOutboundPage(page) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 Affiliated Prospects (${affiliated.length})
                 <span class="badge badge-success" style="font-size: 10px; text-transform: none;">${callsTakenCount} of ${affiliated.length} Calls Taken (${Math.round((callsTakenCount / affiliated.length) * 100)}%)</span>
-                <span style="font-weight: 400; text-transform: none; color: var(--color-text-disabled);">— Referred by ${c.fullName}</span>
+                <span style="font-weight: 400; text-transform: none; color: var(--color-text-disabled);">— Referred by ${escapePartnerHTML(c.fullName)}</span>
               </div>
               <div style="display: flex; gap: 0.375rem; align-items: center;">
                 ${expandBtnHtml}
               </div>
             </div>
+            ${isExpanded ? `
             <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-xs);">
               <thead>
                 <tr style="border-bottom: 1px solid var(--color-border); background: var(--color-background-subtle, rgba(0,0,0,0.02)); color: var(--color-text-secondary); font-size: 11px;">
-                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Prospect</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Prospect Name &amp; Context</th>
                   <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Role &amp; Company</th>
-                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Lead Status</th>
-                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Call Status</th>
-                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Outreach Channels</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Contact Details</th>
+                  <th style="padding: 0.375rem 0.875rem; text-align: left; font-weight: 600;">Status &amp; Meeting</th>
                   <th style="padding: 0.375rem 0.875rem; text-align: right; font-weight: 600;">Action</th>
                 </tr>
               </thead>
@@ -306,6 +331,7 @@ function changeOutboundPage(page) {
                 ${rowsHtml}
               </tbody>
             </table>
+            ` : ''}
           </div>
         `;
       }
@@ -315,7 +341,7 @@ function changeOutboundPage(page) {
           ${affiliatedContent}
         </td>
       `;
-      if (isExpanded) tbody.appendChild(subTr);
+      tbody.appendChild(subTr);
 
     } else {
       // Prospects Tab Row
@@ -2693,6 +2719,21 @@ function setBulkPromptSuggestion(text) {
   generateBulkWithCustomPrompt();
 }
 
+async function refreshOutboundData() {
+  const btn = document.getElementById("outbound-btn-refresh-data");
+  if (btn) btn.classList.add("loading");
+  try {
+    if (typeof loadWorkbookFromServer === "function") await loadWorkbookFromServer();
+    if (typeof initLoadedData === "function") initLoadedData();
+    filterOutboundTable();
+    if (typeof showToast === "function") showToast("Outbound data refreshed.");
+  } catch (err) {
+    console.warn("Outbound refresh failed:", err);
+  } finally {
+    if (btn) btn.classList.remove("loading");
+  }
+}
+
 window.toggleSelectAllOutbound = toggleSelectAllOutbound;
 window.toggleSelectOutboundRow = toggleSelectOutboundRow;
 window.openBulkOutboundModal = openBulkOutboundModal;
@@ -2706,3 +2747,5 @@ window.generateAIOutboundWithPrompt = generateAIOutboundWithPrompt;
 window.setOutboundPromptSuggestion = setOutboundPromptSuggestion;
 window.generateBulkWithCustomPrompt = generateBulkWithCustomPrompt;
 window.setBulkPromptSuggestion = setBulkPromptSuggestion;
+window.refreshOutboundData = refreshOutboundData;
+

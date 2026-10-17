@@ -366,6 +366,12 @@ function switchTab(tabId) {
     } else if (typeof filterOutboundTable === "function") {
       filterOutboundTable();
     }
+    if (typeof loadWorkbookFromServer === "function") {
+      loadWorkbookFromServer().then(() => {
+        if (typeof initLoadedData === "function") initLoadedData();
+        if (typeof filterOutboundTable === "function") filterOutboundTable();
+      }).catch(err => console.warn("Failed background refresh of outbound data:", err));
+    }
   } else if (tabId === 'influencers') {
     if (typeof renderInfluencersTable === "function") renderInfluencersTable();
     if (typeof loadWorkbookFromServer === "function") {

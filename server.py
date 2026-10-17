@@ -1204,6 +1204,9 @@ def hosted_api_request_allowed(handler, method, path):
         ('GET', '/api/auth/session'),  # validates its own Clerk session token
         ('GET', '/api/partner-portal/session'),
         ('POST', '/api/partner-portal/onboard'),
+        ('POST', '/api/partner-portal/login'),
+        ('GET', '/api/partner-portal/sync-partner'),
+        ('POST', '/api/partner-portal/sync-partner'),
         ('GET', '/api/partner-share'),
         ('GET', '/api/marketplace/vendor/me'),
         ('GET', '/api/marketplace/network'),
@@ -2709,7 +2712,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 400, {'error': 'Request body must be valid JSON.'})
             return
 
-        if not hosted_api_request_allowed(self, 'POST', urllib.parse.urlsplit(self.path).path):
+        clean_path = urllib.parse.urlsplit(self.path).path
+        if not hosted_api_request_allowed(self, 'POST', clean_path):
             return
 
         if self.path == '/api/system/update':
@@ -2899,11 +2903,52 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Partner onboarding failed: {ex}'})
             return
 
-        if self.path in ('/api/partner-portal/signup', '/api/partner-portal/login'):
-            json_response(self, 410, {'error': 'Partner accounts now use Clerk. Sign in through the Influencer Portal.'})
+        if clean_path == '/api/partner-portal/signup':
+            json_response(self, 410, {'error': 'Public signup is disabled. Partner accounts now use Clerk or direct administrator provisioning. Sign in through the Influencer Portal.'})
             return
 
-        if self.path == '/api/partner-portal/sync-partner':
+        if clean_path == '/api/partner-portal/login':
+            email = str(payload.get('email') or '').strip().lower()
+            password = str(payload.get('password') or '').strip()
+            if not email or not password:
+                json_response(self, 400, {'error': 'Email and password are required.'})
+                return
+            state = read_workbook_state()
+            contacts = state.get('contacts', [])
+            influencer = next((
+                c for c in contacts
+                if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email
+            ), None)
+            if not influencer:
+                json_response(self, 401, {'error': 'No partner account found for this email address. Please contact your administrator.'})
+                return
+
+            saved_pwd = str(influencer.get('defaultPassword') or influencer.get('password') or '').strip()
+            if saved_pwd and saved_pwd != password:
+                json_response(self, 401, {'error': 'Incorrect password. Please verify your credentials or contact your administrator.'})
+                return
+            elif not saved_pwd:
+                influencer['defaultPassword'] = password
+                write_workbook_state(state)
+
+            referrals = [
+                c for c in contacts
+                if not c.get('isInfluencer') and (
+                    str(c.get('influencerId')) == str(influencer['id'])
+                    or (c.get('referredByEmail') and str(c.get('referredByEmail')).lower() == email)
+                    or (c.get('referredBy') and str(c.get('referredBy')).lower() == str(influencer.get('fullName', '')).lower())
+                )
+            ]
+            json_response(self, 200, {
+                'status': 'success',
+                'success': True,
+                'partner': influencer,
+                'influencer': influencer,
+                'referrals': referrals
+            })
+            return
+
+        if clean_path == '/api/partner-portal/sync-partner':
             try:
                 partner_data = payload.get('partner') or payload or {}
                 name = str(partner_data.get('fullName') or partner_data.get('name') or '').strip()
@@ -3768,15 +3813,29 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     return
 
                 if self.path.endswith('/create'):
-                    profile = payload.get('profile') or {}
-                    name = str(profile.get('fullName') or '').strip()
-                    email = str(profile.get('email') or '').strip().lower()
+                    profile = payload.get('profile') or payload or {}
+                    name = str(profile.get('fullName') or payload.get('fullName') or '').strip()
+                    email = str(profile.get('email') or payload.get('email') or '').strip().lower()
+                    password = str(profile.get('password') or profile.get('defaultPassword') or payload.get('password') or payload.get('defaultPassword') or 'Partner!2026').strip()
                     if not name or not email:
                         json_response(self, 400, {'error': 'Partner name and email are required.'})
                         return
                     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                         json_response(self, 400, {'error': 'Enter a valid partner email address.'})
                         return
+
+                    # Provision Firebase Auth user in background if SDK is available
+                    try:
+                        import firebase_admin
+                        from firebase_admin import auth as admin_auth
+                        admin_auth.create_user(
+                            email=email,
+                            password=password,
+                            display_name=name
+                        )
+                    except Exception:
+                        pass
+
                     existing_contact = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
                     if existing_contact:
                         if existing_contact.get('isInfluencer'):
@@ -3789,13 +3848,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         existing_contact['jobTitle'] = str(profile.get('jobTitle') or existing_contact.get('jobTitle') or '').strip()
                         existing_contact['phone'] = str(profile.get('phone') or existing_contact.get('phone') or '').strip()
                         existing_contact['location'] = str(profile.get('location') or existing_contact.get('location') or '').strip()
+                        existing_contact['defaultPassword'] = password
                         if profile.get('linkedinUrl'):
                             existing_contact['linkedinUrl'] = normalize_linkedin_url(profile.get('linkedinUrl'))
                         existing_contact.setdefault('agreements', profile.get('agreements') if isinstance(profile.get('agreements'), list) else [])
                         existing_contact.setdefault('referrals', [])
                         existing_contact.setdefault('referralCredits', 0)
                         write_workbook_state(state)
-                        json_response(self, 201, {'status': 'created', 'influencer': existing_contact})
+                        json_response(self, 201, {'status': 'created', 'success': True, 'influencer': existing_contact})
                         return
                     parts = name.split()
                     new_partner = {
@@ -3806,13 +3866,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'location': str(profile.get('location') or '').strip(),
                         'linkedinUrl': normalize_linkedin_url(profile.get('linkedinUrl') or ''),
                         'isInfluencer': True,
+                        'defaultPassword': password,
                         'referralCredits': 0, 'referrals': [],
                         'agreements': profile.get('agreements') if isinstance(profile.get('agreements'), list) else [],
                         'sourceFile': 'Manual partner entry'
                     }
                     contacts.append(new_partner)
                     write_workbook_state(state)
-                    json_response(self, 201, {'status': 'created', 'influencer': new_partner})
+                    json_response(self, 201, {'status': 'created', 'success': True, 'influencer': new_partner})
                     return
                 if not influencer:
                     json_response(self, 404, {'error': 'Influencer profile not found.'})

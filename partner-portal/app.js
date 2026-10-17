@@ -1352,20 +1352,107 @@
     }
   }
 
+  function handleBackendPartnerSignedIn(partner, serverReferrals = []) {
+    clearAuthFeedback();
+    const uid = partner.firebaseUid || partner.uid || `p_${partner.id}` || partner.email;
+    const email = partner.email || '';
+    const fullName = partner.fullName || partner.name || email.split('@')[0];
+    const company = partner.company || 'Advisory Partner';
+    const jobTitle = partner.jobTitle || 'Executive Partner';
+    const domain = partner.domain || 'Enterprise SaaS';
+
+    const partnerUser = {
+      uid,
+      email,
+      fullName,
+      company,
+      jobTitle,
+      domain,
+      linkedin: partner.linkedinUrl || partner.linkedin || '',
+      phone: partner.phone || '',
+      location: partner.location || '',
+      photoURL: partner.photoURL || ''
+    };
+
+    loadState(uid, email);
+
+    if (Array.isArray(serverReferrals) && serverReferrals.length > 0) {
+      serverReferrals.forEach(r => {
+        if (!state.intros.some(i => String(i.id) === String(r.id) || (r.email && i.email === r.email))) {
+          state.intros.push({
+            id: r.id,
+            name: r.fullName,
+            company: r.company,
+            title: r.jobTitle,
+            email: r.email,
+            phone: r.phone,
+            linkedin: r.linkedinUrl,
+            location: r.location,
+            status: r.hasScheduledCall ? 'Call Scheduled' : (r.hasTakenCall ? 'Meeting Verified' : 'Intro Submitted'),
+            meetingDate: r.date || '',
+            context: r.notes || '',
+            pointsAwarded: 200,
+            createdAt: r.date || new Date().toISOString()
+          });
+        }
+      });
+    }
+
+    if (partner.referralCredits && partner.referralCredits > state.points) {
+      state.points = partner.referralCredits;
+    }
+
+    if (!state.agreement || !state.agreement.signedBy || state.agreement.signedBy === 'Jordan Vance') {
+      state.agreement = {
+        signed: true,
+        signedBy: fullName,
+        signedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        hash: `#IRM-${String(uid).slice(0, 8).toUpperCase()}-VERIFIED`
+      };
+    }
+
+    activateWorkspace(partnerUser);
+  }
+
   async function signInWithEmail(email, password) {
     clearAuthFeedback();
-    if (!auth) {
-      showAuthFeedback('Firebase Auth service is unavailable.', 'error');
-      return;
-    }
     const btn = el.btnSubmitSignin || el.formSignin?.querySelector('button[type="submit"]');
     try {
       if (btn) {
         btn.disabled = true;
         btn.textContent = 'Signing in...';
       }
-      await auth.signInWithEmailAndPassword(email, password);
-      // onAuthStateChanged triggers handleFirebaseUserSignedIn
+
+      // 1. Authenticate with backend Partner Portal API
+      const res = await fetch('/api/partner-portal/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const partner = data.partner || {};
+        handleBackendPartnerSignedIn(partner, data.referrals || []);
+        if (auth && typeof auth.signInWithEmailAndPassword === 'function') {
+          auth.signInWithEmailAndPassword(email, password).catch(() => {});
+        }
+        return;
+      }
+
+      if (res.status === 401 || res.status === 403 || res.status === 400) {
+        const data = await res.json().catch(() => ({}));
+        showAuthFeedback(data.error || 'Invalid work email or password.', 'error');
+        return;
+      }
+
+      // 2. Fallback to Firebase client Auth if backend was unavailable
+      if (auth) {
+        await auth.signInWithEmailAndPassword(email, password);
+        return;
+      }
+
+      throw new Error('Could not authenticate partner account.');
     } catch (err) {
       console.error('Email sign-in error:', err);
       showAuthFeedback(getFriendlyAuthError(err), 'error');
@@ -1381,42 +1468,7 @@
   }
 
   async function signUpWithEmail(profileData) {
-    clearAuthFeedback();
-    if (!auth) {
-      showAuthFeedback('Firebase Auth service is unavailable.', 'error');
-      return;
-    }
-    const btn = el.btnSubmitSignup || el.formSignup?.querySelector('button[type="submit"]');
-    try {
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Creating account...';
-      }
-      const cred = await auth.createUserWithEmailAndPassword(profileData.email, profileData.password);
-      if (cred.user && profileData.fullName) {
-        await cred.user.updateProfile({ displayName: profileData.fullName });
-      }
-      // Save custom profile metadata locally
-      localStorage.setItem(`connectem_partner_meta_${cred.user.uid}`, JSON.stringify({
-        fullName: profileData.fullName,
-        company: profileData.company,
-        jobTitle: profileData.jobTitle,
-        domain: profileData.domain,
-        linkedin: profileData.linkedin
-      }));
-      // onAuthStateChanged triggers handleFirebaseUserSignedIn
-    } catch (err) {
-      console.error('Email sign-up error:', err);
-      showAuthFeedback(getFriendlyAuthError(err), 'error');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = `
-          Create Partner Account
-          <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        `;
-      }
-    }
+    showAuthFeedback('Public registration is disabled. Partner accounts are provisioned directly by the administrator.', 'error');
   }
 
   async function handleForgotPassword() {
@@ -1540,22 +1592,24 @@
 
   // Setup Event Listeners
   function initEvents() {
-    // Auth Tab Switch
-    el.tabAuthSignin.addEventListener('click', () => {
-      clearAuthFeedback();
-      el.tabAuthSignin.classList.add('active');
-      el.tabAuthSignup.classList.remove('active');
-      el.formSignin.style.display = 'block';
-      el.formSignup.style.display = 'none';
-    });
+    // Auth Tab Switch (Guarded if signup tab is removed)
+    if (el.tabAuthSignin && el.tabAuthSignup) {
+      el.tabAuthSignin.addEventListener('click', () => {
+        clearAuthFeedback();
+        el.tabAuthSignin.classList.add('active');
+        el.tabAuthSignup.classList.remove('active');
+        if (el.formSignin) el.formSignin.style.display = 'block';
+        if (el.formSignup) el.formSignup.style.display = 'none';
+      });
 
-    el.tabAuthSignup.addEventListener('click', () => {
-      clearAuthFeedback();
-      el.tabAuthSignup.classList.add('active');
-      el.tabAuthSignin.classList.remove('active');
-      el.formSignup.style.display = 'block';
-      el.formSignin.style.display = 'none';
-    });
+      el.tabAuthSignup.addEventListener('click', () => {
+        clearAuthFeedback();
+        el.tabAuthSignup.classList.add('active');
+        el.tabAuthSignin.classList.remove('active');
+        if (el.formSignup) el.formSignup.style.display = 'block';
+        if (el.formSignin) el.formSignin.style.display = 'none';
+      });
+    }
 
     // Google Single Sign-On
     if (el.btnGoogleAuth) {
@@ -1568,48 +1622,28 @@
     }
 
     // Form Signin Submit
-    el.formSignin.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const email = document.getElementById('signin-email').value.trim();
-      const password = document.getElementById('signin-password').value;
-      if (!email || !password) {
-        showAuthFeedback('Please enter both work email and password.', 'error');
-        return;
-      }
-      signInWithEmail(email, password);
-    });
-
-    // Form Signup Submit
-    el.formSignup.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = document.getElementById('signup-name').value.trim();
-      const company = document.getElementById('signup-company').value.trim();
-      const jobTitle = document.getElementById('signup-title').value.trim();
-      const email = document.getElementById('signup-email').value.trim();
-      const password = document.getElementById('signup-password').value;
-      const domain = document.getElementById('signup-domain').value;
-      const linkedin = document.getElementById('signup-linkedin') ? document.getElementById('signup-linkedin').value.trim() : '';
-      const agree = document.getElementById('signup-agreement').checked;
-
-      if (!agree) {
-        showAuthFeedback('You must agree to the Standard Partner Network Agreement to create an account.', 'error');
-        return;
-      }
-      if (password.length < 6) {
-        showAuthFeedback('Password must be at least 6 characters long.', 'error');
-        return;
-      }
-
-      signUpWithEmail({
-        fullName: name,
-        company,
-        jobTitle,
-        email,
-        password,
-        domain,
-        linkedin
+    if (el.formSignin) {
+      el.formSignin.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const emailInput = document.getElementById('signin-email');
+        const pwdInput = document.getElementById('signin-password');
+        const email = emailInput ? emailInput.value.trim() : '';
+        const password = pwdInput ? pwdInput.value : '';
+        if (!email || !password) {
+          showAuthFeedback('Please enter both work email and password.', 'error');
+          return;
+        }
+        signInWithEmail(email, password);
       });
-    });
+    }
+
+    // Form Signup Submit (Guarded if removed)
+    if (el.formSignup) {
+      el.formSignup.addEventListener('submit', (e) => {
+        e.preventDefault();
+        showAuthFeedback('Public registration is disabled. Partner accounts are provisioned directly by the administrator.', 'error');
+      });
+    }
 
     // Sign Out
     el.signoutBtn.addEventListener('click', signout);

@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 import io
@@ -304,6 +305,51 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertEqual(len(res_get["referrals"]), 1)
         self.assertEqual(res_get["referrals"][0]["fullName"], "Marcus Vance")
 
+    def test_partner_portal_sync_partner_allowed_in_hosted_mode(self):
+        with patch.dict(os.environ, {"HOSTED_API_ONLY": "true"}):
+            self.assertTrue(server.hosted_api_request_allowed(None, "GET", "/api/partner-portal/sync-partner"))
+            self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/sync-partner"))
+            self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/login"))
+
+    def test_influencer_creation_and_partner_login_flow(self):
+        # 1. Admin creates an influencer with an auto-generated password
+        create_status, create_res = self.request("/api/influencers/create", "POST", {
+            "fullName": "Sarah Jenkins",
+            "email": "sarah.jenkins@partner.test",
+            "company": "Jenkins Advisory",
+            "jobTitle": "Fintech Strategy Director",
+            "defaultPassword": "TempPassword123!",
+        })
+        self.assertEqual(create_status, 201)
+        self.assertTrue(create_res["success"])
+        self.assertEqual(create_res["influencer"]["defaultPassword"], "TempPassword123!")
+
+        # 2. Partner portal signup is disabled (returns 410)
+        signup_status, signup_res = self.request("/api/partner-portal/signup", "POST", {
+            "fullName": "Sarah Jenkins",
+            "email": "sarah.jenkins@partner.test",
+            "password": "SomePassword!",
+        })
+        self.assertEqual(signup_status, 410)
+
+        # 3. Partner logs in with correct password
+        login_status, login_res = self.request("/api/partner-portal/login", "POST", {
+            "email": "sarah.jenkins@partner.test",
+            "password": "TempPassword123!",
+        })
+        self.assertEqual(login_status, 200)
+        self.assertTrue(login_res["success"])
+        self.assertEqual(login_res["influencer"]["fullName"], "Sarah Jenkins")
+
+        # 4. Partner logs in with incorrect password
+        bad_status, bad_res = self.request("/api/partner-portal/login", "POST", {
+            "email": "sarah.jenkins@partner.test",
+            "password": "WrongPassword!",
+        })
+        self.assertEqual(bad_status, 401)
+        self.assertIn("Incorrect", bad_res["error"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
