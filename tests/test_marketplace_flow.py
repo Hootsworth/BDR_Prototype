@@ -310,19 +310,20 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
             self.assertTrue(server.hosted_api_request_allowed(None, "GET", "/api/partner-portal/sync-partner"))
             self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/sync-partner"))
             self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/login"))
+            self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/change-password"))
 
     def test_influencer_creation_and_partner_login_flow(self):
-        # 1. Admin creates an influencer with an auto-generated password
+        # 1. Admin creates an influencer without specifying password (defaults to welcomebdr123!)
         create_status, create_res = self.request("/api/influencers/create", "POST", {
             "fullName": "Sarah Jenkins",
             "email": "sarah.jenkins@partner.test",
             "company": "Jenkins Advisory",
-            "jobTitle": "Fintech Strategy Director",
-            "defaultPassword": "TempPassword123!",
+            "jobTitle": "Fintech Strategy Director"
         })
         self.assertEqual(create_status, 201)
         self.assertTrue(create_res["success"])
-        self.assertEqual(create_res["influencer"]["defaultPassword"], "TempPassword123!")
+        self.assertEqual(create_res["influencer"]["defaultPassword"], "welcomebdr123!")
+        self.assertTrue(create_res["influencer"]["mustChangePassword"])
 
         # 2. Partner portal signup is disabled (returns 410)
         signup_status, signup_res = self.request("/api/partner-portal/signup", "POST", {
@@ -332,22 +333,42 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         })
         self.assertEqual(signup_status, 410)
 
-        # 3. Partner logs in with correct password
+        # 3. Partner logs in with temporary default password welcomebdr123!
         login_status, login_res = self.request("/api/partner-portal/login", "POST", {
             "email": "sarah.jenkins@partner.test",
-            "password": "TempPassword123!",
+            "password": "welcomebdr123!",
         })
         self.assertEqual(login_status, 200)
         self.assertTrue(login_res["success"])
+        self.assertTrue(login_res["mustChangePassword"])
         self.assertEqual(login_res["influencer"]["fullName"], "Sarah Jenkins")
 
-        # 4. Partner logs in with incorrect password
-        bad_status, bad_res = self.request("/api/partner-portal/login", "POST", {
+        # 4. Partner changes password to custom secure password
+        change_status, change_res = self.request("/api/partner-portal/change-password", "POST", {
             "email": "sarah.jenkins@partner.test",
-            "password": "WrongPassword!",
+            "currentPassword": "welcomebdr123!",
+            "newPassword": "MyNewSecurePassword2026!"
         })
-        self.assertEqual(bad_status, 401)
-        self.assertIn("Incorrect", bad_res["error"])
+        self.assertEqual(change_status, 200)
+        self.assertTrue(change_res["success"])
+        self.assertFalse(change_res["influencer"]["mustChangePassword"])
+        self.assertEqual(change_res["influencer"]["defaultPassword"], "MyNewSecurePassword2026!")
+
+        # 5. Partner logs in with old default password (now rejected)
+        old_status, old_res = self.request("/api/partner-portal/login", "POST", {
+            "email": "sarah.jenkins@partner.test",
+            "password": "welcomebdr123!",
+        })
+        self.assertEqual(old_status, 401)
+
+        # 6. Partner logs in with new custom password (accepted, mustChangePassword=False)
+        new_status, new_res = self.request("/api/partner-portal/login", "POST", {
+            "email": "sarah.jenkins@partner.test",
+            "password": "MyNewSecurePassword2026!",
+        })
+        self.assertEqual(new_status, 200)
+        self.assertTrue(new_res["success"])
+        self.assertFalse(new_res["mustChangePassword"])
 
 
 if __name__ == "__main__":

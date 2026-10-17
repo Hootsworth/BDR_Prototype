@@ -924,6 +924,37 @@ Alex Miller, Stripe, Head of Infra, alex@stripe.com, https://linkedin.com/in/ale
     </div>
   </div>
 
+  <!-- FIRST TIME LOGIN CHANGE PASSWORD MODAL -->
+  <div id="modal-change-password" class="modal-backdrop" style="display: none; z-index: 10000;">
+    <div class="modal-window" style="max-width: 480px;">
+      <div class="modal-top">
+        <div class="modal-heading" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Set Your New Password
+        </div>
+      </div>
+      <div class="modal-content-area" style="padding-top: 8px;">
+        <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 18px;">
+          Welcome to the Partner Portal! You signed in with a temporary default password. Please choose a new secure password to activate your account.
+        </p>
+        <div id="change-pwd-feedback" style="display: none; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 16px;"></div>
+        <form id="form-first-login-password">
+          <div class="input-field-group" style="margin-bottom: 14px;">
+            <label class="input-label" for="new-partner-password">New Password</label>
+            <input type="password" id="new-partner-password" class="text-input" placeholder="At least 6 characters" required autocomplete="new-password">
+          </div>
+          <div class="input-field-group" style="margin-bottom: 18px;">
+            <label class="input-label" for="confirm-partner-password">Confirm New Password</label>
+            <input type="password" id="confirm-partner-password" class="text-input" placeholder="Re-enter new password" required autocomplete="new-password">
+          </div>
+          <button type="submit" id="btn-save-new-password" class="btn btn-primary btn-lg" style="width: 100%;">
+            Set Password &amp; Continue
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast-notice" class="toast-notice"></div>
 

@@ -979,12 +979,7 @@ function openAddReferralModal(influencerIndex) {
 }
 
 function generatePartnerPassword() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let suffix = "";
-  for (let i = 0; i < 4; i++) {
-    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  const pwd = `Connectem!${suffix}`;
+  const pwd = "welcomebdr123!";
   const input = document.getElementById("manual-inf-password");
   if (input) input.value = pwd;
   return pwd;

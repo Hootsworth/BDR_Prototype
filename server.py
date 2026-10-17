@@ -1205,6 +1205,7 @@ def hosted_api_request_allowed(handler, method, path):
         ('GET', '/api/partner-portal/session'),
         ('POST', '/api/partner-portal/onboard'),
         ('POST', '/api/partner-portal/login'),
+        ('POST', '/api/partner-portal/change-password'),
         ('GET', '/api/partner-portal/sync-partner'),
         ('POST', '/api/partner-portal/sync-partner'),
         ('GET', '/api/partner-share'),
@@ -2924,12 +2925,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             saved_pwd = str(influencer.get('defaultPassword') or influencer.get('password') or '').strip()
-            if saved_pwd and saved_pwd != password:
+            if not saved_pwd:
+                saved_pwd = 'welcomebdr123!'
+                influencer['defaultPassword'] = saved_pwd
+                influencer['mustChangePassword'] = True
+                write_workbook_state(state)
+
+            if saved_pwd != password:
                 json_response(self, 401, {'error': 'Incorrect password. Please verify your credentials or contact your administrator.'})
                 return
-            elif not saved_pwd:
-                influencer['defaultPassword'] = password
-                write_workbook_state(state)
+
+            must_change = bool(influencer.get('mustChangePassword') or saved_pwd == 'welcomebdr123!' or not influencer.get('passwordChanged'))
+            influencer['mustChangePassword'] = must_change
 
             referrals = [
                 c for c in contacts
@@ -2942,9 +2949,70 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {
                 'status': 'success',
                 'success': True,
+                'mustChangePassword': must_change,
                 'partner': influencer,
                 'influencer': influencer,
                 'referrals': referrals
+            })
+            return
+
+        if clean_path == '/api/partner-portal/change-password':
+            email = str(payload.get('email') or '').strip().lower()
+            current_pwd = str(payload.get('currentPassword') or '').strip()
+            new_pwd = str(payload.get('newPassword') or '').strip()
+
+            if not email or not new_pwd:
+                json_response(self, 400, {'error': 'Email and new password are required.'})
+                return
+            if len(new_pwd) < 6:
+                json_response(self, 400, {'error': 'New password must be at least 6 characters long.'})
+                return
+            if new_pwd == 'welcomebdr123!':
+                json_response(self, 400, {'error': 'Please choose a custom password different from the temporary default.'})
+                return
+
+            state = read_workbook_state()
+            contacts = state.get('contacts', [])
+            influencer = next((
+                c for c in contacts
+                if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email
+            ), None)
+            if not influencer:
+                json_response(self, 404, {'error': 'Partner account not found.'})
+                return
+
+            saved_pwd = str(influencer.get('defaultPassword') or influencer.get('password') or 'welcomebdr123!').strip()
+            if current_pwd and saved_pwd != current_pwd and saved_pwd != 'welcomebdr123!':
+                json_response(self, 401, {'error': 'Current password does not match.'})
+                return
+
+            influencer['defaultPassword'] = new_pwd
+            influencer['passwordChanged'] = True
+            influencer['mustChangePassword'] = False
+            write_workbook_state(state)
+
+            # Sync to Firebase Auth so partner can log in directly with new password
+            try:
+                import firebase_admin
+                from firebase_admin import auth as admin_auth
+                try:
+                    fb_user = admin_auth.get_user_by_email(email)
+                    admin_auth.update_user(fb_user.uid, password=new_pwd)
+                except Exception:
+                    admin_auth.create_user(
+                        email=email,
+                        password=new_pwd,
+                        display_name=influencer.get('fullName', '')
+                    )
+            except Exception:
+                pass
+
+            json_response(self, 200, {
+                'status': 'success',
+                'success': True,
+                'message': 'Password updated successfully.',
+                'partner': influencer,
+                'influencer': influencer
             })
             return
 
@@ -3816,7 +3884,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     profile = payload.get('profile') or payload or {}
                     name = str(profile.get('fullName') or payload.get('fullName') or '').strip()
                     email = str(profile.get('email') or payload.get('email') or '').strip().lower()
-                    password = str(profile.get('password') or profile.get('defaultPassword') or payload.get('password') or payload.get('defaultPassword') or 'Partner!2026').strip()
+                    password = str(profile.get('password') or profile.get('defaultPassword') or payload.get('password') or payload.get('defaultPassword') or 'welcomebdr123!').strip()
                     if not name or not email:
                         json_response(self, 400, {'error': 'Partner name and email are required.'})
                         return
@@ -3849,6 +3917,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         existing_contact['phone'] = str(profile.get('phone') or existing_contact.get('phone') or '').strip()
                         existing_contact['location'] = str(profile.get('location') or existing_contact.get('location') or '').strip()
                         existing_contact['defaultPassword'] = password
+                        existing_contact['mustChangePassword'] = True
+                        existing_contact['passwordChanged'] = False
                         if profile.get('linkedinUrl'):
                             existing_contact['linkedinUrl'] = normalize_linkedin_url(profile.get('linkedinUrl'))
                         existing_contact.setdefault('agreements', profile.get('agreements') if isinstance(profile.get('agreements'), list) else [])
@@ -3867,6 +3937,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'linkedinUrl': normalize_linkedin_url(profile.get('linkedinUrl') or ''),
                         'isInfluencer': True,
                         'defaultPassword': password,
+                        'mustChangePassword': True,
+                        'passwordChanged': False,
                         'referralCredits': 0, 'referrals': [],
                         'agreements': profile.get('agreements') if isinstance(profile.get('agreements'), list) else [],
                         'sourceFile': 'Manual partner entry'

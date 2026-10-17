@@ -245,6 +245,12 @@
     btnSubmitSignin: document.getElementById('btn-submit-signin'),
     btnSubmitSignup: document.getElementById('btn-submit-signup'),
     authFeedback: document.getElementById('auth-feedback'),
+    modalChangePassword: document.getElementById('modal-change-password'),
+    formFirstLoginPassword: document.getElementById('form-first-login-password'),
+    newPartnerPassword: document.getElementById('new-partner-password'),
+    confirmPartnerPassword: document.getElementById('confirm-partner-password'),
+    btnSaveNewPassword: document.getElementById('btn-save-new-password'),
+    changePwdFeedback: document.getElementById('change-pwd-feedback'),
 
     // Workspace Hero & Header
     userFirstName: document.getElementById('user-first-name'),
@@ -1414,6 +1420,106 @@
     activateWorkspace(partnerUser);
   }
 
+  let tempPasswordUsedOnLogin = '';
+
+  function openChangePasswordModal(partner, tempPassword) {
+    tempPasswordUsedOnLogin = tempPassword || 'welcomebdr123!';
+    if (el.changePwdFeedback) {
+      el.changePwdFeedback.style.display = 'none';
+      el.changePwdFeedback.textContent = '';
+    }
+    if (el.newPartnerPassword) el.newPartnerPassword.value = '';
+    if (el.confirmPartnerPassword) el.confirmPartnerPassword.value = '';
+    if (el.modalChangePassword) {
+      el.modalChangePassword.style.display = 'flex';
+      setTimeout(() => {
+        if (el.newPartnerPassword) el.newPartnerPassword.focus();
+      }, 100);
+    }
+  }
+
+  function showChangePwdFeedback(msg, type = 'error') {
+    if (!el.changePwdFeedback) return;
+    el.changePwdFeedback.textContent = msg;
+    el.changePwdFeedback.className = type === 'error' ? 'auth-feedback-error' : 'auth-feedback-success';
+    el.changePwdFeedback.style.cssText = type === 'error'
+      ? 'display: block; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 16px; background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);'
+      : 'display: block; padding: 10px 14px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 16px; background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);';
+  }
+
+  async function handleFirstLoginPasswordChange(e) {
+    if (e) e.preventDefault();
+    const newPwd = (el.newPartnerPassword?.value || '').trim();
+    const confirmPwd = (el.confirmPartnerPassword?.value || '').trim();
+
+    if (!newPwd || !confirmPwd) {
+      showChangePwdFeedback('Please enter and confirm your new password.', 'error');
+      return;
+    }
+    if (newPwd.length < 6) {
+      showChangePwdFeedback('Password must be at least 6 characters long.', 'error');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      showChangePwdFeedback('New password and confirmation do not match.', 'error');
+      return;
+    }
+    if (newPwd === 'welcomebdr123!') {
+      showChangePwdFeedback('Please choose a new password different from the temporary default password.', 'error');
+      return;
+    }
+
+    const btn = el.btnSaveNewPassword;
+    try {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Updating Password...';
+      }
+
+      const res = await fetch('/api/partner-portal/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: state.user?.email,
+          currentPassword: tempPasswordUsedOnLogin || 'welcomebdr123!',
+          newPassword: newPwd
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showChangePwdFeedback(data.error || 'Could not update password. Please try again.', 'error');
+        return;
+      }
+
+      if (state.user) {
+        state.user.mustChangePassword = false;
+        state.user.defaultPassword = newPwd;
+      }
+
+      // Update Firebase Client Auth password if client instance is connected
+      if (auth) {
+        if (auth.currentUser) {
+          auth.currentUser.updatePassword(newPwd).catch(() => {});
+        } else if (state.user?.email) {
+          auth.signInWithEmailAndPassword(state.user.email, newPwd).catch(() => {});
+        }
+      }
+
+      if (el.modalChangePassword) {
+        el.modalChangePassword.style.display = 'none';
+      }
+      showToast('Password updated successfully! Welcome to your Partner Portal.');
+    } catch (err) {
+      showChangePwdFeedback(err.message || 'Error updating password.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Set Password & Continue';
+      }
+    }
+  }
+
   async function signInWithEmail(email, password) {
     clearAuthFeedback();
     const btn = el.btnSubmitSignin || el.formSignin?.querySelector('button[type="submit"]');
@@ -1434,6 +1540,9 @@
         const data = await res.json();
         const partner = data.partner || {};
         handleBackendPartnerSignedIn(partner, data.referrals || []);
+        if (data.mustChangePassword || partner.mustChangePassword || password === 'welcomebdr123!') {
+          openChangePasswordModal(partner, password);
+        }
         if (auth && typeof auth.signInWithEmailAndPassword === 'function') {
           auth.signInWithEmailAndPassword(email, password).catch(() => {});
         }
@@ -1643,6 +1752,11 @@
         e.preventDefault();
         showAuthFeedback('Public registration is disabled. Partner accounts are provisioned directly by the administrator.', 'error');
       });
+    }
+
+    // First Login Password Change Form
+    if (el.formFirstLoginPassword) {
+      el.formFirstLoginPassword.addEventListener('submit', handleFirstLoginPasswordChange);
     }
 
     // Sign Out
