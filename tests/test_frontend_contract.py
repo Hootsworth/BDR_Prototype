@@ -43,10 +43,12 @@ class FrontendContractTests(unittest.TestCase):
 
         portal = self.read("partner-portal.html")
         clerk_app = self.read("partner-portal.js")
+        portal_css = self.read("partner-portal/style.css")
         self.assertIn('src="/partner-portal.js"', portal)
         self.assertIn('src="/app-config.js"', portal)
         self.assertNotIn("firebasejs", portal)
         self.assertNotIn('src="/partner-portal/app.js"', portal)
+        self.assertRegex(portal_css, r"(?s)\[hidden\]\s*\{[^}]*display:\s*none\s*!important")
         required_ids = set(re.findall(r"getElementById\(['\"]([^'\"]+)", clerk_app))
         present_ids = set(re.findall(r"\bid=['\"]([^'\"]+)", portal))
         self.assertEqual(required_ids - present_ids, set(), "Clerk portal page is missing required DOM IDs")
