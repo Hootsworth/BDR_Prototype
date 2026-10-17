@@ -458,8 +458,16 @@
       }
       return showAuthView();
     }
-    try { render(await request('/api/partner-share')); }
-    catch (error) { showError(error.message); }
+    try {
+      render(await request('/api/partner-share'));
+    } catch (error) {
+      if (error.message && (error.message.includes('invalid') || error.message.includes('revoked') || error.message.includes('401'))) {
+        token = '';
+        sessionStorage.removeItem(tokenKey);
+        return load();
+      }
+      showError(error.message);
+    }
   }
 
   // Entry mode switching: One at a time vs Bulk add

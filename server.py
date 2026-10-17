@@ -617,16 +617,7 @@ def partner_share_from_token(token):
         return None
     token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
     if firestore_enabled():
-        share = lookup_partner_share(token_hash)
-        if share:
-            created_at = share.get('created_at')
-            try:
-                expires_epoch = datetime.strptime(created_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp() + 30 * 24 * 60 * 60
-                if expires_epoch <= time.time():
-                    share['revoked_at'] = 'expired'
-            except (ValueError, TypeError):
-                share['revoked_at'] = 'invalid_expiry'
-        return share
+        return lookup_partner_share(token_hash)
     with db() as connection:
         row = connection.execute(
             'SELECT id, influencer_id, revoked_at, created_at FROM partner_shares WHERE token_hash = ?',

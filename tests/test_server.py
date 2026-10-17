@@ -261,6 +261,21 @@ class WorkbookPersistenceTests(unittest.TestCase):
             self.assertEqual(len(reloaded["marketplaceRequests"]), 1)
             self.assertEqual(reloaded["marketplaceRequests"][0]["id"], "mreq-1")
 
+    def test_firestore_partner_share_lookup_validates_without_invalid_expiry(self):
+        mock_share = {
+            "id": "hash-123",
+            "influencer_id": 10,
+            "revoked_at": None,
+            "created_at": "2026-10-17T12:00:00Z",
+        }
+        with patch.object(server, "firestore_enabled", return_value=True), patch.object(
+            server, "lookup_partner_share", return_value=mock_share
+        ):
+            share = server.partner_share_from_token("test-token")
+            self.assertIsNotNone(share)
+            self.assertIsNone(share["revoked_at"])
+            self.assertEqual(share["influencer_id"], 10)
+
 
 if __name__ == "__main__":
     unittest.main()
