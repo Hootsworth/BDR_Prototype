@@ -979,7 +979,13 @@ function openAddReferralModal(influencerIndex) {
 }
 
 function generatePartnerPassword() {
-  const pwd = "welcomebdr123!";
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*-_";
+  const random = new Uint8Array(24);
+  if (!window.crypto?.getRandomValues) {
+    throw new Error("Secure password generation requires a modern browser with Web Crypto support.");
+  }
+  window.crypto.getRandomValues(random);
+  const pwd = Array.from(random, value => alphabet[value % alphabet.length]).join("");
   const input = document.getElementById("manual-inf-password");
   if (input) input.value = pwd;
   return pwd;
@@ -1120,7 +1126,6 @@ async function handleManualInfluencerSubmit(e) {
       referrals: [],
       agreements: initialAgreements,
       referralCredits: 0,
-      defaultPassword: password
     };
     database.contacts.unshift(contact);
   } else {
@@ -1134,7 +1139,8 @@ async function handleManualInfluencerSubmit(e) {
     contact.matchPercentage = matchPercentage || contact.matchPercentage || 95;
     contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
     contact.agreements = Array.isArray(contact.agreements) ? contact.agreements : [];
-    contact.defaultPassword = password;
+    delete contact.defaultPassword;
+    delete contact.password;
     if (initialAgreements.length > 0) {
       contact.agreements.push(...initialAgreements);
     }

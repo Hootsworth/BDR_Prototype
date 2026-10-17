@@ -28,6 +28,9 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
                 "email": "avery@example.test",
                 "company": "Avery Advisory",
                 "isInfluencer": True,
+                "passwordHash": server.hash_portal_password("welcomebdr123!"),
+                "mustChangePassword": True,
+                "passwordChanged": False,
                 "agreements": [{"id": "agr-1", "status": "Signed", "name": "Partner Agreement"}],
                 "referrals": [],
             },
@@ -238,19 +241,25 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertEqual(approved[1]["vendor"]["agreementStatus"], "none")
 
     def test_partner_portal_sync_partner_and_intros_show_up_in_admin_influencer_portal(self):
-        # 1. Partner registers and submits intros in partner portal
+        login_status, login = self.request("/api/partner-portal/login", "POST", {
+            "email": "avery@example.test", "password": "welcomebdr123!",
+        })
+        self.assertEqual(login_status, 200)
+        partner_token = login["token"]
+
+        # 1. Authenticated partner submits intros in partner portal
         status, res = self.request("/api/partner-portal/sync-partner", "POST", {
             "partner": {
-                "uid": "fb_user_9988",
-                "fullName": "Elena Rostova",
-                "email": "elena.rostova@advisorycapital.test",
+                "uid": "legacy_user_9988",
+                "fullName": "Avery Influencer",
+                "email": "avery@example.test",
                 "company": "Rostova Capital Advisory",
                 "jobTitle": "Managing Partner & FinTech Lead",
                 "domain": "Fintech & Banking",
                 "linkedin": "https://linkedin.com/in/elena-rostova",
                 "phone": "+1 (415) 555-9876",
                 "location": "San Francisco, CA",
-                "points": 400
+                "points": 999999
             },
             "intros": [
                 {
@@ -269,11 +278,11 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
                     "pointsAwarded": 200
                 }
             ]
-        })
+        }, token=partner_token)
         self.assertEqual(status, 200)
         self.assertEqual(res["status"], "synced")
         influencer = res["influencer"]
-        self.assertEqual(influencer["fullName"], "Elena Rostova")
+        self.assertEqual(influencer["fullName"], "Avery Influencer")
         self.assertEqual(influencer["company"], "Rostova Capital Advisory")
         self.assertEqual(influencer["jobTitle"], "Managing Partner & FinTech Lead")
         self.assertEqual(influencer["domain"], "Fintech & Banking")
@@ -284,26 +293,27 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
 
         # 2. Verify state in workbook / DB for admin console
         state = server.read_workbook_state()
-        admin_influencer = next((c for c in state["contacts"] if c.get("isInfluencer") and c.get("email") == "elena.rostova@advisorycapital.test"), None)
+        admin_influencer = next((c for c in state["contacts"] if c.get("isInfluencer") and c.get("email") == "avery@example.test"), None)
         self.assertIsNotNone(admin_influencer)
         self.assertEqual(admin_influencer["domain"], "Fintech & Banking")
         self.assertEqual(admin_influencer["phone"], "+1 (415) 555-9876")
         self.assertEqual(admin_influencer["location"], "San Francisco, CA")
+        self.assertEqual(admin_influencer.get("referralCredits", 0), 0)
 
         # 3. Verify referred contact exists with correct referral linkage
         referred_contact = next((c for c in state["contacts"] if c.get("email") == "marcus.vance@apexbank.test"), None)
         self.assertIsNotNone(referred_contact)
-        self.assertEqual(referred_contact["referredBy"], "Elena Rostova")
-        self.assertEqual(referred_contact["referredByEmail"], "elena.rostova@advisorycapital.test")
+        self.assertEqual(referred_contact["referredBy"], "Avery Influencer")
+        self.assertEqual(referred_contact["referredByEmail"], "avery@example.test")
         self.assertEqual(referred_contact["influencerId"], admin_influencer["id"])
         self.assertTrue(referred_contact["hasScheduledCall"])
 
         # 4. Verify GET /api/partner-portal/sync-partner returns partner & referrals
-        status_get, res_get = self.request("/api/partner-portal/sync-partner?email=elena.rostova@advisorycapital.test", "GET")
+        status_get, res_get = self.request("/api/partner-portal/sync-partner?email=avery@example.test", "GET", token=partner_token)
         self.assertEqual(status_get, 200)
-        self.assertEqual(res_get["influencer"]["fullName"], "Elena Rostova")
-        self.assertEqual(len(res_get["referrals"]), 1)
-        self.assertEqual(res_get["referrals"][0]["fullName"], "Marcus Vance")
+        self.assertEqual(res_get["influencer"]["fullName"], "Avery Influencer")
+        self.assertEqual(len(res_get["referrals"]), 2)
+        self.assertEqual({r["fullName"] for r in res_get["referrals"]}, {"Marcus Vance", "Morgan Executive"})
 
     def test_partner_portal_sync_partner_allowed_in_hosted_mode(self):
         with patch.dict(os.environ, {"HOSTED_API_ONLY": "true"}):
@@ -312,17 +322,52 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
             self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/login"))
             self.assertTrue(server.hosted_api_request_allowed(None, "POST", "/api/partner-portal/change-password"))
 
+    def test_partner_portal_sync_requires_own_share_token_and_rejects_forged_points(self):
+        status, _ = self.request("/api/partner-portal/sync-partner", "POST", {
+            "partner": {"fullName": "Attacker", "email": "victim@example.test", "points": 500000},
+            "intros": [],
+        })
+        self.assertEqual(status, 401)
+        read_status, _ = self.request("/api/partner-portal/sync-partner?email=avery@example.test")
+        self.assertEqual(read_status, 401)
+
+    def test_legacy_partner_password_is_hashed_after_successful_login(self):
+        state = server.read_workbook_state()
+        state["contacts"].append({
+            "id": 29, "fullName": "Legacy Partner", "email": "legacy@example.test",
+            "isInfluencer": True, "defaultPassword": "old-plaintext-password",
+            "mustChangePassword": True, "passwordChanged": False,
+        })
+        server.write_workbook_state(state)
+        status, response = self.request("/api/partner-portal/login", "POST", {
+            "email": "legacy@example.test", "password": "old-plaintext-password",
+        })
+        self.assertEqual(status, 200)
+        self.assertNotIn("passwordHash", response["partner"])
+        saved = next(c for c in server.read_workbook_state()["contacts"] if c["email"] == "legacy@example.test")
+        self.assertTrue(server.verify_portal_password("old-plaintext-password", saved["passwordHash"]))
+        self.assertFalse(saved.get("defaultPassword"))
+
     def test_influencer_creation_and_partner_login_flow(self):
-        # 1. Admin creates an influencer without specifying password (defaults to welcomebdr123!)
+        # 1. Admin must provision a unique password for the influencer.
         create_status, create_res = self.request("/api/influencers/create", "POST", {
             "fullName": "Sarah Jenkins",
             "email": "sarah.jenkins@partner.test",
             "company": "Jenkins Advisory",
             "jobTitle": "Fintech Strategy Director"
         })
+        self.assertEqual(create_status, 400)
+        create_status, create_res = self.request("/api/influencers/create", "POST", {
+            "fullName": "Sarah Jenkins",
+            "email": "sarah.jenkins@partner.test",
+            "company": "Jenkins Advisory",
+            "jobTitle": "Fintech Strategy Director",
+            "password": "Initial-Password-2026!",
+        })
         self.assertEqual(create_status, 201)
         self.assertTrue(create_res["success"])
-        self.assertEqual(create_res["influencer"]["defaultPassword"], "welcomebdr123!")
+        self.assertNotIn("defaultPassword", create_res["influencer"])
+        self.assertNotIn("passwordHash", create_res["influencer"])
         self.assertTrue(create_res["influencer"]["mustChangePassword"])
 
         # 2. Partner portal signup is disabled (returns 410)
@@ -333,31 +378,42 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         })
         self.assertEqual(signup_status, 410)
 
-        # 3. Partner logs in with temporary default password welcomebdr123!
+        # 3. Partner logs in with the provisioned one-time password.
         login_status, login_res = self.request("/api/partner-portal/login", "POST", {
             "email": "sarah.jenkins@partner.test",
-            "password": "welcomebdr123!",
+            "password": "Initial-Password-2026!",
         })
         self.assertEqual(login_status, 200)
         self.assertTrue(login_res["success"])
         self.assertTrue(login_res["mustChangePassword"])
         self.assertEqual(login_res["influencer"]["fullName"], "Sarah Jenkins")
+        self.assertNotIn("passwordHash", login_res["influencer"])
+
+        missing_current_status, _ = self.request("/api/partner-portal/change-password", "POST", {
+            "email": "sarah.jenkins@partner.test",
+            "newPassword": "MyNewSecurePassword2026!",
+        }, token=login_res["token"])
+        self.assertEqual(missing_current_status, 400)
 
         # 4. Partner changes password to custom secure password
         change_status, change_res = self.request("/api/partner-portal/change-password", "POST", {
             "email": "sarah.jenkins@partner.test",
-            "currentPassword": "welcomebdr123!",
+            "currentPassword": "Initial-Password-2026!",
             "newPassword": "MyNewSecurePassword2026!"
-        })
+        }, token=login_res["token"])
         self.assertEqual(change_status, 200)
         self.assertTrue(change_res["success"])
         self.assertFalse(change_res["influencer"]["mustChangePassword"])
-        self.assertEqual(change_res["influencer"]["defaultPassword"], "MyNewSecurePassword2026!")
+        self.assertNotIn("defaultPassword", change_res["influencer"])
+        self.assertNotIn("passwordHash", change_res["influencer"])
+        stored = next(c for c in server.read_workbook_state()["contacts"] if c["email"] == "sarah.jenkins@partner.test")
+        self.assertTrue(server.verify_portal_password("MyNewSecurePassword2026!", stored["passwordHash"]))
+        self.assertNotIn("defaultPassword", stored)
 
-        # 5. Partner logs in with old default password (now rejected)
+        # 5. Partner logs in with old password (now rejected)
         old_status, old_res = self.request("/api/partner-portal/login", "POST", {
             "email": "sarah.jenkins@partner.test",
-            "password": "welcomebdr123!",
+            "password": "Initial-Password-2026!",
         })
         self.assertEqual(old_status, 401)
 

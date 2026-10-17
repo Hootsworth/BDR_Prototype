@@ -427,9 +427,10 @@ def verify_admin_token(token):
         if value.strip()
     }
     if not allowed_subjects:
-        return claims
+        raise FirebaseTokenInvalid("IRM administrator access is not configured.")
     subject = str(claims.get("sub") or "").strip().lower()
     email = str(claims.get("email") or claims.get("primary_email") or "").strip().lower()
-    if subject not in allowed_subjects and email not in allowed_subjects:
+    email_is_verified = claims.get("email_verified") is True
+    if subject not in allowed_subjects and not (email_is_verified and email in allowed_subjects):
         raise FirebaseTokenInvalid("This account is not authorized for IRM administration.")
     return claims

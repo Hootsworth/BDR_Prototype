@@ -284,21 +284,22 @@ def db():
     return connection
 
 def persist_state(key, value):
+    if os.environ.get('VERCEL') and key == 'database' and not firestore_enabled():
+        raise FirebaseBackendUnavailable('Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true for Vercel.')
     if firestore_enabled() and key == 'database':
-        try:
-            write_state_snapshot(key, value)
-            return
-        except FirebaseBackendUnavailable:
-            pass
+        # When Firestore is selected it is the source of truth. Never report a
+        # successful local write after a cloud failure (serverless disk is ephemeral).
+        write_state_snapshot(key, value)
+        return
     with db() as connection:
         connection.execute('INSERT INTO app_state(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', (key, json.dumps(value), time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))
 
 def read_state(key):
+    if os.environ.get('VERCEL') and key == 'database' and not firestore_enabled():
+        raise FirebaseBackendUnavailable('Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true for Vercel.')
     if firestore_enabled() and key == 'database':
-        try:
-            return read_state_snapshot(key)
-        except FirebaseBackendUnavailable:
-            pass
+        # Do not hide Firestore outages by returning stale or instance-local data.
+        return read_state_snapshot(key)
     with db() as connection:
         row = connection.execute('SELECT value FROM app_state WHERE key = ?', (key,)).fetchone()
         return json.loads(row['value']) if row else None
@@ -686,8 +687,9 @@ def issue_partner_share_token(influencer_id, revoke_existing=True):
 def hash_portal_password(password):
     raw = str(password or '').encode('utf-8')
     salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac('sha256', raw, salt, 100_000).hex()
-    return f"pbkdf2_sha256$100000${base64.urlsafe_b64encode(salt).decode('ascii')}${digest}"
+    iterations = 310_000
+    digest = hashlib.pbkdf2_hmac('sha256', raw, salt, iterations).hex()
+    return f"pbkdf2_sha256${iterations}${base64.urlsafe_b64encode(salt).decode('ascii')}${digest}"
 
 def verify_portal_password(password, stored_hash):
     if not stored_hash:
@@ -707,6 +709,23 @@ def verify_portal_password(password, stored_hash):
         # can still log in; successful login upgrades them to the salted format.
         legacy_hash = hashlib.pbkdf2_hmac('sha256', str(password or '').encode('utf-8'), b'gtm_irm_marketplace_salt_v1', 100_000).hex()
         return secrets.compare_digest(legacy_hash, stored)
+
+def partner_password_matches(influencer, password):
+    """Verify current hashes and support one-time migration of legacy plaintext values."""
+    password_hash = str(influencer.get('passwordHash') or '').strip()
+    if password_hash:
+        return verify_portal_password(password, password_hash)
+    legacy_password = str(influencer.get('defaultPassword') or influencer.get('password') or '').strip()
+    return bool(legacy_password) and secrets.compare_digest(legacy_password, str(password or ''))
+
+def set_partner_password(influencer, password):
+    influencer['passwordHash'] = hash_portal_password(password)
+    influencer.pop('defaultPassword', None)
+    influencer.pop('password', None)
+
+def public_partner_profile(influencer):
+    """Return partner fields without password hashes or legacy secrets."""
+    return {key: value for key, value in influencer.items() if key not in ('passwordHash', 'defaultPassword', 'password')}
 
 def vendor_from_token(state, token):
     if not token:
@@ -1521,6 +1540,8 @@ def contact_for_workbook_record(contacts_by_id, contacts_by_email, record):
     return None
 
 def read_workbook_state():
+    if os.environ.get('VERCEL') and not firestore_enabled():
+        raise FirebaseBackendUnavailable('Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true for Vercel.')
     # If a custom WORKBOOK_PATH is explicitly patched in unit tests, honor it first
     default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
     if WORKBOOK_PATH != default_wb_path:
@@ -1728,18 +1749,17 @@ def build_workbook_snapshot(state):
     }
 
 def write_workbook_state(state):
+    if os.environ.get('VERCEL') and not firestore_enabled():
+        raise FirebaseBackendUnavailable('Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true for Vercel.')
     if firestore_enabled():
-        try:
-            write_state_snapshot('database', state)
-            return
-        except FirebaseBackendUnavailable:
-            pass
+        preserve_partner_credentials(state)
+        write_state_snapshot('database', state)
+        return
 
     try:
         persist_state('database', state)
     except Exception:
         pass
-
     default_wb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gtm-console-database.xlsx')
     if WORKBOOK_PATH == default_wb_path:
         try:
@@ -1791,6 +1811,45 @@ def write_workbook_state(state):
                 pass
     except OSError:
         pass
+
+def preserve_partner_credentials(next_state):
+    """Keep server-owned partner credentials when the console saves public fields."""
+    if not isinstance(next_state, dict):
+        return
+    current_state = read_workbook_state()
+    current_contacts = current_state.get('contacts') or []
+    next_contacts = next_state.get('contacts') or []
+    current_by_id = {
+        str(contact.get('id')): contact for contact in current_contacts
+        if contact.get('isInfluencer') and contact.get('id') is not None
+    }
+    current_by_email = {
+        str(contact.get('email') or '').strip().lower(): contact for contact in current_contacts
+        if contact.get('isInfluencer') and contact.get('email')
+    }
+    for contact in next_contacts:
+        if not contact.get('isInfluencer'):
+            continue
+        old = current_by_id.get(str(contact.get('id'))) or current_by_email.get(
+            str(contact.get('email') or '').strip().lower()
+        )
+        if not old:
+            continue
+        if contact.get('passwordHash'):
+            # Explicit server-side password change already supplied a fresh hash.
+            contact.pop('defaultPassword', None)
+            contact.pop('password', None)
+        elif old.get('passwordHash'):
+            contact['passwordHash'] = old['passwordHash']
+            contact.pop('defaultPassword', None)
+            contact.pop('password', None)
+        else:
+            for field in ('defaultPassword', 'password'):
+                if field in old and field not in contact:
+                    contact[field] = old[field]
+        for field in ('passwordChanged', 'mustChangePassword'):
+            if field in old and field not in contact:
+                contact[field] = old[field]
 
 
 def persist_google_connection(session):
@@ -2245,6 +2304,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if clean_path == '/api/partner-portal/sync-partner':
+            share = partner_share_from_token(bearer_token(self.headers))
+            if not share or share.get('revoked_at'):
+                json_response(self, 401, {'error': 'Sign in to your Influencer Portal first.'})
+                return
             query = urllib.parse.parse_qs(parsed_url.query)
             email = str((query.get('email') or [''])[0]).strip().lower()
             uid = str((query.get('uid') or [''])[0]).strip()
@@ -2252,10 +2315,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             contacts = state.get('contacts', [])
             influencer = next((
                 c for c in contacts
-                if c.get('isInfluencer') and (
-                    (email and str(c.get('email') or '').strip().lower() == email)
-                    or (uid and str(c.get('firebaseUid') or '') == uid)
-                )
+                if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])
             ), None)
             if not influencer:
                 json_response(self, 404, {'error': 'Partner profile not found.'})
@@ -2267,7 +2327,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     or (c.get('referredByEmail') and str(c.get('referredByEmail')).lower() == influencer.get('email', '').lower())
                 )
             ]
-            json_response(self, 200, {'influencer': influencer, 'referrals': referrals})
+            json_response(self, 200, {'influencer': public_partner_profile(influencer), 'referrals': referrals})
             return
 
         if clean_path == '/portal':
@@ -2924,18 +2984,15 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 401, {'error': 'No partner account found for this email address. Please contact your administrator.'})
                 return
 
-            saved_pwd = str(influencer.get('defaultPassword') or influencer.get('password') or '').strip()
-            if not saved_pwd:
-                saved_pwd = 'welcomebdr123!'
-                influencer['defaultPassword'] = saved_pwd
-                influencer['mustChangePassword'] = True
-                write_workbook_state(state)
-
-            if saved_pwd != password:
+            if not partner_password_matches(influencer, password):
                 json_response(self, 401, {'error': 'Incorrect password. Please verify your credentials or contact your administrator.'})
                 return
 
-            must_change = bool(influencer.get('mustChangePassword') or saved_pwd == 'welcomebdr123!' or not influencer.get('passwordChanged'))
+            # Upgrade records written by older versions on successful authentication.
+            if not influencer.get('passwordHash'):
+                set_partner_password(influencer, password)
+                write_workbook_state(state)
+            must_change = bool(influencer.get('mustChangePassword') or not influencer.get('passwordChanged'))
             influencer['mustChangePassword'] = must_change
 
             referrals = [
@@ -2950,22 +3007,27 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 'status': 'success',
                 'success': True,
                 'mustChangePassword': must_change,
-                'partner': influencer,
-                'influencer': influencer,
+                'token': issue_partner_share_token(influencer['id'], revoke_existing=False),
+                'partner': public_partner_profile(influencer),
+                'influencer': public_partner_profile(influencer),
                 'referrals': referrals
             })
             return
 
         if clean_path == '/api/partner-portal/change-password':
+            share = partner_share_from_token(bearer_token(self.headers))
+            if not share or share.get('revoked_at'):
+                json_response(self, 401, {'error': 'Sign in to your Influencer Portal first.'})
+                return
             email = str(payload.get('email') or '').strip().lower()
             current_pwd = str(payload.get('currentPassword') or '').strip()
             new_pwd = str(payload.get('newPassword') or '').strip()
 
-            if not email or not new_pwd:
-                json_response(self, 400, {'error': 'Email and new password are required.'})
+            if not email or not current_pwd or not new_pwd:
+                json_response(self, 400, {'error': 'Email, current password, and new password are required.'})
                 return
-            if len(new_pwd) < 6:
-                json_response(self, 400, {'error': 'New password must be at least 6 characters long.'})
+            if len(new_pwd) < 12:
+                json_response(self, 400, {'error': 'New password must be at least 12 characters long.'})
                 return
             if new_pwd == 'welcomebdr123!':
                 json_response(self, 400, {'error': 'Please choose a custom password different from the temporary default.'})
@@ -2980,44 +3042,34 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if not influencer:
                 json_response(self, 404, {'error': 'Partner account not found.'})
                 return
+            if str(influencer.get('id')) != str(share['influencer_id']):
+                json_response(self, 403, {'error': 'This session is not authorized to change that partner password.'})
+                return
 
-            saved_pwd = str(influencer.get('defaultPassword') or influencer.get('password') or 'welcomebdr123!').strip()
-            if current_pwd and saved_pwd != current_pwd and saved_pwd != 'welcomebdr123!':
+            if not partner_password_matches(influencer, current_pwd):
                 json_response(self, 401, {'error': 'Current password does not match.'})
                 return
 
-            influencer['defaultPassword'] = new_pwd
+            set_partner_password(influencer, new_pwd)
             influencer['passwordChanged'] = True
             influencer['mustChangePassword'] = False
             write_workbook_state(state)
-
-            # Sync to Firebase Auth so partner can log in directly with new password
-            try:
-                import firebase_admin
-                from firebase_admin import auth as admin_auth
-                try:
-                    fb_user = admin_auth.get_user_by_email(email)
-                    admin_auth.update_user(fb_user.uid, password=new_pwd)
-                except Exception:
-                    admin_auth.create_user(
-                        email=email,
-                        password=new_pwd,
-                        display_name=influencer.get('fullName', '')
-                    )
-            except Exception:
-                pass
 
             json_response(self, 200, {
                 'status': 'success',
                 'success': True,
                 'message': 'Password updated successfully.',
-                'partner': influencer,
-                'influencer': influencer
+                'partner': public_partner_profile(influencer),
+                'influencer': public_partner_profile(influencer)
             })
             return
 
         if clean_path == '/api/partner-portal/sync-partner':
             try:
+                share = partner_share_from_token(bearer_token(self.headers))
+                if not share or share.get('revoked_at'):
+                    json_response(self, 401, {'error': 'Sign in to your Influencer Portal first.'})
+                    return
                 partner_data = payload.get('partner') or payload or {}
                 name = str(partner_data.get('fullName') or partner_data.get('name') or '').strip()
                 email = str(partner_data.get('email') or '').strip().lower()
@@ -3028,7 +3080,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 phone = str(partner_data.get('phone') or '').strip()
                 location = str(partner_data.get('location') or '').strip()
                 firebase_uid = str(partner_data.get('uid') or partner_data.get('firebaseUid') or '').strip()
-                points = int(partner_data.get('points') or 0)
+                # Reward balances are admin controlled; never accept client totals.
+                points = 0
                 intros = payload.get('intros') or []
 
                 if not email:
@@ -3043,13 +3096,13 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
                 influencer = next((
                     c for c in contacts
-                    if c.get('isInfluencer') and (
-                        str(c.get('email') or '').strip().lower() == email
-                        or (firebase_uid and str(c.get('firebaseUid') or '') == firebase_uid)
-                    )
+                    if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])
                 ), None)
 
                 if influencer:
+                    if str(influencer.get('email') or '').strip().lower() != email:
+                        json_response(self, 403, {'error': 'This session is not authorized to update that partner profile.'})
+                        return
                     if name: influencer['fullName'] = name
                     if company: influencer['company'] = company
                     if job_title: influencer['jobTitle'] = job_title
@@ -3199,7 +3252,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 write_workbook_state(state)
                 json_response(self, 200, {
                     'status': 'synced',
-                    'influencer': influencer,
+                    'influencer': public_partner_profile(influencer),
                     'referralCount': len([c for c in contacts if str(c.get('influencerId')) == str(influencer['id']) or (c.get('referredByEmail') and c.get('referredByEmail').lower() == email)])
                 })
             except Exception as ex:
@@ -3884,25 +3937,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     profile = payload.get('profile') or payload or {}
                     name = str(profile.get('fullName') or payload.get('fullName') or '').strip()
                     email = str(profile.get('email') or payload.get('email') or '').strip().lower()
-                    password = str(profile.get('password') or profile.get('defaultPassword') or payload.get('password') or payload.get('defaultPassword') or 'welcomebdr123!').strip()
+                    password = str(profile.get('password') or profile.get('defaultPassword') or payload.get('password') or payload.get('defaultPassword') or '').strip()
                     if not name or not email:
                         json_response(self, 400, {'error': 'Partner name and email are required.'})
                         return
                     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                         json_response(self, 400, {'error': 'Enter a valid partner email address.'})
                         return
-
-                    # Provision Firebase Auth user in background if SDK is available
-                    try:
-                        import firebase_admin
-                        from firebase_admin import auth as admin_auth
-                        admin_auth.create_user(
-                            email=email,
-                            password=password,
-                            display_name=name
-                        )
-                    except Exception:
-                        pass
+                    if len(password) < 12:
+                        json_response(self, 400, {'error': 'Partner provisioning password must be at least 12 characters long.'})
+                        return
 
                     existing_contact = next((c for c in contacts if str(c.get('email') or '').strip().lower() == email), None)
                     if existing_contact:
@@ -3916,7 +3960,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         existing_contact['jobTitle'] = str(profile.get('jobTitle') or existing_contact.get('jobTitle') or '').strip()
                         existing_contact['phone'] = str(profile.get('phone') or existing_contact.get('phone') or '').strip()
                         existing_contact['location'] = str(profile.get('location') or existing_contact.get('location') or '').strip()
-                        existing_contact['defaultPassword'] = password
+                        set_partner_password(existing_contact, password)
                         existing_contact['mustChangePassword'] = True
                         existing_contact['passwordChanged'] = False
                         if profile.get('linkedinUrl'):
@@ -3925,7 +3969,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         existing_contact.setdefault('referrals', [])
                         existing_contact.setdefault('referralCredits', 0)
                         write_workbook_state(state)
-                        json_response(self, 201, {'status': 'created', 'success': True, 'influencer': existing_contact})
+                        json_response(self, 201, {'status': 'created', 'success': True, 'influencer': public_partner_profile(existing_contact)})
                         return
                     parts = name.split()
                     new_partner = {
@@ -3936,7 +3980,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         'location': str(profile.get('location') or '').strip(),
                         'linkedinUrl': normalize_linkedin_url(profile.get('linkedinUrl') or ''),
                         'isInfluencer': True,
-                        'defaultPassword': password,
+                        'passwordHash': hash_portal_password(password),
                         'mustChangePassword': True,
                         'passwordChanged': False,
                         'referralCredits': 0, 'referrals': [],
@@ -3945,7 +3989,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     }
                     contacts.append(new_partner)
                     write_workbook_state(state)
-                    json_response(self, 201, {'status': 'created', 'success': True, 'influencer': new_partner})
+                    json_response(self, 201, {'status': 'created', 'success': True, 'influencer': public_partner_profile(new_partner)})
                     return
                 if not influencer:
                     json_response(self, 404, {'error': 'Influencer profile not found.'})

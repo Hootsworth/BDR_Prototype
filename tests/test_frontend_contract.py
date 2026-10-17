@@ -38,6 +38,20 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("parseDelimitedLine", portal)
         self.assertIn("Correct rejected rows and submit again.", portal)
 
+    def test_live_partner_portal_route_uses_clerk_page_contract(self):
+        import re
+
+        portal = self.read("partner-portal.html")
+        clerk_app = self.read("partner-portal.js")
+        self.assertIn('src="/partner-portal.js"', portal)
+        self.assertIn('src="/app-config.js"', portal)
+        self.assertNotIn("firebasejs", portal)
+        self.assertNotIn('src="/partner-portal/app.js"', portal)
+        required_ids = set(re.findall(r"getElementById\(['\"]([^'\"]+)", clerk_app))
+        present_ids = set(re.findall(r"\bid=['\"]([^'\"]+)", portal))
+        self.assertEqual(required_ids - present_ids, set(), "Clerk portal page is missing required DOM IDs")
+        self.assertEqual(self.read("partner-portal/index.html"), portal)
+
     def test_provider_secrets_are_not_restored_from_browser_storage(self):
         main = self.read("src/main.js")
         settings = self.read("src/components/settings.js")

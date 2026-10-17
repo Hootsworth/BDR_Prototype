@@ -6,7 +6,7 @@ The Vercel project serves the existing app at connectem.ai. A host-conditional r
 
 The checkout is linked to Vercel project `bdr-prototype`. Its project Root Directory must be the repository root (the folder containing `vercel.json`, `index.html`, and `api/`). `vercel.json` sets the output directory to `.`. The Vercel framework preset was changed to Other after the Python preset caused Vercel to expose a directory listing for `/api/`. The fresh preview at `https://bdr-prototype-2wcxgnm14-aditya-p-dixit-s-projects.vercel.app` serves the app and `/partner-portal`; the earlier `bdr-prototype-henna` preview is an older deployment and still shows the listing. The current preview deployment is protected by Vercel authentication. Add connectem.ai and go.connectem.ai to that project under Settings → Domains, then apply the DNS records Vercel shows. Domain activation and DNS are left for the owner; neither domain is live until Vercel verifies it.
 
-The repository does not yet contain a separate public marketing landing page: connectem.ai/ currently serves the existing application console. The Vendor Marketplace remains at /marketplace.html.
+The public marketing landing page is `landing.html`, and `vercel.json` routes the apex domains to it. The Vendor Marketplace remains at /marketplace.html.
 
 ## Firestore source of truth
 
@@ -64,7 +64,7 @@ Set these as server-side Vercel variables (do not use public/client prefixes):
 | GTM_PUBLIC_BASE_URL | https://go.connectem.ai |
 | TOKEN_ENCRYPTION_KEY | A new Fernet key for encrypted integration tokens |
 
-The Clerk Production publishable key, secret key, and issuer are staged in Vercel Production. The issuer encoded by the supplied live publishable key is `https://clerk.connectem.ai`; the Clerk secret is stored as a sensitive Vercel variable. Preview retains the development instance values. On 2026-10-14, public DNS returned no record for `clerk.connectem.ai`, so the Production deployment has not been redeployed. Add/verify the Clerk-provided DNS record and confirm the issuer's JWKS endpoint resolves before promotion. Allow the Vercel preview origin during setup and `go.connectem.ai` after its custom domain is verified.
+The Clerk Production publishable key, secret key, and issuer are staged in Vercel Production. The issuer encoded by the supplied live publishable key is `https://clerk.connectem.ai`; the Clerk secret is stored as a sensitive Vercel variable. Preview retains the development instance values. On 2026-10-17, a read-only browser check successfully loaded the Production issuer's JWKS endpoint at `https://clerk.connectem.ai/.well-known/jwks.json`, resolving the DNS concern recorded on 2026-10-14. The production site still serves the legacy Firebase-style partner portal as of 2026-10-17; the Clerk portal changes in this checkout have not been deployed. Allow the Vercel preview origin during setup and `go.connectem.ai` after its custom domain is verified.
 
 ## Firestore backups
 
@@ -90,8 +90,8 @@ Backup storage is billable. A read-only check found no schedule, and the Firesto
 
 ## Remaining launch work
 
-- Add/verify the Clerk DNS record for `clerk.connectem.ai`, allow the final app domains, and add the intended IRM administrator user IDs before enabling admin-only workflows.
-- Promote the verified application code to Production after Clerk DNS resolves; verify authenticated API reads and writes there.
+- Confirm Clerk allowed origins for the final app domains and add the intended IRM administrator user IDs before enabling admin-only workflows.
+- Deploy the verified application code to Production; verify Clerk sign-in, onboarding, password recovery, and authenticated API reads and writes there. The current live deployment still serves the legacy portal.
 - Add and verify the two custom domains and configure the Clerk allowed origins.
 - Confirm scheduled Firestore backups and complete a restore rehearsal before real pilot data is entered.
 - The project still needs a public marketing landing page if connectem.ai is intended to be a customer-facing website rather than the existing app console.

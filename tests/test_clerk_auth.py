@@ -25,15 +25,16 @@ class ClerkTokenVerificationTests(unittest.TestCase):
         ):
             self.assertEqual(firebase_backend.verify_admin_token("token"), expected)
 
-    def test_admin_allows_verified_clerk_user_when_allowlist_is_empty(self):
+    def test_admin_rejects_any_user_when_allowlist_is_empty(self):
         user = {"sub": "user_12345", "email": "operator@connectem.ai"}
         with patch.dict(os.environ, {"CLERK_ADMIN_USER_IDS": ""}, clear=True), patch.object(
             firebase_backend, "verify_clerk_token", return_value=user
         ):
-            self.assertEqual(firebase_backend.verify_admin_token("token"), user)
+            with self.assertRaisesRegex(firebase_backend.FirebaseTokenInvalid, "access is not configured"):
+                firebase_backend.verify_admin_token("token")
 
-    def test_admin_matches_by_email_when_allowlisted(self):
-        user = {"sub": "user_opaque_id", "email": "admin@connectem.ai"}
+    def test_admin_matches_verified_email_when_allowlisted(self):
+        user = {"sub": "user_opaque_id", "email": "admin@connectem.ai", "email_verified": True}
         with patch.dict(os.environ, {"CLERK_ADMIN_USER_IDS": "admin@connectem.ai,other@domain.test"}, clear=True), patch.object(
             firebase_backend, "verify_clerk_token", return_value=user
         ):
