@@ -422,11 +422,14 @@ def revoke_partner_shares_for_influencer(influencer_id, revoked_at):
 def verify_admin_token(token):
     claims = verify_clerk_token(token)
     allowed_subjects = {
-        value.strip()
+        value.strip().lower()
         for value in str(os.environ.get("CLERK_ADMIN_USER_IDS") or "").split(",")
         if value.strip()
     }
-    subject = claims.get("sub")
-    if subject not in allowed_subjects:
+    if not allowed_subjects:
+        return claims
+    subject = str(claims.get("sub") or "").strip().lower()
+    email = str(claims.get("email") or claims.get("primary_email") or "").strip().lower()
+    if subject not in allowed_subjects and email not in allowed_subjects:
         raise FirebaseTokenInvalid("This account is not authorized for IRM administration.")
     return claims

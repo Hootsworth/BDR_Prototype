@@ -100,6 +100,11 @@ function saveDatabaseCache() {
     }
   }
   // Durable local prototype storage. Browser cache remains a fast fallback only.
+  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (!isLocalHost && window.Clerk && !window.Clerk.user) {
+    return;
+  }
+
   Promise.resolve(window.getFirebaseIdToken?.())
     .then(idToken => fetch("/api/state", {
       method: "POST",

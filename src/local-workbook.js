@@ -26,6 +26,11 @@ function workbookStateSlice() {
 }
 
 async function loadWorkbookFromServer() {
+  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (!isLocalHost && window.Clerk && !window.Clerk.user) {
+    return false;
+  }
+
   const response = await fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state");
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));

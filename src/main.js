@@ -156,13 +156,15 @@ async function bootstrapApp() {
   // session (every save path is gated on database.workbookMode, which only a successful load sets),
   // so retry a few times with backoff before giving up - this is almost always a transient blip.
   let loadedFromWorkbook = false;
-  if (typeof loadWorkbookFromServer === "function") {
+  const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  const canAttemptInitialLoad = isLocalHost || Boolean(window.Clerk?.user);
+  if (typeof loadWorkbookFromServer === "function" && canAttemptInitialLoad) {
     const maxAttempts = 3;
     let lastError = null;
     for (let attempt = 1; attempt <= maxAttempts && !loadedFromWorkbook; attempt++) {
       try {
-        await loadWorkbookFromServer();
-        loadedFromWorkbook = true;
+        const res = await loadWorkbookFromServer();
+        if (res !== false) loadedFromWorkbook = true;
       } catch (error) {
         lastError = error;
         if (attempt < maxAttempts) await new Promise(resolve => setTimeout(resolve, attempt * 1000));
@@ -366,7 +368,9 @@ function switchTab(tabId) {
     } else if (typeof filterOutboundTable === "function") {
       filterOutboundTable();
     }
-    if (typeof loadWorkbookFromServer === "function") {
+    const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const isAuthenticated = isLocal || Boolean(window.Clerk?.user);
+    if (typeof loadWorkbookFromServer === "function" && database.workbookMode && isAuthenticated) {
       loadWorkbookFromServer().then(() => {
         if (typeof initLoadedData === "function") initLoadedData();
         if (typeof filterOutboundTable === "function") filterOutboundTable();
@@ -374,7 +378,9 @@ function switchTab(tabId) {
     }
   } else if (tabId === 'influencers') {
     if (typeof renderInfluencersTable === "function") renderInfluencersTable();
-    if (typeof loadWorkbookFromServer === "function") {
+    const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const isAuthenticated = isLocal || Boolean(window.Clerk?.user);
+    if (typeof loadWorkbookFromServer === "function" && database.workbookMode && isAuthenticated) {
       loadWorkbookFromServer().then(() => {
         if (typeof renderInfluencersTable === "function") renderInfluencersTable();
       }).catch(() => {});
