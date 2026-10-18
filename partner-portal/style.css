@@ -68,12 +68,6 @@
   padding: 0;
 }
 
-/* Component display rules (for example .btn { display: inline-flex }) must not
-   make controls visible when application code marks them hidden. */
-[hidden] {
-  display: none !important;
-}
-
 html {
   font-family: var(--font-sans);
   background-color: var(--bg);

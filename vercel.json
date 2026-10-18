@@ -103,10 +103,6 @@
       "destination": "/partner-portal.html"
     },
     {
-      "source": "/favicon.ico",
-      "destination": "/favicon.svg"
-    },
-    {
       "source": "/api/",
       "destination": "/api/index?route=health"
     },
