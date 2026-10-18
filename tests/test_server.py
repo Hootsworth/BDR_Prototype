@@ -45,6 +45,55 @@ class ServerSafetyTests(unittest.TestCase):
         self.assertIn("version", info)
         self.assertTrue(len(info["sha"]) > 0)
 
+    def test_firestore_read_failure_does_not_fall_back_to_local_state(self):
+        failure = server.FirebaseBackendUnavailable("Firestore read failed")
+        with patch.object(server, "firestore_enabled", return_value=True), patch.object(
+            server, "read_state_snapshot", side_effect=failure
+        ), patch.object(server, "db", side_effect=AssertionError("local fallback used")):
+            with self.assertRaisesRegex(server.FirebaseBackendUnavailable, "Firestore read failed"):
+                server.read_state("database")
+
+    def test_firestore_write_failure_does_not_fall_back_to_local_state(self):
+        failure = server.FirebaseBackendUnavailable("Firestore write failed")
+        with patch.object(server, "firestore_enabled", return_value=True), patch.object(
+            server, "write_state_snapshot", side_effect=failure
+        ), patch.object(server, "db", side_effect=AssertionError("local fallback used")):
+            with self.assertRaisesRegex(server.FirebaseBackendUnavailable, "Firestore write failed"):
+                server.persist_state("database", {"contacts": []})
+
+    def test_workbook_write_propagates_firestore_failure(self):
+        failure = server.FirebaseBackendUnavailable("Firestore unavailable")
+        with patch.object(server, "firestore_enabled", return_value=True), patch.object(
+            server, "write_state_snapshot", side_effect=failure
+        ), patch.object(server, "read_workbook_state", return_value={"contacts": []}):
+            with self.assertRaisesRegex(server.FirebaseBackendUnavailable, "Firestore unavailable"):
+                server.write_workbook_state({"contacts": []})
+
+    def test_firestore_console_save_preserves_server_owned_partner_password_hash(self):
+        stored_hash = server.hash_portal_password("partner-password")
+        state = {"contacts": [{"id": 12, "email": "partner@example.test", "isInfluencer": True}]}
+        current = {"contacts": [{
+            "id": 12, "email": "partner@example.test", "isInfluencer": True,
+            "passwordHash": stored_hash, "passwordChanged": True, "mustChangePassword": False,
+        }]}
+        with patch.object(server, "firestore_enabled", return_value=True), patch.object(
+            server, "read_workbook_state", return_value=current
+        ), patch.object(server, "write_state_snapshot") as write_snapshot:
+            server.write_workbook_state(state)
+        saved = write_snapshot.call_args.args[1]["contacts"][0]
+        self.assertEqual(saved["passwordHash"], stored_hash)
+        self.assertTrue(saved["passwordChanged"])
+        self.assertFalse(saved["mustChangePassword"])
+
+    def test_vercel_never_reads_or_writes_ephemeral_database_when_firestore_is_disabled(self):
+        with patch.dict(os.environ, {"VERCEL": "1"}), patch.object(
+            server, "firestore_enabled", return_value=False
+        ), patch.object(server, "db", side_effect=AssertionError("ephemeral database used")):
+            with self.assertRaisesRegex(server.FirebaseBackendUnavailable, "Cloud persistence is disabled"):
+                server.read_workbook_state()
+            with self.assertRaisesRegex(server.FirebaseBackendUnavailable, "Cloud persistence is disabled"):
+                server.write_workbook_state({"contacts": []})
+
 
 class WorkbookPersistenceTests(unittest.TestCase):
     def setUp(self):
@@ -211,6 +260,21 @@ class WorkbookPersistenceTests(unittest.TestCase):
             self.assertEqual(reloaded["vendors"][0]["companyName"], "Aegis AI")
             self.assertEqual(len(reloaded["marketplaceRequests"]), 1)
             self.assertEqual(reloaded["marketplaceRequests"][0]["id"], "mreq-1")
+
+    def test_firestore_partner_share_lookup_validates_without_invalid_expiry(self):
+        mock_share = {
+            "id": "hash-123",
+            "influencer_id": 10,
+            "revoked_at": None,
+            "created_at": "2026-10-17T12:00:00Z",
+        }
+        with patch.object(server, "firestore_enabled", return_value=True), patch.object(
+            server, "lookup_partner_share", return_value=mock_share
+        ):
+            share = server.partner_share_from_token("test-token")
+            self.assertIsNotNone(share)
+            self.assertIsNone(share["revoked_at"])
+            self.assertEqual(share["influencer_id"], 10)
 
 
 if __name__ == "__main__":

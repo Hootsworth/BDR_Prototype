@@ -318,9 +318,20 @@
   });
 
   async function request(path, options = {}) {
+    let authHeader = token ? `Bearer ${token}` : '';
+    if (!authHeader && window.Clerk?.session) {
+      try {
+        const clerkToken = await window.Clerk.session.getToken();
+        if (clerkToken) authHeader = `Bearer ${clerkToken}`;
+      } catch (_) {}
+    }
     const response = await fetch(path, {
       ...options,
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
+      headers: {
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {})
+      }
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
@@ -358,6 +369,8 @@
     }
   }
   function chooseAuthMode(mode) {
+    const authError = document.getElementById('portal-auth-error');
+    if (authError) authError.textContent = '';
     selectedAuthMode = mode;
     const isSignin = mode === 'signin';
     tabSignin?.classList.toggle('active', isSignin);
@@ -406,6 +419,8 @@
   async function load() {
     if (!token) {
       try {
+        const authError = document.getElementById('portal-auth-error');
+        if (authError) authError.textContent = '';
         await loadPartnerClerk();
         if (!clerkListenerAdded) {
           window.Clerk.addListener?.(({ user }) => {
@@ -443,8 +458,16 @@
       }
       return showAuthView();
     }
-    try { render(await request('/api/partner-share')); }
-    catch (error) { showError(error.message); }
+    try {
+      render(await request('/api/partner-share'));
+    } catch (error) {
+      if (error.message && (error.message.includes('invalid') || error.message.includes('revoked') || error.message.includes('401'))) {
+        token = '';
+        sessionStorage.removeItem(tokenKey);
+        return load();
+      }
+      showError(error.message);
+    }
   }
 
   // Entry mode switching: One at a time vs Bulk add

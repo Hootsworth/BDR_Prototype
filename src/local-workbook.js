@@ -73,8 +73,9 @@ async function loadWorkbookFromServer() {
   if (typeof filterOutboundTable === "function") filterOutboundTable();
   if (typeof renderDashboard === "function") renderDashboard();
   if (typeof renderEventsTable === "function") renderEventsTable();
-  if (typeof renderInfluencersPortal === "function") renderInfluencersPortal();
-  addLogConsole("enrich", `[SQLITE GRAPH DB] Loaded ${database.contacts.length} contacts (30 Influencers × 30 Referrals) from ${database.workbookName}.`, "success");
+  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
+  if (typeof renderPartnerDirectory === "function") renderPartnerDirectory();
+  addLogConsole("enrich", `[DATABASE] Loaded ${database.contacts.length} contacts from ${database.workbookName}.`, "success");
   return database.contacts.length;
 }
 

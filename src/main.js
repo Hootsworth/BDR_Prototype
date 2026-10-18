@@ -370,7 +370,7 @@ function switchTab(tabId) {
     }
     const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
     const isAuthenticated = isLocal || Boolean(window.Clerk?.user);
-    if (typeof loadWorkbookFromServer === "function" && database.workbookMode && isAuthenticated) {
+    if (typeof loadWorkbookFromServer === "function" && isAuthenticated) {
       loadWorkbookFromServer().then(() => {
         if (typeof initLoadedData === "function") initLoadedData();
         if (typeof filterOutboundTable === "function") filterOutboundTable();
@@ -380,7 +380,7 @@ function switchTab(tabId) {
     if (typeof renderInfluencersTable === "function") renderInfluencersTable();
     const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
     const isAuthenticated = isLocal || Boolean(window.Clerk?.user);
-    if (typeof loadWorkbookFromServer === "function" && database.workbookMode && isAuthenticated) {
+    if (typeof loadWorkbookFromServer === "function" && isAuthenticated) {
       loadWorkbookFromServer().then(() => {
         if (typeof renderInfluencersTable === "function") renderInfluencersTable();
       }).catch(() => {});
