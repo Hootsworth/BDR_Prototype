@@ -1,7 +1,9 @@
 const { getVercelOidcToken } = require('@vercel/oidc');
 
 const HOP_BY_HOP_HEADERS = new Set([
+  'accept-encoding',
   'connection',
+  'content-encoding',
   'content-length',
   'host',
   'keep-alive',
@@ -40,6 +42,8 @@ module.exports = async function handler(req, res) {
       if (!value || HOP_BY_HOP_HEADERS.has(name.toLowerCase())) continue;
       headers.set(name, Array.isArray(value) ? value.join(', ') : value);
     }
+    // Explicitly request uncompressed content from upstream Python to avoid double/mismatched compression
+    headers.set('accept-encoding', 'identity');
     // Vercel reserves and strips x-vercel-* headers on internal fetches.
     // Carry the signed token in an app-specific header instead.
     headers.set('x-connectem-oidc-token', oidcToken);
@@ -64,7 +68,10 @@ module.exports = async function handler(req, res) {
     });
     res.statusCode = upstream.status;
     upstream.headers.forEach((value, name) => {
-      if (!HOP_BY_HOP_HEADERS.has(name.toLowerCase())) res.setHeader(name, value);
+      const lower = name.toLowerCase();
+      if (!HOP_BY_HOP_HEADERS.has(lower) && lower !== 'content-encoding' && lower !== 'content-length') {
+        res.setHeader(name, value);
+      }
     });
     res.end(Buffer.from(await upstream.arrayBuffer()));
   } catch (error) {
