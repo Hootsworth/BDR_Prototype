@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="ConnectEM Partner Workspace — Manage relationships, review warm introduction requests, and track verified impact.">
   <title>Partner Workspace · ConnectEM</title>
+  <script>
+    (function() {
+      var savedTheme = localStorage.getItem('gtm_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
   <link rel="stylesheet" href="/partner-portal/style.css">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <script src="/app-config.js"></script>
@@ -14,7 +20,11 @@
 <body>
   <header class="site-header">
     <div class="brand-wrapper"><span class="brand-symbol">C</span><span class="brand-title">ConnectEM</span><span class="brand-badge">Partner Network</span></div>
-    <div class="header-right"><span class="balance-pill" id="partner-header-pill">Verified Partner Workspace</span><button id="portal-signout-btn" class="btn btn-secondary" type="button" hidden>Sign out</button></div>
+    <div class="header-right">
+      <span class="balance-pill" id="partner-header-pill">Verified Partner Workspace</span>
+      <button id="portal-theme-toggle-btn" class="btn btn-secondary" type="button" aria-label="Toggle monochrome theme" onclick="var d=document.documentElement;var t=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',t);localStorage.setItem('gtm_theme',t);">Theme</button>
+      <button id="portal-signout-btn" class="btn btn-secondary" type="button" hidden>Sign out</button>
+    </div>
   </header>
 
   <main class="app-container">
