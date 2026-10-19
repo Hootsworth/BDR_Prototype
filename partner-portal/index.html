@@ -60,17 +60,17 @@
       </section>
 
       <!-- SECTION: PENDING VENDOR INTRO REQUESTS (DOUBLE OPT-IN FLOW) -->
-      <section id="partner-requests-section" class="portal-section" style="border:1px solid #c9ded7; background:#f9fcfb; border-radius:12px; padding:24px; margin-bottom:28px;">
-        <div class="section-heading" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <section id="partner-requests-section" class="portal-section">
+        <div class="section-heading">
           <div>
-            <h2 style="margin:0 0 4px; font-size:20px;">Pending Introduction Requests</h2>
-            <p style="margin:0; font-size:13px; color:var(--muted);">Review vendor introduction requests and selectively check interest with your contacts. Declining never impacts your Trust Score.</p>
+            <h2>Pending Introduction Requests</h2>
+            <p>Review vendor introduction requests and selectively check interest with your contacts. Declining never impacts your Trust Score.</p>
           </div>
           <span class="portal-badge ok" id="pending-requests-badge">0 pending</span>
         </div>
         
         <div id="partner-requests-container" style="display:grid; gap:16px;">
-          <p style="color:var(--muted); font-size:13px; font-style:italic;">No pending introduction requests right now. When vendors request warm introductions to your network, they will appear here for your review.</p>
+          <p class="empty">No pending introduction requests right now. When vendors request warm introductions to your network, they will appear here for your review.</p>
         </div>
       </section>
 
@@ -101,7 +101,7 @@
           <label>Focus Areas / Topics<input name="topics" placeholder="AI/Data, Core Modernization, NCUA Compliance" value="AI &amp; Data Governance, NCUA Compliance"></label>
           
           <input type="hidden" name="status" value="pending">
-          <button id="submit-button" class="btn btn-primary" type="submit" style="grid-column:1 / -1;">Save Relationship to ConnectEM</button>
+          <button id="submit-button" class="btn btn-primary" type="submit" style="grid-column:1 / -1; margin-top:8px;">Save Relationship to ConnectEM</button>
         </form>
         <p id="feedback" role="status" aria-live="polite"></p>
         
@@ -118,22 +118,22 @@
       </section>
 
       <!-- SECTION: PARTNER PROFILE & OPEN-TO PREFERENCES -->
-      <section class="portal-section" style="border:1px solid var(--line); border-radius:12px; padding:24px; margin-top:28px;">
+      <section class="portal-section">
         <div class="section-heading"><h2 style="margin:0 0 6px; font-size:18px;">Partner Expertise &amp; Engagement Preferences</h2><p style="margin:0; font-size:13px; color:var(--muted);">Define your industry focus and what types of engagements you are open to.</p></div>
         <form id="partner-profile-form" class="form-grid" style="margin-top:16px;">
           <label>Core Expertise Tags<input id="pref-expertise" value="Credit Union Core Systems, AI &amp; Data Governance, NCUA Compliance" placeholder="e.g. Lending Automation, Cybersecurity, Core Banking"></label>
           <label>Target Geographies<input id="pref-geography" value="North America, United States" placeholder="e.g. US East, Midwest, Nationwide"></label>
           <label style="grid-column:1 / -1;">What I am open to (select all that apply):
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px;">
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="warm_intros" checked> Warm executive introductions</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="advisory_calls" checked> Paid advisory calls</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="consulting" checked> Consulting projects</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="board_roles" checked> Board &amp; advisor roles</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="vendor_feedback" checked> Vendor product feedback</label>
-              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="recruiting"> Executive recruiting</label>
+              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="warm_intros" checked style="width:auto; min-height:auto;"> Warm executive introductions</label>
+              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="advisory_calls" checked style="width:auto; min-height:auto;"> Paid advisory calls</label>
+              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="consulting" checked style="width:auto; min-height:auto;"> Consulting projects</label>
+              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="board_roles" checked style="width:auto; min-height:auto;"> Board &amp; advisor roles</label>
+              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="vendor_feedback" checked style="width:auto; min-height:auto;"> Vendor product feedback</label>
+              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="recruiting" style="width:auto; min-height:auto;"> Executive recruiting</label>
             </div>
           </label>
-          <div style="grid-column:1 / -1; display:flex; align-items:center; gap:12px;">
+          <div style="grid-column:1 / -1; display:flex; align-items:center; gap:12px; margin-top:8px;">
             <button id="save-profile-prefs-btn" class="btn btn-secondary" type="submit">Update Preferences</button>
             <span id="profile-prefs-feedback" style="font-size:12px; color:var(--accent);"></span>
           </div>
@@ -141,18 +141,22 @@
       </section>
 
       <!-- SECTION: PARTNER AGREEMENT & ENTERPRISE ATTRIBUTION -->
-      <section class="portal-section partner-agreement-bar" style="margin-top:28px;">
-        <h2>Partner Agreement</h2>
-        <p id="partner-agreement-desc">Your ConnectEM Master Partner Agreement establishes your non-circumvention terms and commercial referral rates.</p>
-        <span id="partner-agreement-badge" class="portal-badge ok">Signed &amp; Active</span>
-        <button id="partner-sign-agreement-btn" class="btn btn-secondary" type="button">Review Partner Agreement</button>
+      <section class="portal-section partner-agreement-bar">
+        <div>
+          <h2>Partner Agreement</h2>
+          <p id="partner-agreement-desc">Your ConnectEM Master Partner Agreement establishes your non-circumvention terms and commercial referral rates.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span id="partner-agreement-badge" class="portal-badge ok">Signed &amp; Active</span>
+          <button id="partner-sign-agreement-btn" class="btn btn-secondary" type="button">Review Partner Agreement</button>
+        </div>
       </section>
 
       <!-- SECTION: COMMERCIAL ATTRIBUTION & PIPELINE INFLUENCE -->
-      <section class="portal-section" style="border:1px solid var(--line); border-radius:12px; padding:24px; margin-top:28px;">
+      <section class="portal-section">
         <div class="section-heading">
-          <h2 style="margin:0 0 6px; font-size:18px;">Commercial Attribution &amp; Revenue Metrics</h2>
-          <p style="margin:0; font-size:13px; color:var(--muted);">ConnectEM measures real outcomes from request to revenue. No point systems or flat lead bounties.</p>
+          <h2>Commercial Attribution &amp; Revenue Metrics</h2>
+          <p>ConnectEM measures real outcomes from request to revenue. No point systems or flat lead bounties.</p>
         </div>
         <div class="stats-strip" style="margin:16px 0 20px; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
           <article class="stat-item"><span>Influenced Pipeline</span><strong id="attr-pipeline" style="color:var(--ink);">$185,000</strong></article>

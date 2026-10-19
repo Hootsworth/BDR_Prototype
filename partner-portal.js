@@ -261,12 +261,12 @@
     container.innerHTML = '';
     pending.forEach(req => {
       const card = document.createElement('div');
-      card.style.cssText = 'background:#fff; border:1px solid #d0e2dc; border-radius:10px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.03); display:grid; gap:12px;';
+      card.className = 'partner-request-card';
       
       const isInterestChecked = req.status === 'contact_opt_in_requested' || req.optInToken;
       const isAccepted = req.status === 'contact_accepted' || req.status === 'introduction_made';
       
-      let statusBadge = `<span class="portal-badge" style="background:#eef5f2; color:#126b5b;">Awaiting Your Review</span>`;
+      let statusBadge = `<span class="portal-badge">Awaiting Your Review</span>`;
       if (isAccepted) {
         statusBadge = `<span class="portal-badge ok">Contact Accepted · Intro Made</span>`;
       } else if (isInterestChecked) {
@@ -279,34 +279,34 @@
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
           <div>
             <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent);">Introduction Request #${req.id}</span>
-            <h3 style="margin:4px 0 2px; font-size:17px; font-weight:600;">${escapeHTML(req.vendorCompany || 'Technology Partner')} ──► ${escapeHTML(req.targetContactName || 'Executive')} (${escapeHTML(req.targetCompany || 'Organization')})</h3>
+            <h3 style="margin:4px 0 2px; font-size:17px; font-weight:600; color:var(--ink);">${escapeHTML(req.vendorCompany || 'Technology Partner')} ──► ${escapeHTML(req.targetContactName || 'Executive')} (${escapeHTML(req.targetCompany || 'Organization')})</h3>
             <p style="margin:0; font-size:12.5px; color:var(--muted);">${escapeHTML(req.targetJobTitle || 'Decision Maker')} · Requested by ${escapeHTML(req.vendorContactName || 'Vendor Leadership')}</p>
           </div>
           <div>${statusBadge}</div>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; background:#f8fbfa; padding:12px 14px; border-radius:8px; font-size:12.5px;">
-          <div><strong style="display:block; color:var(--muted); font-size:11px; text-transform:uppercase;">Why This Contact</strong><span>${escapeHTML(req.whyThisContact || 'Target decision maker in focus sector')}</span></div>
-          <div><strong style="display:block; color:var(--muted); font-size:11px; text-transform:uppercase;">Why They Should Care</strong><span>${escapeHTML(req.whyTheyShouldCare || req.vendorPitch || 'Modernizing architecture while maintaining compliance')}</span></div>
-          <div><strong style="display:block; color:var(--muted); font-size:11px; text-transform:uppercase;">Specific Ask</strong><span>${escapeHTML(req.specificAsk || '20-minute executive briefing')}</span></div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; background:var(--soft); padding:14px 16px; border-radius:8px; border:1px solid var(--line);">
+          <div><strong style="display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Why This Contact</strong><span style="font-size:13px; color:var(--ink);">${escapeHTML(req.whyThisContact || 'Target decision maker in focus sector')}</span></div>
+          <div><strong style="display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Why They Should Care</strong><span style="font-size:13px; color:var(--ink);">${escapeHTML(req.whyTheyShouldCare || req.vendorPitch || 'Modernizing architecture while maintaining compliance')}</span></div>
+          <div><strong style="display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Specific Ask</strong><span style="font-size:13px; color:var(--ink);">${escapeHTML(req.specificAsk || '20-minute executive briefing')}</span></div>
         </div>
 
         <div>
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--ink); margin-bottom:4px;">Forwardable Note to Contact (in your voice):</label>
-          <textarea class="forwardable-note-area" style="width:100%; min-height:85px; padding:10px 12px; font-size:13px; border:1px solid #cedad5; border-radius:8px; font-family:inherit; background:#fafcfb;" ${isInterestChecked ? 'readonly' : ''}>${escapeHTML(req.forwardableBrief || req.vendorPitch || '')}</textarea>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--ink); margin-bottom:6px;">Forwardable Note to Contact (in your voice):</label>
+          <textarea class="forwardable-note-area" style="width:100%; min-height:85px; padding:10px 12px; font-size:13px; border:1px solid var(--line); border-radius:8px; font-family:inherit; background:var(--surface);" ${isInterestChecked ? 'readonly' : ''}>${escapeHTML(req.forwardableBrief || req.vendorPitch || '')}</textarea>
         </div>
 
         ${optInUrl ? `
-          <div style="background:#eaf5f1; border:1px solid #b8decfa0; border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div style="font-size:12px;"><strong>Contact Double Opt-In Link:</strong> <code style="background:#fff; padding:2px 6px; border-radius:4px; font-size:11.5px;">${optInUrl}</code></div>
-            <button type="button" class="btn btn-secondary copy-optin-link-btn" data-url="${optInUrl}" style="min-height:30px; padding:0 10px; font-size:11px;">Copy Opt-In Link</button>
+          <div style="background:var(--accent-soft); border:1px solid var(--accent-border); border-radius:8px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div style="font-size:12.5px; color:var(--ink);"><strong>Contact Double Opt-In Link:</strong> <code style="background:#fff; padding:3px 8px; border-radius:5px; border:1px solid var(--line); font-size:12px; font-family:var(--font-mono);">${optInUrl}</code></div>
+            <button type="button" class="btn btn-secondary copy-optin-link-btn" data-url="${optInUrl}" style="min-height:32px; padding:0 12px; font-size:12px;">Copy Opt-In Link</button>
           </div>
         ` : ''}
 
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; border-top:1px solid #edf1ef; padding-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:12px; color:var(--muted);">Relevance:</span>
-            <select class="relevance-select" style="min-height:32px; font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid #cedad5;">
+            <span style="font-size:12px; font-weight:600; color:var(--muted);">Relevance:</span>
+            <select class="relevance-select" style="min-height:34px; font-size:12.5px; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:#fff; width:auto;">
               <option value="highly" ${req.relevanceRating === 'highly' ? 'selected' : ''}>Highly Relevant</option>
               <option value="possibly" ${req.relevanceRating === 'possibly' ? 'selected' : ''}>Possibly Relevant</option>
               <option value="need_more_info" ${req.relevanceRating === 'need_more_info' ? 'selected' : ''}>Need More Info</option>
@@ -320,7 +320,7 @@
               <button type="button" class="btn btn-secondary decline-btn" data-id="${req.id}" style="min-height:34px; padding:0 12px; font-size:12px;">Decline</button>
               <button type="button" class="btn btn-secondary question-btn" data-id="${req.id}" style="min-height:34px; padding:0 12px; font-size:12px;">Ask Question</button>
             ` : isAccepted ? `
-              <span style="font-size:12px; color:var(--ok); font-weight:600;">✓ Introduction Made &amp; Scheduled</span>
+              <span class="portal-badge ok" style="padding:6px 12px; font-size:12px;">✓ Introduction Made &amp; Scheduled</span>
             ` : `
               <button type="button" class="btn btn-secondary copy-optin-link-btn" data-url="${optInUrl}" style="min-height:34px; padding:0 14px; font-size:12px;">Share Opt-In Link With Contact</button>
             `}
