@@ -223,7 +223,15 @@ def build_synthetic_dataset(seed=42):
             "hasTakenCall": True,
             "isInfluencer": True,
             "referrals": [],
-            "referralCredits": 0
+            "referralCredits": 0,
+            "expertise": ["Credit Union Core Systems", "AI & Data Governance", "Executive Strategy", "NCUA Compliance"],
+            "geography": ["North America", "United States", state],
+            "industries": ["Credit Unions", "Community Banking", "FinTech"],
+            "openTo": ["warm_intros", "advisory_calls", "consulting", "board_roles", "vendor_feedback"],
+            "trustScore": 92 + (idx % 7),
+            "partnerAgreements": [
+                {"id": f"agr-{inf_id}", "type": "advisory_referral", "status": "signed", "title": "ConnectEM Executive Partner Agreement", "signedAt": "2026-09-01T00:00:00Z"}
+            ]
         }
         influencer_records.append(inf_record)
         contacts.append(inf_record)
@@ -353,7 +361,16 @@ def build_synthetic_dataset(seed=42):
                 "isInfluencer": False,
                 "referredBy": inf["fullName"],
                 "influencerId": inf["id"],
-                "influencerEmail": inf["email"]
+                "influencerEmail": inf["email"],
+                "partnerId": inf["id"],
+                "partnerName": inf["fullName"],
+                "partnerEmail": inf["email"],
+                "strength": ["strong", "strong", "medium", "strong", "weak"][ref_num % 5],
+                "relationshipType": ["former_colleague", "customer", "peer", "advisor", "friend"][ref_num % 5],
+                "lastInteraction": ["last_30_days", "1_to_3_months", "3_to_6_months", "6_to_12_months", "over_1_year"][ref_num % 5],
+                "introWillingness": ["open", "open", "selective", "selective", "private"][ref_num % 5],
+                "privacyLevel": ["ask_partner", "discoverable", "anonymous", "ask_partner", "private"][ref_num % 5],
+                "topics": ["AI & Data Governance", "Core Modernization", "NCUA Compliance", "Member Experience"]
             }
 
             contacts.append(prospect_record)
@@ -371,6 +388,12 @@ def build_synthetic_dataset(seed=42):
                 "hasTakenCall": has_call,
                 "callOutcome": calls_made[0]["outcome"] if calls_made else "Pending Call",
                 "leadTemp": lead_temp,
+                "strength": ["strong", "strong", "medium", "strong", "weak"][ref_num % 5],
+                "relationshipType": ["former_colleague", "customer", "peer", "advisor", "friend"][ref_num % 5],
+                "lastInteraction": ["last_30_days", "1_to_3_months", "3_to_6_months", "6_to_12_months", "over_1_year"][ref_num % 5],
+                "introWillingness": ["open", "open", "selective", "selective", "private"][ref_num % 5],
+                "privacyLevel": ["ask_partner", "discoverable", "anonymous", "ask_partner", "private"][ref_num % 5],
+                "topics": ["AI & Data Governance", "Core Modernization", "NCUA Compliance", "Member Experience"],
                 "date": f"2026-09-{(ref_num % 25) + 1:02d}"
             })
             inf["referralCredits"] += credits_for_ref
@@ -427,7 +450,11 @@ def build_synthetic_dataset(seed=42):
         "approvals": [],
         "workflowRuns": [],
         "currentOutboundSubtab": "influencers",
-        "autoEnrich": True
+        "autoEnrich": True,
+        "marketplaceRequests": [],
+        "vendors": [],
+        "rewardLedger": [],
+        "rewardRedemptions": []
     }
     return state
 

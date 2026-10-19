@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Executive Introduction Request · ConnectEM</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f6f8;
+      --surface: #ffffff;
+      --ink: #17211f;
+      --muted: #62726e;
+      --line: #dce4e1;
+      --accent: #116858;
+      --accent-hover: #0c4e42;
+      --ok: #157962;
+      --soft: #f7faf9;
+      --radius: 12px;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at 50% -20%, #e1efeb 0, transparent 60%), var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header.site-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--ink);
+    }
+    .brand-symbol {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 750;
+      font-size: 16px;
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    .brand-badge {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: #e2f0ec;
+      color: var(--accent);
+    }
+    main {
+      flex: 1;
+      max-width: 680px;
+      width: 100%;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 36px 32px;
+      box-shadow: 0 12px 36px rgba(18, 60, 48, 0.06);
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 26px;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      line-height: 1.25;
+    }
+    .partner-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin: 20px 0 24px;
+    }
+    .partner-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #cce4dc;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .partner-meta strong {
+      display: block;
+      font-size: 14px;
+      color: var(--ink);
+    }
+    .partner-meta span {
+      display: block;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .message-box {
+      background: #fafcfb;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 18px 20px;
+      margin: 20px 0;
+      font-size: 14.5px;
+      line-height: 1.65;
+      color: #273733;
+      white-space: pre-line;
+    }
+    .ask-box {
+      padding: 14px 16px;
+      border: 1px dashed #c0d4cf;
+      border-radius: 8px;
+      background: #f4f8f7;
+      margin-bottom: 26px;
+      font-size: 13.5px;
+    }
+    .ask-box strong {
+      color: var(--accent);
+      display: block;
+      margin-bottom: 3px;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .action-group {
+      display: grid;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    button.btn {
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 0;
+      transition: all 0.16s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    button.btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    button.btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 14px rgba(17, 104, 88, 0.25);
+    }
+    button.btn-secondary {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    button.btn-secondary:hover:not(:disabled) {
+      background: var(--soft);
+      border-color: #b9cac4;
+    }
+    button.btn-ghost {
+      background: transparent;
+      color: var(--muted);
+    }
+    button.btn-ghost:hover:not(:disabled) {
+      color: var(--ink);
+      background: rgba(0,0,0,0.03);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+    .notes-field {
+      margin-top: 16px;
+    }
+    .notes-field label {
+      display: block;
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .notes-field textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cedad5;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13.5px;
+      resize: vertical;
+      min-height: 70px;
+    }
+    .status-confirmed {
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .status-confirmed .icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #daf1e8;
+      color: var(--ok);
+      font-size: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    footer {
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+    .loading-spinner {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand-wrapper">
+      <span class="brand-symbol">C</span>
+      <span class="brand-title">ConnectEM</span>
+      <span class="brand-badge">Double Opt-In</span>
+    </div>
+    <span style="font-size: 12px; color: var(--muted);">High-Trust Executive Network</span>
+  </header>
+
+  <main>
+    <div class="card" id="optin-card">
+      <div id="optin-loading" class="loading-spinner">Loading introduction details…</div>
+
+      <div id="optin-content" hidden>
+        <p class="eyebrow">Warm Introduction Check</p>
+        <h1 id="optin-headline">Would you be open to an introduction?</h1>
+
+        <div class="partner-banner">
+          <div class="partner-avatar" id="optin-partner-avatar">P</div>
+          <div class="partner-meta">
+            <strong id="optin-partner-name">Partner Name</strong>
+            <span id="optin-partner-title">Executive Advisor</span>
+          </div>
+        </div>
+
+        <p style="font-size: 13.5px; color: var(--muted); margin: 0 0 10px;">
+          Your colleague shared this brief with you regarding an enterprise technology partner:
+        </p>
+
+        <div class="message-box" id="optin-brief-text">
+          Loading personalized note…
+        </div>
+
+        <div class="ask-box">
+          <strong>Specific Ask</strong>
+          <span id="optin-ask-text">20-minute executive briefing</span>
+        </div>
+
+        <div class="notes-field">
+          <label for="optin-notes">Add a note or scheduling preference (optional):</label>
+          <textarea id="optin-notes" placeholder="e.g., Happy to connect next Tuesday afternoon, or feel free to send an invite directly."></textarea>
+        </div>
+
+        <div class="action-group">
+          <button type="button" class="btn btn-primary" id="btn-accept">
+            ✓ Yes, I'm open to an introduction
+          </button>
+          <button type="button" class="btn btn-secondary" id="btn-maybe">
+            Maybe later (not this quarter)
+          </button>
+          <button type="button" class="btn btn-ghost" id="btn-decline">
+            Not relevant right now
+          </button>
+        </div>
+      </div>
+
+      <div id="optin-confirmed" class="status-confirmed" hidden>
+        <div class="icon">✓</div>
+        <h2 style="margin: 0 0 8px; font-size: 22px;">Introduction Confirmed</h2>
+        <p style="font-size: 14.5px; color: var(--muted); margin: 0 0 20px;" id="confirmed-message">
+          Thank you! We've notified your colleague and the leadership team.
+        </p>
+        <div id="confirmed-booking-wrap" hidden>
+          <a id="confirmed-booking-btn" class="btn btn-primary" style="text-decoration: none;" href="#" target="_blank" rel="noopener noreferrer">
+            Schedule 20-Min Call Now ↗
+          </a>
+        </div>
+      </div>
+
+      <div id="optin-error" style="display: none; padding: 24px; color: #a73737; text-align: center;"></div>
+    </div>
+  </main>
+
+  <footer>
+    ConnectEM · Trusted Partner Network &amp; Warm Introduction Platform · Double opt-in protects your time and privacy.
+  </footer>
+
+  <script>
+    (async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token') || '';
+      const loadingEl = document.getElementById('optin-loading');
+      const contentEl = document.getElementById('optin-content');
+      const confirmedEl = document.getElementById('optin-confirmed');
+      const errorEl = document.getElementById('optin-error');
+
+      if (!token) {
+        loadingEl.hidden = true;
+        errorEl.textContent = 'No introduction token found. Please check your invitation link.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/connectem/opt-in?token=${encodeURIComponent(token)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not load introduction.');
+
+        document.getElementById('optin-partner-name').textContent = data.partnerName || 'Colleague';
+        document.getElementById('optin-partner-title').textContent = `${data.partnerTitle || 'Partner'}${data.partnerCompany ? ' · ' + data.partnerCompany : ''}`;
+        const initials = (data.partnerName || 'P').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+        document.getElementById('optin-partner-avatar').textContent = initials;
+        document.getElementById('optin-brief-text').textContent = data.forwardableBrief || 'An enterprise partner would value a conversation.';
+        document.getElementById('optin-ask-text').textContent = data.specificAsk || '20-minute executive briefing';
+
+        if (data.status === 'contact_accepted' || data.status === 'introduction_made') {
+          showConfirmed(data.scheduledMeetingUrl, 'You have already confirmed this introduction.');
+          return;
+        }
+
+        loadingEl.hidden = true;
+        contentEl.hidden = false;
+
+        async function submitResponse(decision) {
+          const notes = document.getElementById('optin-notes').value.trim();
+          document.querySelectorAll('.action-group button').forEach(b => b.disabled = true);
+          try {
+            const resp = await fetch('/api/connectem/opt-in/respond', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token, response: decision, notes })
+            });
+            const rData = await resp.json();
+            if (!resp.ok) throw new Error(rData.error || 'Failed to submit response.');
+
+            if (decision === 'accept') {
+              showConfirmed(rData.meetingUrl || data.scheduledMeetingUrl);
+            } else if (decision === 'maybe_later') {
+              contentEl.hidden = true;
+              confirmedEl.hidden = false;
+              document.querySelector('#optin-confirmed .icon').textContent = '⏱';
+              document.querySelector('#optin-confirmed h2').textContent = 'Noted for Later';
+              document.getElementById('confirmed-message').textContent = 'Thank you for letting us know! We have noted that now is not the right time.';
+            } else {
+              contentEl.hidden = true;
+              confirmedEl.hidden = false;
+              document.querySelector('#optin-confirmed .icon').textContent = '✕';
+              document.querySelector('#optin-confirmed h2').textContent = 'Introduction Declined';
+              document.getElementById('confirmed-message').textContent = 'Thank you for your feedback. We will not follow up on this request.';
+            }
+          } catch (err) {
+            alert(err.message);
+            document.querySelectorAll('.action-group button').forEach(b => b.disabled = false);
+          }
+        }
+
+        function showConfirmed(url, customMsg) {
+          contentEl.hidden = true;
+          loadingEl.hidden = true;
+          confirmedEl.hidden = false;
+          if (customMsg) {
+            document.getElementById('confirmed-message').textContent = customMsg;
+          }
+          if (url && url.startsWith('http')) {
+            const wrap = document.getElementById('confirmed-booking-wrap');
+            const link = document.getElementById('confirmed-booking-btn');
+            link.href = url;
+            wrap.hidden = false;
+          }
+        }
+
+        document.getElementById('btn-accept').addEventListener('click', () => submitResponse('accept'));
+        document.getElementById('btn-maybe').addEventListener('click', () => submitResponse('maybe_later'));
+        document.getElementById('btn-decline').addEventListener('click', () => submitResponse('decline'));
+
+      } catch (err) {
+        loadingEl.hidden = true;
+        errorEl.textContent = err.message || 'Could not load introduction.';
+        errorEl.style.display = 'block';
+      }
+    })();
+  </script>
+</body>
+</html>

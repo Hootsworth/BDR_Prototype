@@ -103,6 +103,14 @@
       "destination": "/partner-portal.html"
     },
     {
+      "source": "/marketplace",
+      "destination": "/marketplace.html"
+    },
+    {
+      "source": "/opt-in",
+      "destination": "/opt-in.html"
+    },
+    {
       "source": "/favicon.ico",
       "destination": "/favicon.svg"
     },

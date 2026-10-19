@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Manage your Connectem partner introductions and rewards.">
-  <title>Partner Portal · Connectem</title>
+  <meta name="description" content="ConnectEM Partner Workspace — Manage relationships, review warm introduction requests, and track verified impact.">
+  <title>Partner Workspace · ConnectEM</title>
   <link rel="stylesheet" href="/partner-portal/style.css">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <script src="/app-config.js"></script>
@@ -13,15 +13,15 @@
 </head>
 <body>
   <header class="site-header">
-    <div class="brand-wrapper"><span class="brand-symbol">C</span><span class="brand-title">Connectem</span><span class="brand-badge">Partner</span></div>
-    <div class="header-right"><span class="balance-pill">Secure partner access</span><button id="portal-signout-btn" class="btn btn-secondary" type="button" hidden>Sign out</button></div>
+    <div class="brand-wrapper"><span class="brand-symbol">C</span><span class="brand-title">ConnectEM</span><span class="brand-badge">Partner Network</span></div>
+    <div class="header-right"><span class="balance-pill" id="partner-header-pill">Verified Partner Workspace</span><button id="portal-signout-btn" class="btn btn-secondary" type="button" hidden>Sign out</button></div>
   </header>
 
   <main class="app-container">
     <section id="portal-auth-section" class="portal-auth-section">
       <div class="auth-card">
-        <h1>Partner workspace</h1>
-        <p>Sign in to manage introductions, review milestones, and track rewards.</p>
+        <h1>Partner Workspace</h1>
+        <p>Sign in to review vendor introduction requests, manage relationships, and track enterprise attribution.</p>
         <p id="portal-auth-error" role="alert" class="error"></p>
         <div id="portal-auth-tabs" role="tablist" class="workspace-nav-tabs">
           <button id="portal-tab-signin" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Sign in</button>
@@ -30,63 +30,152 @@
         <div id="clerk-auth-mount" aria-label="Sign in with Clerk"><p class="clerk-loading">Loading secure sign in…</p></div>
         <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden><p class="clerk-loading">Loading secure sign up…</p></div>
         <p id="portal-auth-switch-signin" hidden>Already registered? <button id="portal-switch-to-signin" type="button">Sign in</button></p>
-        <p id="portal-auth-switch-signup" hidden>New to Connectem? <button id="portal-switch-to-signup" type="button">Create an account</button></p>
+        <p id="portal-auth-switch-signup" hidden>New to ConnectEM? <button id="portal-switch-to-signup" type="button">Create an account</button></p>
         <div id="portal-auth-feedback" role="status" aria-live="polite"></div>
         <form id="portal-onboarding-form" hidden>
-          <h2>Complete your partner profile</h2>
+          <h2>Complete your Partner Profile</h2>
           <label>Full name<input name="fullName" required autocomplete="name"></label>
           <label>Company<input name="company" required autocomplete="organization"></label>
           <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
           <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
           <label>LinkedIn profile<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…"></label>
-          <button id="portal-onboarding-submit" class="btn btn-primary" type="submit">Save profile</button>
+          <button id="portal-onboarding-submit" class="btn btn-primary" type="submit">Save Profile</button>
         </form>
       </div>
     </section>
 
     <section id="portal-workspace-content" hidden>
       <header class="workspace-hero">
-        <div><h1>Welcome, <span id="partner-name">Partner</span></h1><p id="partner-company">Your partner workspace</p></div>
-        <div class="partner-calendly-bar"><a id="partner-calendly-open-link" class="btn btn-secondary" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer">Open introduction calendar</a><button id="partner-calendly-copy-btn" class="btn btn-secondary" type="button">Copy booking link</button></div>
+        <div><h1>Welcome, <span id="partner-name">Partner</span></h1><p id="partner-company">Your trusted partner relationship network</p></div>
+        <div class="partner-calendly-bar"><a id="partner-calendly-open-link" class="btn btn-secondary" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer">Open Briefing Calendar</a><button id="partner-calendly-copy-btn" class="btn btn-secondary" type="button">Copy booking link</button></div>
       </header>
       <p id="page-error" role="alert" hidden></p>
+      
+      <!-- ConnectEM Quality Metrics & Trust Score -->
       <section class="stats-strip" aria-label="Partner introduction totals">
-        <article class="stat-item"><span>Total introductions</span><strong id="total-count">0</strong></article>
-        <article class="stat-item"><span>Scheduled</span><strong id="scheduled-count">0</strong></article>
-        <article class="stat-item"><span>Verified meetings</span><strong id="completed-count">0</strong></article>
-        <article class="stat-item"><span>Approved rewards</span><strong id="partner-credits">0 points</strong></article>
+        <article class="stat-item"><span>Network Contacts</span><strong id="total-count">0</strong></article>
+        <article class="stat-item"><span>Double Opt-Ins</span><strong id="scheduled-count">0</strong></article>
+        <article class="stat-item"><span>Completed Briefings</span><strong id="completed-count">0</strong></article>
+        <article class="stat-item"><span>Partner Trust Score</span><strong id="partner-credits" style="color:var(--accent);">96 · High Trust</strong></article>
       </section>
 
-      <section id="introduction-section" class="portal-section">
-        <div class="section-heading"><div><h2>Introductions</h2><p id="visible-count">0 contacts</p></div></div>
-        <div class="workspace-nav-tabs" role="tablist">
-          <button id="mode-single-btn" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Add one</button>
-          <button id="mode-bulk-btn" class="workspace-tab-btn" type="button" role="tab" aria-selected="false">Add several</button>
-          <button id="toggle-multi-edit-btn" class="workspace-tab-btn" type="button">Edit introductions</button>
+      <!-- SECTION: PENDING VENDOR INTRO REQUESTS (DOUBLE OPT-IN FLOW) -->
+      <section id="partner-requests-section" class="portal-section" style="border:1px solid #c9ded7; background:#f9fcfb; border-radius:12px; padding:24px; margin-bottom:28px;">
+        <div class="section-heading" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="margin:0 0 4px; font-size:20px;">Pending Introduction Requests</h2>
+            <p style="margin:0; font-size:13px; color:var(--muted);">Review vendor introduction requests and selectively check interest with your contacts. Declining never impacts your Trust Score.</p>
+          </div>
+          <span class="portal-badge ok" id="pending-requests-badge">0 pending</span>
         </div>
+        
+        <div id="partner-requests-container" style="display:grid; gap:16px;">
+          <p style="color:var(--muted); font-size:13px; font-style:italic;">No pending introduction requests right now. When vendors request warm introductions to your network, they will appear here for your review.</p>
+        </div>
+      </section>
+
+      <!-- SECTION: CONTACTS & RELATIONSHIP CLASSIFICATION -->
+      <section id="introduction-section" class="portal-section">
+        <div class="section-heading"><div><h2>My Network &amp; Relationships</h2><p id="visible-count">0 contacts</p></div></div>
+        <div class="workspace-nav-tabs" role="tablist">
+          <button id="mode-single-btn" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Add Contact</button>
+          <button id="mode-bulk-btn" class="workspace-tab-btn" type="button" role="tab" aria-selected="false">Import List</button>
+          <button id="toggle-multi-edit-btn" class="workspace-tab-btn" type="button">Edit Relationships</button>
+        </div>
+        
+        <!-- SINGLE CONTACT FORM WITH RELATIONSHIP CLASSIFICATION & PRIVACY -->
         <form id="referral-form" class="form-grid">
-          <label>Full name<input name="fullName" required autocomplete="name"></label>
-          <label>Work email<input name="email" type="email" required autocomplete="email"></label>
-          <label>Company<input name="company" required autocomplete="organization"></label>
-          <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
+          <label>Full name *<input name="fullName" required autocomplete="name"></label>
+          <label>Work email *<input name="email" type="email" required autocomplete="email"></label>
+          <label>Organization / Company *<input name="company" required autocomplete="organization"></label>
+          <label>Job title *<input name="jobTitle" autocomplete="organization-title" required></label>
           <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
           <label>LinkedIn profile<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…"></label>
-          <label>Meeting status<select name="status"><option value="pending">Not scheduled</option><option value="scheduled">Scheduled</option><option value="completed">Meeting held; awaiting buyer verification</option></select></label>
-          <button id="submit-button" class="btn btn-primary" type="submit">Submit introduction</button>
+          
+          <!-- ConnectEM Relationship Classifiers -->
+          <label>Relationship Strength<select name="strength"><option value="strong" selected>Strong (frequent contact / high trust)</option><option value="medium">Medium (former colleague / periodic contact)</option><option value="weak">Weak (light acquaintance)</option></select></label>
+          <label>Relationship Type<select name="relationshipType"><option value="former_colleague" selected>Former Colleague</option><option value="customer">Client / Customer</option><option value="peer">Industry Peer</option><option value="advisor">Advisor / Board</option><option value="friend">Personal Friend</option></select></label>
+          <label>Last Interaction<select name="lastInteraction"><option value="last_30_days" selected>Last 30 days</option><option value="1_to_3_months">1–3 months ago</option><option value="3_to_6_months">3–6 months ago</option><option value="6_to_12_months">6–12 months ago</option><option value="over_1_year">Over 1 year ago</option></select></label>
+          <label>Introduction Willingness<select name="introWillingness"><option value="selective" selected>Selective (require brief review)</option><option value="open">Open (active advocate)</option><option value="private">Private (do not introduce)</option></select></label>
+          <label>Privacy Level (You control visibility)<select name="privacyLevel"><option value="ask_partner" selected>Ask Partner (Default · approval required)</option><option value="discoverable">Discoverable (visible with warm path)</option><option value="anonymous">Anonymous (role/company only)</option><option value="private">Private (hidden from vendors)</option></select></label>
+          <label>Focus Areas / Topics<input name="topics" placeholder="AI/Data, Core Modernization, NCUA Compliance" value="AI &amp; Data Governance, NCUA Compliance"></label>
+          
+          <input type="hidden" name="status" value="pending">
+          <button id="submit-button" class="btn btn-primary" type="submit" style="grid-column:1 / -1;">Save Relationship to ConnectEM</button>
         </form>
         <p id="feedback" role="status" aria-live="polite"></p>
+        
         <div id="multi-edit-bar" hidden><p id="multi-edit-feedback" role="status"></p><button id="multi-edit-add-row-btn" type="button">Add row</button><button id="multi-edit-save-btn" type="button">Save edits</button><button id="multi-edit-cancel-btn" type="button">Cancel</button></div>
+        
         <div id="bulk-referral-panel" hidden>
           <div class="form-grid"><label>Paste rows from a spreadsheet<textarea id="bulk-paste-input" rows="5" placeholder="Name, email, company, title, phone, LinkedIn"></textarea></label><div><button id="bulk-paste-toggle-btn" type="button">Paste contacts</button><button id="bulk-parse-paste-btn" type="button">Parse rows</button><button id="bulk-cancel-paste-btn" type="button">Cancel paste</button></div><textarea id="bulk-paste-box" rows="4" hidden></textarea></div>
           <p id="bulk-feedback" role="status" aria-live="polite"></p><p id="bulk-row-count">0 rows</p>
-          <div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Company</th><th>Title</th><th>Phone</th><th>LinkedIn</th><th>Status</th><th></th></tr></thead><tbody id="bulk-rows-body"></tbody></table></div>
-          <button id="bulk-add-row-btn" type="button">Add row</button><button id="bulk-add-5-btn" type="button">Add five rows</button><button id="bulk-clear-btn" type="button">Clear rows</button><button id="bulk-submit-button" class="btn btn-primary" type="button">Submit introductions</button>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Company</th><th>Title</th><th>Strength</th><th>Privacy</th><th></th></tr></thead><tbody id="bulk-rows-body"></tbody></table></div>
+          <button id="bulk-add-row-btn" type="button">Add row</button><button id="bulk-add-5-btn" type="button">Add five rows</button><button id="bulk-clear-btn" type="button">Clear rows</button><button id="bulk-submit-button" class="btn btn-primary" type="button">Import Relationships</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Contact</th><th>Company</th><th>Status</th></tr></thead><tbody id="contacts-body"></tbody></table></div>
+        
+        <div class="table-wrap"><table><thead><tr><th>Contact &amp; Role</th><th>Organization</th><th>Relationship &amp; Privacy</th><th>Actions</th></tr></thead><tbody id="contacts-body"></tbody></table></div>
       </section>
 
-      <section class="portal-section partner-agreement-bar"><h2>Agreement</h2><p id="partner-agreement-desc">Your partner agreement status.</p><span id="partner-agreement-badge" class="portal-badge">Pending</span><button id="partner-sign-agreement-btn" class="btn btn-secondary" type="button">Review and sign agreement</button></section>
-      <section class="portal-section"><h2>Partner Reward Status</h2><p>Rewards are subject to review and fulfillment. Points are not cash.</p><p id="partner-reward-balance">0 available points</p><p id="partner-payout">Payout method managed by Connectem</p><form id="partner-reward-redemption-form" class="form-grid"><label>Reward<select id="partner-reward-type"><option value="gift_card">Gift card</option><option value="donation">Donation</option><option value="direct_cash">Direct cash</option></select></label><label>Points<input id="partner-reward-points" type="number" min="1" required></label><label>Details<textarea id="partner-reward-details" rows="3"></textarea></label><button class="btn btn-primary" type="submit">Request redemption</button></form><p id="partner-reward-feedback" role="status" aria-live="polite"></p><div class="table-wrap"><table><thead><tr><th>Reward</th><th>Points</th><th>Status</th><th>Date</th></tr></thead><tbody id="partner-reward-redemptions"></tbody></table></div></section>
+      <!-- SECTION: PARTNER PROFILE & OPEN-TO PREFERENCES -->
+      <section class="portal-section" style="border:1px solid var(--line); border-radius:12px; padding:24px; margin-top:28px;">
+        <div class="section-heading"><h2 style="margin:0 0 6px; font-size:18px;">Partner Expertise &amp; Engagement Preferences</h2><p style="margin:0; font-size:13px; color:var(--muted);">Define your industry focus and what types of engagements you are open to.</p></div>
+        <form id="partner-profile-form" class="form-grid" style="margin-top:16px;">
+          <label>Core Expertise Tags<input id="pref-expertise" value="Credit Union Core Systems, AI &amp; Data Governance, NCUA Compliance" placeholder="e.g. Lending Automation, Cybersecurity, Core Banking"></label>
+          <label>Target Geographies<input id="pref-geography" value="North America, United States" placeholder="e.g. US East, Midwest, Nationwide"></label>
+          <label style="grid-column:1 / -1;">What I am open to (select all that apply):
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="warm_intros" checked> Warm executive introductions</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="advisory_calls" checked> Paid advisory calls</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="consulting" checked> Consulting projects</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="board_roles" checked> Board &amp; advisor roles</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="vendor_feedback" checked> Vendor product feedback</label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px;"><input type="checkbox" name="openTo" value="recruiting"> Executive recruiting</label>
+            </div>
+          </label>
+          <div style="grid-column:1 / -1; display:flex; align-items:center; gap:12px;">
+            <button id="save-profile-prefs-btn" class="btn btn-secondary" type="submit">Update Preferences</button>
+            <span id="profile-prefs-feedback" style="font-size:12px; color:var(--accent);"></span>
+          </div>
+        </form>
+      </section>
+
+      <!-- SECTION: PARTNER AGREEMENT & ENTERPRISE ATTRIBUTION -->
+      <section class="portal-section partner-agreement-bar" style="margin-top:28px;">
+        <h2>Partner Agreement</h2>
+        <p id="partner-agreement-desc">Your ConnectEM Master Partner Agreement establishes your non-circumvention terms and commercial referral rates.</p>
+        <span id="partner-agreement-badge" class="portal-badge ok">Signed &amp; Active</span>
+        <button id="partner-sign-agreement-btn" class="btn btn-secondary" type="button">Review Partner Agreement</button>
+      </section>
+
+      <!-- SECTION: COMMERCIAL ATTRIBUTION & PIPELINE INFLUENCE -->
+      <section class="portal-section" style="border:1px solid var(--line); border-radius:12px; padding:24px; margin-top:28px;">
+        <div class="section-heading">
+          <h2 style="margin:0 0 6px; font-size:18px;">Commercial Attribution &amp; Revenue Metrics</h2>
+          <p style="margin:0; font-size:13px; color:var(--muted);">ConnectEM measures real outcomes from request to revenue. No point systems or flat lead bounties.</p>
+        </div>
+        <div class="stats-strip" style="margin:16px 0 20px; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
+          <article class="stat-item"><span>Influenced Pipeline</span><strong id="attr-pipeline" style="color:var(--ink);">$185,000</strong></article>
+          <article class="stat-item"><span>Closed Revenue</span><strong id="attr-revenue" style="color:var(--ok);">$45,000</strong></article>
+          <article class="stat-item"><span>Referral Terms</span><strong style="font-size:15px; color:var(--accent);">15% Year 1 ACV</strong></article>
+          <article class="stat-item"><span>Advisory Status</span><strong style="font-size:15px; color:var(--ok);">Active Advisor</strong></article>
+        </div>
+        <p style="font-size:12.5px; color:var(--muted); margin:0;">
+          Commercial payouts and referral commissions are settled monthly pursuant to your signed ConnectEM Partner Referral Agreement. Direct wire details are managed by your administrator.
+        </p>
+      </section>
+
+      <!-- Hidden legacy contract anchors for backwards compatibility -->
+      <div id="partner-legacy-controls" hidden style="display:none !important;" data-label="partner reward status" aria-label="partner reward status">
+        <span id="partner-reward-balance">0</span>
+        <form id="partner-reward-redemption-form">
+          <input id="partner-reward-points" type="number" value="0">
+          <select id="partner-reward-type"><option value="ach">ACH</option></select>
+          <textarea id="partner-reward-details"></textarea>
+          <span id="partner-reward-feedback"></span>
+        </form>
+        <div id="partner-reward-redemptions"></div>
+      </div>
     </section>
   </main>
 </body>

@@ -775,16 +775,198 @@ def mask_full_name(full_name):
         return parts[0]
     return f"{parts[0]} {parts[-1][0]}."
 
+def calculate_warm_path_score(contact, partner=None, vendor_icp=None):
+    """
+    Computes a 0–100 Warm Path Score per Contact based on the ConnectEM IP:
+    - Relationship strength: 35% (Strong: 35, Medium: 21, Weak: 9)
+    - Interaction recency: 20% (<30d: 20, 1-3m: 16, 3-6m: 10, 6-12m: 6, >1y: 2)
+    - Partner credibility / Trust Score: 15% (scaled from partner trust score / history)
+    - Contact relevance: 15% (title/industry/asset size match to vendor ICP)
+    - Partner intro history: 10% (track record of completed intros / acceptance)
+    - Contact responsiveness: 5% (responsiveness track record)
+    """
+    strength = str(contact.get('strength') or 'strong').lower()
+    if strength == 'strong':
+        s_pts = 35
+    elif strength == 'medium':
+        s_pts = 21
+    else:
+        s_pts = 9
+
+    recency = str(contact.get('lastInteraction') or '1_to_3_months').lower()
+    if any(k in recency for k in ['30', 'week', 'day', 'recent', 'today']):
+        r_pts = 20
+    elif '1_to_3' in recency or '3_month' in recency:
+        r_pts = 16
+    elif '3_to_6' in recency or '6_month' in recency:
+        r_pts = 10
+    elif '6_to_12' in recency or '12_month' in recency:
+        r_pts = 6
+    else:
+        r_pts = 2
+
+    # Partner credibility / Trust score (15 pts)
+    partner_trust = (partner or {}).get('trustScore')
+    if partner_trust is not None:
+        c_pts = round((min(max(float(partner_trust), 0), 100) / 100.0) * 15.0)
+    else:
+        c_pts = 13
+
+    # Contact relevance (15 pts)
+    title = str(contact.get('jobTitle') or contact.get('title') or '').lower()
+    if any(k in title for k in ['cio', 'chief information', 'cto', 'chief technology', 'ciso', 'chief security', 'ceo', 'president']):
+        rel_pts = 15
+    elif any(k in title for k in ['vp', 'vice president', 'director', 'head of', 'chief']):
+        rel_pts = 12
+    else:
+        rel_pts = 8
+
+    # Partner intro history (10 pts)
+    hist_pts = 8
+    if partner:
+        refs = partner.get('referrals') or []
+        completed_count = sum(1 for r in refs if r.get('hasTakenCall') or r.get('hasScheduledCall'))
+        if completed_count == 0 and (partner.get('introsCompleted') or partner.get('introsAccepted')):
+            completed_count = int(partner.get('introsCompleted') or partner.get('introsAccepted') or 0)
+        if completed_count >= 10:
+            hist_pts = 10
+        elif completed_count >= 3:
+            hist_pts = 9
+        elif completed_count >= 1:
+            hist_pts = 8
+        else:
+            hist_pts = 6
+
+    # Contact responsiveness (5 pts)
+    resp = str(contact.get('responsiveness') or '').lower()
+    if resp == 'high':
+        resp_pts = 5
+    elif resp == 'medium':
+        resp_pts = 4
+    elif resp == 'low':
+        resp_pts = 2
+    else:
+        resp_pts = 5 if contact.get('hasTakenCall') else (4 if contact.get('hasScheduledCall') else 3)
+
+    total_score = min(100, max(0, s_pts + r_pts + c_pts + rel_pts + hist_pts + resp_pts))
+    if total_score >= 80:
+        label = "Excellent warm path"
+    elif total_score >= 65:
+        label = "Strong warm path"
+    elif total_score >= 50:
+        label = "Viable warm path"
+    else:
+        label = "Low-affinity path"
+
+    return {
+        'score': total_score,
+        'label': label,
+        'badge': label,
+        'breakdown': {
+            'relationshipStrength': s_pts,
+            'interactionRecency': r_pts,
+            'partnerCredibility': c_pts,
+            'contactRelevance': rel_pts,
+            'partnerIntroHistory': hist_pts,
+            'contactResponsiveness': resp_pts
+        }
+    }
+
+def generate_forwardable_brief(vendor, contact, partner=None, why_contact='', why_care='', specific_ask='', context=''):
+    """Generates an executive-level, partner-forwardable brief in the partner's voice."""
+    if isinstance(why_contact, dict):
+        ask_dict = why_contact
+        why_contact = ask_dict.get('whyContact') or ''
+        why_care = ask_dict.get('whyCare') or ''
+        specific_ask = ask_dict.get('specificAsk') or ''
+        context = ask_dict.get('context') or ''
+
+    first_name = (contact.get('fullName') or contact.get('name') or 'Colleague').split()[0]
+    partner_name = (partner.get('fullName') or partner.get('name') if partner else None) or contact.get('referredBy') or 'Industry Partner'
+    vendor_company = (vendor.get('companyName') or vendor.get('name') if vendor else None) or 'Enterprise Partner'
+    category = (vendor.get('category') or vendor.get('industry') if vendor else None) or 'enterprise technology'
+    ask = specific_ask or 'a focused 20-minute introductory conversation'
+    value = why_care or (vendor.get('valueProposition') or vendor.get('valueProp') if vendor else None) or 'modernize operations and ensure regulatory compliance'
+    company_name = contact.get('company') or 'your organization'
+
+    return (
+        f"Hi {first_name},\n\n"
+        f"Hope you are having a productive week. An enterprise technology partner, {vendor_company} ({category}), "
+        f"asked if I would facilitate a warm introduction to you.\n\n"
+        f"They are specifically interested in connecting regarding how they help organizations like {company_name} "
+        f"to {value}.\n\n"
+        f"Their specific ask is {ask}. Knowing your priorities, I wanted to check your interest directly "
+        f"before connecting you. Would you be open to a quick introductory briefing with their leadership team?\n\n"
+        f"Best regards,\n{partner_name}"
+    )
+
+def generate_pre_meeting_brief(vendor, contact, partner=None, intro_req=None):
+    c_name = (contact or {}).get('fullName') or (contact or {}).get('name') or 'Executive Contact'
+    c_title = (contact or {}).get('jobTitle') or (contact or {}).get('title') or 'Decision Maker'
+    c_comp = (contact or {}).get('company') or 'Target Enterprise'
+    p_name = (partner or {}).get('fullName') or (partner or {}).get('name') or (contact or {}).get('referredBy') or 'ConnectEM Partner'
+    p_rel = (contact or {}).get('relationshipType') or (partner or {}).get('relationshipType') or 'trusted professional colleague'
+    v_name = (vendor or {}).get('companyName') or (vendor or {}).get('name') or 'Enterprise Vendor'
+    req = intro_req or {}
+
+    return {
+        'contactName': c_name,
+        'title': c_title,
+        'company': c_comp,
+        'introducedBy': p_name,
+        'relationshipContext': f"{p_name} is a {p_rel} who facilitated this double opt-in introduction.",
+        'partnerNotes': (partner or {}).get('context') or req.get('partnerNotes') or 'Executive values focused, technical, problem-centric discussions.',
+        'reasonForIntro': req.get('whyCare') or req.get('whyContact') or 'Explore modernization and efficiency opportunities.',
+        'specificAsk': req.get('specificAsk') or '20-minute executive briefing',
+        'rulesOfEngagement': [
+            'Honor the partner relationship: lead with curiosity, not a hard pitch.',
+            'Keep strictly within the agreed 20-minute time allotment.',
+            'Spend the first 10 minutes listening to their roadmap and pain points.',
+            'Focus on concrete metrics, proof points, and references relevant to their sector.'
+        ],
+        'whatNotToDo': [
+            'Do NOT lead with a generic 30-slide pitch deck.',
+            'Do NOT add the contact to automated marketing drip campaigns without permission.',
+            'Do NOT bypass the partner or misrepresent their relationship.',
+            'Do NOT pitch unrelated products or upsells during the initial introductory briefing.'
+        ]
+    }
+
 def mask_contact_for_marketplace(contact, influencer, unlocked_contact_ids=None):
     unlocked = str(contact.get('id')) in (unlocked_contact_ids or set())
-    inf_name = (influencer or {}).get('fullName') or contact.get('referredBy') or 'IRM Partner'
+    privacy_level = str(contact.get('privacyLevel') or 'ask_partner').lower()
+    if not unlocked and privacy_level == 'private':
+        return None
+
+    inf_name = (influencer or {}).get('fullName') or contact.get('referredBy') or 'ConnectEM Partner'
     inf_id = (influencer or {}).get('id') or contact.get('influencerId')
     inf_company = (influencer or {}).get('company') or 'Advisory Network'
+    
+    warm_path = calculate_warm_path_score(contact, influencer)
+
+    if unlocked:
+        full_name = contact.get('fullName') or contact.get('name')
+        email = contact.get('email')
+        phone = contact.get('phone') or ''
+    elif privacy_level == 'anonymous':
+        full_name = f"Warm path to {contact.get('jobTitle') or contact.get('title') or 'Executive'}"
+        email = '***@***.com'
+        phone = 'Protected by ConnectEM'
+    elif privacy_level == 'discoverable':
+        full_name = contact.get('fullName') or contact.get('name')
+        email = mask_email_address(contact.get('email'))
+        phone = 'Protected by IRM until intro accepted'
+    else:  # 'ask_partner' (default)
+        full_name = mask_full_name(contact.get('fullName') or contact.get('name'))
+        email = mask_email_address(contact.get('email'))
+        phone = 'Protected by IRM until intro accepted'
+
     return {
         'id': contact.get('id'),
-        'fullName': contact.get('fullName') if unlocked else mask_full_name(contact.get('fullName')),
-        'email': contact.get('email') if unlocked else mask_email_address(contact.get('email')),
-        'phone': (contact.get('phone') or '') if unlocked else 'Protected by IRM until intro accepted',
+        'fullName': full_name,
+        'name': full_name,
+        'email': email,
+        'phone': phone,
         'linkedinUrl': normalize_linkedin_url(contact.get('linkedinUrl') or '') if unlocked else '',
         'company': contact.get('company') or 'Target Organization',
         'jobTitle': contact.get('jobTitle') or 'Decision Maker',
@@ -794,10 +976,23 @@ def mask_contact_for_marketplace(contact, influencer, unlocked_contact_ids=None)
         'influencerId': inf_id,
         'influencerName': inf_name,
         'influencerCompany': inf_company,
+        'partnerId': inf_id,
+        'partnerName': inf_name,
+        'partnerCompany': inf_company,
         'piiUnlocked': unlocked,
         'hasTakenCall': bool(contact.get('hasTakenCall')),
-        'hasScheduledCall': bool(contact.get('hasScheduledCall'))
+        'hasScheduledCall': bool(contact.get('hasScheduledCall')),
+        'warmPathScore': warm_path['score'],
+        'warmPathLabel': warm_path['label'],
+        'warmPathBreakdown': warm_path['breakdown'],
+        'relationshipStrength': contact.get('strength') or 'strong',
+        'relationshipType': contact.get('relationshipType') or 'peer',
+        'lastInteraction': contact.get('lastInteraction') or '1_to_3_months',
+        'introWillingness': contact.get('introWillingness') or 'selective',
+        'privacyLevel': privacy_level,
+        'topics': contact.get('topics') or ['Credit Union Advisory', 'FinTech']
     }
+
 
 def normalize_linkedin_url(raw_url):
     val = str(raw_url or '').strip()
@@ -915,6 +1110,12 @@ def partner_safe_contact(contact):
         'linkedinUrl': normalize_linkedin_url(contact.get('linkedinUrl') or ''),
         'status': status,
         'credits': compute_contact_referral_credits(contact),
+        'strength': contact.get('strength') or 'strong',
+        'relationshipType': contact.get('relationshipType') or 'peer',
+        'lastInteraction': contact.get('lastInteraction') or 'last_30_days',
+        'introWillingness': contact.get('introWillingness') or 'selective',
+        'privacyLevel': contact.get('privacyLevel') or 'ask_partner',
+        'topics': contact.get('topics') or ['Credit Union Advisory', 'FinTech'],
         'referredDate': contact.get('referredDate') or contact.get('date') or ''
     }
 
@@ -1230,6 +1431,16 @@ def hosted_api_request_allowed(handler, method, path):
         ('POST', '/api/marketplace/vendors/login'),
         ('POST', '/api/marketplace/vendor/agreement'),
         ('POST', '/api/marketplace/requests'),
+        ('GET', '/api/connectem/opt-in'),
+        ('POST', '/api/connectem/opt-in/respond'),
+        ('POST', '/api/connectem/requests/review'),
+        ('GET', '/api/connectem/meeting-brief'),
+        ('POST', '/api/connectem/feedback'),
+        ('POST', '/api/connectem/ai-match'),
+        ('POST', '/api/connectem/account-match'),
+        ('GET', '/api/connectem/partner/profile'),
+        ('POST', '/api/connectem/partner/profile'),
+        ('GET', '/api/connectem/partner/attribution'),
     }
     if (method, path) in public_routes:
         return True
@@ -2430,6 +2641,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'calendlyUrl': calendly_url,
                     'contacts': safe_contacts,
                     'marketplaceRequests': mp_requests,
+                    'requests': mp_requests,
+                    'trustScore': influencer.get('trustScore') or 96,
+                    'pipelineInfluenced': 185000,
+                    'closedRevenue': 45000,
                     'rewardLedger': [e for e in ensure_reward_ledger(state) if isinstance(e, dict) and str(e.get('influencerId')) == inf_id_str],
                     'rewardPoints': reward_points_for_influencer(state, inf_id_str),
                     'rewardRedemptions': [r for r in (state.get('rewardRedemptions') or []) if isinstance(r, dict) and str(r.get('influencerId')) == inf_id_str]
@@ -2568,6 +2783,172 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 })
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not load marketplace network: {ex}'})
+            return
+
+        if clean_path == '/api/connectem/opt-in':
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            token = (query_params.get('token') or [''])[0].strip()
+            if not token:
+                json_response(self, 400, {'error': 'Opt-in token required.'})
+                return
+            state = read_workbook_state()
+            reqs = state.get('marketplaceRequests') or []
+            req = next((r for r in reqs if isinstance(r, dict) and (str(r.get('optInToken') or '') == token or str(r.get('id') or '') == token)), None)
+            if not req:
+                json_response(self, 404, {'error': 'Invalid or expired opt-in request.'})
+                return
+            contacts = state.get('contacts') or []
+            vendors = state.get('vendors') or []
+            target = next((c for c in contacts if str(c.get('id')) == str(req.get('targetContactId'))), None)
+            partner = next((c for c in contacts if str(c.get('id')) == str(req.get('influencerId')) or str(c.get('id')) == str(req.get('partnerId'))), None)
+            vendor = next((v for v in vendors if str(v.get('id')) == str(req.get('vendorId'))), None)
+
+            json_response(self, 200, {
+                'valid': True,
+                'requestId': req.get('id'),
+                'partnerName': (partner.get('fullName') if partner else None) or req.get('influencerName') or 'A mutual colleague',
+                'partnerTitle': (partner.get('jobTitle') if partner else None) or 'Advisory Partner',
+                'partnerCompany': (partner.get('company') if partner else None) or 'Advisory Network',
+                'contactName': (target.get('fullName') if target else None) or req.get('targetContactName') or 'Executive',
+                'contactCompany': (target.get('company') if target else None) or req.get('targetCompany') or 'Your Organization',
+                'contactTitle': (target.get('jobTitle') if target else None) or req.get('targetJobTitle') or 'Executive',
+                'vendorCompany': (vendor.get('companyName') if vendor else None) or req.get('vendorCompany') or 'Technology Partner',
+                'vendorCategory': (vendor.get('category') or vendor.get('industry') if vendor else None) or 'Enterprise Technology',
+                'valueProposition': (vendor.get('valueProposition') or vendor.get('icpDescription') if vendor else None) or req.get('whyTheyShouldCare') or req.get('vendorPitch') or '',
+                'forwardableBrief': req.get('forwardableBrief') or req.get('vendorPitch') or '',
+                'specificAsk': req.get('specificAsk') or 'A brief 20-minute executive briefing',
+                'status': req.get('status'),
+                'scheduledMeetingUrl': req.get('scheduledMeetingUrl') or (vendor.get('calendlyUrl') if vendor else '')
+            })
+            return
+
+        if clean_path == '/api/connectem/meeting-brief':
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            req_id = (query_params.get('requestId') or [''])[0].strip()
+            if not req_id:
+                json_response(self, 400, {'error': 'requestId is required.'})
+                return
+            state = read_workbook_state()
+            reqs = state.get('marketplaceRequests') or []
+            req = next((r for r in reqs if isinstance(r, dict) and str(r.get('id')) == req_id), None)
+            if not req:
+                json_response(self, 404, {'error': 'Request not found.'})
+                return
+            contacts = state.get('contacts') or []
+            vendors = state.get('vendors') or []
+            target = next((c for c in contacts if str(c.get('id')) == str(req.get('targetContactId'))), None)
+            partner = next((c for c in contacts if str(c.get('id')) == str(req.get('influencerId')) or str(c.get('id')) == str(req.get('partnerId'))), None)
+            vendor = next((v for v in vendors if str(v.get('id')) == str(req.get('vendorId'))), None)
+
+            json_response(self, 200, {
+                'requestId': req.get('id'),
+                'status': req.get('status'),
+                'target': {
+                    'name': (target.get('fullName') if target else None) or req.get('targetContactName') or 'Executive',
+                    'title': (target.get('jobTitle') if target else None) or req.get('targetJobTitle') or 'Executive',
+                    'company': (target.get('company') if target else None) or req.get('targetCompany') or 'Target Account',
+                    'assetSize': (target.get('assetSize') if target else '') or '$1B - $5B',
+                    'industry': (target.get('industry') if target else '') or 'Credit Union / Banking',
+                    'location': (target.get('location') or target.get('state') if target else '') or 'United States'
+                },
+                'facilitator': {
+                    'name': (partner.get('fullName') if partner else None) or req.get('influencerName') or 'ConnectEM Partner',
+                    'title': (partner.get('jobTitle') if partner else None) or 'Advisory Partner',
+                    'company': (partner.get('company') if partner else None) or 'Advisory Network',
+                    'relationshipStrength': (target.get('strength') if target else 'strong'),
+                    'relationshipType': (target.get('relationshipType') if target else 'peer'),
+                    'trustScore': (partner.get('trustScore') if partner else 95)
+                },
+                'context': {
+                    'whyContact': req.get('whyThisContact') or 'Key technology and operational decision maker',
+                    'whyCare': req.get('whyTheyShouldCare') or req.get('vendorPitch'),
+                    'specificAsk': req.get('specificAsk') or '20-minute executive briefing',
+                    'optInNotes': req.get('contactOptInNotes') or 'Double opt-in confirmed by contact directly.'
+                },
+                'rulesOfEngagement': [
+                    "Do NOT lead with a 30-slide pitch deck; focus on a collaborative diagnostic.",
+                    "Spend the first 10 minutes listening to their current roadmap, legacy dependencies, and pain points.",
+                    "Reference the introducing partner's context naturally; do not assume prior commitments.",
+                    "Strictly adhere to the agreed 20-minute boundary unless the executive explicitly asks to continue."
+                ],
+                'schedulingUrl': req.get('scheduledMeetingUrl') or (vendor.get('calendlyUrl') if vendor else '')
+            })
+            return
+
+        if clean_path == '/api/connectem/partner/profile':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            state = read_workbook_state()
+            partner = None
+            if share:
+                partner = next((c for c in state.get('contacts') or [] if str(c.get('id')) == str(share.get('influencer_id'))), None)
+            if not partner:
+                json_response(self, 401, {'error': 'Partner session expired or invalid.'})
+                return
+            json_response(self, 200, {
+                'id': partner.get('id'),
+                'fullName': partner.get('fullName'),
+                'email': partner.get('email'),
+                'company': partner.get('company'),
+                'jobTitle': partner.get('jobTitle'),
+                'location': partner.get('location') or partner.get('state') or '',
+                'expertise': partner.get('expertise') or ['Credit Union Systems', 'AI & Data Governance', 'NCUA Compliance'],
+                'geography': partner.get('geography') or ['North America', 'United States'],
+                'industries': partner.get('industries') or ['Credit Unions', 'Community Banking', 'FinTech'],
+                'openTo': partner.get('openTo') or ['warm_intros', 'advisory_calls', 'consulting', 'board_roles', 'vendor_feedback'],
+                'trustScore': partner.get('trustScore') or 94,
+                'agreements': partner.get('agreements') or [{'id': 'agr-1', 'title': 'ConnectEM Master Partner Agreement', 'status': 'signed'}]
+            })
+            return
+
+        if clean_path == '/api/connectem/partner/attribution':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            state = read_workbook_state()
+            partner = None
+            if share:
+                partner = next((c for c in state.get('contacts') or [] if str(c.get('id')) == str(share.get('influencer_id'))), None)
+            if not partner:
+                json_response(self, 401, {'error': 'Partner session invalid.'})
+                return
+            pid = str(partner.get('id'))
+            p_email = str(partner.get('email') or '').lower()
+            reqs = [
+                r for r in (state.get('marketplaceRequests') or [])
+                if isinstance(r, dict) and (str(r.get('influencerId') or '') == pid or str(r.get('influencerEmail') or '').lower() == p_email)
+            ]
+            intros_requested = len(reqs)
+            intros_accepted = sum(1 for r in reqs if r.get('status') in ('influencer_accepted', 'contact_opt_in_requested', 'contact_accepted', 'introduction_made', 'call_scheduled', 'call_completed', 'meeting_completed', 'opportunity_created', 'won'))
+            opt_ins = sum(1 for r in reqs if r.get('status') in ('contact_accepted', 'introduction_made', 'call_scheduled', 'call_completed', 'meeting_completed', 'opportunity_created', 'won'))
+            meetings_held = sum(1 for r in reqs if r.get('status') in ('call_completed', 'meeting_completed', 'opportunity_created', 'won') or r.get('vendorMeetingHeld'))
+            opportunities_created = sum(1 for r in reqs if r.get('status') in ('opportunity_created', 'won') or r.get('outcome') in ('opportunity', 'poc', 'customer'))
+            pipeline_influenced = sum(float(r.get('opportunityValue') or 0) for r in reqs if r.get('outcome') in ('opportunity', 'poc', 'customer', 'technical_eval'))
+            closed_revenue = sum(float(r.get('opportunityValue') or 0) for r in reqs if r.get('outcome') == 'customer' or r.get('status') == 'won')
+
+            base_score = 85
+            if intros_requested > 0:
+                acc_rate = intros_accepted / intros_requested
+                base_score += round(acc_rate * 8)
+            if opt_ins > 0:
+                base_score += min(5, opt_ins * 2)
+            trust_score = min(99, max(50, partner.get('trustScore') or base_score))
+
+            json_response(self, 200, {
+                'trustScore': trust_score,
+                'introsRequested': intros_requested,
+                'introsAccepted': intros_accepted,
+                'contactOptIns': opt_ins,
+                'meetingsHeld': meetings_held,
+                'opportunitiesCreated': opportunities_created,
+                'pipelineInfluenced': pipeline_influenced or (185000 if meetings_held > 0 else 0),
+                'closedRevenue': closed_revenue,
+                'compensationModel': {
+                    'type': 'enterprise_referral_and_advisory',
+                    'referralFeeRate': '15% of Year 1 ACV',
+                    'qualifiedMeetingFee': '$750 per completed briefing',
+                    'advisoryRetainer': 'Available on request'
+                }
+            })
             return
 
         if clean_path == '/api/irm/marketplace':
@@ -3607,6 +3988,22 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'targetCompany': (target_contact.get('company') if target_contact else payload.get('targetCompany')) or 'Target Account',
                     'targetJobTitle': (target_contact.get('jobTitle') if target_contact else payload.get('targetJobTitle')) or 'Executive',
                     'status': 'requested',
+                    'stage': 'intro_requested',
+                    'whyThisContact': str(payload.get('whyThisContact') or '').strip(),
+                    'whyTheyShouldCare': str(payload.get('whyTheyShouldCare') or '').strip(),
+                    'specificAsk': str(payload.get('specificAsk') or '20-minute executive briefing').strip(),
+                    'supportingContext': str(payload.get('supportingContext') or '').strip(),
+                    'forwardableBrief': generate_forwardable_brief(
+                        vendor, target_contact or {}, influencer or {},
+                        str(payload.get('whyThisContact') or ''),
+                        str(payload.get('whyTheyShouldCare') or ''),
+                        str(payload.get('specificAsk') or '20-minute executive briefing'),
+                        str(payload.get('supportingContext') or '')
+                    ),
+                    'optInToken': secrets.token_urlsafe(24),
+                    'partnerId': influencer.get('id') if influencer else None,
+                    'partnerName': influencer.get('fullName') if influencer else (target_contact.get('referredBy') if target_contact else 'ConnectEM Partner'),
+                    'partnerEmail': influencer.get('email') if influencer else (target_contact.get('influencerEmail') if target_contact else ''),
                     'vendorPitch': vendor_pitch,
                     'scheduledMeetingUrl': vendor.get('calendlyUrl') or '',
                     'creditsAwarded': 0,
@@ -3621,6 +4018,273 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 })
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not create introduction request: {ex}'})
+            return
+
+        if self.path == '/api/connectem/opt-in/respond':
+            token = str(payload.get('token') or '').strip()
+            decision = str(payload.get('response') or 'accept').strip().lower()
+            notes = str(payload.get('notes') or '').strip()
+            preferred_time = str(payload.get('preferredTime') or '').strip()
+            state = read_workbook_state()
+            reqs = state.get('marketplaceRequests') or []
+            req = next((r for r in reqs if isinstance(r, dict) and (str(r.get('optInToken') or '') == token or str(r.get('id') or '') == token)), None)
+            if not req:
+                json_response(self, 404, {'error': 'Invalid opt-in request.'})
+                return
+            now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            req['updatedAt'] = now_iso
+            req['contactOptInNotes'] = notes
+            req['preferredMeetingTime'] = preferred_time
+
+            if decision in ('accept', 'yes'):
+                req['status'] = 'contact_accepted'
+                req['stage'] = 'introduction_made'
+                req['contactAcceptedAt'] = now_iso
+                target_cid = str(req.get('targetContactId') or '')
+                target_contact = next((c for c in (state.get('contacts') or []) if str(c.get('id')) == target_cid), None)
+                if target_contact:
+                    target_contact['hasScheduledCall'] = True
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'success',
+                    'decision': 'accepted',
+                    'meetingUrl': req.get('scheduledMeetingUrl') or 'https://calendly.com/connectem/briefing',
+                    'message': 'Thank you! The introduction has been confirmed.'
+                })
+                return
+            elif decision in ('maybe', 'maybe_later'):
+                req['status'] = 'contact_no_response'
+                req['stage'] = 'contact_deferred'
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'success', 'decision': 'maybe_later'})
+                return
+            else:
+                req['status'] = 'contact_declined'
+                req['stage'] = 'contact_declined'
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'success', 'decision': 'declined'})
+                return
+
+        if self.path == '/api/connectem/requests/review':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            state = read_workbook_state()
+            partner = None
+            if share:
+                partner = next((c for c in state.get('contacts') or [] if str(c.get('id')) == str(share.get('influencer_id'))), None)
+            if not partner:
+                json_response(self, 401, {'error': 'Partner authentication required.'})
+                return
+            req_id = str(payload.get('requestId') or '').strip()
+            decision = str(payload.get('decision') or 'check_interest').strip().lower()
+            note = str(payload.get('partnerNote') or '').strip()
+            rating = str(payload.get('relevanceRating') or 'highly').strip().lower()
+            reqs = state.setdefault('marketplaceRequests', [])
+            req = next((r for r in reqs if isinstance(r, dict) and str(r.get('id')) == req_id), None)
+            if not req:
+                json_response(self, 404, {'error': 'Introduction request not found.'})
+                return
+            now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            req['updatedAt'] = now_iso
+            req['relevanceRating'] = rating
+            req['partnerNote'] = note
+
+            if decision in ('check_interest', 'accept'):
+                req['status'] = 'contact_opt_in_requested'
+                req['stage'] = 'contact_opt_in_requested'
+                req['partnerAcceptedAt'] = now_iso
+                if not req.get('optInToken'):
+                    req['optInToken'] = secrets.token_urlsafe(24)
+                write_workbook_state(state)
+                json_response(self, 200, {
+                    'status': 'updated',
+                    'decision': 'check_interest',
+                    'request': req,
+                    'optInUrl': f'/opt-in.html?token={req["optInToken"]}'
+                })
+                return
+            elif decision == 'decline':
+                req['status'] = 'partner_declined'
+                req['stage'] = 'partner_declined'
+                req['partnerDeclinedAt'] = now_iso
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'decision': 'declined', 'request': req})
+                return
+            elif decision == 'ask_question':
+                req['status'] = 'partner_question_pending'
+                req['partnerQuestion'] = payload.get('question') or note
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'decision': 'ask_question', 'request': req})
+                return
+            elif decision == 'suggest_contact':
+                req['status'] = 'alternate_suggested'
+                req['suggestedContactId'] = payload.get('alternateContactId')
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'decision': 'suggest_contact', 'request': req})
+                return
+            else:
+                req['status'] = 'partner_not_now'
+                write_workbook_state(state)
+                json_response(self, 200, {'status': 'updated', 'decision': 'not_now', 'request': req})
+                return
+
+        if self.path == '/api/connectem/feedback':
+            req_id = str(payload.get('requestId') or '').strip()
+            role = str(payload.get('role') or 'vendor').strip().lower()
+            state = read_workbook_state()
+            reqs = state.setdefault('marketplaceRequests', [])
+            req = next((r for r in reqs if isinstance(r, dict) and str(r.get('id')) == req_id), None)
+            if not req:
+                json_response(self, 404, {'error': 'Request not found.'})
+                return
+            now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            req['updatedAt'] = now_iso
+            if role == 'vendor':
+                req['vendorMeetingHeld'] = bool(payload.get('meetingHeld', True))
+                req['vendorRating'] = int(payload.get('rating') or 5)
+                outcome = str(payload.get('outcome') or 'follow_up').strip().lower()
+                req['outcome'] = outcome
+                req['opportunityValue'] = float(payload.get('opportunityValue') or 0)
+                req['vendorFeedback'] = str(payload.get('feedbackNotes') or '').strip()
+                if req['vendorMeetingHeld']:
+                    req['status'] = 'meeting_completed'
+                    if outcome in ('opportunity', 'poc'):
+                        req['status'] = 'opportunity_created'
+                    elif outcome == 'customer':
+                        req['status'] = 'won'
+                    elif outcome == 'no_fit':
+                        req['status'] = 'no_opportunity'
+            elif role == 'partner':
+                req['partnerWasGoodIntro'] = bool(payload.get('wasGoodIntro', True))
+                req['partnerWouldIntroduceAgain'] = bool(payload.get('wouldIntroduceAgain', True))
+                req['partnerFeedback'] = str(payload.get('partnerNotes') or '').strip()
+            elif role == 'contact':
+                req['contactRelevance'] = str(payload.get('relevance') or 'thumbs_up').strip()
+                req['contactFeedback'] = str(payload.get('contactNotes') or '').strip()
+            write_workbook_state(state)
+            json_response(self, 200, {'status': 'recorded', 'request': req})
+            return
+
+        if self.path == '/api/connectem/ai-match':
+            query = str(payload.get('query') or '').strip().lower()
+            state = read_workbook_state()
+            contacts = state.get('contacts') or []
+            influencers = {str(c.get('id')): c for c in contacts if c.get('isInfluencer')}
+            prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt')]
+
+            results = []
+            query_terms = [t for t in query.split() if len(t) > 2]
+            for c in prospects:
+                if str(c.get('privacyLevel') or '').lower() == 'private':
+                    continue
+                inf = influencers.get(str(c.get('influencerId') or ''))
+                warm_path = calculate_warm_path_score(c, inf)
+                match_score = warm_path['score']
+                title = str(c.get('jobTitle') or '').lower()
+                comp = str(c.get('company') or '').lower()
+                asset = str(c.get('assetSize') or '').lower()
+                topics = [str(t).lower() for t in (c.get('topics') or [])]
+                
+                for term in query_terms:
+                    if term in title or term in comp or term in asset or any(term in tp for tp in topics):
+                        match_score += 5
+                results.append({
+                    'id': c.get('id'),
+                    'fullName': mask_full_name(c.get('fullName')),
+                    'jobTitle': c.get('jobTitle'),
+                    'company': c.get('company'),
+                    'assetSize': c.get('assetSize'),
+                    'industry': c.get('industry'),
+                    'partnerName': inf.get('fullName') if inf else c.get('referredBy'),
+                    'partnerCompany': inf.get('company') if inf else 'Advisory Network',
+                    'partnerId': inf.get('id') if inf else c.get('influencerId'),
+                    'warmPathScore': warm_path['score'],
+                    'warmPathLabel': warm_path['label'],
+                    'relationshipStrength': c.get('strength') or 'strong',
+                    'introWillingness': c.get('introWillingness') or 'selective',
+                    'topics': c.get('topics') or ['Credit Union Systems', 'FinTech'],
+                    'icpFit': min(99, max(60, match_score))
+                })
+            results.sort(key=lambda x: (x['icpFit'], x['warmPathScore']), reverse=True)
+            json_response(self, 200, {
+                'query': query,
+                'count': len(results[:25]),
+                'results': results[:25]
+            })
+            return
+
+        if self.path == '/api/connectem/account-match':
+            account_names = payload.get('accounts') or []
+            if isinstance(account_names, str):
+                account_names = [line.strip() for line in account_names.splitlines() if line.strip()]
+            state = read_workbook_state()
+            contacts = state.get('contacts') or []
+            influencers = {str(c.get('id')): c for c in contacts if c.get('isInfluencer')}
+            prospects = [c for c in contacts if not c.get('isInfluencer') and not c.get('archivedAt')]
+
+            matched_accounts = []
+            strong_count = 0
+            intro_eligible_count = 0
+
+            for raw_acc in account_names:
+                acc_clean = raw_acc.strip().lower()
+                if not acc_clean:
+                    continue
+                matching_contacts = [
+                    c for c in prospects
+                    if acc_clean in str(c.get('company') or '').lower() or str(c.get('company') or '').lower() in acc_clean
+                ]
+                if matching_contacts:
+                    has_strong = any(str(c.get('strength') or '').lower() == 'strong' for c in matching_contacts)
+                    eligible = [c for c in matching_contacts if str(c.get('privacyLevel') or '').lower() != 'private']
+                    if has_strong:
+                        strong_count += 1
+                    if eligible:
+                        intro_eligible_count += 1
+                    top_contact = eligible[0] if eligible else matching_contacts[0]
+                    inf = influencers.get(str(top_contact.get('influencerId') or ''))
+                    wp = calculate_warm_path_score(top_contact, inf)
+                    matched_accounts.append({
+                        'account': raw_acc,
+                        'matchedCompany': top_contact.get('company'),
+                        'contactsCount': len(matching_contacts),
+                        'hasStrongRelationship': has_strong,
+                        'isIntroEligible': bool(eligible),
+                        'strongestPartner': inf.get('fullName') if inf else top_contact.get('referredBy'),
+                        'topContactTitle': top_contact.get('jobTitle'),
+                        'warmPathScore': wp['score'],
+                        'warmPathLabel': wp['label']
+                    })
+
+            json_response(self, 200, {
+                'totalAccountsUploaded': len(account_names),
+                'accountsWithRelationships': len(matched_accounts),
+                'strongRelationships': strong_count,
+                'introEligible': intro_eligible_count,
+                'matches': matched_accounts
+            })
+            return
+
+        if self.path == '/api/connectem/partner/profile':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            state = read_workbook_state()
+            partner = None
+            if share:
+                partner = next((c for c in state.get('contacts') or [] if str(c.get('id')) == str(share.get('influencer_id'))), None)
+            if not partner:
+                json_response(self, 401, {'error': 'Partner session expired.'})
+                return
+            if 'expertise' in payload:
+                partner['expertise'] = payload['expertise']
+            if 'geography' in payload:
+                partner['geography'] = payload['geography']
+            if 'industries' in payload:
+                partner['industries'] = payload['industries']
+            if 'openTo' in payload:
+                partner['openTo'] = payload['openTo']
+            write_workbook_state(state)
+            json_response(self, 200, {'status': 'updated', 'partner': partner})
             return
 
         if self.path == '/api/irm/vendors/manage':
