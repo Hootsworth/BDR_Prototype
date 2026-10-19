@@ -1159,6 +1159,12 @@ def create_partner_referral(state, influencer, payload, source='partner_portal')
         'linkedinUrl': linkedin_url,
         'location': str(payload.get('location') or '').strip(),
         'industry': str(payload.get('industry') or ''),
+        'strength': str(payload.get('strength') or 'strong'),
+        'relationshipType': str(payload.get('relationshipType') or 'former_colleague'),
+        'lastInteraction': str(payload.get('lastInteraction') or 'last_30_days'),
+        'introWillingness': str(payload.get('introWillingness') or 'selective'),
+        'privacyLevel': str(payload.get('privacyLevel') or 'ask_partner'),
+        'topics': payload.get('topics') or ['Credit Union Advisory', 'FinTech'],
         'sourceFile': f"Referred by {influencer.get('fullName')} ({source})",
         'isInfluencer': False,
         'influencerId': influencer.get('id'),
@@ -1183,6 +1189,9 @@ def create_partner_referral(state, influencer, payload, source='partner_portal')
         'id': contact_id, 'fullName': name, 'jobTitle': title, 'company': company,
         'email': email, 'phone': phone, 'linkedinUrl': linkedin_url, 'credits': credits,
         'hasScheduledCall': has_scheduled, 'hasTakenCall': has_taken,
+        'strength': new_contact['strength'],
+        'relationshipType': new_contact['relationshipType'],
+        'privacyLevel': new_contact['privacyLevel'],
         'date': new_contact['referredDate']
     })
     influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
@@ -1278,6 +1287,16 @@ def apply_partner_bulk_records(state, influencer, rows, source='Bulk Entry', all
                 target['linkedinUrl'] = normalize_linkedin_url(row.get('linkedinUrl'))
             if 'location' in row:
                 target['location'] = str(row.get('location') or '').strip()
+            if 'strength' in row and row['strength']:
+                target['strength'] = str(row['strength'])
+            if 'relationshipType' in row and row['relationshipType']:
+                target['relationshipType'] = str(row['relationshipType'])
+            if 'lastInteraction' in row and row['lastInteraction']:
+                target['lastInteraction'] = str(row['lastInteraction'])
+            if 'introWillingness' in row and row['introWillingness']:
+                target['introWillingness'] = str(row['introWillingness'])
+            if 'privacyLevel' in row and row['privacyLevel']:
+                target['privacyLevel'] = str(row['privacyLevel'])
             if allow_internal_notes and ('portalNotes' in row or 'notes' in row):
                 target['portalNotes'] = str(row.get('portalNotes') if 'portalNotes' in row else row.get('notes') or '').strip()
             sync_influencer_referral_ledger(influencer, target)
