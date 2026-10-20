@@ -39,8 +39,8 @@
         </div>
         <div id="clerk-auth-mount" aria-label="Sign in with Clerk"><p class="clerk-loading">Loading secure sign in…</p></div>
         <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden><p class="clerk-loading">Loading secure sign up…</p></div>
-        <p id="portal-auth-switch-signin" hidden>Already registered? <button id="portal-switch-to-signin" type="button">Sign in</button></p>
-        <p id="portal-auth-switch-signup" hidden>New to ConnectEM? <button id="portal-switch-to-signup" type="button">Create an account</button></p>
+        <p id="portal-auth-switch-signin" hidden>Already registered? <button id="portal-switch-to-signin" class="btn-text-link" type="button">Sign in</button></p>
+        <p id="portal-auth-switch-signup" hidden>New to ConnectEM? <button id="portal-switch-to-signup" class="btn-text-link" type="button">Create an account</button></p>
         <div id="portal-auth-feedback" role="status" aria-live="polite"></div>
         <form id="portal-onboarding-form" hidden>
           <h2>Complete your Partner Profile</h2>
@@ -57,7 +57,7 @@
     <section id="portal-workspace-content" hidden>
       <header class="workspace-hero">
         <div><h1>Welcome, <span id="partner-name">Partner</span></h1><p id="partner-company">Your trusted partner relationship network</p></div>
-        <div class="partner-calendly-bar"><a id="partner-calendly-open-link" class="btn btn-secondary" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer">Open Briefing Calendar</a><button id="partner-calendly-copy-btn" class="btn btn-secondary" type="button">Copy booking link</button></div>
+        <div class="partner-calendly-bar"><a id="partner-calendly-open-link" class="btn btn-secondary btn-sm" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer">Open Briefing Calendar</a><button id="partner-calendly-copy-btn" class="btn btn-secondary btn-sm" type="button">Copy booking link</button></div>
       </header>
       <p id="page-error" role="alert" hidden></p>
       
@@ -115,13 +115,54 @@
         </form>
         <p id="feedback" role="status" aria-live="polite"></p>
         
-        <div id="multi-edit-bar" hidden><p id="multi-edit-feedback" role="status"></p><button id="multi-edit-add-row-btn" type="button">Add row</button><button id="multi-edit-save-btn" type="button">Save edits</button><button id="multi-edit-cancel-btn" type="button">Cancel</button></div>
+        <div id="multi-edit-bar" class="multi-edit-bar" hidden>
+          <button id="multi-edit-add-row-btn" class="btn btn-secondary btn-sm" type="button">+ Add row</button>
+          <button id="multi-edit-save-btn" class="btn btn-primary btn-sm" type="button">Save edits</button>
+          <button id="multi-edit-cancel-btn" class="btn btn-subtle btn-sm" type="button">Cancel</button>
+          <p id="multi-edit-feedback" class="multi-edit-feedback" role="status"></p>
+        </div>
         
-        <div id="bulk-referral-panel" hidden>
-          <div class="form-grid"><label>Paste rows from a spreadsheet<textarea id="bulk-paste-input" rows="5" placeholder="Name, email, company, title, phone, LinkedIn"></textarea></label><div><button id="bulk-paste-toggle-btn" type="button">Paste contacts</button><button id="bulk-parse-paste-btn" type="button">Parse rows</button><button id="bulk-cancel-paste-btn" type="button">Cancel paste</button></div><textarea id="bulk-paste-box" rows="4" hidden></textarea></div>
-          <p id="bulk-feedback" role="status" aria-live="polite"></p><p id="bulk-row-count">0 rows</p>
-          <div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Company</th><th>Title</th><th>Strength</th><th>Privacy</th><th></th></tr></thead><tbody id="bulk-rows-body"></tbody></table></div>
-          <button id="bulk-add-row-btn" type="button">Add row</button><button id="bulk-add-5-btn" type="button">Add five rows</button><button id="bulk-clear-btn" type="button">Clear rows</button><button id="bulk-submit-button" class="btn btn-primary" type="button">Import Relationships</button>
+        <div id="bulk-referral-panel" class="bulk-referral-panel" hidden>
+          <div class="bulk-paste-section">
+            <label for="bulk-paste-input" style="font-size:12.5px; font-weight:600;">Paste rows from a spreadsheet</label>
+            <textarea id="bulk-paste-input" rows="4" placeholder="Name, email, company, title, phone, LinkedIn"></textarea>
+            <div class="bulk-paste-actions">
+              <button id="bulk-paste-toggle-btn" class="btn btn-secondary btn-sm" type="button">Paste contacts</button>
+              <button id="bulk-parse-paste-btn" class="btn btn-primary btn-sm" type="button">Parse rows</button>
+              <button id="bulk-cancel-paste-btn" class="btn btn-subtle btn-sm" type="button">Cancel paste</button>
+            </div>
+            <textarea id="bulk-paste-box" rows="4" hidden></textarea>
+          </div>
+          <div class="bulk-header-status">
+            <span id="bulk-row-count" class="bulk-row-count">0 rows</span>
+            <p id="bulk-feedback" role="status" aria-live="polite"></p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:40px; text-align:center;">#</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Company</th>
+                  <th>Job Title</th>
+                  <th>Phone</th>
+                  <th>LinkedIn</th>
+                  <th>Status</th>
+                  <th style="width:40px;"></th>
+                </tr>
+              </thead>
+              <tbody id="bulk-rows-body"></tbody>
+            </table>
+          </div>
+          <div class="bulk-actions-bar">
+            <div class="bulk-actions-left">
+              <button id="bulk-add-row-btn" class="btn btn-secondary btn-sm" type="button">+ Add row</button>
+              <button id="bulk-add-5-btn" class="btn btn-secondary btn-sm" type="button">+ Add 5 rows</button>
+              <button id="bulk-clear-btn" class="btn btn-subtle btn-sm" type="button">Clear rows</button>
+            </div>
+            <button id="bulk-submit-button" class="btn btn-primary" type="button">Import Relationships</button>
+          </div>
         </div>
         
         <div class="table-wrap"><table><thead><tr><th>Contact &amp; Role</th><th>Organization</th><th>Relationship &amp; Privacy</th><th>Actions</th></tr></thead><tbody id="contacts-body"></tbody></table></div>
