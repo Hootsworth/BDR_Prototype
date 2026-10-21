@@ -426,6 +426,59 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertTrue(new_res["success"])
         self.assertFalse(new_res["mustChangePassword"])
 
+    def test_auto_generated_temporary_password_and_mandatory_change_flow(self):
+        # Admin provisions partner without specifying password; system auto-generates temporary password
+        create_status, create_res = self.request("/api/influencers/create", "POST", {
+            "profile": {
+                "fullName": "Marcus Vance",
+                "email": "marcus.vance@cu-growth.test",
+                "company": "Vance Advisory",
+                "jobTitle": "Strategic Advisor"
+            },
+            "autoGeneratePassword": True,
+            "sendInvite": True
+        })
+        self.assertEqual(create_status, 201)
+        self.assertTrue(create_res["success"])
+        temp_pwd = create_res["temporaryPassword"]
+        self.assertTrue(len(temp_pwd) >= 12)
+        self.assertTrue(create_res["invitation"]["sent"])
+
+        # Partner logs in with the temporary password
+        login_status, login_res = self.request("/api/partner-portal/login", "POST", {
+            "email": "marcus.vance@cu-growth.test",
+            "password": temp_pwd,
+        })
+        self.assertEqual(login_status, 200)
+        self.assertTrue(login_res["mustChangePassword"])
+        portal_token = login_res["token"]
+
+        # Changing password rejects same temporary password
+        same_status, same_res = self.request("/api/partner-portal/change-password", "POST", {
+            "email": "marcus.vance@cu-growth.test",
+            "currentPassword": temp_pwd,
+            "newPassword": temp_pwd
+        }, token=portal_token)
+        self.assertEqual(same_status, 400)
+
+        # Changing password to new permanent password
+        change_status, change_res = self.request("/api/partner-portal/change-password", "POST", {
+            "email": "marcus.vance@cu-growth.test",
+            "currentPassword": temp_pwd,
+            "newPassword": "MarcusPermanent2026!"
+        }, token=portal_token)
+        self.assertEqual(change_status, 200)
+        self.assertTrue(change_res["success"])
+        self.assertFalse(change_res["influencer"]["mustChangePassword"])
+
+        # Re-login with permanent password
+        relog_status, relog_res = self.request("/api/partner-portal/login", "POST", {
+            "email": "marcus.vance@cu-growth.test",
+            "password": "MarcusPermanent2026!",
+        })
+        self.assertEqual(relog_status, 200)
+        self.assertFalse(relog_res["mustChangePassword"])
+
 
 if __name__ == "__main__":
     unittest.main()

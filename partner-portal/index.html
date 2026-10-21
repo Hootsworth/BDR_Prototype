@@ -31,12 +31,8 @@
     <section id="portal-auth-section" class="portal-auth-section">
       <div class="auth-card">
         <h1>Partner Workspace</h1>
-        <p>Sign in to review vendor introduction requests, manage relationships, and track enterprise attribution.</p>
+        <p>Sign in with your registered partner credentials to access your workspace. Partner accounts are provisioned by your ConnectEM administrator.</p>
         <p id="portal-auth-error" role="alert" class="error"></p>
-        <div id="portal-auth-tabs" role="tablist" class="workspace-nav-tabs">
-          <button id="portal-tab-signin" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Sign in</button>
-          <button id="portal-tab-signup" class="workspace-tab-btn" type="button" role="tab" aria-selected="false">Create account</button>
-        </div>
         <form id="portal-login-form" class="portal-login-form">
           <label>Partner Email
             <input id="portal-login-email" name="email" type="email" required autocomplete="email" placeholder="partner@company.com">
@@ -46,29 +42,19 @@
           </label>
           <button id="portal-login-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Sign In to Workspace</button>
         </form>
-        <form id="portal-signup-form" class="portal-login-form" hidden>
-          <label>Full Name *
-            <input id="portal-signup-name" name="fullName" required autocomplete="name" placeholder="Alex Morgan">
+        <form id="portal-change-password-form" class="portal-login-form" hidden>
+          <div class="auth-notice" style="margin-bottom: 12px; font-size: 13px; line-height: 1.4; color: var(--color-text-secondary); background: var(--color-bg-secondary, #f4f4f5); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--color-border, #e4e4e7);">
+            <strong style="display:block; margin-bottom: 2px; color: var(--color-text-primary, #09090b);">Temporary Password Detected</strong>
+            Please set a new permanent password to complete your account setup and access your workspace.
+          </div>
+          <label>New Permanent Password
+            <input id="portal-new-password" name="newPassword" type="password" required autocomplete="new-password" placeholder="••••••••" minlength="8">
           </label>
-          <label>Company / Organization *
-            <input id="portal-signup-company" name="company" required autocomplete="organization" placeholder="Acme Corp">
+          <label>Confirm Permanent Password
+            <input id="portal-confirm-password" name="confirmPassword" type="password" required autocomplete="new-password" placeholder="••••••••" minlength="8">
           </label>
-          <label>Partner Work Email *
-            <input id="portal-signup-email" name="email" type="email" required autocomplete="email" placeholder="alex@company.com">
-          </label>
-          <label>Password *
-            <input id="portal-signup-password" name="password" type="password" required autocomplete="new-password" placeholder="••••••••" minlength="8">
-          </label>
-          <label>Job Title
-            <input id="portal-signup-title" name="jobTitle" autocomplete="organization-title" placeholder="VP of Partnerships">
-          </label>
-          <label>Phone
-            <input id="portal-signup-phone" name="phone" type="tel" autocomplete="tel" placeholder="+1 (555) 000-0000">
-          </label>
-          <label>LinkedIn Profile
-            <input id="portal-signup-linkedin" name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…">
-          </label>
-          <button id="portal-signup-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Create Partner Account</button>
+          <p id="portal-change-password-error" role="alert" class="error" style="margin: 6px 0; font-size: 13px; color: #dc2626;" hidden></p>
+          <button id="portal-change-password-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Set Permanent Password &amp; Enter</button>
         </form>
         <div id="portal-sso-separator" class="portal-auth-separator" hidden>
           <hr>
@@ -77,8 +63,6 @@
         </div>
         <div id="clerk-auth-mount" aria-label="Sign in with Clerk" hidden></div>
         <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden></div>
-        <p id="portal-auth-switch-signin" hidden>Already registered? <button id="portal-switch-to-signin" class="btn-text-link" type="button">Sign in</button></p>
-        <p id="portal-auth-switch-signup">New to ConnectEM? <button id="portal-switch-to-signup" class="btn-text-link" type="button">Create an account</button></p>
         <div id="portal-auth-feedback" role="status" aria-live="polite"></div>
         <form id="portal-onboarding-form" hidden>
           <h2>Complete your Partner Profile</h2>

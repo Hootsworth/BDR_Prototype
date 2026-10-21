@@ -24,14 +24,19 @@
   const clerkMount = document.getElementById('clerk-auth-mount');
   const clerkSignupMount = document.getElementById('clerk-signup-mount');
   const onboardingForm = document.getElementById('portal-onboarding-form');
-  const authTabs = document.getElementById('portal-auth-tabs');
   const portalLoginForm = document.getElementById('portal-login-form');
   const portalLoginEmail = document.getElementById('portal-login-email');
   const portalLoginPassword = document.getElementById('portal-login-password');
   const portalLoginSubmit = document.getElementById('portal-login-submit');
-  const portalSignupForm = document.getElementById('portal-signup-form');
-  const portalSignupSubmit = document.getElementById('portal-signup-submit');
+  const portalChangePasswordForm = document.getElementById('portal-change-password-form');
+  const portalNewPassword = document.getElementById('portal-new-password');
+  const portalConfirmPassword = document.getElementById('portal-confirm-password');
+  const portalChangePasswordSubmit = document.getElementById('portal-change-password-submit');
+  const portalChangePasswordError = document.getElementById('portal-change-password-error');
   const portalSsoSeparator = document.getElementById('portal-sso-separator');
+  let pendingChangeEmail = '';
+  let pendingCurrentPassword = '';
+  let pendingChangeToken = '';
   let clerkListenerAdded = false;
   let selectedAuthMode = 'signin';
 
@@ -62,6 +67,8 @@
     if (authSection) authSection.hidden = false;
     if (workspaceContent) workspaceContent.hidden = true;
     if (signoutBtn) signoutBtn.hidden = true;
+    if (portalLoginForm) portalLoginForm.hidden = false;
+    if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
     document.getElementById('partner-name').textContent = 'Influencer workspace';
     document.getElementById('partner-company').textContent = 'A trusted network, with clear next steps and rewards you can choose.';
     if (message) {
@@ -489,19 +496,13 @@
     return data;
   }
 
-  const tabSignin = document.getElementById('portal-tab-signin');
-  const tabSignup = document.getElementById('portal-tab-signup');
-  const signinSwitchline = document.getElementById('portal-auth-switch-signin');
-  const signupSwitchline = document.getElementById('portal-auth-switch-signup');
   const mountedAuthModes = new Set();
-  function mountClerkAuth(mode) {
-    const mount = mode === 'signin' ? clerkMount : clerkSignupMount;
+  function mountClerkAuth(mode = 'signin') {
+    const mount = clerkMount;
     if (!window.Clerk || !mount || mountedAuthModes.has(mode)) return;
     try {
       mount.querySelector('.clerk-loading')?.remove();
       const appearance = { variables: { colorPrimary: '#315f4d', colorText: '#202925', colorBackground: '#fbfcfa', colorInputBackground: '#ffffff', colorInputText: '#202925', borderRadius: '10px', fontFamily: 'DM Sans, sans-serif' }, options: { socialButtonsVariant: 'iconButton', socialButtonsPlacement: 'top' }, elements: { card: { boxShadow: 'none', border: '0', background: 'transparent' }, rootBox: { width: '100%' }, footer: { display: 'none' } } };
-      // Keep Clerk's component links and post-auth return on this portal page.
-      // Without force redirects Clerk falls back to `/`, the IRM admin console.
       const portalUrl = `${window.location.origin}${window.location.pathname}`;
       const options = {
         appearance,
@@ -512,41 +513,28 @@
         signInFallbackRedirectUrl: portalUrl,
         signUpFallbackRedirectUrl: portalUrl
       };
-      if (mode === 'signin') window.Clerk.mountSignIn(mount, options);
-      else window.Clerk.mountSignUp(mount, options);
+      window.Clerk.mountSignIn(mount, options);
       mountedAuthModes.add(mode);
     } catch (error) {
       mount.textContent = error.message || 'Secure sign-in could not be shown.';
     }
   }
-  function chooseAuthMode(mode) {
+  function chooseAuthMode(mode = 'signin') {
     const authError = document.getElementById('portal-auth-error');
     if (authError) authError.textContent = '';
-    selectedAuthMode = mode;
-    const isSignin = mode === 'signin';
-    tabSignin?.classList.toggle('active', isSignin);
-    tabSignup?.classList.toggle('active', !isSignin);
-    tabSignin?.setAttribute('aria-selected', String(isSignin));
-    tabSignup?.setAttribute('aria-selected', String(!isSignin));
-    authTabs.hidden = false;
+    selectedAuthMode = 'signin';
     onboardingForm.hidden = true;
-    if (portalLoginForm) portalLoginForm.hidden = !isSignin;
-    if (portalSignupForm) portalSignupForm.hidden = isSignin;
+    if (portalLoginForm) portalLoginForm.hidden = false;
+    if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
     if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
-    if (clerkMount) clerkMount.hidden = !isSignin || !window.Clerk;
-    if (clerkSignupMount) clerkSignupMount.hidden = isSignin || !window.Clerk;
-    if (signinSwitchline) signinSwitchline.hidden = isSignin;
-    if (signupSwitchline) signupSwitchline.hidden = !isSignin;
+    if (clerkMount) clerkMount.hidden = !window.Clerk;
+    if (clerkSignupMount) clerkSignupMount.hidden = true;
     if (window.Clerk) {
-      mountClerkAuth(mode);
+      mountClerkAuth('signin');
     } else {
       clearClerkLoading();
     }
   }
-  tabSignin?.addEventListener('click', () => chooseAuthMode('signin'));
-  tabSignup?.addEventListener('click', () => chooseAuthMode('signup'));
-  document.getElementById('portal-switch-to-signin')?.addEventListener('click', () => chooseAuthMode('signin'));
-  document.getElementById('portal-switch-to-signup')?.addEventListener('click', () => chooseAuthMode('signup'));
 
   portalLoginForm?.addEventListener('submit', async event => {
     event.preventDefault();
@@ -567,6 +555,25 @@
         method: 'POST',
         body: JSON.stringify({ email, password })
       });
+      if (res.mustChangePassword) {
+        pendingChangeEmail = email;
+        pendingCurrentPassword = password;
+        pendingChangeToken = res.token || '';
+        if (portalLoginForm) portalLoginForm.hidden = true;
+        if (portalChangePasswordForm) {
+          portalChangePasswordForm.hidden = false;
+          if (portalChangePasswordError) {
+            portalChangePasswordError.hidden = true;
+            portalChangePasswordError.textContent = '';
+          }
+          if (portalNewPassword) {
+            portalNewPassword.value = '';
+            portalNewPassword.focus();
+          }
+          if (portalConfirmPassword) portalConfirmPassword.value = '';
+        }
+        return;
+      }
       if (res.token) {
         token = res.token;
         sessionStorage.setItem(tokenKey, token);
@@ -584,44 +591,77 @@
     }
   });
 
-  portalSignupForm?.addEventListener('submit', async event => {
+  portalChangePasswordForm?.addEventListener('submit', async event => {
     event.preventDefault();
-    const fullName = (document.getElementById('portal-signup-name')?.value || '').trim();
-    const company = (document.getElementById('portal-signup-company')?.value || '').trim();
-    const email = (document.getElementById('portal-signup-email')?.value || '').trim();
-    const password = (document.getElementById('portal-signup-password')?.value || '').trim();
-    const jobTitle = (document.getElementById('portal-signup-title')?.value || '').trim();
-    const phone = (document.getElementById('portal-signup-phone')?.value || '').trim();
-    const linkedinUrl = (document.getElementById('portal-signup-linkedin')?.value || '').trim();
-    const authError = document.getElementById('portal-auth-error');
-    if (authError) authError.textContent = '';
-    if (!fullName || !company || !email || !password) {
-      if (authError) authError.textContent = 'Please enter your full name, company, email, and password.';
+    const newPwd = (portalNewPassword?.value || '').trim();
+    const confirmPwd = (portalConfirmPassword?.value || '').trim();
+    if (portalChangePasswordError) {
+      portalChangePasswordError.hidden = true;
+      portalChangePasswordError.textContent = '';
+    }
+    if (!newPwd || !confirmPwd) {
+      if (portalChangePasswordError) {
+        portalChangePasswordError.hidden = false;
+        portalChangePasswordError.textContent = 'Please enter and confirm your new permanent password.';
+      }
       return;
     }
-    if (portalSignupSubmit) {
-      portalSignupSubmit.disabled = true;
-      portalSignupSubmit.textContent = 'Creating account…';
+    if (newPwd.length < 8) {
+      if (portalChangePasswordError) {
+        portalChangePasswordError.hidden = false;
+        portalChangePasswordError.textContent = 'New password must be at least 8 characters long.';
+      }
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      if (portalChangePasswordError) {
+        portalChangePasswordError.hidden = false;
+        portalChangePasswordError.textContent = 'Passwords do not match.';
+      }
+      return;
+    }
+    if (newPwd === pendingCurrentPassword) {
+      if (portalChangePasswordError) {
+        portalChangePasswordError.hidden = false;
+        portalChangePasswordError.textContent = 'New password must be different from your temporary password.';
+      }
+      return;
+    }
+    if (portalChangePasswordSubmit) {
+      portalChangePasswordSubmit.disabled = true;
+      portalChangePasswordSubmit.textContent = 'Updating password…';
     }
     try {
-      const res = await request('/api/partner-portal/onboard', {
+      const res = await request('/api/partner-portal/change-password', {
         method: 'POST',
-        body: JSON.stringify({ fullName, company, email, password, jobTitle, phone, linkedinUrl })
+        headers: pendingChangeToken ? { 'Authorization': `Bearer ${pendingChangeToken}` } : {},
+        body: JSON.stringify({
+          email: pendingChangeEmail,
+          currentPassword: pendingCurrentPassword,
+          newPassword: newPwd
+        })
       });
-      if (res.token) {
-        token = res.token;
+      if (res.success || res.status === 'success') {
+        token = pendingChangeToken;
         sessionStorage.setItem(tokenKey, token);
-        portalSignupForm.reset();
+        if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
+        if (portalLoginPassword) portalLoginPassword.value = '';
+        if (portalNewPassword) portalNewPassword.value = '';
+        if (portalConfirmPassword) portalConfirmPassword.value = '';
+        pendingCurrentPassword = '';
         await load();
       } else {
-        throw new Error(res.error || 'Account creation failed.');
+        throw new Error(res.error || 'Failed to update password.');
       }
     } catch (err) {
-      if (authError) authError.textContent = err.message || 'Registration failed. Please try again.';
+      if (portalChangePasswordError) {
+        portalChangePasswordError.hidden = false;
+        portalChangePasswordError.textContent = err.message || 'Failed to update password.';
+      }
     } finally {
-      if (portalSignupSubmit) {
-        portalSignupSubmit.disabled = false;
-        portalSignupSubmit.textContent = 'Create Partner Account';
+      if (portalChangePasswordSubmit) {
+        portalChangePasswordSubmit.disabled = false;
+        portalChangePasswordSubmit.textContent = 'Set Permanent Password & Enter';
       }
     }
   });
@@ -646,11 +686,15 @@
 
   signoutBtn?.addEventListener('click', async () => {
     token = '';
+    pendingChangeEmail = '';
+    pendingCurrentPassword = '';
+    pendingChangeToken = '';
     sessionStorage.removeItem(tokenKey);
     try { await window.Clerk?.signOut(); } catch (_) {}
     if (portalLoginPassword) portalLoginPassword.value = '';
-    const signupPass = document.getElementById('portal-signup-password');
-    if (signupPass) signupPass.value = '';
+    if (portalNewPassword) portalNewPassword.value = '';
+    if (portalConfirmPassword) portalConfirmPassword.value = '';
+    if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
     showAuthView();
     chooseAuthMode('signin');
   });
@@ -682,33 +726,25 @@
             return load();
           }
           showAuthView();
-          clerkMount.hidden = true;
-          clerkSignupMount.hidden = true;
-          authTabs.hidden = true;
+          if (clerkMount) clerkMount.hidden = true;
+          if (clerkSignupMount) clerkSignupMount.hidden = true;
           if (portalLoginForm) portalLoginForm.hidden = true;
-          if (portalSignupForm) portalSignupForm.hidden = true;
+          if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
           if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-          signinSwitchline.hidden = true;
-          signupSwitchline.hidden = true;
           onboardingForm.hidden = false;
           const currentName = session.user?.fullName || window.Clerk.user.fullName || '';
           onboardingForm.elements.fullName.value = currentName;
           return;
         }
         if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
-        mountClerkAuth(selectedAuthMode);
+        mountClerkAuth('signin');
       } catch (error) {
         clearClerkLoading();
         if (clerkMount) clerkMount.hidden = true;
         if (clerkSignupMount) clerkSignupMount.hidden = true;
         if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-        if (selectedAuthMode === 'signin') {
-          if (portalLoginForm) portalLoginForm.hidden = false;
-          if (portalSignupForm) portalSignupForm.hidden = true;
-        } else {
-          if (portalLoginForm) portalLoginForm.hidden = true;
-          if (portalSignupForm) portalSignupForm.hidden = false;
-        }
+        if (portalLoginForm) portalLoginForm.hidden = false;
+        if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
       }
       return;
     }

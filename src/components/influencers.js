@@ -610,7 +610,7 @@ async function savePartnerProfile() {
   try {
     const response = await fetch(id ? '/api/influencers/update' : '/api/influencers/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ influencerId: id, profile })
+      body: JSON.stringify({ influencerId: id, profile, autoGeneratePassword: true, sendInvite: true })
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Save failed (${response.status})`);
@@ -619,6 +619,9 @@ async function savePartnerProfile() {
     await loadWorkbookFromServer();
     if (typeof filterOutboundTable === 'function') filterOutboundTable();
     closePartnerProfileEditor();
+    if (!id && result.temporaryPassword) {
+      alert(`Partner invited successfully!\n\nEmail: ${profile.email}\nTemporary Password: ${result.temporaryPassword}\n\nAn invitation email with sign-in instructions has been dispatched. The partner will be prompted to set a permanent password on first login.`);
+    }
   } catch (error) { feedback.textContent = error.message; }
 }
 

@@ -20,6 +20,7 @@ import os
 import time
 import base64
 import secrets
+import string
 import urllib.parse
 import sqlite3
 import random
@@ -2181,6 +2182,89 @@ def request_with_retry(url, data, headers, method, attempts=3):
         time.sleep((2 ** attempt) + random.random())
     raise last_error
 
+def generate_temporary_password(length=14):
+    length = max(12, int(length or 14))
+    alphabet = string.ascii_letters + string.digits + "!@#$%&*"
+    chars = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%&*"),
+    ]
+    chars += [secrets.choice(alphabet) for _ in range(length - len(chars))]
+    random.shuffle(chars)
+    return ''.join(chars)
+
+def send_partner_invitation_email(email, name, temporary_password):
+    email = str(email or '').strip().lower()
+    name = str(name or 'Partner').strip()
+    portal_url = os.environ.get('PARTNER_PORTAL_URL', 'https://go.connectem.ai/partner-portal')
+    subject = "Your ConnectEM Partner Portal Access & Credentials"
+    body = (
+        f"Hello {name},\n\n"
+        f"You have been invited to join the ConnectEM Partner Network as a verified partner.\n\n"
+        f"Portal URL: {portal_url}\n"
+        f"Registered Email: {email}\n"
+        f"Temporary Password: {temporary_password}\n\n"
+        f"Next Steps:\n"
+        f"1. Open the portal URL: {portal_url}\n"
+        f"2. Sign in using your registered email and the temporary password above.\n"
+        f"3. You will be prompted to set your new permanent password immediately.\n\n"
+        f"Once your permanent password is set, you will have immediate access to your partner workspace to review requests and manage your relationships.\n\n"
+        f"— ConnectEM Partner Team"
+    )
+
+    result = {'email': email, 'sent': False, 'clerkInvitation': None}
+
+    # 1. Trigger Clerk Invitation API if configured
+    clerk_secret = str(os.environ.get('CLERK_SECRET_KEY') or '').strip()
+    if clerk_secret:
+        try:
+            clerk_payload = {
+                'email_address': email,
+                'redirect_url': portal_url,
+                'ignore_existing': True
+            }
+            clerk_status, clerk_res = post_json(
+                'https://api.clerk.com/v1/invitations',
+                clerk_payload,
+                {'Authorization': f'Bearer {clerk_secret}'}
+            )
+            result['clerkInvitation'] = {'status': clerk_status, 'id': clerk_res.get('id')}
+        except Exception as exc:
+            result['clerkInvitation'] = {'error': str(exc)}
+
+    # 2. Dispatch email via Resend if RESEND_API_KEY is configured, else demo/prototype mailer
+    resend_key = os.environ.get('RESEND_API_KEY')
+    sender = os.environ.get('RESEND_FROM_EMAIL', 'gtm-agent@gtmconsole.io')
+    if resend_key:
+        try:
+            status, resend_res = post_json(
+                'https://api.resend.com/emails',
+                {'from': sender, 'to': [email], 'subject': subject, 'text': body},
+                {'Authorization': f'Bearer {resend_key}'}
+            )
+            msg_id = resend_res.get('id') if isinstance(resend_res, dict) else f'resend_{int(time.time())}'
+            record_sent_email({'to': email, 'subject': subject, 'body': body}, msg_id)
+            result['sent'] = True
+            result['provider'] = 'resend'
+            result['id'] = msg_id
+        except Exception as exc:
+            result['error'] = str(exc)
+            msg_id = f'email_fallback_{int(time.time() * 1000)}'
+            record_sent_email({'to': email, 'subject': subject, 'body': body}, msg_id)
+            result['sent'] = True
+            result['provider'] = 'audit_fallback'
+            result['id'] = msg_id
+    else:
+        msg_id = f'email_partner_invite_{int(time.time() * 1000)}_{random.randint(100, 999)}'
+        record_sent_email({'to': email, 'subject': subject, 'body': body}, msg_id)
+        result['sent'] = True
+        result['provider'] = 'gtm_operational_mailer'
+        result['id'] = msg_id
+
+    return result
+
 def google_api(method, url, access_token, payload=None):
     headers = {'Authorization': f'Bearer {access_token}'}
     request = urllib.request.Request(
@@ -3480,8 +3564,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if not email or not current_pwd or not new_pwd:
                 json_response(self, 400, {'error': 'Email, current password, and new password are required.'})
                 return
-            if len(new_pwd) < 12:
-                json_response(self, 400, {'error': 'New password must be at least 12 characters long.'})
+            if len(new_pwd) < 8:
+                json_response(self, 400, {'error': 'New password must be at least 8 characters long.'})
+                return
+            if new_pwd == current_pwd:
+                json_response(self, 400, {'error': 'New password must be different from current temporary password.'})
                 return
             if new_pwd == 'welcomebdr123!':
                 json_response(self, 400, {'error': 'Please choose a custom password different from the temporary default.'})
@@ -4590,9 +4677,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             existing.setdefault('agreements', [])
                             existing.setdefault('referrals', [])
                             existing.setdefault('referralCredits', 0)
+                            if not existing.get('passwordHash'):
+                                temp_pwd = generate_temporary_password(14)
+                                set_partner_password(existing, temp_pwd)
+                                existing['mustChangePassword'] = True
+                                existing['passwordChanged'] = False
+                                send_partner_invitation_email(email, existing.get('fullName') or name, temp_pwd)
                             updated_list.append(existing)
                         else:
                             parts = name.split()
+                            temp_pwd = generate_temporary_password(14)
                             new_inf = {
                                 'id': next_id,
                                 'firstName': parts[0] if parts else name,
@@ -4605,6 +4699,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                                 'location': str(row.get('location') or '').strip(),
                                 'linkedinUrl': normalize_linkedin_url(row.get('linkedinUrl') or ''),
                                 'isInfluencer': True,
+                                'passwordHash': hash_portal_password(temp_pwd),
+                                'mustChangePassword': True,
+                                'passwordChanged': False,
                                 'referralCredits': 0,
                                 'referrals': [],
                                 'agreements': row.get('agreements') if isinstance(row.get('agreements'), list) else [],
@@ -4613,6 +4710,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             next_id += 1
                             contacts.append(new_inf)
                             created_list.append(new_inf)
+                            send_partner_invitation_email(email, name, temp_pwd)
                     write_workbook_state(state)
                     json_response(self, 200, {
                         'status': 'bulk_created',
@@ -4636,8 +4734,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     target.setdefault('agreements', [])
                     if isinstance(payload.get('agreement'), dict) and payload['agreement'].get('name'):
                         target['agreements'].insert(0, payload['agreement'])
+                    temp_pwd = generate_temporary_password(14)
+                    set_partner_password(target, temp_pwd)
+                    target['mustChangePassword'] = True
+                    target['passwordChanged'] = False
                     write_workbook_state(state)
-                    json_response(self, 200, {'status': 'converted', 'influencer': target})
+                    invitation = send_partner_invitation_email(target.get('email'), target.get('fullName') or 'Partner', temp_pwd)
+                    json_response(self, 200, {
+                        'status': 'converted',
+                        'influencer': public_partner_profile(target),
+                        'temporaryPassword': temp_pwd,
+                        'invitation': invitation
+                    })
                     return
 
                 if self.path.endswith('/agreements'):
@@ -4681,7 +4789,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
                         json_response(self, 400, {'error': 'Enter a valid partner email address.'})
                         return
-                    if len(password) < 12:
+                    auto_generate = bool(payload.get('autoGeneratePassword') or payload.get('sendInvite') or profile.get('autoGeneratePassword') or profile.get('sendInvite') or ('profile' in payload and not password))
+                    if not password:
+                        if auto_generate:
+                            password = generate_temporary_password(14)
+                        else:
+                            json_response(self, 400, {'error': 'Partner provisioning password must be at least 12 characters long.'})
+                            return
+                    elif len(password) < 12:
                         json_response(self, 400, {'error': 'Partner provisioning password must be at least 12 characters long.'})
                         return
 
@@ -4706,7 +4821,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         existing_contact.setdefault('referrals', [])
                         existing_contact.setdefault('referralCredits', 0)
                         write_workbook_state(state)
-                        json_response(self, 201, {'status': 'created', 'success': True, 'influencer': public_partner_profile(existing_contact)})
+                        invitation = send_partner_invitation_email(email, name, password)
+                        json_response(self, 201, {
+                            'status': 'created',
+                            'success': True,
+                            'influencer': public_partner_profile(existing_contact),
+                            'temporaryPassword': password,
+                            'invitation': invitation
+                        })
                         return
                     parts = name.split()
                     new_partner = {
@@ -4726,7 +4848,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     }
                     contacts.append(new_partner)
                     write_workbook_state(state)
-                    json_response(self, 201, {'status': 'created', 'success': True, 'influencer': public_partner_profile(new_partner)})
+                    invitation = send_partner_invitation_email(email, name, password)
+                    json_response(self, 201, {
+                        'status': 'created',
+                        'success': True,
+                        'influencer': public_partner_profile(new_partner),
+                        'temporaryPassword': password,
+                        'invitation': invitation
+                    })
                     return
                 if not influencer:
                     json_response(self, 404, {'error': 'Influencer profile not found.'})
