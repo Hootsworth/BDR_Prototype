@@ -2526,50 +2526,89 @@ main {
   letter-spacing: .06em;
 }
 
-/* Journal Buttons — Square Flat */
+/* ─── Material Expressive Buttons & Interactive Surfaces ─── */
 .btn {
-  border-radius: 0 !important;
+  border-radius: 9999px !important;
   font-size: 13px;
-  min-height: 36px;
-  padding-inline: 16px;
-  font-weight: 500;
-  transition: all .15s ease;
+  min-height: 38px;
+  padding: 0.45rem 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.btn-primary, .btn-primary:hover {
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
   background: var(--btn-primary-bg) !important;
   color: var(--btn-primary-text) !important;
-  border-color: var(--btn-primary-border) !important;
-  box-shadow: none;
+  border: 1px solid var(--btn-primary-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08) !important;
   font-weight: 600;
-  border-radius: 0 !important;
+  border-radius: 9999px !important;
+}
+
+.btn-primary:hover {
+  background: var(--btn-primary-bg) !important;
+  color: var(--btn-primary-text) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16) !important;
 }
 
 .btn-secondary, .theme-toggle-btn {
-  background: var(--btn-secondary-bg) !important;
-  color: var(--btn-secondary-text) !important;
-  border-color: var(--btn-secondary-border) !important;
-  box-shadow: none;
-  border-radius: 0 !important;
+  background: var(--surface-soft, #f4f4f5) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  border-radius: 9999px !important;
+  font-weight: 500;
 }
 
 .btn-secondary:hover, .theme-toggle-btn:hover {
-  background: var(--surface-soft) !important;
+  background: var(--surface-hover, #e4e4e7) !important;
   border-color: var(--color-border-emphasized) !important;
+  color: var(--color-text-primary) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
 .btn-subtle {
   background: transparent !important;
   color: var(--color-text-secondary) !important;
   border: 1px solid var(--color-border) !important;
+  border-radius: 9999px !important;
   box-shadow: none !important;
-  border-radius: 0 !important;
+  font-weight: 500;
 }
 
 .btn-subtle:hover {
   background: var(--surface-soft) !important;
   color: var(--color-text-primary) !important;
   border-color: var(--color-border-emphasized) !important;
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  min-height: 32px;
+  padding: 0.3rem 0.85rem;
+  font-size: 12px;
+  border-radius: 9999px !important;
+}
+
+.btn-xs {
+  min-height: 26px;
+  padding: 0.2rem 0.65rem;
+  font-size: 11px;
+  border-radius: 9999px !important;
 }
 
 .form-input, .form-select, textarea.form-input, input, select, textarea {
@@ -2578,15 +2617,17 @@ main {
 
 .form-input, .form-select, textarea.form-input {
   min-height: 40px;
-  border-radius: 0 !important;
+  border-radius: 12px !important;
   border: 1px solid var(--color-border);
   background: var(--surface-card);
   color: var(--color-text-primary);
+  padding: 0.55rem 0.95rem;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .form-input:focus, .form-select:focus, textarea.form-input:focus {
-  border-color: var(--color-text-primary);
-  box-shadow: 0 0 0 1px var(--color-text-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
   outline: none;
 }
 
@@ -2861,93 +2902,117 @@ input[type="number"]:focus, .form-input[type="number"]:focus {
 .editorial-filter-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0;
-  border: 1px solid var(--color-border);
+  gap: 0.5rem;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
 }
 
 .editorial-filter-btn {
-  background: var(--surface-card);
+  background: var(--surface-soft);
   color: var(--color-text-secondary);
-  border: none;
-  border-right: 1px solid var(--color-border);
-  border-radius: 0 !important;
-  font-family: var(--font-family-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px !important;
+  font-family: var(--font-family-body);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  padding: 0.4rem 0.95rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .editorial-filter-btn:last-child {
-  border-right: none;
+  border-right: 1px solid var(--color-border);
 }
 
 .editorial-filter-btn:hover {
-  background: var(--surface-soft);
+  background: var(--surface-hover);
   color: var(--color-text-primary);
+  transform: translateY(-1px);
 }
 
 .editorial-filter-btn.active {
-  background: var(--color-text-primary);
-  color: var(--color-background-surface);
-  font-weight: 700;
+  background: var(--color-text-primary) !important;
+  color: var(--color-background-surface) !important;
+  border-color: var(--color-text-primary) !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
 }
 
-/* Search Box Journal Layout */
+/* Material Expressive Pill Search Bar */
 .editorial-search-group {
   display: flex;
-  gap: 0;
-  border: 1px solid var(--color-border-emphasized);
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
   margin-bottom: 1rem;
 }
 
 .editorial-search-input {
   flex: 1;
-  min-height: 42px;
-  border: none !important;
-  border-radius: 0 !important;
-  padding: 0.65rem 1rem;
-  font-family: var(--font-family-mono);
-  font-size: 12.5px;
+  min-height: 44px;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 9999px !important;
+  padding: 0.65rem 1.25rem;
+  font-family: var(--font-family-body);
+  font-size: 13px;
   background: var(--surface-card);
   color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .editorial-search-input:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16) !important;
   outline: none;
 }
 
 .editorial-search-btn {
-  border: none !important;
-  border-left: 1px solid var(--color-border-emphasized) !important;
-  border-radius: 0 !important;
-  background: var(--color-text-primary);
-  color: var(--color-background-surface);
-  font-family: var(--font-family-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0 1.25rem;
-  font-weight: 700;
+  border: 1px solid var(--btn-primary-border) !important;
+  border-radius: 9999px !important;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  font-family: var(--font-family-body);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  padding: 0.65rem 1.25rem;
+  min-height: 44px;
+  font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .editorial-search-btn:hover {
-  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  opacity: 0.95;
 }
 
 .editorial-reset-btn {
-  border: none !important;
-  border-left: 1px solid var(--color-border) !important;
-  border-radius: 0 !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 9999px !important;
   background: var(--surface-soft);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-body);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  padding: 0.65rem 1.15rem;
+  min-height: 44px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.editorial-reset-btn:hover {
+  background: var(--surface-hover);
   color: var(--color-text-primary);
-  font-family: var(--font-family-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  transform: translateY(-1px);
+}
   padding: 0 1rem;
   cursor: pointer;
 }
