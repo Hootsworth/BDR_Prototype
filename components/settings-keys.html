@@ -82,6 +82,10 @@
           <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
           <span>Alerts &amp; Scheduling</span>
         </button>
+        <button class="subtab-btn" id="set-nav-btn-telemetry" onclick="switchSettingsNav('telemetry')">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          <span>Live Dispatch Feed &amp; Telemetry</span>
+        </button>
         <button class="subtab-btn" id="set-nav-btn-developer" onclick="switchSettingsNav('developer')">
           <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"></path></svg>
           <span>Developer</span>
@@ -427,10 +431,24 @@
         </div>
       </div>
 
+      <!-- SECTION: LIVE DISPATCH FEED & SYSTEM TELEMETRY -->
+      <div class="card set-panel-view" id="set-panel-view-telemetry" style="display: none; margin: 0;">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Live Dispatch Feed &amp; System Telemetry</span>
+          <span class="badge badge-success" style="font-size: 11px;">Operational Wire</span>
+        </div>
+        <p style="color: var(--color-text-secondary); font-size: 13px; margin: 4px 0 1rem 0;">
+          Real-time execution activity, autonomous dispatch logs, and system telemetry events.
+        </p>
+        <div class="editorial-activity-feed dashboard-activity-feed" id="dashboard-activity-feed">
+          <div class="feed-empty-state" style="padding: 1.5rem; text-align: center; color: var(--color-text-secondary); font-size: 13px;">No execution logs registered yet. Initialize campaigns to view progress.</div>
+        </div>
+      </div>
+
       <div class="card set-panel-view" id="set-panel-view-developer" style="display: none; margin: 0;">
         <div class="section-title">Developer activity</div>
         <p style="color:var(--color-text-secondary); font-size:13px; margin-top:0;">Runtime and integration activity for troubleshooting.</p>
-        <div class="dashboard-activity-feed" id="dashboard-activity-feed">
+        <div class="dashboard-activity-feed" id="developer-activity-feed">
           <div class="feed-empty-state">No execution logs registered yet. Initialize campaigns to view progress.</div>
         </div>
       </div>

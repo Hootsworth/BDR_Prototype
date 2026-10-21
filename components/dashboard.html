@@ -1,94 +1,54 @@
-<!-- ═══ EDITORIAL JOURNAL MASTHEAD & DISPATCH CONTROL STRIP ═══ -->
-<div class="editorial-masthead-card">
-  <div class="editorial-dateline-bar">
-    <div class="editorial-dateline-title">
-      <span class="kicker-box">DISPATCH</span>
-      <span>CONNECTEM INTELLIGENCE &amp; GTM COMMAND CHRONICLE</span>
-    </div>
-    <div style="display: flex; gap: 12px; align-items: center;">
-      <span>VOL. 04 — NO. 18</span>
-      <span>·</span>
-      <span>EDITION: ENTERPRISE ORCHESTRATION</span>
-      <span>·</span>
-      <span>REAL-TIME LEDGER</span>
-    </div>
-  </div>
-
-  <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+<!-- ═══ MINIMAL HEADER & QUICK ACTIONS ═══ -->
+<div class="editorial-masthead-card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
     <div>
-      <h2 style="margin: 0; font-family: var(--font-family-heading); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--color-text-primary);">
-        Executive Relationship Ledger &amp; Outbound Dispatch
+      <h2 style="margin: 0; font-family: var(--font-family-heading); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text-primary);">
+        Contacts &amp; Relationship Directory
       </h2>
-      <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--color-text-secondary); max-width: 680px;">
-        Monitor qualified warm paths, manage trusted influencer advocates, execute double-opt-in introductions, and track scheduled executive briefings.
+      <p style="margin: 3px 0 0 0; font-size: 13px; color: var(--color-text-secondary);">
+        Search accounts, inspect warm introductions, and track verified influencer attribution.
       </p>
     </div>
 
-    <div class="editorial-actions-bar">
-      <button class="btn btn-secondary btn-sm" onclick="switchTab('campaign-outbound')" style="display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        Outbound
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="openRelationshipGraphModal()" style="display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><rect x="3" y="3" width="6" height="6"></rect><rect x="15" y="3" width="6" height="6"></rect><rect x="9" y="15" width="6" height="6"></rect><line x1="6" y1="9" x2="12" y2="15"></line><line x1="18" y1="9" x2="12" y2="15"></line></svg>
-        Graph Map
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="openBulkAddInfluencerModal()" style="display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        + Partner
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><rect x="3" y="11" width="18" height="10"></rect><circle cx="12" cy="5" r="2"></circle><line x1="12" y1="7" x2="12" y2="11"></line></svg>
-        Copilot
-      </button>
-      <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')" style="display: inline-flex; align-items: center; gap: 6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><path d="M21 15v4H5v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        Import CSV
-      </button>
+    <div class="editorial-actions-bar" style="display: flex; gap: 8px;">
+      <button class="btn btn-secondary btn-sm" onclick="openBulkAddInfluencerModal()">+ Add Partner</button>
+      <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')">Import CSV</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ CONTIGUOUS FLAT SQUARE KPI GRID (FINANCIAL PRESS STYLE) ═══ -->
-<div class="editorial-kpi-grid" style="margin-bottom: 1.5rem;">
+<!-- ═══ CONTIGUOUS FLAT SQUARE KPI GRID ═══ -->
+<div class="editorial-kpi-grid" style="margin-bottom: 1.25rem;">
   <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">§ 01 // PARTNER ADVOCATES</div>
+    <div class="editorial-kpi-tag">PARTNER ADVOCATES</div>
     <div class="editorial-kpi-numeral" id="dashboard-total-contacts">0</div>
-    <div class="editorial-kpi-caption">Verified Influencer Connectors</div>
+    <div class="editorial-kpi-caption">Verified Connectors</div>
   </div>
 
   <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">§ 02 // ENTERPRISE PROSPECTS</div>
+    <div class="editorial-kpi-tag">PROSPECTS</div>
     <div class="editorial-kpi-numeral" id="dashboard-prospects-count">0</div>
-    <div class="editorial-kpi-caption" id="dashboard-affiliated-count">(0 Affiliated to Partners)</div>
+    <div class="editorial-kpi-caption" id="dashboard-affiliated-count">(0 Affiliated)</div>
   </div>
 
   <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">§ 03 // OUTBOUND DISPATCHED</div>
+    <div class="editorial-kpi-tag">OUTBOUND SENT</div>
     <div class="editorial-kpi-numeral" id="dashboard-outbound-sent">0</div>
-    <div class="editorial-kpi-caption">100% Sequence Delivery Rate</div>
+    <div class="editorial-kpi-caption">Delivered</div>
   </div>
 
   <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">§ 04 // SCHEDULED BRIEFINGS</div>
+    <div class="editorial-kpi-tag">SCHEDULED BRIEFINGS</div>
     <div class="editorial-kpi-numeral" id="dashboard-meetings-booked">0</div>
-    <div class="editorial-kpi-caption" id="dashboard-meetings-subtext">Confirmed Demos on Calendar</div>
+    <div class="editorial-kpi-caption" id="dashboard-meetings-subtext">demos</div>
   </div>
 </div>
 
-<!-- ═══ SECTION 01: RELATIONAL & GRAPH DATABASE DIRECTORY (SEARCH / HOME) ═══ -->
+<!-- ═══ RELATIONAL & GRAPH DATABASE DIRECTORY ═══ -->
 <div class="editorial-ledger-card" id="dashboard-nl-search-card">
-  <div class="editorial-section-lead">
+  <div class="editorial-section-lead" style="margin-bottom: 1rem;">
     <div>
-      <div class="editorial-section-kicker">
-        <span>§ 01.0</span>
-        <span>·</span>
-        <span>RELATIONAL DIRECTORY &amp; DISPATCH GRAPH</span>
-      </div>
-      <h3 class="editorial-section-title">Contacts Directory &amp; Plain-English Query System</h3>
-      <p class="editorial-section-desc">
-        Explore imported accounts, review warm relationship ties, convert contacts into influencer partners, and query referral attribution using natural language.
-      </p>
+      <h3 class="editorial-section-title" style="margin: 0; font-size: 1.05rem;">Search &amp; Query System</h3>
     </div>
 
     <!-- Category Filter Tabs -->
@@ -107,7 +67,7 @@
       type="text"
       id="dashboard-nl-search-input"
       class="editorial-search-input"
-      placeholder='QUERY DATABASE IN PLAIN ENGLISH (E.G. "Find me all the contact referrals of Kim Beluzo that have taken a call")...'
+      placeholder="Search contacts, companies, partners, or ask in plain English..."
       value=""
       onkeydown="if(event.key==='Enter') executeDashboardDatabaseSearch()"
     />
@@ -116,26 +76,6 @@
     </button>
     <button type="button" class="editorial-reset-btn" onclick="clearDashboardDatabaseSearch()">
       Reset
-    </button>
-  </div>
-
-  <!-- Preset Query Footnotes -->
-  <div class="editorial-quick-queries">
-    <span style="font-weight: 700; color: var(--color-text-primary); text-transform: uppercase;">Index Shortcuts:</span>
-    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo that have taken a call')">
-      [ ↗ Kim Beluzo Calls Taken ]
-    </button>
-    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo')">
-      [ ↗ All Kim Beluzo Referrals ]
-    </button>
-    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Bob Miller that have taken a call')">
-      [ ↗ Bob Miller Calls ]
-    </button>
-    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('All influencers')">
-      [ ↗ All Influencers ]
-    </button>
-    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Contacts from events')">
-      [ ↗ Event Attendees ]
     </button>
   </div>
 
@@ -164,64 +104,6 @@
         </thead>
         <tbody id="dashboard-nl-search-tbody"></tbody>
       </table>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ SECTION 02: EDITORIAL SPLIT LAYOUT (COPILOT MEMO & DISPATCH WIRE) ═══ -->
-<div class="editorial-split-layout">
-  <!-- Column 1: BDR Research Copilot Memo -->
-  <div class="editorial-column-card">
-    <div class="editorial-card-kicker">§ 02.0 // AUTONOMOUS DISPATCH</div>
-    <h4 class="editorial-card-headline">BDR Agent Copilot &amp; Enrichment Monitor</h4>
-
-    <div style="display: flex; align-items: center; gap: 0.875rem; margin-bottom: 1.25rem;">
-      <div style="width: 36px; height: 36px; border: 1px solid var(--color-border-emphasized); background: var(--color-text-primary); color: var(--color-background-surface); display: flex; align-items: center; justify-content: center; font-family: var(--font-family-heading); font-weight: 900; font-size: 16px;">
-        AI
-      </div>
-      <div>
-        <div style="font-weight: 700; font-size: 13.5px; color: var(--color-text-primary);">GTM Intelligence Copilot</div>
-        <div id="dashboard-agent-status-text" style="font-size: 12px; color: var(--color-text-secondary); margin-top: 1px;">
-          Active. Upload a CSV to deploy research pipelines.
-        </div>
-      </div>
-    </div>
-
-    <!-- Square Progress Box -->
-    <div class="editorial-progress-box">
-      <div class="editorial-progress-header">
-        <span>Enrichment Coverage Ledger</span>
-        <span id="dashboard-pipeline-pct">0%</span>
-      </div>
-      <div class="editorial-progress-track">
-        <div class="editorial-progress-fill" id="dashboard-pipeline-fill" style="width: 0%;"></div>
-      </div>
-    </div>
-
-    <!-- Square Stat Blocks -->
-    <div class="editorial-stat-triad">
-      <div class="editorial-stat-block">
-        <div class="editorial-stat-numeral" id="dashboard-hot-leads-count">0</div>
-        <div class="editorial-stat-label">Hot Leads</div>
-      </div>
-      <div class="editorial-stat-block">
-        <div class="editorial-stat-numeral" id="dashboard-open-briefs-count">0</div>
-        <div class="editorial-stat-label">Calls Taken</div>
-      </div>
-      <div class="editorial-stat-block">
-        <div class="editorial-stat-numeral" id="dashboard-api-status-chip" style="font-size: 12px; line-height: 1.5; font-weight: 700;">Verified</div>
-        <div class="editorial-stat-label">Explorium Sync</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Column 2: Chronological Dispatch Wire -->
-  <div class="editorial-column-card">
-    <div class="editorial-card-kicker">§ 03.0 // OPERATIONAL WIRE</div>
-    <h4 class="editorial-card-headline">Live Dispatch Feed &amp; System Telemetry</h4>
-
-    <div id="dashboard-activity-feed" class="editorial-activity-feed">
-      <!-- Populated dynamically by renderDashboardActivityFeed() -->
     </div>
   </div>
 </div>

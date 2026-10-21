@@ -740,7 +740,7 @@ function switchSettingsNav(panelId) {
     activePanel.classList.add("active");
   }
 
-  if (panelId === "developer" && typeof renderDashboardActivityFeed === "function") renderDashboardActivityFeed();
+  if ((panelId === "telemetry" || panelId === "developer") && typeof renderDashboardActivityFeed === "function") renderDashboardActivityFeed();
 
   if (panelId === 'account') {
     const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "GTM Operator";

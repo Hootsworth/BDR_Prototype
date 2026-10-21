@@ -149,7 +149,7 @@ function addLogConsole(consoleId, lineText, type = "system") {
     database.recentActivities.pop();
   }
   if (window.currentTabId === 'dashboard' && typeof renderDashboard === "function") renderDashboard();
-  else if (document.getElementById("set-panel-view-developer")?.classList.contains("active") && typeof renderDashboardActivityFeed === "function") renderDashboardActivityFeed();
+  else if ((document.getElementById("set-panel-view-telemetry")?.classList.contains("active") || document.getElementById("set-panel-view-developer")?.classList.contains("active")) && typeof renderDashboardActivityFeed === "function") renderDashboardActivityFeed();
 }
 window.addLogConsole = addLogConsole;
 
