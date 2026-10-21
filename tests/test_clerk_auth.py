@@ -40,6 +40,14 @@ class ClerkTokenVerificationTests(unittest.TestCase):
         ):
             self.assertEqual(firebase_backend.verify_admin_token("token"), user)
 
+    def test_builtin_admin_accounts_are_always_authorized(self):
+        for admin_email in ("nextbdr@gmail.com", "adityapdixit6626@gmail.com"):
+            user = {"sub": f"user_{admin_email}", "email": admin_email, "email_verified": True}
+            with patch.dict(os.environ, {}, clear=True), patch.object(
+                firebase_backend, "verify_clerk_token", return_value=user
+            ):
+                self.assertEqual(firebase_backend.verify_admin_token("token"), user)
+
 
 if __name__ == "__main__":
     unittest.main()
