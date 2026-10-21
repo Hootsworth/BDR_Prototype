@@ -1427,6 +1427,7 @@ def clerk_user_for_claims(claims):
 
 def hosted_api_request_allowed(handler, method, path):
     """Default-deny hosted API access; only participant-token flows are public."""
+    path = (path or '').rstrip('/') or '/'
     if str(os.environ.get('HOSTED_API_ONLY') or '').lower() != 'true' or not path.startswith('/api/'):
         return True
 
@@ -2545,8 +2546,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
         clean_path = parsed_url.path
+        norm_path = clean_path.rstrip('/') or '/'
 
-        if clean_path == '/app-config.js':
+        if clean_path == '/app-config.js' or norm_path == '/app-config.js':
             publishable_key = str(os.environ.get('CLERK_PUBLISHABLE_KEY') or '').strip()
             body = ('window.__APP_CONFIG__ = ' + json.dumps({'clerkPublishableKey': publishable_key}) + ';').encode('utf-8')
             self.send_response(200)
@@ -2678,7 +2680,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        if clean_path == '/api/db/state':
+        if clean_path == '/api/db/state' or norm_path == '/api/db/state':
             if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database state is available only from the local console.'})
                 return
@@ -2689,7 +2691,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Database read failed: {ex}'})
             return
 
-        if clean_path == '/api/workbook/state':
+        if clean_path == '/api/workbook/state' or norm_path == '/api/workbook/state':
             if str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true' and not firestore_enabled():
                 json_response(self, 503, {'error': 'Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true and configure the Vercel workload identity connection.'})
                 return
@@ -2705,11 +2707,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not read the database: {ex}'})
             return
 
-        if clean_path == '/api/state' and os.environ.get('VERCEL'):
+        if (clean_path == '/api/state' or norm_path == '/api/state') and os.environ.get('VERCEL'):
             json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
             return
 
-        if clean_path == '/api/workbook/state' and os.environ.get('VERCEL'):
+        if (clean_path == '/api/workbook/state' or norm_path == '/api/workbook/state') and os.environ.get('VERCEL'):
             json_response(self, 503, {'error': 'Durable database storage is unavailable in the current serverless deployment.'})
             return
 
@@ -3150,7 +3152,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': str(ex)})
             return
 
-        if self.path == '/api/google/oauth/start':
+        if norm_path == '/api/google/oauth/start' or clean_path == '/api/google/oauth/start' or self.path == '/api/google/oauth/start':
             client_id = os.environ.get('GOOGLE_CLIENT_ID')
             redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:8001/api/google/oauth/callback')
             if not client_id:
@@ -3168,7 +3170,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        if self.path.startswith('/api/google/oauth/callback'):
+        if norm_path.startswith('/api/google/oauth/callback') or clean_path.startswith('/api/google/oauth/callback') or self.path.startswith('/api/google/oauth/callback'):
             query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             state = query.get('state', [''])[0]
             code = query.get('code', [''])[0]
@@ -3204,12 +3206,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 502, {'error': f'Google OAuth exchange failed: {ex}'})
             return
 
-        if self.path == '/api/google/status':
+        if norm_path == '/api/google/status' or clean_path == '/api/google/status' or self.path == '/api/google/status':
             session = self._google_session()
             json_response(self, 200, {'connected': bool(session), 'email': session.get('email') if session else None})
             return
 
-        if self.path == '/api/google/verify':
+        if norm_path == '/api/google/verify' or clean_path == '/api/google/verify' or self.path == '/api/google/verify':
             session = self._google_session()
             if not session:
                 json_response(self, 401, {'error': 'Connect a Google Workspace account first.'})
@@ -3222,7 +3224,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, ex.code, {'error': ex.read().decode('utf-8', errors='replace')})
             return
 
-        if self.path == '/api/google/disconnect':
+        if norm_path == '/api/google/disconnect' or clean_path == '/api/google/disconnect' or self.path == '/api/google/disconnect':
             session_id = self._session_id()
             google_sessions.pop(session_id or '', None)
             with db() as connection:
@@ -3233,7 +3235,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        if self.path == '/api/state':
+        if norm_path == '/api/state' or clean_path == '/api/state' or self.path == '/api/state':
             if not is_irm_admin_request(self):
                 status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
                 json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
@@ -3241,7 +3243,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'state': read_state('database') or {}})
             return
 
-        if self.path == '/api/workbook/state':
+        if norm_path == '/api/workbook/state' or clean_path == '/api/workbook/state' or self.path == '/api/workbook/state':
             if not is_irm_admin_request(self):
                 status = 503 if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' and not os.environ.get('CLERK_ISSUER') else 403
                 json_response(self, status, {'error': 'Valid IRM administrator authentication is required.'})
@@ -3252,7 +3254,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not read the database: {ex}'})
             return
 
-        if self.path == '/api/system/update-check':
+        if norm_path == '/api/system/update-check' or clean_path == '/api/system/update-check' or self.path == '/api/system/update-check':
             json_response(self, 200, check_for_updates())
             return
 
@@ -3275,10 +3277,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         clean_path = urllib.parse.urlsplit(self.path).path
-        if not hosted_api_request_allowed(self, 'POST', clean_path):
+        norm_path = clean_path.rstrip('/') or '/'
+        if not hosted_api_request_allowed(self, 'POST', norm_path):
             return
 
-        if self.path == '/api/system/update':
+        if norm_path == '/api/system/update' or clean_path == '/api/system/update' or self.path == '/api/system/update':
             if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Updates are available to the local app owner only.'})
                 return
@@ -3292,7 +3295,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'System update failed: {ex}'})
             return
 
-        if self.path == '/api/partner-shares/create':
+        if norm_path == '/api/partner-shares/create' or clean_path == '/api/partner-shares/create' or self.path == '/api/partner-shares/create':
             if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
                 return
@@ -3323,7 +3326,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not create partner link: {ex}'})
             return
 
-        if self.path == '/api/partner-shares/revoke':
+        if norm_path == '/api/partner-shares/revoke' or clean_path == '/api/partner-shares/revoke' or self.path == '/api/partner-shares/revoke':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
@@ -3336,7 +3339,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'status': 'revoked'})
             return
 
-        if self.path == '/api/partner-shares/revoke-influencer':
+        if norm_path == '/api/partner-shares/revoke-influencer' or clean_path == '/api/partner-shares/revoke-influencer' or self.path == '/api/partner-shares/revoke-influencer':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
@@ -3348,7 +3351,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 400, {'error': 'A valid influencer ID is required.'})
             return
 
-        if clean_path == '/api/partner-share/referrals':
+        if norm_path == '/api/partner-share/referrals' or clean_path == '/api/partner-share/referrals' or self.path == '/api/partner-share/referrals':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             if not share or share['revoked_at']:
@@ -3942,7 +3945,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not submit reward request: {ex}'})
             return
 
-        if self.path == '/api/marketplace/vendors/signup':
+        if norm_path == '/api/marketplace/vendors/signup' or clean_path == '/api/marketplace/vendors/signup' or self.path == '/api/marketplace/vendors/signup':
             if os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Vendor Marketplace signup requires persistent storage.'})
                 return
@@ -4005,7 +4008,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Vendor signup failed: {ex}'})
             return
 
-        if self.path == '/api/marketplace/vendors/login':
+        if norm_path == '/api/marketplace/vendors/login' or clean_path == '/api/marketplace/vendors/login' or self.path == '/api/marketplace/vendors/login':
             try:
                 state = read_workbook_state()
                 vendors = state.get('vendors') or []
@@ -4031,7 +4034,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Vendor login failed: {ex}'})
             return
 
-        if self.path == '/api/marketplace/vendor/agreement':
+        if norm_path == '/api/marketplace/vendor/agreement' or clean_path == '/api/marketplace/vendor/agreement' or self.path == '/api/marketplace/vendor/agreement':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             try:
                 state = read_workbook_state()
@@ -4070,7 +4073,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not execute vendor agreement: {ex}'})
             return
 
-        if self.path == '/api/marketplace/requests':
+        if norm_path == '/api/marketplace/requests' or clean_path == '/api/marketplace/requests' or self.path == '/api/marketplace/requests':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             try:
                 state = read_workbook_state()
@@ -4189,7 +4192,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not create introduction request: {ex}'})
             return
 
-        if self.path == '/api/connectem/opt-in/respond':
+        if norm_path == '/api/connectem/opt-in/respond' or clean_path == '/api/connectem/opt-in/respond' or self.path == '/api/connectem/opt-in/respond':
             token = str(payload.get('token') or '').strip()
             decision = str(payload.get('response') or 'accept').strip().lower()
             notes = str(payload.get('notes') or '').strip()
@@ -4234,7 +4237,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 200, {'status': 'success', 'decision': 'declined'})
                 return
 
-        if self.path == '/api/connectem/requests/review':
+        if norm_path == '/api/connectem/requests/review' or clean_path == '/api/connectem/requests/review' or self.path == '/api/connectem/requests/review':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             state = read_workbook_state()
@@ -4297,7 +4300,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 200, {'status': 'updated', 'decision': 'not_now', 'request': req})
                 return
 
-        if self.path == '/api/connectem/feedback':
+        if norm_path == '/api/connectem/feedback' or clean_path == '/api/connectem/feedback' or self.path == '/api/connectem/feedback':
             req_id = str(payload.get('requestId') or '').strip()
             role = str(payload.get('role') or 'vendor').strip().lower()
             state = read_workbook_state()
@@ -4334,7 +4337,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'status': 'recorded', 'request': req})
             return
 
-        if self.path == '/api/connectem/ai-match':
+        if norm_path == '/api/connectem/ai-match' or clean_path == '/api/connectem/ai-match' or self.path == '/api/connectem/ai-match':
             query = str(payload.get('query') or '').strip().lower()
             state = read_workbook_state()
             contacts = state.get('contacts') or []
@@ -4382,7 +4385,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             })
             return
 
-        if self.path == '/api/connectem/account-match':
+        if norm_path == '/api/connectem/account-match' or clean_path == '/api/connectem/account-match' or self.path == '/api/connectem/account-match':
             account_names = payload.get('accounts') or []
             if isinstance(account_names, str):
                 account_names = [line.strip() for line in account_names.splitlines() if line.strip()]
@@ -4434,7 +4437,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             })
             return
 
-        if self.path == '/api/connectem/partner/profile':
+        if norm_path == '/api/connectem/partner/profile' or clean_path == '/api/connectem/partner/profile' or self.path == '/api/connectem/partner/profile':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             state = read_workbook_state()
@@ -4456,7 +4459,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'status': 'updated', 'partner': partner})
             return
 
-        if self.path == '/api/irm/vendors/manage':
+        if norm_path == '/api/irm/vendors/manage' or clean_path == '/api/irm/vendors/manage' or self.path == '/api/irm/vendors/manage':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM Console administrator can manage vendors.'})
                 return
@@ -4488,7 +4491,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Vendor management failed: {ex}'})
             return
 
-        if self.path == '/api/irm/influencers/manage':
+        if norm_path == '/api/irm/influencers/manage' or clean_path == '/api/irm/influencers/manage' or self.path == '/api/irm/influencers/manage':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM administrator can manage influencer eligibility.'})
                 return
@@ -4510,7 +4513,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'status': influencer['influencerStatus'], 'influencerId': influencer.get('id')})
             return
 
-        if self.path == '/api/irm/requests/manage':
+        if norm_path == '/api/irm/requests/manage' or clean_path == '/api/irm/requests/manage' or self.path == '/api/irm/requests/manage':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM Console administrator can manage marketplace requests.'})
                 return
@@ -4602,7 +4605,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Marketplace request update failed: {ex}'})
             return
 
-        if self.path == '/api/irm/rewards/redemptions/manage':
+        if norm_path == '/api/irm/rewards/redemptions/manage' or clean_path == '/api/irm/rewards/redemptions/manage' or self.path == '/api/irm/rewards/redemptions/manage':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM administrator can manage reward redemptions.'})
                 return
@@ -4997,7 +5000,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Contact operation failed: {ex}'})
             return
 
-        if self.path == '/api/db/search':
+        if norm_path == '/api/db/search' or clean_path == '/api/db/search' or self.path == '/api/db/search':
             if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database search is available only from the local console.'})
                 return
@@ -5010,7 +5013,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Database search failed: {ex}'})
             return
 
-        if self.path == '/api/db/seed':
+        if norm_path == '/api/db/seed' or clean_path == '/api/db/seed' or self.path == '/api/db/seed':
             if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database seeding is available only from the local console.'})
                 return
@@ -5027,7 +5030,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Synthetic seed failed: {ex}'})
             return
 
-        if self.path == '/api/portal/referrals':
+        if norm_path == '/api/portal/referrals' or clean_path == '/api/portal/referrals' or self.path == '/api/portal/referrals':
             if os.environ.get('VERCEL') or not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Use the local console to manage contacts, or a scoped partner link to submit referrals.'})
                 return
@@ -5177,20 +5180,20 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 401, {'error': 'Connect a Google Workspace account first.'})
                 return
             try:
-                if self.path == '/api/google/gmail/draft':
+                if norm_path == '/api/google/gmail/draft' or clean_path == '/api/google/gmail/draft' or self.path == '/api/google/gmail/draft':
                     result = gmail_request(session, 'drafts', payload, send=False)
-                elif self.path == '/api/google/gmail/send':
+                elif norm_path == '/api/google/gmail/send' or clean_path == '/api/google/gmail/send' or self.path == '/api/google/gmail/send':
                     guardrail_error = check_send_guardrails(payload)
                     if guardrail_error:
                         json_response(self, 409, {'error': guardrail_error})
                         return
                     result = gmail_request(session, 'messages/send', payload, send=True)
                     record_sent_email(payload, result.get('id'))
-                elif self.path == '/api/google/calendar/freebusy':
+                elif norm_path == '/api/google/calendar/freebusy' or clean_path == '/api/google/calendar/freebusy' or self.path == '/api/google/calendar/freebusy':
                     result = google_api('POST', 'https://www.googleapis.com/calendar/v3/freeBusy', session['access_token'], payload)[1]
-                elif self.path == '/api/google/calendar/events':
+                elif norm_path == '/api/google/calendar/events' or clean_path == '/api/google/calendar/events' or self.path == '/api/google/calendar/events':
                     result = google_api('POST', 'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1', session['access_token'], payload)[1]
-                elif self.path == '/api/google/gmail/replies':
+                elif norm_path == '/api/google/gmail/replies' or clean_path == '/api/google/gmail/replies' or self.path == '/api/google/gmail/replies':
                     result = gmail_replies(session, payload)
                 else:
                     json_response(self, 404, {'error': 'Unknown Google API route.'})
@@ -5203,7 +5206,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 502, {'error': f'Google API request failed: {ex}'})
             return
 
-        if self.path == '/api/linkedin/verify':
+        if norm_path == '/api/linkedin/verify' or clean_path == '/api/linkedin/verify' or self.path == '/api/linkedin/verify':
             access_token = str(payload.get('accessToken') or '').strip()
             if not access_token:
                 json_response(self, 400, {'error': 'A LinkedIn OAuth access token is required.'})
@@ -5230,7 +5233,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 502, {'error': f'LinkedIn connection failed: {ex}'})
             return
 
-        if self.path == '/api/linkedin/send':
+        if norm_path == '/api/linkedin/send' or clean_path == '/api/linkedin/send' or self.path == '/api/linkedin/send':
             recipient_name = str(payload.get('recipientName') or payload.get('toName') or 'Contact').strip()
             recipient_email = str(payload.get('recipientEmail') or payload.get('toEmail') or '').strip()
             linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
@@ -5278,7 +5281,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             })
             return
 
-        if self.path == '/api/state':
+        if norm_path == '/api/state' or clean_path == '/api/state' or self.path == '/api/state':
             if os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Durable state storage is unavailable in the current serverless deployment.'})
                 return
@@ -5291,11 +5294,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             json_response(self, 200, {'status': 'saved'})
             return
 
-        if self.path == '/api/workbook/state' or self.path == '/api/db/state':
-            if self.path == '/api/db/state' and os.environ.get('VERCEL'):
+        if norm_path in ('/api/workbook/state', '/api/db/state') or clean_path in ('/api/workbook/state', '/api/db/state') or self.path in ('/api/workbook/state', '/api/db/state'):
+            if (norm_path == '/api/db/state' or clean_path == '/api/db/state' or self.path == '/api/db/state') and os.environ.get('VERCEL'):
                 json_response(self, 503, {'error': 'Durable database storage is unavailable in the current serverless deployment.'})
                 return
-            if self.path == '/api/workbook/state' and str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true' and not firestore_enabled():
+            if (norm_path == '/api/workbook/state' or clean_path == '/api/workbook/state' or self.path == '/api/workbook/state') and str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true' and not firestore_enabled():
                 json_response(self, 503, {'error': 'Cloud persistence is disabled. Set FIREBASE_USE_FIRESTORE=true and configure the Vercel workload identity connection.'})
                 return
             if not is_irm_admin_request(self):
@@ -5322,7 +5325,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # AI enrichment stays server-side so provider credentials never reach the browser.
-        if self.path == '/api/ai/enrich':
+        if norm_path == '/api/ai/enrich' or clean_path == '/api/ai/enrich' or self.path == '/api/ai/enrich':
             api_key = os.environ.get('OPENAI_API_KEY')
             if not api_key:
                 json_response(self, 503, {'error': 'OPENAI_API_KEY is not configured on the server.'})
@@ -5357,7 +5360,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # Transactional outbound over HTTPS; supports live Resend API or Investor Demo dispatch.
-        if self.path == '/api/email/send':
+        if norm_path == '/api/email/send' or clean_path == '/api/email/send' or self.path == '/api/email/send':
             api_key = os.environ.get('RESEND_API_KEY')
             sender = os.environ.get('RESEND_FROM_EMAIL', 'gtm-agent@gtmconsole.io')
             recipient = payload.get('to')
@@ -5393,11 +5396,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         # Lemlist live sending is intentionally unavailable until a real provider
         # connection and server-side credential handling are implemented.
-        if self.path == '/api/lemlist/send-test':
+        if norm_path == '/api/lemlist/send-test' or clean_path == '/api/lemlist/send-test' or self.path == '/api/lemlist/send-test':
             json_response(self, 501, {'error': 'Lemlist live sending is not configured in this build.'})
+            return
 
         # Intercept and proxy requests destined for Explorium API
-        elif self.path.startswith('/api/proxy/'):
+        elif norm_path.startswith('/api/proxy/') or self.path.startswith('/api/proxy/'):
             target_path = self.path[len('/api/proxy/'):]
             target_url = f"https://api.explorium.ai/{target_path}"
             

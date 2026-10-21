@@ -1,3 +1,5 @@
+import io
+import json
 import os
 import tempfile
 import unittest
@@ -275,6 +277,48 @@ class WorkbookPersistenceTests(unittest.TestCase):
             self.assertIsNotNone(share)
             self.assertIsNone(share["revoked_at"])
             self.assertEqual(share["influencer_id"], 10)
+
+    def test_post_workbook_state_matches_with_query_params_and_trailing_slash(self):
+        class Harness(server.ProxyHTTPRequestHandler):
+            def __init__(self, request_path, request_method, request_body, request_headers):
+                self.path = request_path
+                self.command = request_method
+                self.rfile = io.BytesIO(request_body)
+                self.wfile = io.BytesIO()
+                self.headers = request_headers
+                self.client_address = ("127.0.0.1", 12345)
+                self.server = type("ServerStub", (), {"server_name": "localhost", "server_port": 8001})()
+                self.responses = []
+
+            def send_response(self, status, message=None):
+                self.responses.append(status)
+
+            def send_header(self, key, value):
+                pass
+
+            def end_headers(self):
+                pass
+
+            def log_message(self, *_args):
+                pass
+
+        body = json.dumps({"state": {"contacts": []}}).encode("utf-8")
+        headers = {"Content-Type": "application/json", "Content-Length": str(len(body)), "Host": "localhost:8001"}
+
+        for test_path in ("/api/workbook/state?t=12345", "/api/workbook/state/"):
+            handler = Harness(test_path, "POST", body, headers)
+            handler.do_POST()
+            response_body = handler.wfile.getvalue()
+            self.assertNotEqual(handler.responses[-1], 404, f"Route {test_path} returned 404: {response_body}")
+            self.assertEqual(handler.responses[-1], 200)
+            data = json.loads(response_body.decode("utf-8"))
+            self.assertEqual(data.get("status"), "saved")
+
+    def test_hosted_api_request_allowed_normalizes_trailing_slash(self):
+        handler_mock = type("HandlerStub", (), {})()
+        with patch.dict(os.environ, {"HOSTED_API_ONLY": "true"}):
+            self.assertTrue(server.hosted_api_request_allowed(handler_mock, "GET", "/api/health/"))
+            self.assertTrue(server.hosted_api_request_allowed(handler_mock, "POST", "/api/partner-portal/login/"))
 
 
 if __name__ == "__main__":

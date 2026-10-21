@@ -31,7 +31,11 @@ async function loadWorkbookFromServer() {
     return false;
   }
 
-  const response = await fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state");
+  const headers = {};
+  const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state", { headers });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
     throw new Error(detail.error || `Server responded with ${response.status}`);
@@ -88,9 +92,12 @@ function saveWorkbookToServer() {
   const run = workbookSaveQueue.then(async () => {
     const snapshot = workbookStateSlice();
     const savedDirtyState = database._dirty;
+    const headers = { "Content-Type": "application/json" };
+    const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+    if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(localPersistenceAvailable() ? "/api/db/state" : "/api/workbook/state", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ state: snapshot })
     });
     if (!response.ok) {
@@ -141,9 +148,12 @@ async function saveWorkbookBeforeUnload() {
 }
 
 async function searchDatabaseContacts(queryText = "", filters = {}) {
+  const headers = { "Content-Type": "application/json" };
+  const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+  if (token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch("/api/db/search", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ query: queryText, filters })
   });
   if (!response.ok) throw new Error(`Search failed (${response.status})`);
@@ -156,10 +166,13 @@ function localPersistenceAvailable() {
 
 async function reseedSyntheticDatabase() {
   let response;
+  const headers = { "Content-Type": "application/json" };
+  const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+  if (token) headers.Authorization = `Bearer ${token}`;
   try {
     response = await fetch("/api/db/seed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ force: true })
     });
   } catch (error) {
