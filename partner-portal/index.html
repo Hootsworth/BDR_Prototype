@@ -37,6 +37,20 @@
           <button id="portal-tab-signin" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Sign in</button>
           <button id="portal-tab-signup" class="workspace-tab-btn" type="button" role="tab" aria-selected="false">Create account</button>
         </div>
+        <form id="portal-login-form" class="portal-login-form">
+          <label>Partner Email
+            <input id="portal-login-email" name="email" type="email" required autocomplete="email" placeholder="partner@company.com">
+          </label>
+          <label>Password
+            <input id="portal-login-password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••">
+          </label>
+          <button id="portal-login-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Sign In to Workspace</button>
+        </form>
+        <div id="portal-sso-separator" class="portal-auth-separator">
+          <hr>
+          <span>or SSO</span>
+          <hr>
+        </div>
         <div id="clerk-auth-mount" aria-label="Sign in with Clerk"><p class="clerk-loading">Loading secure sign in…</p></div>
         <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden><p class="clerk-loading">Loading secure sign up…</p></div>
         <p id="portal-auth-switch-signin" hidden>Already registered? <button id="portal-switch-to-signin" class="btn-text-link" type="button">Sign in</button></p>

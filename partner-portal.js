@@ -25,10 +25,20 @@
   const clerkSignupMount = document.getElementById('clerk-signup-mount');
   const onboardingForm = document.getElementById('portal-onboarding-form');
   const authTabs = document.getElementById('portal-auth-tabs');
+  const portalLoginForm = document.getElementById('portal-login-form');
+  const portalLoginEmail = document.getElementById('portal-login-email');
+  const portalLoginPassword = document.getElementById('portal-login-password');
+  const portalLoginSubmit = document.getElementById('portal-login-submit');
+  const portalSsoSeparator = document.getElementById('portal-sso-separator');
   let clerkListenerAdded = false;
   let selectedAuthMode = 'signin';
 
-  function loadPartnerClerk() {
+  function clearClerkLoading() {
+    clerkMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
+    clerkSignupMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
+  }
+
+  function loadPartnerClerk(timeoutMs = 3500) {
     const key = window.ClerkConfig?.publishableKey || '';
     if (!key || key.includes('placeholder')) return Promise.reject(new Error('Secure sign-in is not configured for this portal.'));
     if (window.Clerk?.user || (window.Clerk && typeof window.Clerk.mountSignIn === 'function')) return Promise.resolve(window.Clerk);
@@ -40,13 +50,35 @@
         if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error('Invalid Clerk frontend domain.');
       } catch (_) { return Promise.reject(new Error('The Clerk publishable key is invalid.')); }
       const add = (url, publishableKey = '') => new Promise((resolve, reject) => {
+        let settled = false;
         const script = document.createElement('script');
         script.src = url; script.async = true; script.crossOrigin = 'anonymous';
         if (publishableKey) script.setAttribute('data-clerk-publishable-key', publishableKey);
-        script.onload = resolve; script.onerror = () => reject(new Error('Could not load secure sign-in.'));
+        const timer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            script.remove();
+            reject(new Error('Clerk asset load timed out.'));
+          }
+        }, timeoutMs);
+        script.onload = () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            resolve();
+          }
+        };
+        script.onerror = () => {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timer);
+            script.remove();
+            reject(new Error('Could not load secure sign-in.'));
+          }
+        };
         document.head.appendChild(script);
       });
-      window.__partnerClerkPromise = (async () => {
+      const loadPromise = (async () => {
         const base = `https://${frontendApi}/npm`;
         await add(`${base}/@clerk/ui@1/dist/ui.browser.js`);
         await add(`${base}/@clerk/clerk-js@6/dist/clerk.browser.js`, key);
@@ -59,6 +91,10 @@
         }
         return window.Clerk;
       })();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Clerk initialization timed out.')), timeoutMs);
+      });
+      window.__partnerClerkPromise = Promise.race([loadPromise, timeoutPromise]);
     }
     return window.__partnerClerkPromise;
   }
@@ -547,16 +583,58 @@
     tabSignup?.setAttribute('aria-selected', String(!isSignin));
     authTabs.hidden = false;
     onboardingForm.hidden = true;
+    if (portalLoginForm) portalLoginForm.hidden = !isSignin;
+    if (portalSsoSeparator) portalSsoSeparator.hidden = !isSignin || !window.Clerk;
     clerkMount.hidden = !isSignin;
     clerkSignupMount.hidden = isSignin;
     signinSwitchline.hidden = isSignin;
     signupSwitchline.hidden = !isSignin;
-    mountClerkAuth(mode);
+    if (window.Clerk) {
+      mountClerkAuth(mode);
+    } else {
+      clearClerkLoading();
+    }
   }
   tabSignin?.addEventListener('click', () => chooseAuthMode('signin'));
   tabSignup?.addEventListener('click', () => chooseAuthMode('signup'));
   document.getElementById('portal-switch-to-signin')?.addEventListener('click', () => chooseAuthMode('signin'));
   document.getElementById('portal-switch-to-signup')?.addEventListener('click', () => chooseAuthMode('signup'));
+
+  portalLoginForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const email = (portalLoginEmail?.value || '').trim();
+    const password = (portalLoginPassword?.value || '').trim();
+    const authError = document.getElementById('portal-auth-error');
+    if (authError) authError.textContent = '';
+    if (!email || !password) {
+      if (authError) authError.textContent = 'Please enter your partner email and password.';
+      return;
+    }
+    if (portalLoginSubmit) {
+      portalLoginSubmit.disabled = true;
+      portalLoginSubmit.textContent = 'Signing in…';
+    }
+    try {
+      const res = await request('/api/partner-portal/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      if (res.token) {
+        token = res.token;
+        sessionStorage.setItem(tokenKey, token);
+        await load();
+      } else {
+        throw new Error(res.error || 'Authentication failed.');
+      }
+    } catch (err) {
+      if (authError) authError.textContent = err.message || 'Login failed. Please verify your credentials.';
+    } finally {
+      if (portalLoginSubmit) {
+        portalLoginSubmit.disabled = false;
+        portalLoginSubmit.textContent = 'Sign In to Workspace';
+      }
+    }
+  });
 
   onboardingForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -580,17 +658,20 @@
     token = '';
     sessionStorage.removeItem(tokenKey);
     try { await window.Clerk?.signOut(); } catch (_) {}
+    if (portalLoginPassword) portalLoginPassword.value = '';
     showAuthView();
     chooseAuthMode('signin');
   });
 
   async function load() {
     if (!token) {
+      showAuthView();
+      chooseAuthMode(selectedAuthMode);
       try {
         const authError = document.getElementById('portal-auth-error');
         if (authError) authError.textContent = '';
-        await loadPartnerClerk();
-        if (!clerkListenerAdded) {
+        await loadPartnerClerk(3500);
+        if (!clerkListenerAdded && window.Clerk) {
           window.Clerk.addListener?.(({ user }) => {
             if (user && !token) load();
             else if (!user && token) {
@@ -601,7 +682,7 @@
           });
           clerkListenerAdded = true;
         }
-        if (window.Clerk.user) {
+        if (window.Clerk?.user) {
           const session = await request('/api/partner-portal/session');
           if (session.profileComplete && session.token) {
             token = session.token;
@@ -612,6 +693,8 @@
           clerkMount.hidden = true;
           clerkSignupMount.hidden = true;
           authTabs.hidden = true;
+          if (portalLoginForm) portalLoginForm.hidden = true;
+          if (portalSsoSeparator) portalSsoSeparator.hidden = true;
           signinSwitchline.hidden = true;
           signupSwitchline.hidden = true;
           onboardingForm.hidden = false;
@@ -619,12 +702,16 @@
           onboardingForm.elements.fullName.value = currentName;
           return;
         }
-        chooseAuthMode(selectedAuthMode);
+        if (portalSsoSeparator) portalSsoSeparator.hidden = false;
+        mountClerkAuth(selectedAuthMode);
       } catch (error) {
-        const authError = document.getElementById('portal-auth-error');
-        if (authError) authError.textContent = error.message;
+        clearClerkLoading();
+        if (clerkMount) clerkMount.hidden = true;
+        if (clerkSignupMount) clerkSignupMount.hidden = true;
+        if (portalSsoSeparator) portalSsoSeparator.hidden = true;
+        if (portalLoginForm) portalLoginForm.hidden = false;
       }
-      return showAuthView();
+      return;
     }
     try {
       render(await request('/api/partner-share'));

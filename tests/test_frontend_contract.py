@@ -52,6 +52,11 @@ class FrontendContractTests(unittest.TestCase):
         required_ids = set(re.findall(r"getElementById\(['\"]([^'\"]+)", clerk_app))
         present_ids = set(re.findall(r"\bid=['\"]([^'\"]+)", portal))
         self.assertEqual(required_ids - present_ids, set(), "Clerk portal page is missing required DOM IDs")
+        self.assertIn("portal-login-form", portal)
+        self.assertIn("portal-login-email", portal)
+        self.assertIn("portal-login-password", portal)
+        self.assertIn("/api/partner-portal/login", clerk_app)
+        self.assertIn("clearClerkLoading", clerk_app)
         self.assertEqual(self.read("partner-portal/index.html"), portal)
 
     def test_provider_secrets_are_not_restored_from_browser_storage(self):
