@@ -3264,7 +3264,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 400, {'error': 'A valid influencer ID is required.'})
             return
 
-        if self.path == '/api/partner-share/referrals':
+        if clean_path == '/api/partner-share/referrals':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             if not share or share['revoked_at']:
@@ -3308,7 +3308,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not add referral: {ex}'})
             return
 
-        if self.path == '/api/partner-portal/onboard':
+        if clean_path == '/api/partner-portal/onboard':
             try:
                 auth_hdr = bearer_token(self.headers)
                 user = None
@@ -3713,7 +3713,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Partner sync failed: {ex}'})
             return
 
-        if self.path == '/api/partner-share/agreement':
+        if clean_path == '/api/partner-share/agreement':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             if not share or share['revoked_at']:
@@ -3752,7 +3752,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not record partner agreement: {ex}'})
             return
 
-        if self.path == '/api/partner-share/requests/respond':
+        if clean_path == '/api/partner-share/requests/respond':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             if not share or share['revoked_at']:
@@ -3816,7 +3816,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Could not update introduction request: {ex}'})
             return
 
-        if self.path == '/api/partner-share/rewards/redeem':
+        if clean_path == '/api/partner-share/rewards/redeem':
             token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
             share = partner_share_from_token(token)
             if not share or share['revoked_at']:
@@ -5302,7 +5302,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({'error': str(e)}).encode())
         else:
-            super().do_POST()
+            json_response(self, 404, {'error': f'Route not found: POST {clean_path}'})
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))

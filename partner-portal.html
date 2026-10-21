@@ -70,15 +70,15 @@
           </label>
           <button id="portal-signup-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Create Partner Account</button>
         </form>
-        <div id="portal-sso-separator" class="portal-auth-separator">
+        <div id="portal-sso-separator" class="portal-auth-separator" hidden>
           <hr>
           <span>or SSO</span>
           <hr>
         </div>
-        <div id="clerk-auth-mount" aria-label="Sign in with Clerk"><p class="clerk-loading">Loading secure sign in…</p></div>
-        <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden><p class="clerk-loading">Loading secure sign up…</p></div>
+        <div id="clerk-auth-mount" aria-label="Sign in with Clerk" hidden></div>
+        <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden></div>
         <p id="portal-auth-switch-signin" hidden>Already registered? <button id="portal-switch-to-signin" class="btn-text-link" type="button">Sign in</button></p>
-        <p id="portal-auth-switch-signup" hidden>New to ConnectEM? <button id="portal-switch-to-signup" class="btn-text-link" type="button">Create an account</button></p>
+        <p id="portal-auth-switch-signup">New to ConnectEM? <button id="portal-switch-to-signup" class="btn-text-link" type="button">Create an account</button></p>
         <div id="portal-auth-feedback" role="status" aria-live="polite"></div>
         <form id="portal-onboarding-form" hidden>
           <h2>Complete your Partner Profile</h2>

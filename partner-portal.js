@@ -41,70 +41,9 @@
   }
 
   function loadPartnerClerk(timeoutMs = 3500) {
-    const key = window.ClerkConfig?.publishableKey || '';
-    if (!key || key.includes('placeholder')) return Promise.reject(new Error('Secure sign-in is not configured for this portal.'));
+    clearClerkLoading();
     if (window.Clerk?.user || (window.Clerk && typeof window.Clerk.mountSignIn === 'function')) return Promise.resolve(window.Clerk);
-    if (!window.__partnerClerkPromise) {
-      let frontendApi;
-      try {
-        const encoded = key.split('_')[2];
-        frontendApi = atob(encoded.replace(/-/g, '+').replace(/_/g, '/')).replace(/\$$/, '');
-        if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error('Invalid Clerk frontend domain.');
-      } catch (_) { return Promise.reject(new Error('The Clerk publishable key is invalid.')); }
-
-      const isDevKey = key.startsWith('pk_test_') || frontendApi.includes('.clerk.accounts.dev');
-      const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-      if (isDevKey && !isLocal) {
-        return Promise.reject(new Error('Clerk dev instance browser sync is disabled on live domains.'));
-      }
-      const add = (url, publishableKey = '') => new Promise((resolve, reject) => {
-        let settled = false;
-        const script = document.createElement('script');
-        script.src = url; script.async = true; script.crossOrigin = 'anonymous';
-        if (publishableKey) script.setAttribute('data-clerk-publishable-key', publishableKey);
-        const timer = setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            script.remove();
-            reject(new Error('Clerk asset load timed out.'));
-          }
-        }, timeoutMs);
-        script.onload = () => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            resolve();
-          }
-        };
-        script.onerror = () => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-            script.remove();
-            reject(new Error('Could not load secure sign-in.'));
-          }
-        };
-        document.head.appendChild(script);
-      });
-      const loadPromise = (async () => {
-        const base = `https://${frontendApi}/npm`;
-        await add(`${base}/@clerk/ui@1/dist/ui.browser.js`);
-        await add(`${base}/@clerk/clerk-js@6/dist/clerk.browser.js`, key);
-        if (typeof window.Clerk === 'function') {
-          const instance = new window.Clerk(key);
-          await instance.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
-          window.Clerk = instance;
-        } else if (window.Clerk?.load) {
-          await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
-        }
-        return window.Clerk;
-      })();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Clerk initialization timed out.')), timeoutMs);
-      });
-      window.__partnerClerkPromise = Promise.race([loadPromise, timeoutPromise]);
-    }
-    return window.__partnerClerkPromise;
+    return Promise.reject(new Error('Direct partner authentication active.'));
   }
 
   let partner = null;
