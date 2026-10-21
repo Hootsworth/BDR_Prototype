@@ -50,7 +50,8 @@ function openInfluencerPortal(email) {
   if (email && typeof activeConsolePortalInfluencerEmail !== "undefined") {
     activeConsolePortalInfluencerEmail = email;
   }
-  switchTab("influencers");
+  // [PARTNERS TAB DISCONNECTED]: Redirect to dashboard
+  switchTab("dashboard");
 }
 window.openInfluencerPortal = openInfluencerPortal;
 

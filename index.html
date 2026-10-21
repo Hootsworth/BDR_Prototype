@@ -191,7 +191,19 @@
           </div>
         </div>
 
-        <!-- 2. Partners (IRM Hub, Introductions, Portals) -->
+        <!--
+          [PARTNERS TAB DISCONNECTED]
+          The Partners (Influencers / IRM) tab has been intentionally disconnected per admin specification.
+          The complete codebase remains preserved in components/influencers.html and src/components/influencers.js.
+          
+          TO RECONNECT:
+          1. Uncomment the #cat-group-influencers block below in index.html & admin.html.
+          2. Uncomment <section id="tab-panel-influencers"> below in index.html & admin.html.
+          3. In src/main.js and app.js, re-enable 'influencers' in componentsList and remove the guard in switchTab().
+          4. In style.css, remove the fail-safe hidden rule for #tab-panel-influencers.
+          See docs/PARTNERS_TAB_RECONNECTION_GUIDE.md for complete details.
+        -->
+        <!--
         <div class="nav-category-group direct-tab" id="cat-group-influencers">
           <div class="nav-category-header subtab-btn" id="tab-btn-influencers" onclick="switchTab('influencers')" title="Partner Network (IRM)">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -203,6 +215,7 @@
             <span class="nav-label">Partners</span>
           </div>
         </div>
+        -->
 
         <!-- 3. Outbound (Campaign Outbound & Briefings) -->
         <div class="nav-category-group direct-tab" id="cat-group-campaign">
@@ -267,10 +280,11 @@
           <!-- Dynamically loaded from components/events-list.html -->
         </section>
 
-        <!-- ═══ TAB: Influencer Portal ═══ -->
+        <!-- ═══ TAB: Influencer Portal [DISCONNECTED] ═══
+             TO RECONNECT: Uncomment the section below.
         <section class="tab-content" id="tab-panel-influencers">
-          <!-- Dynamically loaded from components/influencers.html -->
         </section>
+        -->
 
         <!-- ═══ TAB: Agent Mode ═══ -->
         <section class="tab-content" id="tab-panel-agent-mode">

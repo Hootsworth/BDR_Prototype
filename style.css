@@ -4877,3 +4877,26 @@ dialog.outbound-fullscreen-dialog::backdrop,
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ==========================================================================
+   PARTNERS TAB DISCONNECTED - FAIL-SAFE BLOCK
+   The Partners / Influencers tab is intentionally disconnected per admin specification.
+   This rule guarantees that even with aggressive client caching or stale markup,
+   the tab and its contents can never be rendered or interacted with.
+   To reconnect, see docs/PARTNERS_TAB_RECONNECTION_GUIDE.md
+   ========================================================================== */
+#tab-panel-influencers,
+#cat-group-influencers,
+#tab-btn-influencers,
+[data-tab="influencers"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+

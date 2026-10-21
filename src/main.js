@@ -5,7 +5,8 @@ const componentsList = {
   'upload': 'components/upload.html',
   'analyse': 'components/analytics.html',
   'campaign-outbound': 'components/campaign-outbound.html',
-  'influencers': 'components/influencers.html',
+  // [PARTNERS TAB DISCONNECTED]: Preserved in codebase. Uncomment below to reconnect:
+  // 'influencers': 'components/influencers.html',
   'settings-keys': 'components/settings-keys.html',
   'agent-mode': 'components/agent-mode.html'
 };
@@ -235,11 +236,15 @@ async function bootstrapApp() {
   }
 
   const entryParams = new URLSearchParams(window.location.search);
-  if (entryParams.get("tab") === "influencers" || entryParams.has("email")) {
-    if (entryParams.has("email") && typeof activeConsolePortalInfluencerEmail !== "undefined") {
-      activeConsolePortalInfluencerEmail = entryParams.get("email") || activeConsolePortalInfluencerEmail;
-    }
-    switchTab("influencers");
+  // [PARTNERS TAB DISCONNECTED]: Clean URL parameters and hash to prevent accessing disconnected tab
+  if (entryParams.get("tab") === "influencers") {
+    entryParams.delete("tab");
+    const cleanSearch = entryParams.toString() ? '?' + entryParams.toString() : '';
+    const cleanHash = (window.location.hash === '#influencers' || window.location.hash === '#tab-panel-influencers') ? '' : window.location.hash;
+    window.history.replaceState(null, '', window.location.pathname + cleanSearch + cleanHash);
+  }
+  if (window.location.hash === '#influencers' || window.location.hash === '#tab-panel-influencers') {
+    window.location.hash = '#dashboard';
   }
 
   if (typeof startWorkbookAutoSaveDaemon === "function") startWorkbookAutoSaveDaemon();
@@ -286,6 +291,13 @@ function switchImportContactsMode(mode = 'csv') {
 }
 
 function switchTab(tabId) {
+  // [PARTNERS TAB DISCONNECTED]: The 'influencers' tab is disconnected per admin requirements.
+  // To reconnect, see docs/PARTNERS_TAB_RECONNECTION_GUIDE.md
+  if (tabId === 'influencers') {
+    console.info("[Navigation Guard] Partners tab is disconnected. Redirecting to Directory.");
+    tabId = 'dashboard';
+  }
+
   if (tabId === 'events-list') {
     openImportContactsTab('events');
     return;
@@ -399,7 +411,7 @@ function toggleNavCategory(catId) {
     if (catId === 'contacts') openImportContactsTab('csv');
     else if (catId === 'campaign') switchTab('campaign-outbound');
     else if (catId === 'events') openImportContactsTab('events');
-    else if (catId === 'influencers') switchTab('influencers');
+    else if (catId === 'influencers') switchTab('dashboard'); // Disconnected
     return;
   }
   const group = document.getElementById(`cat-group-${catId}`);
@@ -614,7 +626,8 @@ function handleCommandPaletteSearch(query) {
     { title: "Search", subtitle: "Natural language & relational search across all contacts, referrals, and events", tab: "dashboard", icon: "" },
     { title: "Import Contacts (Add & Enrich)", subtitle: "Add contacts directly, upload CSV datasets, and run AI enrichment", tab: "upload", icon: "" },
     { title: "Import Contacts via Events", subtitle: "Manage field events and capture event attendees into the database", tab: "events-list", icon: "" },
-    { title: "Influencer Portal", subtitle: "Partner referral workspace, bulk add, and private shareable portal links", tab: "influencers", icon: "" },
+    // [PARTNERS TAB DISCONNECTED]: Removed from command palette. Uncomment to restore:
+    // { title: "Influencer Portal", subtitle: "Partner referral workspace, bulk add, and private shareable portal links", tab: "influencers", icon: "" },
     { title: "Agent Control Mode", subtitle: "Autonomous 12-node GTM orchestrator & DAG visualizer", tab: "agent-mode", icon: "" },
     { title: "Global Settings & Keys", subtitle: "Manage API keys, models, and CRM integrations", tab: "settings-keys", icon: "" }
   ];
@@ -675,7 +688,7 @@ function runCommandPaletteAction(actionType, targetVal) {
   if (actionType === "nav") {
     switchTab(targetVal);
   } else if (actionType === "lead") {
-    switchTab("influencers");
+    switchTab("dashboard");
   }
 }
 

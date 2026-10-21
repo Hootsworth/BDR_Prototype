@@ -462,7 +462,8 @@ function enforceRbacPermissions() {
 
   // Role Restriction: Influencer accounts are limited to contact review
   if (currentRole === "Influencer / Creator") {
-    if (typeof switchTab === "function") switchTab("influencers");
+    // [PARTNERS TAB DISCONNECTED]: Redirect to dashboard
+    if (typeof switchTab === "function") switchTab("dashboard");
   }
 }
 

@@ -625,10 +625,8 @@ function openInfluencerPortalForContact(contactIdOrEmail) {
   if (identifier && typeof activeConsolePortalInfluencerEmail !== "undefined") {
     activeConsolePortalInfluencerEmail = identifier;
   }
-  switchTab("influencers");
-  if (identifier && typeof selectConsolePortalInfluencer === "function") {
-    selectConsolePortalInfluencer(identifier);
-  }
+  // [PARTNERS TAB DISCONNECTED]: Redirect to dashboard
+  switchTab("dashboard");
 }
 
 async function convertContactToInfluencer(contactId, openPortalImmediately = true) {

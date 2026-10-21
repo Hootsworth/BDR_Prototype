@@ -321,6 +321,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Switch panel views
 function switchTab(tabId) {
+  // [PARTNERS TAB DISCONNECTED]: Disallow switching to 'influencers'
+  if (tabId === 'influencers') {
+    console.info("[Navigation Guard] Partners tab is disconnected. Redirecting to Directory.");
+    tabId = 'dashboard';
+  }
   currentTabId = tabId;
 
   // Toggle active tab buttons in navigation
