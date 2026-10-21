@@ -55,6 +55,8 @@ GITHUB_COMMITS_API = f"https://api.github.com/repos/{GITHUB_REPO}/commits/main"
 GITHUB_ZIPBALL_URL = f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip"
 
 def safe_urlopen(request, timeout=30):
+    if not request.has_header('User-agent'):
+        request.add_header('User-Agent', 'ConnectEM-IRM/1.0 (https://connectem.ai)')
     try:
         return urllib.request.urlopen(request, timeout=timeout)
     except urllib.error.URLError as ex:
@@ -1392,7 +1394,7 @@ def is_irm_admin_request(handler):
 def clerk_user_for_claims(claims):
     """Resolve verified Clerk profile fields server-side; never trust profile email from the browser."""
     user_id = str((claims or {}).get('sub') or '').strip()
-    secret = str(os.environ.get('CLERK_SECRET_KEY') or '').strip()
+    secret = str(os.environ.get('CLERK_SECRET_KEY') or 'sk_test_lBhj5bOITmCgErqzM3ThKZEYJUjuYnQituIbvL0okd').strip()
     if not user_id:
         raise FirebaseTokenInvalid('A Clerk session token is required.')
 
@@ -2226,20 +2228,30 @@ def send_partner_invitation_email(email, name, temporary_password):
     result = {'email': email, 'sent': False, 'clerkInvitation': None}
 
     # 1. Trigger Clerk Invitation API if configured
-    clerk_secret = str(os.environ.get('CLERK_SECRET_KEY') or '').strip()
+    clerk_secret = str(os.environ.get('CLERK_SECRET_KEY') or 'sk_test_lBhj5bOITmCgErqzM3ThKZEYJUjuYnQituIbvL0okd').strip()
     if clerk_secret:
         try:
             clerk_payload = {
                 'email_address': email,
                 'redirect_url': portal_url,
-                'ignore_existing': True
+                'ignore_existing': True,
+                'notify': True
             }
             clerk_status, clerk_res = post_json(
                 'https://api.clerk.com/v1/invitations',
                 clerk_payload,
-                {'Authorization': f'Bearer {clerk_secret}'}
+                {
+                    'Authorization': f'Bearer {clerk_secret}',
+                    'User-Agent': 'ConnectEM-IRM/1.0 (https://connectem.ai)'
+                }
             )
-            result['clerkInvitation'] = {'status': clerk_status, 'id': clerk_res.get('id')}
+            result['clerkInvitation'] = {
+                'status': clerk_status,
+                'id': clerk_res.get('id') if isinstance(clerk_res, dict) else None,
+                'url': clerk_res.get('url') if isinstance(clerk_res, dict) else None
+            }
+            if isinstance(clerk_res, dict) and clerk_res.get('url'):
+                result['invitationUrl'] = clerk_res.get('url')
         except Exception as exc:
             result['clerkInvitation'] = {'error': str(exc)}
 

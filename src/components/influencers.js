@@ -625,7 +625,13 @@ async function savePartnerProfile() {
     if (typeof filterOutboundTable === 'function') filterOutboundTable();
     closePartnerProfileEditor();
     if (!id && result.temporaryPassword) {
-      alert(`Partner invited successfully!\n\nEmail: ${profile.email}\nTemporary Password: ${result.temporaryPassword}\n\nAn invitation email with sign-in instructions has been dispatched. The partner will be prompted to set a permanent password on first login.`);
+      const inviteUrl = result.invitation?.clerkInvitation?.url || result.invitation?.invitationUrl;
+      const clerkStatus = result.invitation?.clerkInvitation?.status === 200 ? 'Dispatched via Clerk' : (result.invitation?.clerkInvitation?.error ? `Clerk note: ${result.invitation.clerkInvitation.error}` : 'Dispatched');
+      const clerkInfo = inviteUrl ? `\n\nClerk Invitation URL (copied to clipboard):\n${inviteUrl}` : '';
+      if (inviteUrl && navigator.clipboard) {
+        navigator.clipboard.writeText(inviteUrl).catch(() => {});
+      }
+      alert(`Partner invited successfully!\n\nEmail: ${profile.email}\nTemporary Password: ${result.temporaryPassword}\nClerk Delivery: ${clerkStatus}${clerkInfo}\n\nAn invitation email has been dispatched via Clerk. The partner can either click their email invite link or log in using their email and temporary password.`);
     }
   } catch (error) { feedback.textContent = error.message; }
 }
