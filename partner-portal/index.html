@@ -15,7 +15,23 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <script src="/app-config.js"></script>
   <script src="/config.js"></script>
+  <script src="/src/clerk-api.js"></script>
   <script defer src="/partner-portal.js"></script>
+  <style>
+    .cl-footerAction, .cl-footerActionText, .cl-footerActionLink, .cl-footer {
+      display: none !important;
+    }
+    #clerk-auth-mount .cl-rootBox {
+      width: 100%;
+    }
+    #clerk-auth-mount .cl-card {
+      box-shadow: none !important;
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      width: 100% !important;
+    }
+  </style>
 </head>
 <body>
   <header class="site-header">

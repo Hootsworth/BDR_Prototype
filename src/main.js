@@ -740,6 +740,12 @@ function runCommandPaletteAction(actionType, targetVal) {
 
 // --- AUTO-UPDATE ENGINE ---
 async function checkForAppUpdates() {
+  const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (!isLocal) {
+    const banner = document.getElementById("system-update-banner");
+    if (banner) banner.style.display = "none";
+    return;
+  }
   try {
     const res = await fetch("/api/system/update-check");
     if (!res.ok) return;

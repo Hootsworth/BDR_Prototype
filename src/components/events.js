@@ -270,18 +270,25 @@ function handleAddContactFromEventSubmit(e) {
     contact.leadTemp = "Influencer Partner";
     contact.referrals = Array.isArray(contact.referrals) ? contact.referrals : [];
     contact.referralCredits = contact.referralCredits || 50;
-    fetch("/api/influencers/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fullName: contact.fullName,
-        email: contact.email,
-        jobTitle: contact.jobTitle,
-        company: contact.company,
-        phone: contact.phone,
-        industry: contact.industry || "Credit Union"
-      })
-    }).catch(() => {});
+    (async () => {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const token = window.Clerk?.session ? await window.Clerk.session.getToken() : '';
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      } catch (_) {}
+      fetch("/api/influencers/create", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          fullName: contact.fullName,
+          email: contact.email,
+          jobTitle: contact.jobTitle,
+          company: contact.company,
+          phone: contact.phone,
+          industry: contact.industry || "Credit Union"
+        })
+      }).catch(() => {});
+    })();
   }
 
   // Add to event roster

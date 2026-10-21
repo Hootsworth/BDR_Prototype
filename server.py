@@ -1366,19 +1366,27 @@ def request_origin_is_trusted(handler):
     if not origin:
         return True  # same-origin non-browser clients commonly omit Origin
     parsed = urllib.parse.urlparse(origin)
-    host = handler.headers.get('Host', '').lower()
-    return parsed.netloc.lower() == host and parsed.scheme in ('http', 'https')
+    netloc = parsed.netloc.lower().split(':')[0]
+    host = (handler.headers.get('X-Forwarded-Host') or handler.headers.get('Host') or '').lower().split(':')[0]
+    if netloc == host and parsed.scheme in ('http', 'https'):
+        return True
+    if netloc in ('connectem.ai', 'localhost', '127.0.0.1') or netloc.endswith('.connectem.ai') or netloc.endswith('.vercel.app'):
+        return True
+    return False
 
 def is_irm_admin_request(handler):
     """Use Clerk identity/allowlisting in hosted mode, loopback in local mode."""
-    if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true':
-        if getattr(handler, '_clerk_admin_claims', None):
-            return True
+    if getattr(handler, '_clerk_admin_claims', None):
+        return True
+    auth_header = bearer_token(handler.headers)
+    if auth_header:
         try:
-            handler._clerk_admin_claims = verify_admin_token(bearer_token(handler.headers))
+            handler._clerk_admin_claims = verify_admin_token(auth_header)
             return True
         except (FirebaseBackendUnavailable, FirebaseTokenInvalid):
-            return False
+            pass
+    if str(os.environ.get('CLERK_BACKEND_AUTH_REQUIRED') or '').lower() == 'true' or os.environ.get('VERCEL'):
+        return False
     return is_loopback_admin_request(handler) and request_origin_is_trusted(handler)
 
 def clerk_user_for_claims(claims):
@@ -2405,6 +2413,13 @@ def fetch_remote_commit_info():
     return None
 
 def check_for_updates():
+    if os.environ.get('VERCEL') or str(os.environ.get('HOSTED_API_ONLY') or '').lower() == 'true':
+        return {
+            "update_available": False,
+            "managed_by": "Vercel Git CI/CD",
+            "current_version": "1.1.0",
+            "current_commit": "production"
+        }
     local_info = get_local_version_info()
     local_sha = local_info.get("sha", "")
     
@@ -3299,7 +3314,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can create partner links.'})
                 return
-            if os.environ.get('VERCEL'):
+            if os.environ.get('VERCEL') and not firestore_enabled():
                 json_response(self, 503, {'error': 'Partner sharing requires a persistent database. The current serverless deployment stores data on temporary disk.'})
                 return
             try:
@@ -3327,7 +3342,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/partner-shares/revoke' or clean_path == '/api/partner-shares/revoke' or self.path == '/api/partner-shares/revoke':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             token = str(payload.get('token') or '').strip()
@@ -3340,7 +3355,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/partner-shares/revoke-influencer' or clean_path == '/api/partner-shares/revoke-influencer' or self.path == '/api/partner-shares/revoke-influencer':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the local app owner can revoke partner links.'})
                 return
             try:
@@ -3946,7 +3961,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/marketplace/vendors/signup' or clean_path == '/api/marketplace/vendors/signup' or self.path == '/api/marketplace/vendors/signup':
-            if os.environ.get('VERCEL'):
+            if os.environ.get('VERCEL') and not firestore_enabled():
                 json_response(self, 503, {'error': 'Vendor Marketplace signup requires persistent storage.'})
                 return
             try:
@@ -4460,7 +4475,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/irm/vendors/manage' or clean_path == '/api/irm/vendors/manage' or self.path == '/api/irm/vendors/manage':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM Console administrator can manage vendors.'})
                 return
             try:
@@ -4492,7 +4507,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/irm/influencers/manage' or clean_path == '/api/irm/influencers/manage' or self.path == '/api/irm/influencers/manage':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM administrator can manage influencer eligibility.'})
                 return
             state = read_workbook_state()
@@ -4514,7 +4529,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/irm/requests/manage' or clean_path == '/api/irm/requests/manage' or self.path == '/api/irm/requests/manage':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM Console administrator can manage marketplace requests.'})
                 return
             try:
@@ -4606,7 +4621,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/irm/rewards/redemptions/manage' or clean_path == '/api/irm/rewards/redemptions/manage' or self.path == '/api/irm/rewards/redemptions/manage':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Only the IRM administrator can manage reward redemptions.'})
                 return
             try:
@@ -4638,8 +4653,16 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Reward redemption update failed: {ex}'})
             return
 
-        if self.path in ('/api/influencers/create', '/api/influencers/update', '/api/influencers/delete', '/api/influencers/bulk-create', '/api/influencers/convert', '/api/influencers/agreements'):
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+        influencer_routes = (
+            '/api/influencers/create',
+            '/api/influencers/update',
+            '/api/influencers/delete',
+            '/api/influencers/bulk-create',
+            '/api/influencers/convert',
+            '/api/influencers/agreements'
+        )
+        if norm_path in influencer_routes or clean_path in influencer_routes or self.path in influencer_routes:
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Influencer management is available to the local app owner only.'})
                 return
             try:
@@ -4648,7 +4671,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 influencer_id = str(payload.get('influencerId') or payload.get('contactId') or '')
                 influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('id')) == influencer_id), None)
 
-                if self.path.endswith('/bulk-create'):
+                if norm_path.endswith('/bulk-create') or clean_path.endswith('/bulk-create') or self.path.endswith('/bulk-create'):
                     rows = payload.get('influencers') or payload.get('contacts') or []
                     if not isinstance(rows, list) or not rows:
                         json_response(self, 400, {'error': 'Provide at least one influencer row.'})
@@ -4724,7 +4747,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     })
                     return
 
-                if self.path.endswith('/convert'):
+                if norm_path.endswith('/convert') or clean_path.endswith('/convert') or self.path.endswith('/convert'):
                     target = next((c for c in contacts if str(c.get('id')) == influencer_id or (payload.get('email') and str(c.get('email') or '').lower() == str(payload.get('email')).strip().lower())), None)
                     if not target:
                         json_response(self, 404, {'error': 'Contact not found to convert.'})
@@ -4751,7 +4774,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     })
                     return
 
-                if self.path.endswith('/agreements'):
+                if norm_path.endswith('/agreements') or clean_path.endswith('/agreements') or self.path.endswith('/agreements'):
                     if not influencer:
                         json_response(self, 404, {'error': 'Influencer profile not found.'})
                         return
@@ -4781,7 +4804,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 200, {'status': 'saved', 'agreements': influencer['agreements'], 'influencer': influencer})
                     return
 
-                if self.path.endswith('/create'):
+                if norm_path.endswith('/create') or clean_path.endswith('/create') or self.path.endswith('/create'):
                     profile = payload.get('profile') or payload or {}
                     name = str(profile.get('fullName') or payload.get('fullName') or '').strip()
                     email = str(profile.get('email') or payload.get('email') or '').strip().lower()
@@ -4863,7 +4886,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if not influencer:
                     json_response(self, 404, {'error': 'Influencer profile not found.'})
                     return
-                if self.path.endswith('/delete'):
+                if norm_path.endswith('/delete') or clean_path.endswith('/delete') or self.path.endswith('/delete'):
                     retained_contacts = 0
                     for contact in contacts:
                         linked = str(contact.get('influencerId') or '') == influencer_id or str(contact.get('influencerEmail') or '').lower() == str(influencer.get('email') or '').lower() or str(contact.get('referredBy') or '').lower() == str(influencer.get('fullName') or '').lower()
@@ -4914,8 +4937,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': f'Influencer operation failed: {ex}'})
             return
 
-        if self.path in ('/api/influencers/contacts/import', '/api/influencers/contacts/bulk-save', '/api/influencers/contacts/update', '/api/influencers/contacts/delete'):
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+        contact_routes = (
+            '/api/influencers/contacts/import',
+            '/api/influencers/contacts/bulk-save',
+            '/api/influencers/contacts/update',
+            '/api/influencers/contacts/delete'
+        )
+        if norm_path in contact_routes or clean_path in contact_routes or self.path in contact_routes:
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 403, {'error': 'Contact management is available to the local app owner only.'})
                 return
             try:
@@ -4926,12 +4955,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 404, {'error': 'Influencer profile not found.'})
                     return
                 contacts = state.setdefault('contacts', [])
-                if self.path.endswith('/import') or self.path.endswith('/bulk-save'):
+                is_bulk = (norm_path.endswith('/bulk-save') or clean_path.endswith('/bulk-save') or self.path.endswith('/bulk-save'))
+                is_import = (norm_path.endswith('/import') or clean_path.endswith('/import') or self.path.endswith('/import'))
+                if is_import or is_bulk:
                     rows = payload.get('contacts') or []
                     if not isinstance(rows, list) or len(rows) > 1000:
                         json_response(self, 400, {'error': 'Import or save up to 1,000 contacts at a time.'})
                         return
-                    source_label = 'Bulk Editor' if self.path.endswith('/bulk-save') else 'CSV Import'
+                    source_label = 'Bulk Editor' if is_bulk else 'CSV Import'
                     summary = apply_partner_bulk_records(state, influencer, rows, source=source_label, allow_internal_notes=True)
                     if summary['created'] or summary['updated'] or summary['linked']:
                         write_workbook_state(state)
@@ -4949,7 +4980,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 404, {'error': 'Referred contact not found under this partner.'})
                     return
 
-                if self.path.endswith('/delete'):
+                if norm_path.endswith('/delete') or clean_path.endswith('/delete') or self.path.endswith('/delete'):
                     state['contacts'] = [c for c in contacts if str(c.get('id')) != contact_id]
                     referrals = influencer.get('referrals') or []
                     removed_referrals = [r for r in referrals if str(r.get('id')) == contact_id or str(r.get('contactId')) == contact_id or str(r.get('email') or '').lower() == str(contact.get('email') or '').lower()]
@@ -5031,7 +5062,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/portal/referrals' or clean_path == '/api/portal/referrals' or self.path == '/api/portal/referrals':
-            if os.environ.get('VERCEL') or not is_irm_admin_request(self):
+            if (os.environ.get('VERCEL') and not firestore_enabled()) or not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Use the local console to manage contacts, or a scoped partner link to submit referrals.'})
                 return
             try:

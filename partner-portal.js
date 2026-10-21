@@ -45,10 +45,56 @@
     clerkSignupMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
   }
 
-  function loadPartnerClerk(timeoutMs = 3500) {
+  async function loadPartnerClerk() {
     clearClerkLoading();
-    if (window.Clerk?.user || (window.Clerk && typeof window.Clerk.mountSignIn === 'function')) return Promise.resolve(window.Clerk);
-    return Promise.reject(new Error('Direct partner authentication active.'));
+    if (window.Clerk?.user || (window.Clerk && typeof window.Clerk.mountSignIn === 'function')) {
+      return window.Clerk;
+    }
+    const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "";
+    if (!pubKey || pubKey.includes("placeholder")) {
+      return null;
+    }
+    if (!window.__clerkAssetsPromise) {
+      let frontendApi;
+      try {
+        const encodedDomain = pubKey.split("_")[2];
+        if (!encodedDomain) throw new Error("Malformed Clerk publishable key.");
+        frontendApi = atob(encodedDomain.replace(/-/g, "+").replace(/_/g, "/")).replace(/\$$/, "");
+        if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error("Invalid Clerk Frontend API domain.");
+      } catch (err) {
+        console.warn("[AUTH] Clerk key parse failed:", err);
+        return null;
+      }
+      const loadScript = (src, publishableKey = "") => new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.crossOrigin = "anonymous";
+        if (publishableKey) script.setAttribute("data-clerk-publishable-key", publishableKey);
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Could not load Clerk asset: ${src}`));
+        document.head.appendChild(script);
+      });
+      window.__clerkAssetsPromise = (async () => {
+        const baseUrl = `https://${frontendApi}/npm`;
+        await loadScript(`${baseUrl}/@clerk/ui@1/dist/ui.browser.js`);
+        await loadScript(`${baseUrl}/@clerk/clerk-js@6/dist/clerk.browser.js`, pubKey);
+      })();
+    }
+    try {
+      await window.__clerkAssetsPromise;
+      if (typeof window.Clerk === "function") {
+        const clerkInstance = new window.Clerk(pubKey);
+        await clerkInstance.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+        window.Clerk = clerkInstance;
+      } else if (window.Clerk && typeof window.Clerk.load === "function") {
+        await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
+      }
+      return window.Clerk;
+    } catch (err) {
+      console.warn("[AUTH] Clerk load error:", err);
+      return null;
+    }
   }
 
   let partner = null;
@@ -499,24 +545,60 @@
   const mountedAuthModes = new Set();
   function mountClerkAuth(mode = 'signin') {
     const mount = clerkMount;
-    if (!window.Clerk || !mount || mountedAuthModes.has(mode)) return;
+    if (!window.Clerk || !mount) return;
+    if (mount.querySelector('.cl-rootBox')) return;
     try {
       mount.querySelector('.clerk-loading')?.remove();
-      const appearance = { variables: { colorPrimary: '#315f4d', colorText: '#202925', colorBackground: '#fbfcfa', colorInputBackground: '#ffffff', colorInputText: '#202925', borderRadius: '10px', fontFamily: 'DM Sans, sans-serif' }, options: { socialButtonsVariant: 'iconButton', socialButtonsPlacement: 'top' }, elements: { card: { boxShadow: 'none', border: '0', background: 'transparent' }, rootBox: { width: '100%' }, footer: { display: 'none' } } };
-      const portalUrl = `${window.location.origin}${window.location.pathname}`;
-      const options = {
-        appearance,
-        signInUrl: portalUrl,
-        signUpUrl: portalUrl,
-        signInForceRedirectUrl: portalUrl,
-        signUpForceRedirectUrl: portalUrl,
-        signInFallbackRedirectUrl: portalUrl,
-        signUpFallbackRedirectUrl: portalUrl
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const appearance = {
+        variables: {
+          colorPrimary: isDark ? '#ffffff' : '#0a0a0c',
+          colorText: isDark ? '#f4f4f6' : '#0a0a0c',
+          colorTextSecondary: isDark ? '#a1a1aa' : '#646470',
+          colorBackground: isDark ? '#111114' : '#ffffff',
+          colorInputBackground: isDark ? '#18181c' : '#ffffff',
+          colorInputText: isDark ? '#f4f4f6' : '#0a0a0c',
+          borderRadius: '6px',
+          fontFamily: 'Inter, -apple-system, sans-serif'
+        },
+        options: {
+          socialButtonsVariant: 'blockButton',
+          socialButtonsPlacement: 'bottom'
+        },
+        elements: {
+          card: {
+            boxShadow: 'none',
+            border: isDark ? '1px solid #26262c' : '1px solid #e2e2e8',
+            background: isDark ? '#111114' : '#ffffff',
+            borderRadius: '6px',
+            color: isDark ? '#f4f4f6' : '#0a0a0c'
+          },
+          rootBox: { width: '100%' },
+          headerTitle: { color: isDark ? '#f4f4f6' : '#0a0a0c' },
+          headerSubtitle: { color: isDark ? '#a1a1aa' : '#646470' },
+          socialButtonsBlockButton: {
+            border: isDark ? '1px solid #26262c' : '1px solid #e2e2e8',
+            background: isDark ? '#18181c' : '#ffffff',
+            color: isDark ? '#f4f4f6' : '#0a0a0c'
+          },
+          formButtonPrimary: {
+            backgroundColor: isDark ? '#ffffff' : '#0a0a0c',
+            color: isDark ? '#000000' : '#ffffff',
+            borderRadius: '6px'
+          },
+          footerAction: { display: 'none !important' },
+          footerActionText: { display: 'none !important' },
+          footerActionLink: { display: 'none !important' },
+          footer: { display: 'none !important' }
+        }
       };
-      window.Clerk.mountSignIn(mount, options);
+      window.Clerk.mountSignIn(mount, {
+        appearance,
+        routing: 'hash'
+      });
       mountedAuthModes.add(mode);
     } catch (error) {
-      mount.textContent = error.message || 'Secure sign-in could not be shown.';
+      console.warn('[AUTH] mountSignIn error:', error);
     }
   }
   function chooseAuthMode(mode = 'signin') {
@@ -535,6 +617,13 @@
       clearClerkLoading();
     }
   }
+
+  document.getElementById('portal-theme-toggle-btn')?.addEventListener('click', () => {
+    if (!token && window.Clerk && clerkMount) {
+      clerkMount.innerHTML = '';
+      setTimeout(() => mountClerkAuth('signin'), 50);
+    }
+  });
 
   portalLoginForm?.addEventListener('submit', async event => {
     event.preventDefault();
@@ -699,64 +788,71 @@
     chooseAuthMode('signin');
   });
 
+  let isExecutingLoad = false;
   async function load() {
-    if (!token) {
-      showAuthView();
-      chooseAuthMode(selectedAuthMode);
-      try {
-        const authError = document.getElementById('portal-auth-error');
-        if (authError) authError.textContent = '';
-        await loadPartnerClerk(3500);
-        if (!clerkListenerAdded && window.Clerk) {
-          window.Clerk.addListener?.(({ user }) => {
-            if (user && !token) load();
-            else if (!user && token) {
-              token = '';
-              sessionStorage.removeItem(tokenKey);
-              showAuthView();
-            }
-          });
-          clerkListenerAdded = true;
-        }
-        if (window.Clerk?.user) {
-          const session = await request('/api/partner-portal/session');
-          if (session.profileComplete && session.token) {
-            token = session.token;
-            sessionStorage.setItem(tokenKey, token);
-            return load();
-          }
-          showAuthView();
-          if (clerkMount) clerkMount.hidden = true;
-          if (clerkSignupMount) clerkSignupMount.hidden = true;
-          if (portalLoginForm) portalLoginForm.hidden = true;
-          if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-          if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-          onboardingForm.hidden = false;
-          const currentName = session.user?.fullName || window.Clerk.user.fullName || '';
-          onboardingForm.elements.fullName.value = currentName;
-          return;
-        }
-        if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
-        mountClerkAuth('signin');
-      } catch (error) {
-        clearClerkLoading();
-        if (clerkMount) clerkMount.hidden = true;
-        if (clerkSignupMount) clerkSignupMount.hidden = true;
-        if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-        if (portalLoginForm) portalLoginForm.hidden = false;
-        if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-      }
-      return;
-    }
+    if (isExecutingLoad) return;
+    isExecutingLoad = true;
     try {
-      render(await request('/api/partner-share'));
-    } catch (error) {
-      if (error.message && (error.message.includes('invalid') || error.message.includes('revoked') || error.message.includes('401'))) {
+      if (!token) {
+        showAuthView();
+        chooseAuthMode(selectedAuthMode);
+        try {
+          const authError = document.getElementById('portal-auth-error');
+          if (authError) authError.textContent = '';
+          await loadPartnerClerk();
+          if (!clerkListenerAdded && window.Clerk) {
+            window.Clerk.addListener?.(({ user }) => {
+              if (user && !token) load();
+              else if (!user && token) {
+                token = '';
+                sessionStorage.removeItem(tokenKey);
+                showAuthView();
+              }
+            });
+            clerkListenerAdded = true;
+          }
+          if (window.Clerk?.user) {
+            const session = await request('/api/partner-portal/session');
+            if (session.profileComplete && session.token) {
+              token = session.token;
+              sessionStorage.setItem(tokenKey, token);
+              render(await request('/api/partner-share'));
+              return;
+            }
+            if (session.user) {
+              showAuthView();
+              if (clerkMount) clerkMount.hidden = true;
+              if (portalLoginForm) portalLoginForm.hidden = true;
+              if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
+              if (portalSsoSeparator) portalSsoSeparator.hidden = true;
+              onboardingForm.hidden = false;
+              const currentName = session.user?.fullName || window.Clerk.user.fullName || '';
+              onboardingForm.elements.fullName.value = currentName;
+              return;
+            }
+            showAuthView('Your account is not registered as a partner yet. Contact your administrator to invite your email.');
+            return;
+          }
+          if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
+          mountClerkAuth('signin');
+        } catch (error) {
+          clearClerkLoading();
+          if (clerkMount) clerkMount.hidden = true;
+          if (portalSsoSeparator) portalSsoSeparator.hidden = true;
+          if (portalLoginForm) portalLoginForm.hidden = false;
+          if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
+        }
+        return;
+      }
+      try {
+        render(await request('/api/partner-share'));
+      } catch (error) {
         token = '';
         sessionStorage.removeItem(tokenKey);
-        return load();
+        showError(error.message || 'Session expired. Please sign in again.');
       }
-      showError(error.message);
+    } finally {
+      isExecutingLoad = false;
     }
   }
 

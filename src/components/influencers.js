@@ -608,8 +608,13 @@ async function savePartnerProfile() {
   };
   const feedback = document.getElementById('partner-profile-feedback');
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    try {
+      const token = window.Clerk?.session ? await window.Clerk.session.getToken() : '';
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    } catch (_) {}
     const response = await fetch(id ? '/api/influencers/update' : '/api/influencers/create', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers,
       body: JSON.stringify({ influencerId: id, profile, autoGeneratePassword: true, sendInvite: true })
     });
     const result = await response.json();
@@ -629,8 +634,13 @@ async function deletePartnerProfile() {
   const partner = currentPartner();
   if (!partner) return;
   if (!confirm(`Remove ${partner.fullName} from the partner list? Their contact records will remain in the database but will be unassigned, and their share links will be revoked.`)) return;
+  const headers = { 'Content-Type': 'application/json' };
+  try {
+    const token = window.Clerk?.session ? await window.Clerk.session.getToken() : '';
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  } catch (_) {}
   const response = await fetch('/api/influencers/delete', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers,
     body: JSON.stringify({ influencerId: partner.id })
   });
   const result = await response.json();
@@ -1152,9 +1162,14 @@ async function handleManualInfluencerSubmit(e) {
   if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
 
   try {
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const token = window.Clerk?.session ? await window.Clerk.session.getToken() : '';
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    } catch (_) {}
     await fetch("/api/influencers/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         profile: {
           fullName: contact.fullName,

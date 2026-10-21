@@ -569,9 +569,14 @@ async function handleQuickDirectAddContact(e) {
 
   if (isInfluencer) {
     try {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const token = window.Clerk?.session ? await window.Clerk.session.getToken() : '';
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      } catch (_) {}
       await fetch("/api/influencers/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           profile: {
             fullName: contact.fullName,

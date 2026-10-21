@@ -479,6 +479,35 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
         self.assertEqual(relog_status, 200)
         self.assertFalse(relog_res["mustChangePassword"])
 
+    def test_influencer_create_with_query_params_and_update_check_behavior(self):
+        # 1. Influencer create matches even when query parameters are present on the URL
+        status, res = self.request("/api/influencers/create?origin=admin&v=1.0", "POST", {
+            "profile": {
+                "fullName": "Query Param Test Partner",
+                "email": "query.partner@cu-test.org",
+                "company": "Query Advisory",
+            },
+            "autoGeneratePassword": True,
+            "sendInvite": True
+        })
+        self.assertEqual(status, 201)
+        self.assertTrue(res["success"])
+
+        # 2. check_for_updates returns update_available=False on Vercel
+        import os
+        from server import check_for_updates
+        orig_vercel = os.environ.get("VERCEL")
+        try:
+            os.environ["VERCEL"] = "1"
+            info = check_for_updates()
+            self.assertFalse(info["update_available"])
+            self.assertEqual(info["current_commit"], "production")
+        finally:
+            if orig_vercel is None:
+                os.environ.pop("VERCEL", None)
+            else:
+                os.environ["VERCEL"] = orig_vercel
+
 
 if __name__ == "__main__":
     unittest.main()
