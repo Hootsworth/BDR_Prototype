@@ -592,7 +592,6 @@
 <body>
 
   <!-- Minimal Header -->
-  <!-- Minimal Header -->
   <header class="site-header">
     <div class="container">
       <div class="header-inner">
@@ -606,13 +605,13 @@
           <li><a href="#how-it-works">How It Works</a></li>
           <li><a href="#solutions">Solutions</a></li>
           <li><a href="#privacy">Privacy &amp; Trust</a></li>
-          <li><a href="/marketplace.html">Vendor Marketplace</a></li>
+          <li><a href="https://admin.connectem.ai/">Admin Console</a></li>
         </ul>
 
         <div class="header-actions">
           <button type="button" id="btn-theme-toggle" class="btn btn-subtle" title="Toggle theme">B / W</button>
-          <a href="https://go.connectem.ai/partner-portal" class="btn btn-secondary">Partner Portal ↗</a>
-          <a href="/marketplace.html" class="btn btn-primary">Vendor Marketplace →</a>
+          <a href="https://go.connectem.ai/partner-portal" class="btn btn-secondary">Partner Portal (Go) ↗</a>
+          <a href="https://admin.connectem.ai/" class="btn btn-primary">Admin Console →</a>
         </div>
       </div>
     </div>
@@ -635,11 +634,11 @@
       </p>
 
       <div class="hero-cta-group">
-        <a href="/marketplace.html" class="btn btn-primary btn-lg">
-          Explore Vendor Marketplace →
+        <a href="https://admin.connectem.ai/" class="btn btn-primary btn-lg">
+          Launch Admin Console →
         </a>
         <a href="https://go.connectem.ai/partner-portal" class="btn btn-secondary btn-lg">
-          Open Partner Workspace ↗
+          Open Partner Workspace (Go) ↗
         </a>
       </div>
     </div>
@@ -698,24 +697,24 @@
         </div>
       </div>
 
-      <!-- Card 2: Vendor Marketplace -->
+      <!-- Card 2: Admin Console -->
       <div class="preview-card">
         <div>
-          <div class="card-kicker">For B2B Enterprise Vendors</div>
-          <h3 class="card-title">Vendor Network Marketplace</h3>
+          <div class="card-kicker">For Enterprise Teams &amp; Operators</div>
+          <h3 class="card-title">Admin Console (admin.connectem.ai)</h3>
           <p class="card-desc">
-            Stop burning outbound bandwidth on cold outreach. Discover qualified warm paths into target enterprise accounts, analyze 0–100 Warm Path Scores, request forwardable introductions, and receive pre-meeting intelligence briefs with clear rules of engagement.
+            Manage your trusted relationship network, orchestrate warm introduction campaigns, track pipeline attribution, and review double-opt-in progress with complete enterprise governance.
           </p>
           <div class="card-badge-row">
             <span class="micro-pill">0–100 Warm Path Scoring</span>
             <span class="micro-pill">Target Account Matching</span>
-            <span class="micro-pill">Pre-Meeting "What NOT To Do"</span>
-            <span class="micro-pill">CRM &amp; Pipeline Attribution</span>
+            <span class="micro-pill">Campaign Orchestration</span>
+            <span class="micro-pill">Pipeline Attribution</span>
           </div>
         </div>
         <div class="card-action">
-          <span>Self-Service Marketplace</span>
-          <a href="/marketplace.html" class="btn btn-primary btn-sm">Explore Marketplace →</a>
+          <span>Hosted on admin.connectem.ai</span>
+          <a href="https://admin.connectem.ai/" class="btn btn-primary btn-sm">Launch Admin Console →</a>
         </div>
       </div>
     </div>
@@ -797,8 +796,8 @@
       <h2>Experience the new standard in warm executive access.</h2>
       <p>Whether you are an industry executive looking to monetize your network with dignity or an enterprise vendor seeking credible doors into target accounts.</p>
       <div class="hero-cta-group" style="margin-bottom: 0;">
-        <a href="/marketplace.html" class="btn btn-primary btn-lg">Explore Vendor Marketplace</a>
-        <a href="https://go.connectem.ai/partner-portal" class="btn btn-secondary btn-lg">Join as Partner (go.connectem.ai)</a>
+        <a href="https://admin.connectem.ai/" class="btn btn-primary btn-lg">Launch Admin Console →</a>
+        <a href="https://go.connectem.ai/partner-portal" class="btn btn-secondary btn-lg">Open Partner Workspace (Go) ↗</a>
       </div>
     </section>
   </div>
@@ -813,9 +812,8 @@
         </div>
 
         <ul class="footer-links">
-          <li><a href="/marketplace.html">Vendor Marketplace</a></li>
-          <li><a href="https://go.connectem.ai/partner-portal">Partner Workspace</a></li>
           <li><a href="https://admin.connectem.ai/">Admin Console</a></li>
+          <li><a href="https://go.connectem.ai/partner-portal">Partner Workspace (Go)</a></li>
           <li><a href="mailto:contact@connectem.ai">Contact Support</a></li>
         </ul>
 
@@ -835,6 +833,16 @@
         const next = current === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('gtm_theme', next);
+      });
+    }
+
+    // Adapt links if accessed on localhost / development environment
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      document.querySelectorAll('a[href*="admin.connectem.ai"]').forEach(function(a) {
+        a.href = '/index.html' + window.location.search + window.location.hash;
+      });
+      document.querySelectorAll('a[href*="go.connectem.ai"]').forEach(function(a) {
+        a.href = '/partner-portal.html' + window.location.search + window.location.hash;
       });
     }
   </script>

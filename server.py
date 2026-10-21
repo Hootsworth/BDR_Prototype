@@ -2562,6 +2562,32 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
+        if clean_path in ('/admin', '/admin/'):
+            host = self.headers.get('Host', '')
+            query_str = f"?{parsed_url.query}" if parsed_url.query else ""
+            if 'connectem.ai' in host and not host.startswith('admin.'):
+                self.send_response(302)
+                self.send_header('Location', f"https://admin.connectem.ai/{query_str}")
+                self.end_headers()
+                return
+            self.send_response(302)
+            self.send_header('Location', f"/index.html{query_str}")
+            self.end_headers()
+            return
+
+        if clean_path in ('/go', '/go/'):
+            host = self.headers.get('Host', '')
+            query_str = f"?{parsed_url.query}" if parsed_url.query else ""
+            if 'connectem.ai' in host:
+                self.send_response(302)
+                self.send_header('Location', f"https://go.connectem.ai/partner-portal{query_str}")
+                self.end_headers()
+                return
+            self.send_response(302)
+            self.send_header('Location', f"/partner-portal.html{query_str}")
+            self.end_headers()
+            return
+
         if clean_path == '/marketplace':
             self.send_response(302)
             self.send_header('Location', '/marketplace.html')

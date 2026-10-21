@@ -155,52 +155,52 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
     const agreementsCount = Array.isArray(c.agreements) ? c.agreements.length : 0;
 
     const roleTag = c.isInfluencer
-      ? `<span class="badge" style="font-size:10px; background:rgba(99,102,241,0.12); color:#4f46e5;">Influencer (${refCount} refs · ${creditsCount} cr)</span>`
-      : `<span class="badge" style="font-size:10px; background:rgba(13,148,136,0.12); color:#0d9488;">Contact</span>`;
+      ? `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-text-primary); background:var(--color-text-primary); color:var(--color-background-surface); font-weight:700;">Influencer [${refCount} refs · ${creditsCount} cr]</span>`
+      : `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-primary);">Contact</span>`;
 
     const refEdge = c.referredBy
-      ? `<span style="font-weight:600; color:#0d9488;">← ${c.referredBy}</span>`
+      ? `<span style="font-family:var(--font-family-mono); font-size:11px; font-weight:700; color:var(--color-text-primary);">← ${c.referredBy}</span>`
       : (c.isInfluencer
-          ? `<span style="color:var(--color-text-secondary); font-size:11px;">Partner (${agreementsCount} agreement${agreementsCount === 1 ? "" : "s"})</span>`
-          : `<span style="color:var(--color-text-secondary); font-size:11px;">${c.sourceFile || "Direct Contact"}</span>`);
+          ? `<span style="font-family:var(--font-family-mono); color:var(--color-text-secondary); font-size:11px;">Partner (${agreementsCount} agreement${agreementsCount === 1 ? "" : "s"})</span>`
+          : `<span style="font-family:var(--font-family-mono); color:var(--color-text-secondary); font-size:11px;">${c.sourceFile || "Direct Contact"}</span>`);
 
     const hasTaken = Boolean(c.hasTakenCall || (c.callsMade && c.callsMade.some(cm => cm.status === "taken")));
     const hasScheduled = Boolean(c.hasScheduledCall || hasTaken || (c.callsMade && c.callsMade.length > 0));
     const lastCallOutcome = (c.callsMade && c.callsMade.length > 0) ? c.callsMade[0].outcome : (hasTaken ? "Briefing Call Completed" : "Call Scheduled");
     const callHtml = hasTaken
-      ? `<div><span class="badge badge-success" style="font-size:10px;">✓ Call Taken</span><div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
+      ? `<div><span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-text-primary); background:var(--surface-soft); color:var(--color-text-primary); font-weight:700;">✓ Call Taken</span><div style="font-family:var(--font-family-mono); font-size:10.5px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
       : (hasScheduled
-          ? `<div><span class="badge" style="font-size:10px; background:rgba(2,132,199,0.12); color:#0284c7;">📅 Call Scheduled</span><div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
-          : `<span style="color:var(--color-text-disabled); font-size:11px;">Not Scheduled</span>`);
+          ? `<div><span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-primary);">📅 Scheduled</span><div style="font-family:var(--font-family-mono); font-size:10.5px; color:var(--color-text-secondary); margin-top:2px;">${lastCallOutcome}</div></div>`
+          : `<span style="font-family:var(--font-family-mono); color:var(--color-text-disabled); font-size:11px;">Not Scheduled</span>`);
 
     const emailBadge = c.emailsSent
-      ? `<span class="badge badge-success" style="font-size:10px;">Email Sent</span>`
-      : `<span class="badge" style="font-size:10px;">Email Ready</span>`;
+      ? `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-text-primary); background:var(--color-text-primary); color:var(--color-background-surface); font-weight:700;">Email Sent</span>`
+      : `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-secondary);">Email Ready</span>`;
     const hasRealLi = typeof isValidLinkedinProfileUrl === "function" ? isValidLinkedinProfileUrl(c.linkedinUrl) : Boolean(c.linkedinUrl);
     const liBadge = c.linkedinSent
-      ? `<span class="badge badge-success" style="font-size:10px; margin-left:4px;">LinkedIn Sent</span>`
+      ? `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-text-primary); background:var(--color-text-primary); color:var(--color-background-surface); font-weight:700; margin-left:4px;">LI Sent</span>`
       : (hasRealLi
-          ? `<span class="badge" style="font-size:10px; margin-left:4px; color:#0a66c2;">LinkedIn Linked</span>`
-          : `<span class="badge" style="font-size:10px; margin-left:4px; color:var(--color-text-secondary);">No LinkedIn URL</span>`);
+          ? `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-primary); margin-left:4px;">LI Linked</span>`
+          : `<span class="badge" style="font-family:var(--font-family-mono); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-disabled); margin-left:4px;">No LI</span>`);
 
     const safeEmail = String(c.email || "").replace(/'/g, "\\'");
 
     return `
       <tr>
         <td>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <div style="width:28px; height:28px; border-radius:50%; background:${getAvatarColor(c.fullName)}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-primary); display:flex; align-items:center; justify-content:center; font-family:var(--font-family-mono); font-size:11px; font-weight:800; flex-shrink:0;">
               ${getInitials(c.fullName)}
             </div>
             <div>
-              <div style="font-weight:600; color:var(--color-text-primary);">${c.fullName}</div>
-              <div style="margin-top:2px;">${roleTag}</div>
+              <div style="font-weight:700; color:var(--color-text-primary); font-size:13.5px;">${c.fullName}</div>
+              <div style="margin-top:3px;">${roleTag}</div>
             </div>
           </div>
         </td>
         <td>
-          <div style="font-weight:500; color:var(--color-text-primary);">${c.jobTitle || "Executive"}</div>
-          <div style="font-size:11px; color:var(--color-text-secondary);">${c.company || "Organization"} · ${c.email || ""}</div>
+          <div style="font-weight:600; color:var(--color-text-primary);">${c.jobTitle || "Executive"}</div>
+          <div style="font-family:var(--font-family-mono); font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${c.company || "Organization"} · ${c.email || ""}</div>
         </td>
         <td>${refEdge}</td>
         <td>${callHtml}</td>
@@ -209,15 +209,15 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
           <div style="display:flex; gap:4px; justify-content:flex-end; flex-wrap:wrap;">
             ${c.isInfluencer
               ? `
-                <button class="btn btn-secondary btn-xs" onclick="openInfluencerPortal('${safeEmail}')">Portal</button>
-                <button class="btn btn-secondary btn-xs" onclick="openInfluencerEarningsModal(${c.id})">Earnings (${creditsCount} cr)</button>
-                <button class="btn btn-secondary btn-xs" onclick="openInfluencerAgreementsModal(${c.id})">Agreements</button>
+                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerPortal('${safeEmail}')">Portal</button>
+                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerEarningsModal(${c.id})">Earnings</button>
+                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerAgreementsModal(${c.id})">Terms</button>
               `
               : `
-                <button class="btn btn-secondary btn-xs" onclick="convertContactToInfluencer(${c.id}, false)" title="Convert this Contact to an Influencer Partner" style="border-color:#6366f1; color:#4f46e5; font-weight:600;">Convert to Influencer</button>
+                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="convertContactToInfluencer(${c.id}, false)" title="Convert this Contact to an Influencer Partner">+ Partner</button>
               `
             }
-            <button class="btn btn-primary btn-xs" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
+            <button class="btn btn-primary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
           </div>
         </td>
       </tr>

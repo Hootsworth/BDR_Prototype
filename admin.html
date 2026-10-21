@@ -40,17 +40,32 @@
 
 <body>
 
-  <!-- ═══ APP LOADING OVERLAY (CUSTOM ASTRYX SVG LOADER) ═══ -->
+  <!-- ═══ APP LOADING OVERLAY (EDITORIAL JOURNAL NEWSLETTER LOADER) ═══ -->
   <div class="app-loading-screen" id="app-loading-screen">
-    <div class="loading-animation-container">
-      <div class="astryx-loader-graphic">
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle class="astryx-loader-ring" cx="32" cy="32" r="28" stroke="var(--color-border)" stroke-width="3" />
-          <circle class="astryx-loader-spinner" cx="32" cy="32" r="28" stroke="var(--color-text-primary)" stroke-width="3" stroke-dasharray="175" stroke-dashoffset="120" stroke-linecap="round" />
-          <path class="astryx-loader-spark" d="M34 16L22 34H32L30 48L42 30H32L34 16Z" fill="var(--color-text-primary)" />
-        </svg>
+    <div class="editorial-loader-wrap">
+      <div class="editorial-loader-masthead">
+        <div class="editorial-loader-flag">CONNECTEM // DISPATCH &amp; GTM COMMAND</div>
+        <div class="editorial-loader-edition">VOL. 04 — NO. 18 · EDITION: ORCHESTRATION</div>
       </div>
-      <div class="loading-text">Initializing Connectem AI...</div>
+
+      <div class="editorial-loader-centerpiece">
+        <div class="editorial-symbol-mark">C</div>
+        <div class="editorial-loader-title">CONNECTEM AI</div>
+        <div class="editorial-loader-rule"></div>
+        <div class="editorial-loader-status" id="editorial-loader-status">
+          <span class="editorial-loader-dot">■</span> INITIALIZING WORKSPACE LEDGER &amp; RELATIONSHIP GRAPH
+        </div>
+        <div class="editorial-loader-subtext">Calibrating warm paths · Reconciling double-opt-in state · Synchronizing relational database</div>
+        <div class="editorial-loader-progress-track">
+          <div class="editorial-loader-progress-bar"></div>
+        </div>
+      </div>
+
+      <div class="editorial-loader-footer">
+        <span>STATUS: SYSTEM NORMAL</span>
+        <span>LATENCY: ZERO-TRUST</span>
+        <span>PROTOCOL: RELATIONAL GRAPH</span>
+      </div>
     </div>
   </div>
 

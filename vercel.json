@@ -28,6 +28,18 @@
       "permanent": false
     },
     {
+      "source": "/go",
+      "has": [{ "type": "host", "value": "connectem.ai" }],
+      "destination": "https://go.connectem.ai/partner-portal",
+      "permanent": false
+    },
+    {
+      "source": "/go",
+      "has": [{ "type": "host", "value": "www.connectem.ai" }],
+      "destination": "https://go.connectem.ai/partner-portal",
+      "permanent": false
+    },
+    {
       "source": "/admin",
       "has": [{ "type": "host", "value": "connectem.ai" }],
       "destination": "https://admin.connectem.ai/",
@@ -100,6 +112,10 @@
     },
     {
       "source": "/partner-portal",
+      "destination": "/partner-portal.html"
+    },
+    {
+      "source": "/go",
       "destination": "/partner-portal.html"
     },
     {

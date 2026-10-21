@@ -1,143 +1,165 @@
-<!-- ═══ SEARCH HEADER & LIVE KPI STRIP (MATCHING OUTBOUND DESIGN) ═══ -->
-<div class="outbound-header-card" style="background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
-  <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.875rem;">
-    <button class="btn btn-secondary btn-sm" onclick="switchTab('campaign-outbound')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-      Back to Outbound
-    </button>
-    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-      <button class="btn btn-secondary btn-sm" onclick="openRelationshipGraphModal()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; border-color: #0d9488; color: #0d9488;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="8.5" y1="7.5" x2="10.5" y2="15.5"></line><line x1="15.5" y1="7.5" x2="13.5" y2="15.5"></line></svg>
-        Visualize
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="openBulkAddInfluencerModal()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-        + Add Influencer
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        Agent Mode
-      </button>
-      <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        Import
-      </button>
+<!-- ═══ EDITORIAL JOURNAL MASTHEAD & DISPATCH CONTROL STRIP ═══ -->
+<div class="editorial-masthead-card">
+  <div class="editorial-dateline-bar">
+    <div class="editorial-dateline-title">
+      <span class="kicker-box">DISPATCH</span>
+      <span>CONNECTEM INTELLIGENCE &amp; GTM COMMAND CHRONICLE</span>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <span>VOL. 04 — NO. 18</span>
+      <span>·</span>
+      <span>EDITION: ENTERPRISE ORCHESTRATION</span>
+      <span>·</span>
+      <span>REAL-TIME LEDGER</span>
     </div>
   </div>
 
-  <!-- Live KPI Strip (Identical to Campaign Outbound) -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.875rem;">
-    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Influencer Partners</div>
-      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-        <span id="dashboard-total-contacts" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
-        <span style="font-size: 11px; color: var(--color-text-secondary);">advocates</span>
-      </div>
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+    <div>
+      <h2 style="margin: 0; font-family: var(--font-family-heading); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--color-text-primary);">
+        Executive Relationship Ledger &amp; Outbound Dispatch
+      </h2>
+      <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--color-text-secondary); max-width: 680px;">
+        Monitor qualified warm paths, manage trusted influencer advocates, execute double-opt-in introductions, and track scheduled executive briefings.
+      </p>
     </div>
 
-    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Contacts &amp; Prospects</div>
-      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-        <span id="dashboard-prospects-count" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
-        <span id="dashboard-affiliated-count" style="font-size: 11px; color: #0d9488; font-weight: 600;">(0 affiliated)</span>
-      </div>
-    </div>
-
-    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Outbound Dispatched</div>
-      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-        <span id="dashboard-outbound-sent" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
-        <span style="font-size: 11px; color: var(--color-success); font-weight: 600;">delivered</span>
-      </div>
-    </div>
-
-    <div style="padding: 0.75rem 1rem; background: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner);">
-      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--color-text-secondary); font-weight: 600; margin-bottom: 0.25rem;">Scheduled Briefings</div>
-      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-        <span id="dashboard-meetings-booked" style="font-size: 1.25rem; font-weight: 700; color: var(--color-text-primary);">0</span>
-        <span id="dashboard-meetings-subtext" style="font-size: 11px; color: var(--color-text-secondary);">demos</span>
-      </div>
+    <div class="editorial-actions-bar">
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('campaign-outbound')" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Outbound
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openRelationshipGraphModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><rect x="3" y="3" width="6" height="6"></rect><rect x="15" y="3" width="6" height="6"></rect><rect x="9" y="15" width="6" height="6"></rect><line x1="6" y1="9" x2="12" y2="15"></line><line x1="18" y1="9" x2="12" y2="15"></line></svg>
+        Graph Map
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openBulkAddInfluencerModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        + Partner
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="switchTab('agent-mode')" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><rect x="3" y="11" width="18" height="10"></rect><circle cx="12" cy="5" r="2"></circle><line x1="12" y1="7" x2="12" y2="11"></line></svg>
+        Copilot
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"><path d="M21 15v4H5v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Import CSV
+      </button>
     </div>
   </div>
 </div>
 
-<!-- RELATIONAL & GRAPH DATABASE NATURAL LANGUAGE SEARCH & CONTACTS DIRECTORY -->
-<div class="card" id="dashboard-nl-search-card" style="margin-bottom: 1.5rem; border: 1px solid var(--color-border-emphasized); background: var(--color-background-surface);">
-  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.875rem;">
+<!-- ═══ CONTIGUOUS FLAT SQUARE KPI GRID (FINANCIAL PRESS STYLE) ═══ -->
+<div class="editorial-kpi-grid" style="margin-bottom: 1.5rem;">
+  <div class="editorial-kpi-cell">
+    <div class="editorial-kpi-tag">§ 01 // PARTNER ADVOCATES</div>
+    <div class="editorial-kpi-numeral" id="dashboard-total-contacts">0</div>
+    <div class="editorial-kpi-caption">Verified Influencer Connectors</div>
+  </div>
+
+  <div class="editorial-kpi-cell">
+    <div class="editorial-kpi-tag">§ 02 // ENTERPRISE PROSPECTS</div>
+    <div class="editorial-kpi-numeral" id="dashboard-prospects-count">0</div>
+    <div class="editorial-kpi-caption" id="dashboard-affiliated-count">(0 Affiliated to Partners)</div>
+  </div>
+
+  <div class="editorial-kpi-cell">
+    <div class="editorial-kpi-tag">§ 03 // OUTBOUND DISPATCHED</div>
+    <div class="editorial-kpi-numeral" id="dashboard-outbound-sent">0</div>
+    <div class="editorial-kpi-caption">100% Sequence Delivery Rate</div>
+  </div>
+
+  <div class="editorial-kpi-cell">
+    <div class="editorial-kpi-tag">§ 04 // SCHEDULED BRIEFINGS</div>
+    <div class="editorial-kpi-numeral" id="dashboard-meetings-booked">0</div>
+    <div class="editorial-kpi-caption" id="dashboard-meetings-subtext">Confirmed Demos on Calendar</div>
+  </div>
+</div>
+
+<!-- ═══ SECTION 01: RELATIONAL & GRAPH DATABASE DIRECTORY (SEARCH / HOME) ═══ -->
+<div class="editorial-ledger-card" id="dashboard-nl-search-card">
+  <div class="editorial-section-lead">
     <div>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #0d9488;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Contacts &amp; Referral Graph Directory (Search / Home)</h3>
+      <div class="editorial-section-kicker">
+        <span>§ 01.0</span>
+        <span>·</span>
+        <span>RELATIONAL DIRECTORY &amp; DISPATCH GRAPH</span>
       </div>
-      <p style="margin: 0.25rem 0 0 0; font-size: 12px; color: var(--color-text-secondary);">
-        View imported Contacts, convert Contacts to Influencers, track referred prospects &amp; scheduled GTM calls, or query relationships in natural language.
+      <h3 class="editorial-section-title">Contacts Directory &amp; Plain-English Query System</h3>
+      <p class="editorial-section-desc">
+        Explore imported accounts, review warm relationship ties, convert contacts into influencer partners, and query referral attribution using natural language.
       </p>
     </div>
-    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
-      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-contacts" onclick="filterDashboardDirectoryByRole('contacts')" style="font-weight: 700;">Contacts (Generic)</button>
-      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-all" onclick="filterDashboardDirectoryByRole('all')">All Records</button>
-      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-influencers" onclick="filterDashboardDirectoryByRole('influencers')">Influencers</button>
-      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-referrals" onclick="filterDashboardDirectoryByRole('referrals')">Referred Prospects</button>
-      <button type="button" class="btn btn-secondary btn-xs" id="dash-filter-btn-calls" onclick="filterDashboardDirectoryByRole('calls')">Calls Scheduled / Taken</button>
+
+    <!-- Category Filter Tabs -->
+    <div class="editorial-filter-tabs">
+      <button type="button" class="editorial-filter-btn active" id="dash-filter-btn-contacts" onclick="filterDashboardDirectoryByRole('contacts')">Contacts</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-all" onclick="filterDashboardDirectoryByRole('all')">All Records</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-influencers" onclick="filterDashboardDirectoryByRole('influencers')">Influencers</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-referrals" onclick="filterDashboardDirectoryByRole('referrals')">Referred Prospects</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-calls" onclick="filterDashboardDirectoryByRole('calls')">Calls Taken</button>
     </div>
   </div>
 
-  <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-    <div style="position: relative; flex: 1; min-width: 280px;">
-      <input
-        type="text"
-        id="dashboard-nl-search-input"
-        class="form-input"
-        placeholder='Search contacts by name, company, or natural language (e.g. "Find me all the contact referrals of Kim Beluzo that have taken a call")'
-        value=""
-        onkeydown="if(event.key==='Enter') executeDashboardDatabaseSearch()"
-        style="width: 100%; padding: 0.65rem 0.9rem; font-size: 13px; border: 1px solid var(--color-border-emphasized);"
-      />
-    </div>
-    <button class="btn btn-primary btn-sm" onclick="executeDashboardDatabaseSearch()" style="height: 38px; padding: 0 1.1rem; font-weight: 700;">
+  <!-- Search Input Group -->
+  <div class="editorial-search-group">
+    <input
+      type="text"
+      id="dashboard-nl-search-input"
+      class="editorial-search-input"
+      placeholder='QUERY DATABASE IN PLAIN ENGLISH (E.G. "Find me all the contact referrals of Kim Beluzo that have taken a call")...'
+      value=""
+      onkeydown="if(event.key==='Enter') executeDashboardDatabaseSearch()"
+    />
+    <button type="button" class="editorial-search-btn" onclick="executeDashboardDatabaseSearch()">
       Search Database
     </button>
-    <button class="btn btn-secondary btn-sm" onclick="clearDashboardDatabaseSearch()" style="height: 38px;">
-      Show All Contacts
+    <button type="button" class="editorial-reset-btn" onclick="clearDashboardDatabaseSearch()">
+      Reset
     </button>
   </div>
 
-  <!-- Preset Investor Demo Query Chips -->
-  <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; align-items: center;">
-    <span style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); margin-right: 4px;">Quick Queries:</span>
-    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo that have taken a call')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg> Referrals of Kim Beluzo that have taken a call
+  <!-- Preset Query Footnotes -->
+  <div class="editorial-quick-queries">
+    <span style="font-weight: 700; color: var(--color-text-primary); text-transform: uppercase;">Index Shortcuts:</span>
+    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo that have taken a call')">
+      [ ↗ Kim Beluzo Calls Taken ]
     </button>
-    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle></svg> All referrals of Kim Beluzo
+    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Kim Beluzo')">
+      [ ↗ All Kim Beluzo Referrals ]
     </button>
-    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Bob Miller that have taken a call')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72l.45 2.8a2 2 0 0 1-.57 1.67L7.1 10.08a16 16 0 0 0 6 6l1.89-1.89a2 2 0 0 1 1.67-.57l2.8.45A2 2 0 0 1 21.18 16z"></path></svg> Referrals of Bob Miller that have taken a call
+    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Find me all the contact referrals of Bob Miller that have taken a call')">
+      [ ↗ Bob Miller Calls ]
     </button>
-    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('All influencers')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="m12 7 1.6 3.2 3.5.5-2.5 2.4.6 3.5-3.2-1.7-3.2 1.7.6-3.5-2.5-2.4 3.5-.5z"></path></svg> All Influencers
+    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('All influencers')">
+      [ ↗ All Influencers ]
     </button>
-    <button class="btn btn-secondary btn-xs" onclick="executeDashboardDatabaseSearch('Contacts from events')" style="font-size: 11px;">
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg> Event Attendees
+    <button type="button" class="btn btn-xs" onclick="executeDashboardDatabaseSearch('Contacts from events')">
+      [ ↗ Event Attendees ]
     </button>
   </div>
 
-  <!-- Search Results & Contacts Directory Container (Visible by Default) -->
-  <div id="dashboard-nl-search-results-panel" style="display: block; margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 0.875rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem; flex-wrap: wrap; gap: 0.5rem;">
-      <div id="dashboard-nl-search-summary" style="font-size: 12.5px; font-weight: 700; color: var(--color-text-primary);">Contacts Directory</div>
-      <span class="badge" id="dashboard-nl-search-explanation" style="font-size: 11px; font-family: var(--font-family-mono, monospace); background: rgba(13, 148, 136, 0.12); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.25);">Showing Imported &amp; Pipeline Contacts</span>
+  <!-- Directory Table Container -->
+  <div id="dashboard-nl-search-results-panel" style="margin-top: 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem; flex-wrap: wrap; gap: 0.5rem; border-top: 1px solid var(--color-border); padding-top: 0.875rem;">
+      <div id="dashboard-nl-search-summary" style="font-family: var(--font-family-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-primary);">
+        LEDGER INDEX: SHOWING CONTACTS
+      </div>
+      <span class="badge" id="dashboard-nl-search-explanation" style="font-size: 10px; font-family: var(--font-family-mono); letter-spacing: 0.05em; text-transform: uppercase; background: var(--surface-soft); color: var(--color-text-primary); border: 1px solid var(--color-border);">
+        Showing Imported &amp; Pipeline Contacts
+      </span>
     </div>
-    <div style="max-height: 440px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-sm);">
+
+    <div class="editorial-table-wrap">
       <table class="data-table" style="margin: 0;">
         <thead>
           <tr>
-            <th>Contact</th>
+            <th>Executive Contact</th>
             <th>Title &amp; Organization</th>
-            <th>Referred By / Source</th>
+            <th>Referred By / Warm Source</th>
             <th>Call Status &amp; Outcome</th>
-            <th>Channels &amp; Credits</th>
-            <th style="text-align: right;">Actions (Convert / Outreach)</th>
+            <th>Channels &amp; Verification</th>
+            <th style="text-align: right;">Action / Protocol</th>
           </tr>
         </thead>
         <tbody id="dashboard-nl-search-tbody"></tbody>
@@ -146,49 +168,60 @@
   </div>
 </div>
 
-<!-- Dashboard Splitted Detail Panels -->
-<div class="dashboard-split-layout">
-  <!-- Active Campaign Console Status -->
-  <div class="dashboard-status-panel">
-    <div class="section-title">BDR Agent Orchestrator</div>
-    
-    <div class="dashboard-agent-widget">
-      <div class="agent-widget-head">
-        <div class="agent-avatar-wrap">
-          <svg class="icon-svg icon-svg-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
-          <div class="agent-avatar-status-dot online"></div>
-        </div>
-        <div>
-          <h3 class="agent-widget-title" style="font-size: var(--font-size-base); font-weight: 700; margin: 0;">GTM Research Copilot</h3>
-          <p class="agent-widget-desc" id="dashboard-agent-status-text" style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">Active. Upload a CSV to deploy research pipelines.</p>
-        </div>
-      </div>
-      
-      <div class="dashboard-progress-section">
-        <div class="progress-info-row">
-          <span class="progress-info-label">Enrichment Coverage</span>
-          <span class="progress-info-val" id="dashboard-pipeline-pct">0%</span>
-        </div>
-        <div class="dashboard-progress-track">
-          <div class="dashboard-progress-fill" id="dashboard-pipeline-fill" style="width: 0%;"></div>
-        </div>
-      </div>
+<!-- ═══ SECTION 02: EDITORIAL SPLIT LAYOUT (COPILOT MEMO & DISPATCH WIRE) ═══ -->
+<div class="editorial-split-layout">
+  <!-- Column 1: BDR Research Copilot Memo -->
+  <div class="editorial-column-card">
+    <div class="editorial-card-kicker">§ 02.0 // AUTONOMOUS DISPATCH</div>
+    <h4 class="editorial-card-headline">BDR Agent Copilot &amp; Enrichment Monitor</h4>
 
-      <div class="agent-stats-summary-grid">
-        <div class="agent-stat-box">
-          <span class="agent-stat-val" id="dashboard-hot-leads-count">0</span>
-          <span class="agent-stat-lbl">Hot Leads</span>
+    <div style="display: flex; align-items: center; gap: 0.875rem; margin-bottom: 1.25rem;">
+      <div style="width: 36px; height: 36px; border: 1px solid var(--color-border-emphasized); background: var(--color-text-primary); color: var(--color-background-surface); display: flex; align-items: center; justify-content: center; font-family: var(--font-family-heading); font-weight: 900; font-size: 16px;">
+        AI
+      </div>
+      <div>
+        <div style="font-weight: 700; font-size: 13.5px; color: var(--color-text-primary);">GTM Intelligence Copilot</div>
+        <div id="dashboard-agent-status-text" style="font-size: 12px; color: var(--color-text-secondary); margin-top: 1px;">
+          Active. Upload a CSV to deploy research pipelines.
         </div>
-        <div class="agent-stat-box">
-          <span class="agent-stat-val" id="dashboard-open-briefs-count">0</span>
-          <span class="agent-stat-lbl">Briefings</span>
-        </div>
-        <div class="agent-stat-box">
-          <span class="agent-stat-val" id="dashboard-api-status-chip">Offline</span>
-          <span class="agent-stat-lbl">Explorium Sync</span>
-        </div>
+      </div>
+    </div>
+
+    <!-- Square Progress Box -->
+    <div class="editorial-progress-box">
+      <div class="editorial-progress-header">
+        <span>Enrichment Coverage Ledger</span>
+        <span id="dashboard-pipeline-pct">0%</span>
+      </div>
+      <div class="editorial-progress-track">
+        <div class="editorial-progress-fill" id="dashboard-pipeline-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Square Stat Blocks -->
+    <div class="editorial-stat-triad">
+      <div class="editorial-stat-block">
+        <div class="editorial-stat-numeral" id="dashboard-hot-leads-count">0</div>
+        <div class="editorial-stat-label">Hot Leads</div>
+      </div>
+      <div class="editorial-stat-block">
+        <div class="editorial-stat-numeral" id="dashboard-open-briefs-count">0</div>
+        <div class="editorial-stat-label">Calls Taken</div>
+      </div>
+      <div class="editorial-stat-block">
+        <div class="editorial-stat-numeral" id="dashboard-api-status-chip" style="font-size: 12px; line-height: 1.5; font-weight: 700;">Verified</div>
+        <div class="editorial-stat-label">Explorium Sync</div>
       </div>
     </div>
   </div>
 
+  <!-- Column 2: Chronological Dispatch Wire -->
+  <div class="editorial-column-card">
+    <div class="editorial-card-kicker">§ 03.0 // OPERATIONAL WIRE</div>
+    <h4 class="editorial-card-headline">Live Dispatch Feed &amp; System Telemetry</h4>
+
+    <div id="dashboard-activity-feed" class="editorial-activity-feed">
+      <!-- Populated dynamically by renderDashboardActivityFeed() -->
+    </div>
+  </div>
 </div>

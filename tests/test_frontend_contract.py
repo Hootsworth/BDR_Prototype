@@ -296,7 +296,15 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn('"value": "admin.connectem.ai"', vercel_json)
         self.assertIn('"value": "connectem.ai"', vercel_json)
         self.assertIn("/landing.html", vercel_json)
+        self.assertIn('"source": "/go"', vercel_json)
+        self.assertIn('"source": "/admin"', vercel_json)
+
+        # Landing CTAs redirect to Admin Console and Partner Portal (Go)
+        self.assertIn("Launch Admin Console", landing_html)
+        self.assertIn("Partner Portal (Go)", landing_html)
+        self.assertNotIn('href="/marketplace.html" class="btn', landing_html)
 
 
 if __name__ == "__main__":
     unittest.main()
+
