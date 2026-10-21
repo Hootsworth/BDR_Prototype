@@ -3310,29 +3310,49 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         if self.path == '/api/partner-portal/onboard':
             try:
-                claims = verify_clerk_token(bearer_token(self.headers))
-                user = clerk_user_for_claims(claims)
-                name = str(payload.get('fullName') or user['fullName']).strip()
+                auth_hdr = bearer_token(self.headers)
+                user = None
+                if auth_hdr:
+                    try:
+                        claims = verify_clerk_token(auth_hdr)
+                        user = clerk_user_for_claims(claims)
+                    except Exception:
+                        user = None
+
+                email = (user['email'] if user else str(payload.get('email') or '')).strip().lower()
+                name = str(payload.get('fullName') or (user['fullName'] if user else '')).strip()
                 company = str(payload.get('company') or '').strip()
+                password = str(payload.get('password') or '').strip()
                 job_title = str(payload.get('jobTitle') or 'Industry Advisor').strip()
+                phone = str(payload.get('phone') or '').strip()
                 linkedin_url = normalize_linkedin_url(payload.get('linkedinUrl') or '')
                 location = str(payload.get('location') or '').strip()
-                if not name or not company:
-                    json_response(self, 400, {'error': 'Your name and company or advisory are required.'})
+
+                if not name or not company or not email:
+                    json_response(self, 400, {'error': 'Full name, company, and email are required.'})
+                    return
+                if not user and not password:
+                    json_response(self, 400, {'error': 'Please enter a password for your partner account.'})
                     return
 
                 state = read_workbook_state()
                 contacts = state.setdefault('contacts', [])
-                email = user['email']
                 influencer = next((c for c in contacts if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email), None)
-                if influencer and influencer.get('clerkUserId') and str(influencer.get('clerkUserId')) != user['id']:
+                if user and influencer and influencer.get('clerkUserId') and str(influencer.get('clerkUserId')) != user['id']:
                     json_response(self, 409, {'error': 'This partner profile is linked to a different Clerk account.'})
                     return
                 if influencer:
                     influencer['fullName'] = name
                     influencer['company'] = company
                     influencer['jobTitle'] = job_title
-                    influencer['clerkUserId'] = user['id']
+                    if user:
+                        influencer['clerkUserId'] = user['id']
+                    if password:
+                        set_partner_password(influencer, password)
+                        influencer['passwordChanged'] = True
+                        influencer['mustChangePassword'] = False
+                    if phone:
+                        influencer['phone'] = phone
                     if linkedin_url:
                         influencer['linkedinUrl'] = linkedin_url
                     if location:
@@ -3346,8 +3366,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         existing.update({
                             'fullName': name, 'company': company, 'jobTitle': job_title,
                             'isInfluencer': True, 'influencerStatus': 'pending_review',
-                            'clerkUserId': user['id'], 'sourceFile': existing.get('sourceFile') or 'Influencer Portal Onboarding'
+                            'sourceFile': existing.get('sourceFile') or 'Influencer Portal Onboarding'
                         })
+                        if user:
+                            existing['clerkUserId'] = user['id']
+                        if password:
+                            set_partner_password(existing, password)
+                            existing['passwordChanged'] = True
+                            existing['mustChangePassword'] = False
+                        if phone:
+                            existing['phone'] = phone
+                        if linkedin_url:
+                            existing['linkedinUrl'] = linkedin_url
                         influencer = existing
                     else:
                         parts = name.split()
@@ -3362,10 +3392,17 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             'id': new_id, 'firstName': parts[0] if parts else name,
                             'lastName': ' '.join(parts[1:]), 'fullName': name, 'email': email,
                             'company': company, 'jobTitle': job_title, 'linkedinUrl': linkedin_url,
-                            'location': location, 'isInfluencer': True, 'influencerStatus': 'pending_review',
-                            'clerkUserId': user['id'], 'referralCredits': 0, 'referrals': [],
+                            'phone': phone, 'location': location, 'isInfluencer': True,
+                            'influencerStatus': 'pending_review',
+                            'referralCredits': 0, 'referrals': [],
                             'agreements': [], 'sourceFile': 'Influencer Portal Onboarding'
                         }
+                        if user:
+                            influencer['clerkUserId'] = user['id']
+                        if password:
+                            set_partner_password(influencer, password)
+                            influencer['passwordChanged'] = True
+                            influencer['mustChangePassword'] = False
                         contacts.append(influencer)
                 write_workbook_state(state)
                 json_response(self, 201, {

@@ -29,6 +29,8 @@
   const portalLoginEmail = document.getElementById('portal-login-email');
   const portalLoginPassword = document.getElementById('portal-login-password');
   const portalLoginSubmit = document.getElementById('portal-login-submit');
+  const portalSignupForm = document.getElementById('portal-signup-form');
+  const portalSignupSubmit = document.getElementById('portal-signup-submit');
   const portalSsoSeparator = document.getElementById('portal-sso-separator');
   let clerkListenerAdded = false;
   let selectedAuthMode = 'signin';
@@ -49,6 +51,12 @@
         frontendApi = atob(encoded.replace(/-/g, '+').replace(/_/g, '/')).replace(/\$$/, '');
         if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error('Invalid Clerk frontend domain.');
       } catch (_) { return Promise.reject(new Error('The Clerk publishable key is invalid.')); }
+
+      const isDevKey = key.startsWith('pk_test_') || frontendApi.includes('.clerk.accounts.dev');
+      const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      if (isDevKey && !isLocal) {
+        return Promise.reject(new Error('Clerk dev instance browser sync is disabled on live domains.'));
+      }
       const add = (url, publishableKey = '') => new Promise((resolve, reject) => {
         let settled = false;
         const script = document.createElement('script');
@@ -584,11 +592,12 @@
     authTabs.hidden = false;
     onboardingForm.hidden = true;
     if (portalLoginForm) portalLoginForm.hidden = !isSignin;
-    if (portalSsoSeparator) portalSsoSeparator.hidden = !isSignin || !window.Clerk;
-    clerkMount.hidden = !isSignin;
-    clerkSignupMount.hidden = isSignin;
-    signinSwitchline.hidden = isSignin;
-    signupSwitchline.hidden = !isSignin;
+    if (portalSignupForm) portalSignupForm.hidden = isSignin;
+    if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
+    if (clerkMount) clerkMount.hidden = !isSignin || !window.Clerk;
+    if (clerkSignupMount) clerkSignupMount.hidden = isSignin || !window.Clerk;
+    if (signinSwitchline) signinSwitchline.hidden = isSignin;
+    if (signupSwitchline) signupSwitchline.hidden = !isSignin;
     if (window.Clerk) {
       mountClerkAuth(mode);
     } else {
@@ -636,6 +645,48 @@
     }
   });
 
+  portalSignupForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const fullName = (document.getElementById('portal-signup-name')?.value || '').trim();
+    const company = (document.getElementById('portal-signup-company')?.value || '').trim();
+    const email = (document.getElementById('portal-signup-email')?.value || '').trim();
+    const password = (document.getElementById('portal-signup-password')?.value || '').trim();
+    const jobTitle = (document.getElementById('portal-signup-title')?.value || '').trim();
+    const phone = (document.getElementById('portal-signup-phone')?.value || '').trim();
+    const linkedinUrl = (document.getElementById('portal-signup-linkedin')?.value || '').trim();
+    const authError = document.getElementById('portal-auth-error');
+    if (authError) authError.textContent = '';
+    if (!fullName || !company || !email || !password) {
+      if (authError) authError.textContent = 'Please enter your full name, company, email, and password.';
+      return;
+    }
+    if (portalSignupSubmit) {
+      portalSignupSubmit.disabled = true;
+      portalSignupSubmit.textContent = 'Creating account…';
+    }
+    try {
+      const res = await request('/api/partner-portal/onboard', {
+        method: 'POST',
+        body: JSON.stringify({ fullName, company, email, password, jobTitle, phone, linkedinUrl })
+      });
+      if (res.token) {
+        token = res.token;
+        sessionStorage.setItem(tokenKey, token);
+        portalSignupForm.reset();
+        await load();
+      } else {
+        throw new Error(res.error || 'Account creation failed.');
+      }
+    } catch (err) {
+      if (authError) authError.textContent = err.message || 'Registration failed. Please try again.';
+    } finally {
+      if (portalSignupSubmit) {
+        portalSignupSubmit.disabled = false;
+        portalSignupSubmit.textContent = 'Create Partner Account';
+      }
+    }
+  });
+
   onboardingForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const feedback = document.getElementById('portal-auth-feedback');
@@ -659,6 +710,8 @@
     sessionStorage.removeItem(tokenKey);
     try { await window.Clerk?.signOut(); } catch (_) {}
     if (portalLoginPassword) portalLoginPassword.value = '';
+    const signupPass = document.getElementById('portal-signup-password');
+    if (signupPass) signupPass.value = '';
     showAuthView();
     chooseAuthMode('signin');
   });
@@ -694,6 +747,7 @@
           clerkSignupMount.hidden = true;
           authTabs.hidden = true;
           if (portalLoginForm) portalLoginForm.hidden = true;
+          if (portalSignupForm) portalSignupForm.hidden = true;
           if (portalSsoSeparator) portalSsoSeparator.hidden = true;
           signinSwitchline.hidden = true;
           signupSwitchline.hidden = true;
@@ -702,14 +756,20 @@
           onboardingForm.elements.fullName.value = currentName;
           return;
         }
-        if (portalSsoSeparator) portalSsoSeparator.hidden = false;
+        if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
         mountClerkAuth(selectedAuthMode);
       } catch (error) {
         clearClerkLoading();
         if (clerkMount) clerkMount.hidden = true;
         if (clerkSignupMount) clerkSignupMount.hidden = true;
         if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-        if (portalLoginForm) portalLoginForm.hidden = false;
+        if (selectedAuthMode === 'signin') {
+          if (portalLoginForm) portalLoginForm.hidden = false;
+          if (portalSignupForm) portalSignupForm.hidden = true;
+        } else {
+          if (portalLoginForm) portalLoginForm.hidden = true;
+          if (portalSignupForm) portalSignupForm.hidden = false;
+        }
       }
       return;
     }
