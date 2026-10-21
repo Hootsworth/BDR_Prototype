@@ -1,47 +1,28 @@
 <!-- ═══ MINIMAL HEADER & QUICK ACTIONS ═══ -->
-<div class="editorial-masthead-card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;">
+<div class="editorial-masthead-card" style="padding: 1.25rem 1.5rem; margin-bottom: 1rem;">
   <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
     <div>
       <h2 style="margin: 0; font-family: var(--font-family-heading); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text-primary);">
         Contacts &amp; Relationship Directory
       </h2>
       <p style="margin: 3px 0 0 0; font-size: 13px; color: var(--color-text-secondary);">
-        Search accounts, inspect warm introductions, and track verified influencer attribution.
+        Unified index of executive decision-makers, verified advisory partners, and warm paths.
       </p>
     </div>
 
     <div class="editorial-actions-bar" style="display: flex; gap: 8px;">
-      <button class="btn btn-secondary btn-sm" onclick="openBulkAddInfluencerModal()">+ Add Partner</button>
+      <button class="btn btn-secondary btn-sm" onclick="openAddInfluencerModal()">+ Add Partner</button>
       <button class="btn btn-primary btn-sm" onclick="openImportContactsTab('csv')">Import CSV</button>
     </div>
   </div>
 </div>
 
-<!-- ═══ CONTIGUOUS FLAT SQUARE KPI GRID ═══ -->
-<div class="editorial-kpi-grid" style="margin-bottom: 1.25rem;">
-  <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">PARTNER ADVOCATES</div>
-    <div class="editorial-kpi-numeral" id="dashboard-total-contacts">0</div>
-    <div class="editorial-kpi-caption">Verified Connectors</div>
-  </div>
-
-  <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">PROSPECTS</div>
-    <div class="editorial-kpi-numeral" id="dashboard-prospects-count">0</div>
-    <div class="editorial-kpi-caption" id="dashboard-affiliated-count">(0 Affiliated)</div>
-  </div>
-
-  <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">OUTBOUND SENT</div>
-    <div class="editorial-kpi-numeral" id="dashboard-outbound-sent">0</div>
-    <div class="editorial-kpi-caption">Delivered</div>
-  </div>
-
-  <div class="editorial-kpi-cell">
-    <div class="editorial-kpi-tag">SCHEDULED BRIEFINGS</div>
-    <div class="editorial-kpi-numeral" id="dashboard-meetings-booked">0</div>
-    <div class="editorial-kpi-caption" id="dashboard-meetings-subtext">demos</div>
-  </div>
+<!-- ═══ SLEEK COMPACT METRIC STRIP ═══ -->
+<div class="directory-summary-strip" style="display: flex; gap: 1.5rem; align-items: center; padding: 0.75rem 1.25rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 13px; flex-wrap: wrap;">
+  <div><span style="color: var(--color-text-secondary);">Advisory Partners:</span> <strong id="dashboard-total-contacts" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong></div>
+  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Target Prospects:</span> <strong id="dashboard-prospects-count" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong> <span id="dashboard-affiliated-count" style="font-size: 11px; color: #0d9488; font-weight: 600;">(0 Affiliated)</span></div>
+  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Outbound Sent:</span> <strong id="dashboard-outbound-sent" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong></div>
+  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Briefings Booked:</span> <strong id="dashboard-meetings-booked" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong> <span id="dashboard-meetings-subtext" style="display:none;">demos</span></div>
 </div>
 
 <!-- ═══ RELATIONAL & GRAPH DATABASE DIRECTORY ═══ -->
@@ -55,9 +36,9 @@
     <div class="editorial-filter-tabs">
       <button type="button" class="editorial-filter-btn active" id="dash-filter-btn-contacts" onclick="filterDashboardDirectoryByRole('contacts')">Contacts</button>
       <button type="button" class="editorial-filter-btn" id="dash-filter-btn-all" onclick="filterDashboardDirectoryByRole('all')">All Records</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-influencers" onclick="filterDashboardDirectoryByRole('influencers')">Influencers</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-referrals" onclick="filterDashboardDirectoryByRole('referrals')">Referred Prospects</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-calls" onclick="filterDashboardDirectoryByRole('calls')">Calls Taken</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-influencers" onclick="filterDashboardDirectoryByRole('influencers')">Partners</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-referrals" onclick="filterDashboardDirectoryByRole('referrals')">Warm Referrals</button>
+      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-calls" onclick="filterDashboardDirectoryByRole('calls')">Briefings Booked</button>
     </div>
   </div>
 

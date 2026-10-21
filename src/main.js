@@ -48,7 +48,7 @@ async function loadComponentTemplates() {
   }
 }
 
-let currentTabId = 'campaign-outbound';
+let currentTabId = 'dashboard';
 window.currentTabId = currentTabId;
 window.currentImportContactsMode = 'csv';
 
@@ -142,14 +142,13 @@ async function bootstrapApp() {
   const autoEnrichCheckbox = document.getElementById("toggle-auto-enrich");
   if (autoEnrichCheckbox) autoEnrichCheckbox.checked = database.autoEnrich;
 
-  // Open Campaign Outbound as the primary main screen by default
-  switchTab('campaign-outbound');
+  // Open Directory as the primary main screen by default
+  switchTab('dashboard');
 
-  // Restore sidebar layout & proximity auto-collapse preferences
-  database.sidebarPosition = localStorage.getItem("gtm_sidebar_position") || "left";
-  database.sidebarCollapsible = localStorage.getItem("gtm_sidebar_collapsible") !== "false";
+  // Sidebar is permanently pinned open
+  database.sidebarPosition = "left";
+  database.sidebarCollapsible = false;
   applySidebarLayoutPreferences();
-  initSidebarProximityController();
 
   // gtm-console-database.xlsx (server-managed) is the authoritative source. Always load from it first.
   // A single failed attempt would otherwise leave auto-save permanently disabled for the whole
@@ -416,24 +415,24 @@ function updateHeader(tabId) {
 
   switch (tabId) {
     case 'dashboard':
-      titleEl.textContent = "Search";
-      subtitleEl.textContent = "Search across contacts, influencer referrals, call statuses, and event attendees in real time.";
+      titleEl.textContent = "Directory";
+      subtitleEl.textContent = "Search accounts, inspect warm introductions, and track verified partner attribution.";
       break;
     case 'upload':
       titleEl.textContent = "Import";
       subtitleEl.textContent = "Add & enrich contacts or influencers directly, or capture attendees and influencers from field events.";
       break;
     case 'campaign-outbound':
-      titleEl.textContent = "Connectem AI";
-      subtitleEl.textContent = "Engage prospects and influencers across Email, LinkedIn, and Phone — and manage scheduled briefings.";
+      titleEl.textContent = "Campaign Outbound";
+      subtitleEl.textContent = "Engage prospects and partners across Email, LinkedIn, and Phone — and manage scheduled briefings.";
       break;
     case 'events-list':
       titleEl.textContent = "Import — Events";
       subtitleEl.textContent = "Review registered attendees and capture new contacts or influencers from field events.";
       break;
     case 'influencers':
-      titleEl.textContent = "Influencer Portal";
-      subtitleEl.textContent = "Manage partner referrals, generate shareable portal links, and track warm introductions.";
+      titleEl.textContent = "Partners";
+      subtitleEl.textContent = "Manage executive advisors, review warm introductions, and dispatch login invitations.";
       break;
     case 'events-register':
       titleEl.textContent = "Register Event Attendee";
@@ -441,11 +440,11 @@ function updateHeader(tabId) {
       break;
     case 'agent-mode':
       titleEl.textContent = "Agent Mode Orchestrator";
-      subtitleEl.textContent = "Run approved workflow steps against the active contacts and connected providers.";
+      subtitleEl.textContent = "Run approved workflow steps against active contacts and connected providers.";
       break;
     case 'settings-keys':
-      titleEl.textContent = "Global Credentials & Settings";
-      subtitleEl.textContent = "Manage API configurations, model selection, and credentials for autonomous agents.";
+      titleEl.textContent = "Settings & Telemetry";
+      subtitleEl.textContent = "Manage API configurations, credentials, live dispatch telemetry, and system preferences.";
       break;
   }
 
@@ -527,92 +526,34 @@ function applySidebarLayoutPreferences() {
   const edgePill = document.getElementById("sidebar-edge-proximity-pill");
   if (!appLayout || !sidebar) return;
 
-  const pos = database.sidebarPosition || localStorage.getItem("gtm_sidebar_position") || "left";
-  const isCollapsible = database.sidebarCollapsible !== undefined
-    ? Boolean(database.sidebarCollapsible)
-    : localStorage.getItem("gtm_sidebar_collapsible") !== "false";
+  database.sidebarPosition = "left";
+  database.sidebarCollapsible = false;
 
-  database.sidebarPosition = pos;
-  database.sidebarCollapsible = isCollapsible;
-
-  appLayout.classList.toggle("sidebar-pos-right", pos === "right");
-  appLayout.classList.toggle("sidebar-collapsible-mode", isCollapsible);
+  appLayout.classList.remove("sidebar-pos-right");
+  appLayout.classList.remove("sidebar-collapsible-mode");
   sidebar.classList.remove("collapsed");
+  sidebar.classList.remove("proximity-open");
 
-  if (!isCollapsible) {
-    sidebar.classList.remove("proximity-open");
-    if (edgePill) edgePill.style.display = "none";
-  } else if (window.currentTabId !== "settings-keys") {
-    if (edgePill) edgePill.style.display = "block";
-  }
-
+  if (edgePill) edgePill.style.display = "none";
   syncSidebarSettingsInputs();
 }
 
 function updateSidebarPreferencesFromSettings() {
-  const posSelect = document.getElementById("settings-sidebar-position");
-  const colSelect = document.getElementById("settings-sidebar-collapsible");
-  const pos = posSelect ? posSelect.value : "left";
-  const isCollapsible = colSelect ? colSelect.value === "true" : true;
-
-  database.sidebarPosition = pos;
-  database.sidebarCollapsible = isCollapsible;
-  localStorage.setItem("gtm_sidebar_position", pos);
-  localStorage.setItem("gtm_sidebar_collapsible", isCollapsible ? "true" : "false");
-
+  database.sidebarPosition = "left";
+  database.sidebarCollapsible = false;
   applySidebarLayoutPreferences();
 }
 
 function revealSidebarOverlayNow() {
-  const sidebar = document.getElementById("sidebar-panel");
-  if (sidebar) {
-    sidebar.classList.add("proximity-open");
-  }
+  // Pinned sidebar does not require proximity reveals
 }
 
 function initSidebarProximityController() {
-  if (sidebarProximityBound) return;
-  sidebarProximityBound = true;
-
-  const EDGE_TRIGGER_PX = 28;
-  const KEEP_OPEN_PROXIMITY_PX = 310;
-
-  window.addEventListener("mousemove", (e) => {
-    if (!database.sidebarCollapsible || window.currentTabId === "settings-keys") return;
-    const sidebar = document.getElementById("sidebar-panel");
-    if (!sidebar) return;
-
-    const pos = database.sidebarPosition || "left";
-    const viewportW = window.innerWidth;
-    const distFromActiveEdge = pos === "right" ? (viewportW - e.clientX) : e.clientX;
-    const isOpen = sidebar.classList.contains("proximity-open");
-
-    if (!isOpen && distFromActiveEdge <= EDGE_TRIGGER_PX) {
-      if (sidebarProximityTimer) {
-        clearTimeout(sidebarProximityTimer);
-        sidebarProximityTimer = null;
-      }
-      sidebar.classList.add("proximity-open");
-    } else if (isOpen) {
-      if (distFromActiveEdge <= KEEP_OPEN_PROXIMITY_PX) {
-        if (sidebarProximityTimer) {
-          clearTimeout(sidebarProximityTimer);
-          sidebarProximityTimer = null;
-        }
-      } else if (!sidebarProximityTimer) {
-        sidebarProximityTimer = setTimeout(() => {
-          sidebar.classList.remove("proximity-open");
-          sidebarProximityTimer = null;
-        }, 160);
-      }
-    }
-  }, { passive: true });
+  // Disabled: sidebar is permanently pinned
 }
 
 function toggleSidebarCollapse() {
-  database.sidebarCollapsible = !database.sidebarCollapsible;
-  localStorage.setItem("gtm_sidebar_collapsible", database.sidebarCollapsible ? "true" : "false");
-  applySidebarLayoutPreferences();
+  // Disabled: sidebar is permanently pinned
 }
 
 function toggleNotificationDropdown() {

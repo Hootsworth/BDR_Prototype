@@ -164,74 +164,69 @@
 
 <!-- DIALOG: Add Influencer Manually -->
 <dialog id="add-influencer-dialog" style="border: none; background: transparent; padding: 0;">
-  <div class="modal-container" style="max-width: 540px;">
+  <div class="modal-container" style="max-width: 560px;">
     <div class="modal-header">
-      <h3 style="margin: 0;">Add Influencer Manually</h3>
-      <div style="display: flex; gap: 0.4rem; align-items: center;">
-        <button type="button" class="btn btn-secondary btn-xs" onclick="closeAddInfluencerModal(); openBulkAddInfluencerModal();">Switch to Bulk Add</button>
-        <button class="btn btn-secondary btn-sm" onclick="closeAddInfluencerModal()">×</button>
+      <div>
+        <h3 style="margin: 0;">Onboard Partner (Advisory Network)</h3>
+        <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--color-text-secondary);">Enrolls the partner in the directory and sends a portal invitation with their auto-generated credentials.</p>
       </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeAddInfluencerModal()">&times;</button>
     </div>
     <form id="manual-influencer-form" onsubmit="handleManualInfluencerSubmit(event)">
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label" for="manual-inf-name">Full Name</label>
-          <input type="text" class="form-input" id="manual-inf-name" placeholder="John Doe" required>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 0.875rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="manual-inf-name">Full Name *</label>
+            <input type="text" class="form-input" id="manual-inf-name" placeholder="Sarah Jenkins" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="manual-inf-title">Job Title</label>
+            <input type="text" class="form-input" id="manual-inf-title" placeholder="VP of IT &amp; Operations">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="manual-inf-title">Job Title</label>
-          <input type="text" class="form-input" id="manual-inf-title" placeholder="VP of IT / Operations" required>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="manual-inf-company">Organization / Company *</label>
+            <input type="text" class="form-input" id="manual-inf-company" placeholder="Apex Federal Credit Union" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="manual-inf-email">Work Email *</label>
+            <input type="email" class="form-input" id="manual-inf-email" placeholder="sjenkins@apexfcu.org" required>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="manual-inf-company">Company</label>
-          <input type="text" class="form-input" id="manual-inf-company" placeholder="Summit Credit Union" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="manual-inf-email">Email Address</label>
-          <input type="email" class="form-input" id="manual-inf-email" placeholder="john.doe@summitcu.org" required>
-        </div>
-        <div class="form-group">
+        <div class="form-group" style="margin: 0; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" for="manual-inf-password" style="margin-bottom: 0;">Portal Password (Auto-Generated)</label>
+            <label class="form-label" for="manual-inf-password" style="margin-bottom: 0; font-size: 11.5px; font-weight: 700;">Portal Password (Auto-Generated)</label>
             <button type="button" class="btn btn-subtle btn-xs" onclick="generatePartnerPassword()" style="font-size: 11px; padding: 2px 6px;">↻ Regenerate</button>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <input type="text" class="form-input" id="manual-inf-password" value="welcomebdr123!" required style="font-family: var(--font-family-mono); font-weight: 600; letter-spacing: 0.5px;">
+            <input type="text" class="form-input" id="manual-inf-password" value="welcomebdr123!" required style="font-family: var(--font-family-mono); font-weight: 600; letter-spacing: 0.5px; background: var(--surface-card);">
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyPartnerPassword()" title="Copy password" style="flex-shrink: 0;">Copy</button>
           </div>
-          <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px;">Account will be created automatically. The partner uses this email &amp; password to sign in at <strong style="color: var(--color-text-primary);">go.connectem.ai</strong>.</div>
+          <div style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px;">An invitation email with this temporary password will be sent automatically via Clerk.</div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-          <div class="form-group">
+          <div class="form-group" style="margin: 0;">
             <label class="form-label" for="manual-inf-phone">Phone (Optional)</label>
             <input type="text" class="form-input" id="manual-inf-phone" placeholder="+1 (555) 019-2834">
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin: 0;">
             <label class="form-label" for="manual-inf-linkedin">LinkedIn Profile URL (Optional)</label>
-            <input type="url" class="form-input" id="manual-inf-linkedin" placeholder="https://www.linkedin.com/in/john-doe">
+            <input type="url" class="form-input" id="manual-inf-linkedin" placeholder="https://www.linkedin.com/in/profile">
           </div>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="margin: 0;">
           <label class="form-label" for="manual-inf-agreement">Signed Agreement / Attachment Title (Optional)</label>
           <input type="text" class="form-input" id="manual-inf-agreement" placeholder="e.g. Partner Referral Agreement 2026 (Signed)">
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-          <div class="form-group">
-            <label class="form-label" for="manual-inf-temp">Lead Status</label>
-            <select class="form-select" id="manual-inf-temp">
-              <option value="Hot Lead">Hot Lead</option>
-              <option value="Cold Lead">Cold Lead</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="manual-inf-match">Match Score (%)</label>
-            <input type="number" class="form-input" id="manual-inf-match" value="95" min="0" max="100">
-          </div>
+        <div style="display: none;">
+          <select id="manual-inf-temp"><option value="Influencer Partner" selected>Influencer Partner</option></select>
+          <input type="number" id="manual-inf-match" value="95">
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddInfluencerModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Add Influencer</button>
+        <button type="submit" class="btn btn-primary btn-sm">Onboard Partner &amp; Send Invite</button>
       </div>
     </form>
   </div>

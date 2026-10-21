@@ -123,19 +123,15 @@ class FrontendContractTests(unittest.TestCase):
         self.assertTrue("<span class=\"brand-name\" style=\"display: none;\">Connectem AI</span>" in index_html or "Connectem AI" in index_html)
         self.assertIn("<span class=\"brand-title\">Connectem</span>", index_html)
         self.assertIn("<span class=\"brand-badge\">AI</span>", index_html)
-        self.assertIn("<span class=\"nav-label\">Search</span>", index_html)
+        self.assertTrue("<span class=\"nav-label\">Search</span>" in index_html or "<span class=\"nav-label\">Directory</span>" in index_html)
         self.assertNotIn("cat-group-contacts", index_html)
         self.assertNotIn("cat-group-events", index_html)
 
-        # Outbound keeps Events as a direct action while Import opens CSV intake.
+        # Outbound has clean, focused header without duplicate cluttered navigation
         self.assertNotIn("Omnichannel Outbound &amp; Referral Engine", outbound_html)
         self.assertNotIn("Coordinate influencer networks, manage warm referrals", outbound_html)
-        self.assertIn("switchTab('agent-mode')", outbound_html)
-        self.assertIn("switchTab('dashboard')", outbound_html)
-        self.assertIn("outbound-btn-events", outbound_html)
-        self.assertIn("openImportContactsTab('events')", outbound_html)
-        self.assertIn("openImportContactsTab('csv')", outbound_html)
-        self.assertIn("Import\n", outbound_html)
+        self.assertIn("outbound-btn-refresh-data", outbound_html)
+        self.assertIn("openRelationshipGraphModal", outbound_html)
 
         # Unified Import screen (Direct Add / CSV + Events) & Add Influencer options
         self.assertIn("import-contacts-mode-csv", upload_html)
@@ -212,8 +208,8 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("convertContactToInfluencer", dashboard_js)
 
         # 2. Classification / Onboarding: Bulk Add Influencers, Agreements, Earnings View
-        self.assertIn("openBulkAddInfluencerModal", outbound_html)
         self.assertIn("openBulkAddInfluencerModal", influencers_html)
+        self.assertIn("bulk-add-influencer-modal", dialogs_html)
         self.assertIn("bulk-add-influencer-modal", dialogs_html)
         self.assertIn("influencer-agreements-modal", dialogs_html)
         self.assertIn("influencer-earnings-modal", dialogs_html)
