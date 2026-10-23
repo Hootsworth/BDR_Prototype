@@ -125,6 +125,18 @@
       <!-- SECTION: CONTACTS & RELATIONSHIP CLASSIFICATION -->
       <section id="introduction-section" class="portal-section">
         <div class="section-heading"><div><h2>My Network &amp; Relationships</h2><p id="visible-count">0 contacts</p></div></div>
+        <section class="schedule-email-panel" aria-labelledby="partner-schedule-title">
+          <h3 id="partner-schedule-title">Schedule a call</h3>
+          <p>Send the invitation from ConnectEM. Your administrator is copied, and the meeting is added to the Admin Schedule after AI checks the details.</p>
+          <form id="partner-schedule-form" class="form-grid">
+            <label>Contact<select id="partner-schedule-contact" name="contactId" required><option value="">Choose a referred contact</option></select></label>
+            <label>Call date and time<input name="datetime" type="datetime-local" required></label>
+            <label>Subject<input name="subject" required value="ConnectEM partner introduction"></label>
+            <label style="grid-column:1/-1">Invitation message<textarea name="body" rows="4" required placeholder="Add the purpose and any details for the call."></textarea></label>
+            <button id="partner-schedule-send" class="btn btn-primary" type="submit">Send invitation &amp; add to Schedule</button>
+          </form>
+          <p id="partner-schedule-feedback" role="status" aria-live="polite"></p>
+        </section>
         <div class="workspace-nav-tabs" role="tablist">
           <button id="mode-single-btn" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Add Contact</button>
           <button id="mode-bulk-btn" class="workspace-tab-btn" type="button" role="tab" aria-selected="false">Import List</button>

@@ -3086,6 +3086,45 @@ input[type="number"]:focus, .form-input[type="number"]:focus {
   color: var(--color-text-primary);
 }
 
+/* Directory search results stay within the card; long contact details wrap and
+   the primary actions use a compact two-column grid. */
+#dashboard-nl-search-card .editorial-table-wrap {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#dashboard-nl-search-card .editorial-table-wrap .data-table {
+  table-layout: fixed;
+}
+
+#dashboard-nl-search-card .editorial-table-wrap .data-table th,
+#dashboard-nl-search-card .editorial-table-wrap .data-table td {
+  padding: 9px 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+
+#dashboard-nl-search-card .editorial-table-wrap .data-table th:nth-child(1) { width: 24%; }
+#dashboard-nl-search-card .editorial-table-wrap .data-table th:nth-child(2) { width: 25%; }
+#dashboard-nl-search-card .editorial-table-wrap .data-table th:nth-child(3) { width: 25%; }
+#dashboard-nl-search-card .editorial-table-wrap .data-table th:nth-child(4) { width: 26%; }
+#dashboard-nl-search-card .directory-contact-cell .badge { max-width: 100%; white-space: normal; line-height: 1.35; }
+#dashboard-nl-search-card .directory-company-cell { line-height: 1.4; }
+#dashboard-nl-search-card .directory-activity-cell { font-size: 11px; }
+#dashboard-nl-search-card .directory-warm-path { margin-bottom: 6px; line-height: 1.45; }
+#dashboard-nl-search-card .directory-statuses { display: flex; align-items: flex-start; gap: 4px; flex-wrap: wrap; }
+#dashboard-nl-search-card .directory-statuses > div { flex-basis: 100%; }
+#dashboard-nl-search-card .directory-statuses .badge { white-space: normal; line-height: 1.35; }
+#dashboard-nl-search-card .directory-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+#dashboard-nl-search-card .directory-actions .btn { min-width: 0; padding-inline: 5px !important; white-space: normal; line-height: 1.25; }
+
+@media (max-width: 900px) {
+  #dashboard-nl-search-card .editorial-table-wrap .data-table th,
+  #dashboard-nl-search-card .editorial-table-wrap .data-table td { padding: 8px 7px; font-size: 11px; }
+  #dashboard-nl-search-card .directory-actions .btn { font-size: 9px; }
+}
+
 .editorial-table-wrap .data-table td:last-child {
   border-right: none;
 }

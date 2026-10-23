@@ -134,7 +134,7 @@
             <input type="password" class="form-input" id="key-gemini" placeholder="AIzaSy..." onchange="saveGeminiKey()">
             <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-gemini', this)">Show</button>
           </div>
-          <small style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Required for Copilot Agent Mode &amp; live web grounding.</small>
+          <small style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Enter a key here. It is encrypted on the server and loaded into the Admin session for Copilot Agent Mode and live web grounding.</small>
         </div>
 
         <div class="form-group">
@@ -169,8 +169,8 @@
           </div>
         </div>
 
-        <p style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0; padding:0.75rem; border:1px solid var(--color-border); border-radius:var(--radius-inner);">
-          Provider keys are kept in memory for this browser session only. They are not saved to localStorage or your workbook. For team use, configure providers on the server instead.
+        <p id="provider-key-status" role="status" aria-live="polite" style="font-size:var(--font-size-xs); color:var(--color-text-secondary); margin:0; padding:0.75rem; border:1px solid var(--color-border); border-radius:var(--radius-inner);">
+          Enter keys here. They are encrypted on the server and loaded only into authorized Admin sessions.
         </p>
       </div>
 
@@ -214,7 +214,7 @@
         </div>
 
         <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0 0 1rem 0;">
-          Connect Google Workspace once to enable Gmail drafts/sending, Calendar availability, and Google Meet events.
+          Connect the Admin Google account to grant calendar event access. Partner Portal invitations are sent through ConnectEM and copied to the Admin; scheduled calls are also written to this Google Calendar.
         </p>
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem;">

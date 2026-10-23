@@ -142,7 +142,7 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
   if (explainEl) explainEl.textContent = explainText || "All records";
 
   if (!results || results.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--color-text-secondary);">No matching records found. Import a CSV or add contacts to get started.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--color-text-secondary);">No matching records found. Import a CSV or add contacts to get started.</td></tr>`;
     return;
   }
 
@@ -187,26 +187,28 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
 
     return `
       <tr>
-        <td>
-          <div style="display:flex; align-items:center; gap:10px;">
+        <td class="directory-contact-cell">
+          <div style="display:flex; align-items:flex-start; gap:8px; min-width:0;">
             <div style="width:28px; height:28px; border-radius:0; border:1px solid var(--color-border); background:var(--surface-soft); color:var(--color-text-primary); display:flex; align-items:center; justify-content:center; font-family:var(--font-family-mono); font-size:11px; font-weight:800; flex-shrink:0;">
               ${getInitials(c.fullName)}
             </div>
-            <div>
-              <div style="font-weight:700; color:var(--color-text-primary); font-size:13.5px;">${c.fullName}</div>
+            <div style="min-width:0;">
+              <div style="font-weight:700; color:var(--color-text-primary); font-size:13px;">${c.fullName}</div>
               <div style="margin-top:3px;">${roleTag}</div>
             </div>
           </div>
         </td>
-        <td>
+        <td class="directory-company-cell">
           <div style="font-weight:600; color:var(--color-text-primary);">${c.jobTitle || "Executive"}</div>
-          <div style="font-family:var(--font-family-mono); font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${c.company || "Organization"} · ${c.email || ""}</div>
+          <div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">${c.company || "Organization"}</div>
+          <div style="font-family:var(--font-family-mono); font-size:10px; color:var(--color-text-secondary); margin-top:2px;">${c.email || ""}</div>
         </td>
-        <td>${refEdge}</td>
-        <td>${callHtml}</td>
-        <td>${emailBadge}${liBadge}</td>
-        <td style="text-align:right;">
-          <div style="display:flex; gap:4px; justify-content:flex-end; flex-wrap:wrap;">
+        <td class="directory-activity-cell">
+          <div class="directory-warm-path">${refEdge}</div>
+          <div class="directory-statuses">${callHtml}${emailBadge}${liBadge}</div>
+        </td>
+        <td class="directory-actions-cell">
+          <div class="directory-actions">
             ${c.isInfluencer
               ? `
                 <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerPortal('${safeEmail}')">Portal</button>
@@ -243,7 +245,7 @@ async function executeDashboardDatabaseSearch(presetQuery) {
 
   panel.style.display = "block";
   if (summaryEl) summaryEl.textContent = "Searching SQLite Relational & Graph Database...";
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:1.25rem; color:var(--color-text-secondary);">Executing relational &amp; referral-edge query...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:1.25rem; color:var(--color-text-secondary);">Executing relational &amp; referral-edge query...</td></tr>`;
 
   try {
     let payload;

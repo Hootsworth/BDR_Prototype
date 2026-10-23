@@ -84,13 +84,9 @@ GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_SCOPES = [
     'openid', 'email', 'profile',
-    'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.compose',
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/calendar.events',
-    'https://www.googleapis.com/auth/calendar.freebusy',
 ]
 google_sessions = {}
 google_oauth_states = {}
@@ -130,6 +126,26 @@ def decrypt_token(value):
         return base64.b64decode(value.encode('ascii')).decode('utf-8')
     except Exception:
         return value
+
+def load_provider_secrets():
+    if firestore_enabled():
+        return read_state_snapshot('providerSecrets') or {}
+    return read_state('providerSecrets') or {}
+
+def save_provider_secrets(secrets_value):
+    if firestore_enabled():
+        write_state_snapshot('providerSecrets', secrets_value)
+    else:
+        persist_state('providerSecrets', secrets_value)
+
+def provider_secret(name):
+    encrypted = load_provider_secrets().get(name)
+    if not encrypted:
+        return ''
+    try:
+        return decrypt_token(encrypted) or ''
+    except Exception:
+        return ''
 
 def db():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -1454,7 +1470,14 @@ def hosted_api_request_allowed(handler, method, path):
         ('GET', '/api/marketplace/vendor/me'),
         ('GET', '/api/marketplace/network'),
         ('GET', '/api/google/oauth/callback'),  # validates the OAuth state/cookie
+        ('GET', '/api/google/oauth/start'),
+        ('GET', '/api/google/status'),
+        ('GET', '/api/google/verify'),
+        ('POST', '/api/google/calendar/events'),
         ('POST', '/api/partner-share/referrals'),
+        ('POST', '/api/partner-share/schedule'),
+        ('GET', '/api/admin/provider-keys'),
+        ('POST', '/api/admin/provider-keys'),
         ('POST', '/api/partner-share/agreement'),
         ('POST', '/api/partner-share/requests/respond'),
         ('POST', '/api/partner-share/rewards/redeem'),
@@ -2103,6 +2126,19 @@ def restore_google_session(session_id):
         restored['refresh_token'] = decrypt_token(restored.get('refresh_token'))
         return restored
 
+def restore_connected_google_session():
+    with db() as connection:
+        row = connection.execute('SELECT session_id FROM google_connections WHERE id = 1').fetchone()
+    if not row or not row['session_id']:
+        return None
+    session = google_sessions.get(row['session_id']) or restore_google_session(row['session_id'])
+    if not session:
+        return None
+    try:
+        return refresh_google_session(session)
+    except Exception:
+        return None
+
 def refresh_google_session(session):
     if not session.get('refresh_token') or session.get('expires_at', 0) > time.time() + 60:
         return session
@@ -2574,6 +2610,22 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
         clean_path = parsed_url.path
         norm_path = clean_path.rstrip('/') or '/'
+
+        if clean_path == '/api/admin/provider-keys':
+            if not is_irm_admin_request(self):
+                json_response(self, 403, {'error': 'Valid IRM administrator authentication is required.'})
+                return
+            try:
+                stored = load_provider_secrets()
+                json_response(self, 200, {
+                    'openai': provider_secret('openai'),
+                    'gemini': provider_secret('gemini'),
+                    'openaiConfigured': bool(stored.get('openai')),
+                    'geminiConfigured': bool(stored.get('gemini'))
+                })
+            except Exception as ex:
+                json_response(self, 503, {'error': f'Could not load provider keys: {ex}'})
+            return
 
         if clean_path == '/app-config.js' or norm_path == '/app-config.js':
             publishable_key = str(os.environ.get('CLERK_PUBLISHABLE_KEY') or '').strip()
@@ -3245,8 +3297,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 _, gmail_profile = google_api_get('https://gmail.googleapis.com/gmail/v1/users/me/profile', session['access_token'])
-                _, calendar = google_api_get('https://www.googleapis.com/calendar/v3/calendars/primary', session['access_token'])
-                json_response(self, 200, {'gmail': {'email': gmail_profile.get('emailAddress'), 'messagesTotal': gmail_profile.get('messagesTotal')}, 'calendar': {'id': calendar.get('id'), 'summary': calendar.get('summary')}, 'status': 'verified'})
+                _, calendar_events = google_api_get('https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1', session['access_token'])
+                json_response(self, 200, {'gmail': {'email': gmail_profile.get('emailAddress'), 'messagesTotal': gmail_profile.get('messagesTotal')}, 'calendar': {'id': 'primary', 'summary': 'Primary calendar', 'eventsAccessible': True}, 'status': 'verified'})
             except urllib.error.HTTPError as ex:
                 json_response(self, ex.code, {'error': ex.read().decode('utf-8', errors='replace')})
             return
@@ -3305,6 +3357,28 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         clean_path = urllib.parse.urlsplit(self.path).path
         norm_path = clean_path.rstrip('/') or '/'
+
+        if clean_path == '/api/admin/provider-keys':
+            if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
+                json_response(self, 403, {'error': 'Valid IRM administrator authentication is required.'})
+                return
+            cipher = token_cipher()
+            if not cipher:
+                json_response(self, 503, {'error': 'Configure TOKEN_ENCRYPTION_KEY on the server before saving provider keys.'})
+                return
+            try:
+                current = load_provider_secrets()
+                for field in ('openai', 'gemini'):
+                    value = str(payload.get(field) or '').strip()
+                    if value:
+                        current[field] = encrypt_token(value)
+                    elif payload.get(f'clear{field.title()}') is True:
+                        current.pop(field, None)
+                save_provider_secrets(current)
+                json_response(self, 200, {'status': 'saved', 'openaiConfigured': bool(current.get('openai')), 'geminiConfigured': bool(current.get('gemini'))})
+            except Exception as ex:
+                json_response(self, 500, {'error': f'Could not save provider keys: {ex}'})
+            return
         if not hosted_api_request_allowed(self, 'POST', norm_path):
             return
 
@@ -3420,6 +3494,112 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 400, {'error': str(ex)})
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not add referral: {ex}'})
+            return
+
+        if clean_path == '/api/partner-share/schedule':
+            token = str(self.headers.get('Authorization') or '').removeprefix('Bearer ').strip()
+            share = partner_share_from_token(token)
+            if not share or share.get('revoked_at'):
+                json_response(self, 401, {'error': 'Sign in to your partner workspace first.'})
+                return
+            api_key = provider_secret('openai') or os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                json_response(self, 503, {'error': 'AI scheduling needs an OpenAI key. Enter one in Admin Settings → General & AI Configuration or configure OPENAI_API_KEY on the server.'})
+                return
+            try:
+                state = read_workbook_state()
+                partner = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
+                contact = next((c for c in partner_contacts_for_influencer(state, partner) if str(c.get('id')) == str(payload.get('contactId'))), None) if partner else None
+                if not partner or not contact:
+                    json_response(self, 404, {'error': 'That contact is not in your referred network.'})
+                    return
+                subject = str(payload.get('subject') or '').strip()[:200]
+                body = str(payload.get('body') or '').strip()[:10000]
+                raw_datetime = str(payload.get('datetime') or '').strip()
+                if not subject or not body or not raw_datetime:
+                    json_response(self, 400, {'error': 'Subject, invitation message, and call date/time are required.'})
+                    return
+                try:
+                    start_dt = datetime.fromisoformat(raw_datetime)
+                    if start_dt.tzinfo is None:
+                        from zoneinfo import ZoneInfo
+                        start_dt = start_dt.replace(tzinfo=ZoneInfo('Asia/Kolkata'))
+                except Exception:
+                    json_response(self, 400, {'error': 'Choose a valid call date and time.'})
+                    return
+                if start_dt <= datetime.now(start_dt.tzinfo):
+                    json_response(self, 400, {'error': 'Choose a future date and time.'})
+                    return
+
+                parse_prompt = {
+                    'recipient': {'name': contact.get('fullName'), 'email': contact.get('email'), 'company': contact.get('company')},
+                    'partner': {'name': partner.get('fullName'), 'email': partner.get('email')},
+                    'scheduled_start': start_dt.isoformat(), 'subject': subject, 'message': body,
+                    'task': 'Check whether this message is a genuine call invitation for this recipient at the scheduled time. Return JSON with is_meeting_invitation (boolean), start (ISO 8601 copied from scheduled_start), duration_minutes (default 30), summary (short), and reason. Do not change the supplied time. Reject if the message does not clearly invite this contact to a call.'
+                }
+                _, ai_result = post_json(
+                    'https://api.openai.com/v1/chat/completions',
+                    {'model': 'gpt-4o-mini', 'temperature': 0, 'response_format': {'type': 'json_object'},
+                     'messages': [{'role': 'system', 'content': 'Validate partner call invitations and return only the requested JSON.'}, {'role': 'user', 'content': json.dumps(parse_prompt)}]},
+                    {'Authorization': f'Bearer {api_key}'}
+                )
+                parsed = json.loads(ai_result['choices'][0]['message']['content'])
+                if parsed.get('is_meeting_invitation') is not True:
+                    json_response(self, 422, {'error': 'AI could not confirm this message is a call invitation. Add the call purpose and recipient details, then try again.'})
+                    return
+
+                admin_email = str(os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or 'adityapdixit6626@gmail.com').strip()
+                resend_key = os.environ.get('RESEND_API_KEY')
+                sender = os.environ.get('RESEND_FROM_EMAIL')
+                if not resend_key or not sender:
+                    json_response(self, 503, {'error': 'Website email sending is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.'})
+                    return
+                try:
+                    duration = int(parsed.get('duration_minutes') or 30)
+                except (TypeError, ValueError):
+                    duration = 30
+                duration = max(15, min(180, duration))
+                _, sent = post_json('https://api.resend.com/emails',
+                    {'from': sender, 'to': [contact.get('email')], 'cc': [admin_email], 'reply_to': partner.get('email'), 'subject': subject, 'text': body},
+                    {'Authorization': f'Bearer {resend_key}'})
+
+                end_dt = start_dt + timedelta(minutes=duration)
+                meet = {
+                    'id': f"meet-partner-{sent.get('id') or int(time.time() * 1000)}",
+                    'contactId': contact.get('id'), 'contactName': contact.get('fullName') or '',
+                    'contactEmail': contact.get('email') or '', 'contactTitle': contact.get('jobTitle') or '',
+                    'contactCompany': contact.get('company') or '', 'contactPhone': contact.get('phone') or '',
+                    'influencerName': partner.get('fullName') or '', 'influencerEmail': partner.get('email') or '',
+                    'influencerCredits': contact.get('credits', 0), 'platform': 'Call',
+                    'meetingUrl': '', 'datetimeRaw': start_dt.isoformat(),
+                    'timeString': start_dt.strftime('%A, %B %d, %Y at %I:%M %p %Z'),
+                    'endDateTime': end_dt.isoformat(), 'notes': body, 'subject': subject,
+                    'status': 'Call Scheduled', 'source': 'Partner Portal Email',
+                    'emailProviderId': sent.get('id'), 'aiValidated': True
+                }
+                google_session = restore_connected_google_session()
+                if google_session:
+                    try:
+                        _, google_event = google_api('POST', 'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all', google_session['access_token'], {
+                            'summary': subject,
+                            'description': f"{body}\n\nPartner: {partner.get('fullName')} ({partner.get('email')})",
+                            'start': {'dateTime': start_dt.isoformat()}, 'end': {'dateTime': end_dt.isoformat()},
+                            'attendees': [{'email': contact.get('email')}, {'email': partner.get('email')}],
+                        })
+                        meet['googleCalendarEventId'] = google_event.get('id')
+                        meet['meetingUrl'] = google_event.get('hangoutLink') or ''
+                    except Exception as calendar_error:
+                        meet['googleCalendarSyncError'] = str(calendar_error)[:240]
+                state.setdefault('meetings', []).insert(0, meet)
+                contact['hasScheduledCall'] = True
+                contact['status'] = 'scheduled'
+                write_workbook_state(state)
+                json_response(self, 201, {'status': 'scheduled', 'meeting': meet, 'copiedAdmin': admin_email})
+            except urllib.error.HTTPError as ex:
+                detail = ex.read().decode('utf-8', errors='replace')[:500]
+                json_response(self, ex.code, {'error': f'Email provider rejected the invitation: {detail}'})
+            except Exception as ex:
+                json_response(self, 502, {'error': f'Could not send and schedule this call: {ex}'})
             return
 
         if clean_path == '/api/partner-portal/onboard':
@@ -5369,7 +5549,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         # AI enrichment stays server-side so provider credentials never reach the browser.
         if norm_path == '/api/ai/enrich' or clean_path == '/api/ai/enrich' or self.path == '/api/ai/enrich':
-            api_key = os.environ.get('OPENAI_API_KEY')
+            api_key = provider_secret('openai') or os.environ.get('OPENAI_API_KEY')
             if not api_key:
                 json_response(self, 503, {'error': 'OPENAI_API_KEY is not configured on the server.'})
                 return

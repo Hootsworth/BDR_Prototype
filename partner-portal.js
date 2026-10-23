@@ -425,6 +425,11 @@
     showWorkspaceView();
     partner = data.influencer || {};
     currentContacts = data.contacts || [];
+    const scheduleContact = document.getElementById('partner-schedule-contact');
+    if (scheduleContact) {
+      scheduleContact.replaceChildren(new Option('Choose a referred contact', ''));
+      currentContacts.forEach(contact => scheduleContact.add(new Option(`${contact.fullName} · ${contact.company || contact.email}`, String(contact.id))));
+    }
     currentRewardLedger = data.rewardLedger || [];
     currentRewardRedemptions = data.rewardRedemptions || [];
     currentRewardPoints = Number(data.rewardPoints || 0);
@@ -456,6 +461,38 @@
     renderPartnerRequests(data.requests || data.marketplaceRequests || []);
     renderContactsTable();
   }
+
+  document.getElementById('partner-schedule-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const scheduleForm = event.currentTarget;
+    const feedback = document.getElementById('partner-schedule-feedback');
+    const submit = document.getElementById('partner-schedule-send');
+    const values = Object.fromEntries(new FormData(scheduleForm));
+    const contact = currentContacts.find(item => String(item.id) === String(values.contactId));
+    if (!contact) {
+      feedback.className = 'error';
+      feedback.textContent = 'Choose a contact from your referred contacts.';
+      return;
+    }
+    submit.disabled = true;
+    feedback.className = '';
+    feedback.textContent = 'AI is checking the invitation, then ConnectEM will send it and add the call to the Admin Schedule…';
+    try {
+      const result = await request('/api/partner-share/schedule', {
+        method: 'POST',
+        body: JSON.stringify({ contactId: contact.id, datetime: values.datetime, subject: values.subject, body: values.body })
+      });
+      feedback.className = 'success';
+      feedback.textContent = `Invitation sent to ${contact.email}; your administrator was copied. The call is on the Admin Schedule for ${result.meeting.timeString}.`;
+      scheduleForm.reset();
+      scheduleForm.elements.subject.value = 'ConnectEM partner introduction';
+    } catch (error) {
+      feedback.className = 'error';
+      feedback.textContent = error.message;
+    } finally {
+      submit.disabled = false;
+    }
+  });
 
   function renderRewards() {
     const balance = document.getElementById('partner-reward-balance');

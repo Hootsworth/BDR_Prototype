@@ -97,6 +97,7 @@ async function bootstrapApp() {
 
   const settingsOpenAIInput = document.getElementById("settings-key-openai");
   if (settingsOpenAIInput) settingsOpenAIInput.value = database.llmHelperKey;
+  if (typeof loadProviderKeysFromServer === "function") await loadProviderKeysFromServer();
 
   database.lemlistMcpCommand = localStorage.getItem("gtm_lemlist_mcp_command") || "npx";
   database.lemlistMcpArgs = localStorage.getItem("gtm_lemlist_mcp_args") || "mcp-remote https://app.lemlist.com/mcp";

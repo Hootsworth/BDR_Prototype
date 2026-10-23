@@ -19,13 +19,8 @@ function waitForGoogleIdentity() {
 }
 
 async function connectGoogleWorkspace() {
-
-  // Fallback to instant browser OAuth session authorization
-  database.googleAccessToken = "google_workspace_token_" + Date.now();
-  database.googleCalendarConnected = true;
-  database.googleEmailConnected = true;
-  if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
-  return true;
+  window.location.assign("/api/google/oauth/start");
+  return false;
 }
 
 function promptGoogleClientIdModal() {
@@ -170,11 +165,6 @@ async function sendGoogleGmail({ to, subject, body }) {
 }
 
 async function verifyGoogleWorkspace() {
-  if (!database.googleAccessToken) {
-    database.googleAccessToken = "google_workspace_token_" + Date.now();
-    database.googleEmailConnected = true;
-    database.googleCalendarConnected = true;
-  }
   if (isLiveGoogleOAuthToken(database.googleAccessToken)) {
     const [gmail, calendar] = await Promise.all([
       googleApiFetch("https://gmail.googleapis.com/gmail/v1/users/me/profile"),
@@ -182,10 +172,10 @@ async function verifyGoogleWorkspace() {
     ]);
     return { gmail: { email: gmail.emailAddress, messagesTotal: gmail.messagesTotal }, calendar: { id: calendar.id, summary: calendar.summary } };
   }
-  return {
-    gmail: { email: "sdr-engine@gtm-workspace.io", messagesTotal: (database.stats?.emailsSent || 570) },
-    calendar: { id: "primary", summary: "Executive Briefing Calendar (Connected)" }
-  };
+  const response = await fetch('/api/google/verify');
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Connect Google Workspace first.');
+  return result;
 }
 
 async function createGoogleCalendarEvent(eventPayload) {
@@ -198,13 +188,12 @@ async function createGoogleCalendarEvent(eventPayload) {
       console.warn("Live Google Calendar event fallback:", err.message);
     }
   }
-  const eventId = `cal_${Date.now()}`;
-  return {
-    id: eventId,
-    status: "confirmed",
-    htmlLink: `https://calendar.google.com/calendar/event?eid=${eventId}`,
-    hangoutLink: `https://meet.google.com/gtm-${Math.random().toString(36).substring(2, 6)}-demo`
-  };
+  const response = await fetch('/api/google/calendar/events', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eventPayload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Google Calendar event creation failed.');
+  return result;
 }
 
 async function checkGoogleAvailability(startDate, endDate) {

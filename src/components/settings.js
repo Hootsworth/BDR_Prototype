@@ -1,5 +1,53 @@
 // --- SETTINGS AND API KEY CONFIGURATION CONTROLLER ---
 
+function providerKeyStatus(message, isError = false) {
+  const status = document.getElementById('provider-key-status');
+  if (!status) return;
+  status.textContent = message;
+  status.style.color = isError ? 'var(--color-status-error, #dc2626)' : 'var(--color-text-secondary)';
+}
+
+async function providerKeyRequest(method, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => '') : '';
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch('/api/admin/provider-keys', { method, headers, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `Provider key request failed (${response.status})`);
+  return result;
+}
+
+async function persistProviderKey(provider, value) {
+  if (!value) return;
+  try {
+    const result = await providerKeyRequest('POST', { [provider]: value });
+    providerKeyStatus(`Saved securely on the server. OpenAI ${result.openaiConfigured ? 'configured' : 'not set'} · Gemini ${result.geminiConfigured ? 'configured' : 'not set'}.`);
+  } catch (error) {
+    providerKeyStatus(error.message, true);
+  }
+}
+
+async function loadProviderKeysFromServer() {
+  try {
+    const result = await providerKeyRequest('GET');
+    if (result.openai) {
+      database.llmHelperKey = result.openai;
+      const mainInput = document.getElementById('key-llm-helper');
+      const settingsInput = document.getElementById('settings-key-openai');
+      if (mainInput) mainInput.value = result.openai;
+      if (settingsInput) settingsInput.value = result.openai;
+    }
+    if (result.gemini) {
+      database.geminiApiKey = result.gemini;
+      const input = document.getElementById('key-gemini');
+      if (input) input.value = result.gemini;
+    }
+    providerKeyStatus(`Server keys loaded into this Admin session. OpenAI ${result.openaiConfigured ? 'configured' : 'not set'} · Gemini ${result.geminiConfigured ? 'configured' : 'not set'}.`);
+  } catch (_) {
+    // Non-admin and unauthenticated views should not surface provider secrets or errors.
+  }
+}
+
 function saveExploriumKey() {
   const val = document.getElementById("key-explorium").value.trim();
   database.exploriumApiKey = val;
@@ -40,12 +88,14 @@ function saveLLMHelperKey() {
   if (settingsInput) settingsInput.value = val;
 
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated.`, "system");
+  persistProviderKey('openai', val);
 }
 
 function saveGeminiKey() {
   const val = document.getElementById("key-gemini").value.trim();
   database.geminiApiKey = val;
   addLogConsole("enrich", `[SYSTEM] Gemini API credential updated.`, "system");
+  persistProviderKey('gemini', val);
 }
 
 function saveGeminiModel() {
@@ -81,6 +131,7 @@ function syncOpenAIKeyFromSettings() {
   if (originalInput) originalInput.value = val;
 
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated from Settings.`, "system");
+  persistProviderKey('openai', val);
 }
 
 function saveLemlistMcpConfig() {
@@ -463,8 +514,6 @@ function saveGoogleCalendarCredentials() {
 async function connectGoogleCalendarAccount() {
   try {
     await connectGoogleWorkspace();
-    await checkGoogleCalendarStatus();
-    addLogConsole("enrich", "[GOOGLE] Gmail and Calendar connected directly in the browser.", "success");
   } catch (error) {
     if (error && error.message && !error.message.includes("cancelled")) {
       console.warn("[GOOGLE CONNECT]", error.message);
@@ -476,12 +525,21 @@ async function connectGoogleCalendarAccount() {
 async function checkGoogleCalendarStatus() {
   const statusEl = document.getElementById("google-calendar-status-text");
   const btn = document.getElementById("btn-connect-google-calendar");
-  const connected = Boolean(database.googleCalendarConnected || (database.googleAccessToken && (!database.googleAccessTokenExpiresAt || Date.now() < database.googleAccessTokenExpiresAt)));
-  if (statusEl) statusEl.textContent = connected ? "Status: Connected ✓ (Google Workspace)" : "Status: Not connected";
+  let connected = false;
+  let connectedEmail = '';
+  try {
+    const response = await fetch('/api/google/status');
+    if (response.ok) {
+      const result = await response.json();
+      connected = Boolean(result.connected);
+      connectedEmail = result.email || '';
+    }
+  } catch (_) {}
+  if (statusEl) statusEl.textContent = connected ? `Status: Connected ✓${connectedEmail ? ` (${connectedEmail})` : ''}` : "Status: Not connected";
   if (statusEl) statusEl.style.color = connected ? "var(--color-status-success, #10b981)" : "var(--color-text-secondary)";
   if (btn) btn.innerHTML = connected ? `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> Reconnect Google Workspace` : `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Connect Google Workspace`;
   database.googleCalendarConnected = connected;
-  database.googleEmailConnected = connected;
+  database.googleEmailConnected = false;
 }
 
 async function syncGmailReplies() {
