@@ -43,9 +43,32 @@ async function loadProviderKeysFromServer() {
       if (input) input.value = result.gemini;
     }
     providerKeyStatus(`Server keys loaded into this Admin session. OpenAI ${result.openaiConfigured ? 'configured' : 'not set'} · Gemini ${result.geminiConfigured ? 'configured' : 'not set'}.`);
+    const adminEmail = document.getElementById('settings-admin-cc-email');
+    const clientId = document.getElementById('settings-google-oauth-client-id');
+    const redirectUri = document.getElementById('settings-google-oauth-redirect');
+    if (adminEmail) adminEmail.value = result.adminEmail || '';
+    if (clientId) clientId.value = result.googleClientId || '';
+    if (redirectUri) redirectUri.value = result.googleRedirectUri || '';
+    const mailStatus = document.getElementById('mail-settings-status');
+    if (mailStatus) mailStatus.textContent = `Google OAuth ${result.googleClientId && result.googleClientSecretConfigured ? 'configured' : 'incomplete'} · Admin CC ${result.adminEmail ? 'configured' : 'not configured'}.`;
   } catch (_) {
     // Non-admin and unauthenticated views should not surface provider secrets or errors.
   }
+}
+
+async function saveMailSettings() {
+  const status = document.getElementById('mail-settings-status');
+  const payload = {
+    adminEmail: document.getElementById('settings-admin-cc-email')?.value.trim() || '',
+    googleClientId: document.getElementById('settings-google-oauth-client-id')?.value.trim() || '',
+    googleClientSecret: document.getElementById('settings-google-oauth-client-secret')?.value.trim() || '',
+    googleRedirectUri: document.getElementById('settings-google-oauth-redirect')?.value.trim() || ''
+  };
+  try {
+    const result = await providerKeyRequest('POST', payload);
+    document.getElementById('settings-google-oauth-client-secret').value = '';
+    if (status) status.textContent = `Saved. Admin CC ${result.adminEmail ? 'configured' : 'must be set'}; reconnect Google to grant inbox permissions.`;
+  } catch (error) { if (status) status.textContent = error.message; }
 }
 
 function saveExploriumKey() {
@@ -539,7 +562,7 @@ async function checkGoogleCalendarStatus() {
   if (statusEl) statusEl.style.color = connected ? "var(--color-status-success, #10b981)" : "var(--color-text-secondary)";
   if (btn) btn.innerHTML = connected ? `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> Reconnect Google Workspace` : `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Connect Google Workspace`;
   database.googleCalendarConnected = connected;
-  database.googleEmailConnected = false;
+  database.googleEmailConnected = connected;
 }
 
 async function syncGmailReplies() {

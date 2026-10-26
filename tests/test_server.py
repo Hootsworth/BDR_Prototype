@@ -41,6 +41,18 @@ class ServerSafetyTests(unittest.TestCase):
         self.assertNotEqual(encrypted, token)
         self.assertEqual(server.decrypt_token(encrypted), token)
 
+    def test_gmail_website_send_always_includes_admin_cc(self):
+        captured = {}
+        def api(method, url, token, payload):
+            captured.update(payload)
+            return {}, {"id": "gmail-id"}
+        with patch.object(server, "gmail_admin_cc", return_value="admin@example.com"), patch.object(server, "google_api", side_effect=api):
+            result = server.gmail_request({"access_token": "oauth-token"}, "messages/send", {"to": "person@example.com", "subject": "Hello", "body": "Message"}, send=True)
+        raw = captured["raw"] + "=" * (-len(captured["raw"]) % 4)
+        decoded = server.base64.urlsafe_b64decode(raw).decode()
+        self.assertIn("Cc: admin@example.com", decoded)
+        self.assertEqual(result["id"], "gmail-id")
+
     def test_local_version_detection(self):
         info = server.get_local_version_info()
         self.assertIn("sha", info)

@@ -1930,7 +1930,7 @@ function openBulkOutboundModal(source) {
   }
 
   if (senderStatus) {
-    senderStatus.textContent = isLiveGoogleOAuthToken(database.googleAccessToken) ? "Google Workspace (Connected)" : "Website Email (Resend)";
+    senderStatus.textContent = database.googleEmailConnected ? "Connected Google account (Admin CC)" : "Connect Google to send";
   }
 
   if (chipsContainer) {

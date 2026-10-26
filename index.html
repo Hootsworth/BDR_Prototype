@@ -227,6 +227,12 @@
             <span class="nav-label">Outbound</span>
           </div>
         </div>
+        <div class="nav-category-group direct-tab" id="cat-group-email">
+          <div class="nav-category-header subtab-btn" id="tab-btn-email" onclick="switchTab('email')" title="Email Inbox">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
+            <span class="nav-label">Email</span>
+          </div>
+        </div>
 
       </nav>
 
@@ -273,6 +279,7 @@
         <section class="tab-content" id="tab-panel-campaign-outbound">
           <!-- Dynamically loaded from components/campaign-outbound.html -->
         </section>
+        <section class="tab-content" id="tab-panel-email"><!-- Gmail inbox UI --></section>
 
 
         <!-- ═══ TAB: Events List ═══ -->
@@ -321,6 +328,7 @@
   <script src="src/components/upload.js"></script>
   <script src="src/components/tables.js"></script>
   <script src="src/components/outbound.js"></script>
+  <script src="src/components/email.js"></script>
   <script src="src/components/calendar.js"></script>
   <script src="src/components/analytics.js"></script>
   <script src="src/components/agent.js"></script>

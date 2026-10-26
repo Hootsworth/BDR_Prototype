@@ -1,0 +1,37 @@
+<section class="card" style="padding:0;overflow:hidden;min-height:70vh;">
+  <div style="display:flex;gap:0;min-height:70vh;">
+    <aside style="width:190px;flex:none;padding:1rem;border-right:1px solid var(--color-border);">
+      <button class="btn btn-primary" style="width:100%;margin-bottom:1rem;" onclick="newEmailMessage()">Compose</button>
+      <div style="display:grid;gap:.35rem;">
+        <button class="btn btn-subtle" onclick="loadEmailFolder('INBOX')">Inbox</button>
+        <button class="btn btn-subtle" onclick="loadEmailFolder('STARRED')">Starred</button>
+        <button class="btn btn-subtle" onclick="loadEmailFolder('SENT')">Sent</button>
+        <button class="btn btn-subtle" onclick="loadEmailFolder('DRAFT')">Drafts</button>
+        <button class="btn btn-subtle" onclick="loadEmailFolder('ALL')">All mail</button>
+      </div>
+      <p style="font-size:11px;color:var(--color-text-secondary);margin-top:1rem;">Sent from your connected Google account. Admin is always copied.</p>
+    </aside>
+    <div style="min-width:0;flex:1;display:flex;flex-direction:column;">
+      <div style="display:flex;gap:.5rem;padding:.85rem;border-bottom:1px solid var(--color-border);">
+        <input id="email-search" class="form-input" placeholder="Search mail" onkeydown="if(event.key==='Enter') searchEmail()" style="flex:1;">
+        <button class="btn btn-secondary" onclick="searchEmail()">Search</button>
+        <button class="btn btn-secondary" onclick="loadEmailFolder()">Refresh</button>
+      </div>
+      <div id="email-status" role="status" style="padding:.6rem 1rem;color:var(--color-text-secondary);font-size:12px;"></div>
+      <div style="display:flex;min-height:0;flex:1;">
+        <div id="email-list" style="width:min(42%,420px);min-width:250px;border-right:1px solid var(--color-border);overflow:auto;"></div>
+        <article id="email-message" style="padding:1.25rem;flex:1;min-width:0;overflow:auto;"><p style="color:var(--color-text-secondary);">Select a message to read it.</p></article>
+      </div>
+    </div>
+  </div>
+  <dialog id="email-compose-dialog" style="width:min(680px,95vw);border:1px solid var(--color-border);border-radius:12px;background:var(--surface-card);color:var(--color-text-primary);">
+    <form method="dialog" onsubmit="return false" style="display:grid;gap:.75rem;">
+      <header style="display:flex;justify-content:space-between;align-items:center;"><strong>New message</strong><button class="btn btn-subtle" onclick="closeEmailComposer()">Close</button></header>
+      <label>To <input id="email-compose-to" type="email" class="form-input" required></label>
+      <label>Subject <input id="email-compose-subject" class="form-input" required></label>
+      <label>Message <textarea id="email-compose-body" class="form-input" rows="10" required></textarea></label>
+      <small>Admin will be automatically CC’d.</small>
+      <footer style="display:flex;justify-content:flex-end;gap:.5rem;"><button class="btn btn-secondary" onclick="saveEmailDraft()">Save draft</button><button class="btn btn-primary" onclick="sendEmailFromInbox()">Send</button></footer>
+    </form>
+  </dialog>
+</section>

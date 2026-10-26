@@ -154,6 +154,18 @@
           </select>
         </div>
 
+        <hr style="border: none; border-top: 1px solid var(--color-border); margin: 1.5rem 0;">
+        <div class="section-title">Google Mail &amp; Admin Copy</div>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">Website email is sent from the connected Google account. Every message includes this Admin address in CC. Google OAuth credentials are encrypted on the server.</p>
+        <p style="font-size:var(--font-size-xs);color:var(--color-text-secondary);">In Google Cloud, enable Gmail API and add the redirect URI below to your OAuth client. Saving the broader Gmail permission requires reconnecting Google. TOKEN_ENCRYPTION_KEY must be configured on the server to save credentials.</p>
+        <div class="form-group"><label class="form-label" for="settings-admin-cc-email">Admin CC email</label><input type="email" class="form-input" id="settings-admin-cc-email" placeholder="admin@yourcompany.com"></div>
+        <div class="form-group"><label class="form-label" for="settings-google-oauth-client-id">Google OAuth Client ID</label><input type="text" class="form-input" id="settings-google-oauth-client-id" placeholder="Configured on server"></div>
+        <div class="form-group"><label class="form-label" for="settings-google-oauth-client-secret">Google OAuth Client Secret</label><input type="password" class="form-input" id="settings-google-oauth-client-secret" placeholder="Leave blank to keep the saved secret"></div>
+        <div class="form-group"><label class="form-label" for="settings-google-oauth-redirect">Google OAuth Redirect URI</label><input type="url" class="form-input" id="settings-google-oauth-redirect" placeholder="https://your-domain/api/google/oauth/callback"></div>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="saveMailSettings()">Save mail settings</button>
+        <button class="btn btn-secondary btn-sm" type="button" onclick="connectGoogleWorkspace()">Connect / reconnect Google</button>
+        <p id="mail-settings-status" role="status" aria-live="polite" style="font-size:var(--font-size-xs);color:var(--color-text-secondary);"></p>
+
         <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
           <input type="checkbox" id="toggle-gemini-search" onchange="saveGeminiSearchGrounding()" checked style="cursor: pointer;">
           <label class="form-label" for="toggle-gemini-search" style="margin: 0; cursor: pointer;">Enable Google Search Grounding</label>

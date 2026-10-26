@@ -62,33 +62,16 @@ function isLiveGoogleOAuthToken(token) {
 }
 
 async function sendGoogleGmail({ to, subject, body }) {
-  if (isLiveGoogleOAuthToken(database.googleAccessToken)) {
-    try {
-      const result = await googleApiFetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ raw: gmailRawMessage(to, subject, body) })
-      });
-      return { ...result, provider: "gmail" };
-    } catch (err) {
-      console.warn("Live Gmail API send failed, falling back to operational server email gateway:", err.message);
-    }
-  }
-  // Website email is sent by the server's configured provider; it never reports a demo send as delivered.
-  const headers = { "Content-Type": "application/json" };
-  const clerkToken = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
-  if (clerkToken) headers.Authorization = `Bearer ${clerkToken}`;
-  const response = await fetch("/api/email/send", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ to, subject, body })
+  const response = await fetch("/api/google/gmail/send", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", body: JSON.stringify({ to, subject, body, approved: true })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(payload.error || `Email gateway returned ${response.status}`);
   }
-  if (!payload.id || payload.provider !== "resend") throw new Error("Email provider did not confirm delivery. No sent status was recorded.");
-  return payload;
+  if (!payload.id) throw new Error("Gmail did not confirm delivery. No sent status was recorded.");
+  return { ...payload, provider: "gmail" };
 }
 
 async function verifyGoogleWorkspace() {

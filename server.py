@@ -32,6 +32,7 @@ import threading
 import re
 import sys
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 import ipaddress
 from datetime import datetime, timezone, timedelta
 import xml.etree.ElementTree as ET
@@ -84,7 +85,7 @@ GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_SCOPES = [
     'openid', 'email', 'profile',
-    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/calendar.events',
 ]
@@ -146,6 +147,13 @@ def provider_secret(name):
         return decrypt_token(encrypted) or ''
     except Exception:
         return ''
+
+def google_oauth_setting(name):
+    env_name = {'googleClientId': 'GOOGLE_CLIENT_ID', 'googleClientSecret': 'GOOGLE_CLIENT_SECRET', 'googleRedirectUri': 'GOOGLE_REDIRECT_URI'}.get(name, name.upper())
+    return provider_secret(name) or str(os.environ.get(env_name) or '').strip()
+
+def google_redirect_uri():
+    return google_oauth_setting('googleRedirectUri') or 'http://localhost:8001/api/google/oauth/callback'
 
 def db():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -2143,8 +2151,8 @@ def refresh_google_session(session):
     if not session.get('refresh_token') or session.get('expires_at', 0) > time.time() + 60:
         return session
     _, tokens = post_form(GOOGLE_TOKEN_URL, {
-        'client_id': os.environ.get('GOOGLE_CLIENT_ID'),
-        'client_secret': os.environ.get('GOOGLE_CLIENT_SECRET'),
+        'client_id': google_oauth_setting('googleClientId'),
+        'client_secret': google_oauth_setting('googleClientSecret'),
         'refresh_token': session['refresh_token'], 'grant_type': 'refresh_token'
     })
     session['access_token'] = tokens['access_token']
@@ -2346,15 +2354,37 @@ def linkedin_userinfo(access_token):
     )
     return request_with_retry('https://api.linkedin.com/v2/userinfo', None, request.headers, 'GET')[1]
 
-def gmail_raw_message(to, subject, body):
-    mime = f'To: {to}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n{body}'
+def gmail_raw_message(to, subject, body, cc='', in_reply_to='', references='', require_fields=True):
+    to = str(to or '').strip()
+    subject = str(subject or '').replace('\r', ' ').replace('\n', ' ').strip()
+    body = str(body or '')
+    cc = str(cc or '').strip()
+    if require_fields and (not to or not subject or not body):
+        raise ValueError('Recipient, subject, and message body are required.')
+    headers = [f'To: {to}', f'Subject: {subject}']
+    if cc:
+        headers.append(f'Cc: {cc}')
+    for key, value in (('In-Reply-To', in_reply_to), ('References', references)):
+        safe_value = str(value or '').replace('\r', '').replace('\n', '').strip()
+        if safe_value:
+            headers.append(f'{key}: {safe_value}')
+    mime = '\r\n'.join(headers) + f'\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n{body}'
     return base64.urlsafe_b64encode(mime.encode('utf-8')).decode('ascii').rstrip('=')
 
+def gmail_admin_cc():
+    settings = load_provider_secrets()
+    value = str(settings.get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or '').strip()
+    if not value or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+        raise ValueError('Set a valid Admin CC email in Admin Settings → Email & AI, or configure PARTNER_SCHEDULE_ADMIN_EMAIL.')
+    return value
+
 def gmail_request(session, resource, payload, send=False):
-    raw = gmail_raw_message(payload['to'], payload['subject'], payload['body'])
+    raw = gmail_raw_message(payload.get('to'), payload.get('subject'), payload.get('body'), gmail_admin_cc(), payload.get('inReplyTo', ''), payload.get('references', ''), require_fields=send)
     if send:
         url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
         request_body = {'raw': raw}
+        if payload.get('threadId'):
+            request_body['threadId'] = str(payload['threadId'])
     else:
         url = 'https://gmail.googleapis.com/gmail/v1/users/me/drafts'
         request_body = {'message': {'raw': raw}}
@@ -2614,7 +2644,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'openai': provider_secret('openai'),
                     'gemini': provider_secret('gemini'),
                     'openaiConfigured': bool(stored.get('openai')),
-                    'geminiConfigured': bool(stored.get('gemini'))
+                    'geminiConfigured': bool(stored.get('gemini')),
+                    'adminEmail': str(stored.get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or ''),
+                    'googleClientId': provider_secret('googleClientId'),
+                    'googleClientSecretConfigured': bool(stored.get('googleClientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET')),
+                    'googleRedirectUri': google_redirect_uri()
                 })
             except Exception as ex:
                 json_response(self, 503, {'error': f'Could not load provider keys: {ex}'})
@@ -2639,6 +2673,40 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if not hosted_api_request_allowed(self, 'GET', clean_path):
+            return
+
+        if clean_path.startswith('/api/google/gmail/'):
+            session = self._google_session()
+            if not session:
+                json_response(self, 401, {'error': 'Connect a Google Workspace account first.'})
+                return
+            try:
+                query = urllib.parse.parse_qs(parsed_url.query)
+                if clean_path == '/api/google/gmail/messages':
+                    params = {'maxResults': str(min(max(int((query.get('maxResults') or ['30'])[0]), 1), 100))}
+                    for key in ('labelIds', 'q', 'pageToken'):
+                        if query.get(key): params[key] = query[key][0]
+                    url = 'https://gmail.googleapis.com/gmail/v1/users/me/messages?' + urllib.parse.urlencode(params)
+                    result = google_api_get(url, session['access_token'])[1]
+                    def get_summary(item):
+                        detail = google_api_get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{urllib.parse.quote(item['id'])}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date", session['access_token'])[1]
+                        headers = {h.get('name', '').lower(): h.get('value', '') for h in (detail.get('payload', {}).get('headers') or [])}
+                        return {'id': detail.get('id'), 'threadId': detail.get('threadId'), 'from': headers.get('from',''), 'to': headers.get('to',''), 'subject': headers.get('subject','(no subject)'), 'date': headers.get('date',''), 'snippet': detail.get('snippet',''), 'labelIds': detail.get('labelIds',[])}
+                    with ThreadPoolExecutor(max_workers=8) as pool:
+                        items = list(pool.map(get_summary, result.get('messages', [])))
+                    result['items'] = items
+                elif clean_path.startswith('/api/google/gmail/messages/'):
+                    message_id = urllib.parse.quote(clean_path.rsplit('/', 1)[-1], safe='')
+                    result = google_api_get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}?format=full', session['access_token'])[1]
+                elif clean_path == '/api/google/gmail/labels':
+                    result = google_api_get('https://gmail.googleapis.com/gmail/v1/users/me/labels', session['access_token'])[1]
+                else:
+                    json_response(self, 404, {'error': 'Unknown Gmail route.'}); return
+                json_response(self, 200, result)
+            except (ValueError, urllib.error.HTTPError) as ex:
+                json_response(self, getattr(ex, 'code', 400), {'error': str(ex)})
+            except Exception as ex:
+                json_response(self, 502, {'error': f'Gmail request failed: {ex}'})
             return
 
         if clean_path == '/api/auth/session':
@@ -3225,8 +3293,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         if norm_path == '/api/google/oauth/start' or clean_path == '/api/google/oauth/start' or self.path == '/api/google/oauth/start':
-            client_id = os.environ.get('GOOGLE_CLIENT_ID')
-            redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:8001/api/google/oauth/callback')
+            client_id = google_oauth_setting('googleClientId')
+            redirect_uri = google_redirect_uri()
             if not client_id:
                 json_response(self, 503, {'error': 'GOOGLE_CLIENT_ID is not configured on the server.'})
                 return
@@ -3255,9 +3323,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 token_status, tokens = post_form(
                     GOOGLE_TOKEN_URL,
-                    {'code': code, 'client_id': os.environ.get('GOOGLE_CLIENT_ID'),
-                     'client_secret': os.environ.get('GOOGLE_CLIENT_SECRET'),
-                     'redirect_uri': os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:8001/api/google/oauth/callback'),
+                    {'code': code, 'client_id': google_oauth_setting('googleClientId'),
+                     'client_secret': google_oauth_setting('googleClientSecret'),
+                     'redirect_uri': google_redirect_uri(),
                      'grant_type': 'authorization_code'},
                 )
                 access_token = tokens['access_token']
@@ -3367,8 +3435,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         current[field] = encrypt_token(value)
                     elif payload.get(f'clear{field.title()}') is True:
                         current.pop(field, None)
+                for field in ('googleClientId', 'googleClientSecret', 'googleRedirectUri'):
+                    value = str(payload.get(field) or '').strip()
+                    if value:
+                        current[field] = encrypt_token(value)
                 save_provider_secrets(current)
-                json_response(self, 200, {'status': 'saved', 'openaiConfigured': bool(current.get('openai')), 'geminiConfigured': bool(current.get('gemini'))})
+                admin_email = str(payload.get('adminEmail') or '').strip()
+                if admin_email:
+                    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", admin_email):
+                        json_response(self, 400, {'error': 'Enter a valid Admin CC email address.'})
+                        return
+                    current['adminEmail'] = admin_email
+                    save_provider_secrets(current)
+                json_response(self, 200, {'status': 'saved', 'openaiConfigured': bool(current.get('openai')), 'geminiConfigured': bool(current.get('gemini')), 'adminEmail': current.get('adminEmail', '')})
             except Exception as ex:
                 json_response(self, 500, {'error': f'Could not save provider keys: {ex}'})
             return
@@ -3633,11 +3712,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     json_response(self, 400, {'error': 'Your partner profile needs a valid email address before scheduling.'})
                     return
 
-                admin_email = str(os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or '').strip()
+                admin_email = str(load_provider_secrets().get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or '').strip()
                 resend_key = os.environ.get('RESEND_API_KEY')
                 sender = os.environ.get('RESEND_FROM_EMAIL')
                 if not admin_email or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', admin_email):
-                    json_response(self, 503, {'error': 'Set a valid PARTNER_SCHEDULE_ADMIN_EMAIL on the server before enabling partner scheduling.'})
+                    json_response(self, 503, {'error': 'Set a valid Admin CC email in Admin Settings → Email & AI, or configure PARTNER_SCHEDULE_ADMIN_EMAIL.'})
                     return
                 if not resend_key or not sender:
                     json_response(self, 503, {'error': 'Website email sending is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.'})
@@ -5653,6 +5732,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         return
                     result = gmail_request(session, 'messages/send', payload, send=True)
                     record_sent_email(payload, result.get('id'))
+                elif norm_path.startswith('/api/google/gmail/messages/'):
+                    message_id = urllib.parse.quote(norm_path.rsplit('/', 1)[-1], safe='')
+                    action = str(payload.get('action') or '')
+                    if action == 'archive':
+                        result = google_api('POST', f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/modify', session['access_token'], {'removeLabelIds': ['INBOX']})[1]
+                    elif action == 'markRead':
+                        result = google_api('POST', f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/modify', session['access_token'], {'removeLabelIds': ['UNREAD']})[1]
+                    elif action == 'markUnread':
+                        result = google_api('POST', f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/modify', session['access_token'], {'addLabelIds': ['UNREAD']})[1]
+                    elif action == 'star' or action == 'unstar':
+                        result = google_api('POST', f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/modify', session['access_token'], {'addLabelIds': ['STARRED']} if action == 'star' else {'removeLabelIds': ['STARRED']})[1]
+                    else:
+                        json_response(self, 400, {'error': 'Unsupported Gmail message action.'}); return
                 elif norm_path == '/api/google/calendar/freebusy' or clean_path == '/api/google/calendar/freebusy' or self.path == '/api/google/calendar/freebusy':
                     result = google_api('POST', 'https://www.googleapis.com/calendar/v3/freeBusy', session['access_token'], payload)[1]
                 elif norm_path == '/api/google/calendar/events' or clean_path == '/api/google/calendar/events' or self.path == '/api/google/calendar/events':
