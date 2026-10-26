@@ -161,7 +161,16 @@
         <div class="form-group"><label class="form-label" for="settings-admin-cc-email">Admin CC email</label><input type="email" class="form-input" id="settings-admin-cc-email" placeholder="admin@yourcompany.com"></div>
         <div class="form-group"><label class="form-label" for="settings-google-oauth-client-id">Google OAuth Client ID</label><input type="text" class="form-input" id="settings-google-oauth-client-id" placeholder="Configured on server"></div>
         <div class="form-group"><label class="form-label" for="settings-google-oauth-client-secret">Google OAuth Client Secret</label><input type="password" class="form-input" id="settings-google-oauth-client-secret" placeholder="Leave blank to keep the saved secret"></div>
-        <div class="form-group"><label class="form-label" for="settings-google-oauth-redirect">Google OAuth Redirect URI</label><input type="url" class="form-input" id="settings-google-oauth-redirect" placeholder="https://your-domain/api/google/oauth/callback"></div>
+        <div class="form-group">
+          <label class="form-label" for="settings-google-oauth-redirect">Google OAuth Redirect URI</label>
+          <input type="url" class="form-input" id="settings-google-oauth-redirect" placeholder="https://your-domain/api/google/oauth/callback">
+          <small style="display:block;margin-top:6px;font-size:11px;color:var(--color-text-secondary);line-height:1.4;">
+            In Google Cloud Console (APIs &amp; Services → Credentials → OAuth 2.0 Client IDs), ensure these exact URIs are listed in <strong>Authorized redirect URIs</strong>:<br>
+            • <code>https://admin.connectem.ai/api/google/oauth/callback</code><br>
+            • <code>https://go.connectem.ai/api/google/oauth/callback</code><br>
+            • <code>http://localhost:8001/api/google/oauth/callback</code>
+          </small>
+        </div>
         <button class="btn btn-secondary btn-sm" type="button" onclick="saveMailSettings()">Save mail settings</button>
         <button class="btn btn-secondary btn-sm" type="button" onclick="connectGoogleWorkspace()">Connect / reconnect Google</button>
         <p id="mail-settings-status" role="status" aria-live="polite" style="font-size:var(--font-size-xs);color:var(--color-text-secondary);"></p>

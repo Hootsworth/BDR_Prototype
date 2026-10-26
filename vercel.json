@@ -123,6 +123,18 @@
       "destination": "/partner-portal.html"
     },
     {
+      "source": "/partner-portal/inbox",
+      "destination": "/partner-portal.html"
+    },
+    {
+      "source": "/partner-portal/email",
+      "destination": "/partner-portal.html"
+    },
+    {
+      "source": "/partner-portal/settings",
+      "destination": "/partner-portal.html"
+    },
+    {
       "source": "/go",
       "destination": "/partner-portal.html"
     },

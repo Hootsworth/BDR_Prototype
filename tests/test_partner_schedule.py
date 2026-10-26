@@ -323,6 +323,36 @@ class PartnerScheduleTests(unittest.TestCase):
         self.assertEqual(result["provider"], "linkedin_profile_handoff")
         self.assertNotIn("id", result)
 
+    def test_partner_portal_email_send_enforces_partner_from_and_admin_cc(self):
+        google_calls = []
+
+        def google_api_mock(method, url, access_token, payload):
+            google_calls.append((method, url, payload))
+            raw = payload['raw'] + '=' * (-len(payload['raw']) % 4)
+            mime = server.base64.urlsafe_b64decode(raw).decode()
+            self.assertIn('From: "Avery Partner" <avery@example.test>', mime)
+            self.assertIn('Reply-To: "Avery Partner" <avery@example.test>', mime)
+            self.assertIn('Cc: admin@example.test', mime)
+            self.assertIn('To: morgan@example.test', mime)
+            return {}, {'id': 'sent-msg-123'}
+
+        payload = {
+            "to": "morgan@example.test",
+            "subject": "Follow up",
+            "body": "Great chatting with you.",
+            "approved": True
+        }
+        status, result = self.request(
+            "/api/partner-portal/email/send",
+            payload,
+            lambda *_args: self.fail("Resend should not be called when Google is connected"),
+            google_session="connected",
+            google_api_mock=google_api_mock
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(len(google_calls), 1)
+        self.assertEqual(result["id"], "sent-msg-123")
+
 
 if __name__ == "__main__":
     unittest.main()

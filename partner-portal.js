@@ -43,10 +43,45 @@
   let partnerEmailNextPage = '';
   let partnerEmailReplyContext = null;
 
+  function navigateToPartnerPage(pageKey, updateHistory = true) {
+    const key = (pageKey === 'inbox' ? 'email' : pageKey) || 'contacts';
+    const pageContacts = document.getElementById('partner-page-contacts');
+    const pageEmail = document.getElementById('partner-page-email');
+    const pageSettings = document.getElementById('partner-page-settings');
+    const btnContacts = document.getElementById('partner-nav-contacts');
+    const btnEmail = document.getElementById('partner-nav-email');
+    const btnSettings = document.getElementById('partner-nav-settings');
+
+    if (pageContacts) pageContacts.hidden = (key !== 'contacts');
+    if (pageEmail) pageEmail.hidden = (key !== 'email');
+    if (pageSettings) pageSettings.hidden = (key !== 'settings');
+
+    btnContacts?.classList.toggle('active', key === 'contacts');
+    btnEmail?.classList.toggle('active', key === 'email');
+    btnSettings?.classList.toggle('active', key === 'settings');
+
+    if (key === 'email') {
+      loadPartnerEmailFolder('INBOX');
+      if (updateHistory) window.location.hash = '#email';
+    } else if (key === 'settings') {
+      loadPartnerSettings();
+      if (updateHistory) window.location.hash = '#settings';
+    } else {
+      if (updateHistory && window.location.hash && window.location.hash !== '#contacts') {
+        window.location.hash = '#contacts';
+      }
+    }
+  }
+
   function showPartnerWorkspaceSection(sectionId) {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (sectionId === 'partner-email-section') loadPartnerEmailFolder('INBOX');
-    if (sectionId === 'partner-settings-section') loadPartnerSettings();
+    if (sectionId === 'partner-email-section') {
+      navigateToPartnerPage('email');
+    } else if (sectionId === 'partner-settings-section') {
+      navigateToPartnerPage('settings');
+    } else {
+      navigateToPartnerPage('contacts');
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   function setPartnerEmailStatus(message, isError = false) {
@@ -63,6 +98,18 @@
       if (status) status.textContent = `Gemini ${configured.gemini ? 'saved' : 'not set'} · OpenAI ${configured.openai ? 'saved' : 'not set'} · Meta ${configured.meta ? 'saved' : 'not set'} · Admin copy ${settings.adminCopyConfigured ? 'configured' : 'not configured'}.`;
       const googleStatus = document.getElementById('partner-google-status');
       if (googleStatus) googleStatus.textContent = google.connected ? `Connected: ${google.email || 'Google account'}` : 'Google account not connected.';
+      if (settings.registeredEmail) {
+        const settingsEmailEl = document.getElementById('partner-settings-registered-email');
+        if (settingsEmailEl) settingsEmailEl.textContent = settings.registeredEmail;
+      }
+      if (settings.adminEmail) {
+        const settingsAdminEl = document.getElementById('partner-settings-admin-cc');
+        if (settingsAdminEl) settingsAdminEl.textContent = settings.adminEmail;
+        const inboxAdminEl = document.getElementById('partner-inbox-admin-cc');
+        if (inboxAdminEl) inboxAdminEl.textContent = settings.adminEmail;
+        const composeAdminEl = document.getElementById('partner-compose-admin-display');
+        if (composeAdminEl) composeAdminEl.textContent = settings.adminEmail;
+      }
     } catch (error) {
       const status = document.getElementById('partner-ai-key-status');
       if (status) status.textContent = error.message;
@@ -170,6 +217,8 @@
     partnerEmailReplyContext = null;
     document.getElementById('partner-compose-title').textContent = 'New message';
     ['partner-compose-to', 'partner-compose-subject', 'partner-compose-body'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const fromEl = document.getElementById('partner-compose-from-display');
+    if (fromEl && partner?.email) fromEl.textContent = partner.email;
     document.getElementById('partner-email-compose')?.showModal();
   }
   function closePartnerEmailComposer() { document.getElementById('partner-email-compose')?.close(); partnerEmailReplyContext = null; }
@@ -180,13 +229,29 @@
     document.getElementById('partner-compose-to').value = from.match(/<([^>]+)>/)?.[1] || from;
     document.getElementById('partner-compose-subject').value = /^re:/i.test(headers.subject || '') ? headers.subject : `Re: ${headers.subject || ''}`;
     document.getElementById('partner-compose-body').value = `\n\nOn ${headers.date || ''}, ${from} wrote:\n`;
+    const fromEl = document.getElementById('partner-compose-from-display');
+    if (fromEl && partner?.email) fromEl.textContent = partner.email;
     partnerEmailReplyContext = { threadId: message.threadId, inReplyTo: headers['message-id'] || '', references: [headers.references, headers['message-id']].filter(Boolean).join(' ') };
     document.getElementById('partner-email-compose')?.showModal();
   }
   async function sendPartnerEmail() {
-    const payload = { to: document.getElementById('partner-compose-to').value.trim(), subject: document.getElementById('partner-compose-subject').value.trim(), body: document.getElementById('partner-compose-body').value, approved: true, ...(partnerEmailReplyContext || {}) };
-    try { await request('/api/partner-portal/email/send', { method: 'POST', body: JSON.stringify(payload) }); closePartnerEmailComposer(); setPartnerEmailStatus('Sent from your Google account; Admin was CC’d.'); loadPartnerEmailFolder('SENT'); }
-    catch (error) { setPartnerEmailStatus(error.message, true); }
+    const payload = {
+      to: document.getElementById('partner-compose-to').value.trim(),
+      subject: document.getElementById('partner-compose-subject').value.trim(),
+      body: document.getElementById('partner-compose-body').value,
+      from: partner?.email || '',
+      reply_to: partner?.email || '',
+      approved: true,
+      ...(partnerEmailReplyContext || {})
+    };
+    try {
+      await request('/api/partner-portal/email/send', { method: 'POST', body: JSON.stringify(payload) });
+      closePartnerEmailComposer();
+      setPartnerEmailStatus('Sent from your registered email; Admin was CC’d.');
+      loadPartnerEmailFolder('SENT');
+    } catch (error) {
+      setPartnerEmailStatus(error.message, true);
+    }
   }
   async function draftPartnerEmail(withAI = false) {
     try {
@@ -197,13 +262,34 @@
         document.getElementById('partner-compose-subject').value = result.subject;
         document.getElementById('partner-compose-body').value = result.body;
       }
-      const payload = { to: document.getElementById('partner-compose-to').value.trim(), subject: document.getElementById('partner-compose-subject').value.trim(), body: document.getElementById('partner-compose-body').value };
+      const payload = {
+        to: document.getElementById('partner-compose-to').value.trim(),
+        subject: document.getElementById('partner-compose-subject').value.trim(),
+        body: document.getElementById('partner-compose-body').value,
+        from: partner?.email || '',
+        reply_to: partner?.email || ''
+      };
       await request('/api/partner-portal/email/draft', { method: 'POST', body: JSON.stringify(payload) });
       closePartnerEmailComposer(); setPartnerEmailStatus(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
     } catch (error) { setPartnerEmailStatus(error.message, true); }
   }
 
-  Object.assign(window, { showPartnerWorkspaceSection, loadPartnerEmailFolder, searchPartnerEmail, openPartnerEmailMessage, newPartnerEmail, closePartnerEmailComposer, sendPartnerEmail, draftPartnerEmail, loadPartnerSettings, savePartnerAiKeys, connectPartnerGoogle, savePartnerReferralEdit, closePartnerReferralEditor });
+  Object.assign(window, {
+    navigateToPartnerPage,
+    showPartnerWorkspaceSection,
+    loadPartnerEmailFolder,
+    searchPartnerEmail,
+    openPartnerEmailMessage,
+    newPartnerEmail,
+    closePartnerEmailComposer,
+    sendPartnerEmail,
+    draftPartnerEmail,
+    loadPartnerSettings,
+    savePartnerAiKeys,
+    connectPartnerGoogle,
+    savePartnerReferralEdit,
+    closePartnerReferralEditor
+  });
 
   function clearClerkLoading() {
     clerkMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
@@ -656,13 +742,55 @@
     renderAgreementState();
     renderPartnerRequests(data.requests || data.marketplaceRequests || []);
     renderContactsTable();
+
+    if (partner.email) {
+      const inboxEmail = document.getElementById('partner-inbox-registered-email');
+      if (inboxEmail) inboxEmail.textContent = partner.email;
+      const settingsEmail = document.getElementById('partner-settings-registered-email');
+      if (settingsEmail) settingsEmail.textContent = partner.email;
+      const composeFrom = document.getElementById('partner-compose-from-display');
+      if (composeFrom) composeFrom.textContent = partner.email;
+    }
+    if (data.adminEmail) {
+      const inboxAdmin = document.getElementById('partner-inbox-admin-cc');
+      if (inboxAdmin) inboxAdmin.textContent = data.adminEmail;
+      const settingsAdmin = document.getElementById('partner-settings-admin-cc');
+      if (settingsAdmin) settingsAdmin.textContent = data.adminEmail;
+      const composeAdmin = document.getElementById('partner-compose-admin-display');
+      if (composeAdmin) composeAdmin.textContent = data.adminEmail;
+    }
+
     loadPartnerSettings();
-    if (new URLSearchParams(window.location.search).get('google') === 'connected' || window.location.hash === '#email') {
-      showPartnerWorkspaceSection('partner-email-section');
-      const cleanUrl = new URL(window.location.href); cleanUrl.searchParams.delete('google'); cleanUrl.hash = '';
-      window.history.replaceState(null, '', cleanUrl.toString());
+
+    const path = (window.location.pathname || '').toLowerCase();
+    const hash = (window.location.hash || '').toLowerCase();
+    const googleParam = new URLSearchParams(window.location.search).get('google');
+
+    if (googleParam === 'connected' || hash === '#settings' || path.endsWith('/settings')) {
+      navigateToPartnerPage('settings', false);
+      if (googleParam === 'connected') {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('google');
+        cleanUrl.hash = '#settings';
+        window.history.replaceState(null, '', cleanUrl.toString());
+      }
+    } else if (hash === '#email' || hash === '#inbox' || path.endsWith('/email') || path.endsWith('/inbox')) {
+      navigateToPartnerPage('email', false);
+    } else {
+      navigateToPartnerPage('contacts', false);
     }
   }
+
+  window.addEventListener('hashchange', () => {
+    const hash = (window.location.hash || '').replace('#', '').toLowerCase();
+    if (hash === 'email' || hash === 'inbox') {
+      navigateToPartnerPage('email', false);
+    } else if (hash === 'settings') {
+      navigateToPartnerPage('settings', false);
+    } else if (hash === 'contacts') {
+      navigateToPartnerPage('contacts', false);
+    }
+  });
 
   document.getElementById('partner-schedule-form')?.addEventListener('submit', async event => {
     event.preventDefault();
