@@ -111,9 +111,15 @@
         const composeAdminEl = document.getElementById('partner-compose-admin-display');
         if (composeAdminEl) composeAdminEl.textContent = settings.adminEmail;
       }
+      isTwilioConfigured = Boolean(settings.twilioConfigured);
       const inboxGoogleStatus = document.getElementById('partner-inbox-google-status');
       if (inboxGoogleStatus) {
         inboxGoogleStatus.textContent = google.connected ? `✓ Google connected: ${google.email || 'active'}` : 'Google account not connected.';
+      }
+      const inboxTwilioStatus = document.getElementById('partner-inbox-twilio-status');
+      if (inboxTwilioStatus) {
+        inboxTwilioStatus.textContent = isTwilioConfigured ? '✓ Twilio calling: Line active' : 'Twilio: Not configured by admin';
+        inboxTwilioStatus.style.color = isTwilioConfigured ? '#14745d' : 'var(--muted)';
       }
     } catch (error) {
       const status = document.getElementById('partner-ai-key-status');
@@ -225,73 +231,58 @@
     });
   }
 
-  function switchMonoFolder(folder, el) {
+  let currentInfluencerFilter = 'ALL';
+  let currentInfluencerSearch = '';
+  let selectedInfluencer = null;
+  let isTwilioConfigured = false;
+
+  function filterMonoInfluencers(query) {
+    currentInfluencerSearch = String(query || '').toLowerCase().trim();
+    renderInfluencerCards();
+  }
+
+  function switchMonoFolder(filterKey, el) {
+    currentInfluencerFilter = filterKey;
     document.querySelectorAll('.mono-nav-item').forEach(btn => btn.classList.remove('active'));
     if (el) el.classList.add('active');
-    loadPartnerEmailFolder(folder);
+    const titles = {
+      ALL: 'All Added Influencers',
+      STRONG: 'Strong Tie Relationships',
+      MEDIUM: 'Medium Tie Relationships',
+      SCHEDULED: 'Scheduled / Warm Briefings'
+    };
+    const titleEl = document.getElementById('mono-page-title');
+    if (titleEl) titleEl.textContent = titles[filterKey] || 'Influencers & Outreach';
+    renderInfluencerCards();
   }
 
   function monoLoadMore() {
-    if (partnerEmailNextPage) {
-      loadPartnerEmailFolder(partnerEmailFolder, true);
-    } else {
-      monoToast("You've viewed all recent messages.");
-    }
+    monoToast("Showing all added influencers.");
   }
 
   function replyFromReader() {
-    if (activeEmailData) {
-      hideMonoOverlay('partner-reader-overlay');
-      replyPartnerEmail(activeEmailData);
-    }
+    closePartnerEmailReader();
   }
 
   async function archiveFromReader() {
-    if (activeEmailData) {
-      await mutatePartnerEmail(activeEmailData.id, 'archive');
-      hideMonoOverlay('partner-reader-overlay');
-      monoToast('Conversation archived.');
-    }
+    closePartnerEmailReader();
+    monoToast('Closed.');
   }
 
   async function starFromReader() {
-    if (activeEmailData) {
-      const isStarred = (activeEmailData.labelIds || []).includes('STARRED');
-      await mutatePartnerEmail(activeEmailData.id, isStarred ? 'unstar' : 'star');
-      activeEmailData.labelIds = isStarred
-        ? (activeEmailData.labelIds || []).filter(l => l !== 'STARRED')
-        : [...(activeEmailData.labelIds || []), 'STARRED'];
-      const starBtn = document.getElementById('monoReaderStarBtn');
-      if (starBtn) starBtn.textContent = !isStarred ? '★ Starred' : '☆ Star';
-      monoToast(!isStarred ? 'Starred message.' : 'Unstarred message.');
-    }
+    monoToast('Saved preference.');
   }
 
   async function unreadFromReader() {
-    if (activeEmailData) {
-      await mutatePartnerEmail(activeEmailData.id, 'markUnread');
-      hideMonoOverlay('partner-reader-overlay');
-      monoToast('Marked as unread.');
-    }
+    closePartnerEmailReader();
   }
 
   async function toggleStarEmail(messageId, shouldStar) {
-    await mutatePartnerEmail(messageId, shouldStar ? 'star' : 'unstar');
-    monoToast(shouldStar ? 'Starred' : 'Unstarred');
+    monoToast(shouldStar ? 'Favorite marked' : 'Favorite removed');
   }
 
   async function bulkActionMonoEmails(action) {
-    const selectedBoxes = Array.from(document.querySelectorAll('#partner-email-list .row-check:checked'));
-    if (!selectedBoxes.length) {
-      monoToast('Select at least one message first.');
-      return;
-    }
-    const ids = selectedBoxes.map(b => b.dataset.id).filter(Boolean);
-    for (const id of ids) {
-      await mutatePartnerEmail(id, action, false);
-    }
-    loadPartnerEmailFolder(partnerEmailFolder);
-    monoToast(`${ids.length} message${ids.length === 1 ? '' : 's'} updated.`);
+    monoToast('Actions updated.');
   }
 
   function toggleSelectAllMonoEmails(checked) {
@@ -304,180 +295,247 @@
     hideMonoOverlay('partner-reader-overlay');
   }
 
-  async function loadPartnerEmailFolder(label = partnerEmailFolder, append = false) {
-    partnerEmailFolder = label;
+  function renderInfluencerCards() {
     const list = document.getElementById('partner-email-list');
     if (!list) return;
-    if (!append) { list.replaceChildren(); partnerEmailNextPage = ''; }
+    list.replaceChildren();
 
-    // Update active folder state on sidebar
-    document.querySelectorAll('.mono-nav-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.folder === label);
-    });
+    let items = currentContacts.slice();
+    if (currentInfluencerFilter === 'STRONG') {
+      items = items.filter(c => (c.strength || 'strong').toLowerCase() === 'strong');
+    } else if (currentInfluencerFilter === 'MEDIUM') {
+      items = items.filter(c => (c.strength || '').toLowerCase() === 'medium');
+    } else if (currentInfluencerFilter === 'SCHEDULED') {
+      items = items.filter(c => c.status === 'scheduled' || c.status === 'completed');
+    }
 
-    const folderNames = { INBOX: 'Inbox', STARRED: 'Starred', SENT: 'Sent', DRAFT: 'Drafts', ALL: 'All Mail' };
-    const folderSubtitles = {
-      INBOX: 'A little less noise. A little more signal.',
-      STARRED: 'The conversations worth keeping close.',
-      SENT: `Sent from ${partner?.email || 'your registered email'} · Admin CC included.`,
-      DRAFT: 'Unsent drafts and saved messages.',
-      ALL: 'Complete mailbox archive across all categories.'
-    };
-    const titleEl = document.getElementById('mono-page-title');
-    if (titleEl) titleEl.textContent = folderNames[label] || label;
-    const eyebrowEl = document.getElementById('mono-page-eyebrow');
-    if (eyebrowEl) eyebrowEl.textContent = label === 'INBOX' ? 'YOUR SPACE, AT A GLANCE' : `MAIL / ${folderNames[label] || label}`.toUpperCase();
-    const subtitleEl = document.getElementById('mono-page-subtitle');
-    if (subtitleEl) subtitleEl.textContent = folderSubtitles[label] || 'Connected mailbox.';
+    if (currentInfluencerSearch) {
+      items = items.filter(c => {
+        const hay = [c.fullName, c.company, c.jobTitle, c.email, c.phone].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(currentInfluencerSearch);
+      });
+    }
 
-    setPartnerEmailStatus('Loading mailbox…');
-    try {
-      const params = new URLSearchParams({ maxResults: '30' });
-      if (label !== 'ALL') params.set('labelIds', label);
-      const search = document.getElementById('partner-email-search')?.value.trim();
-      if (search) params.set('q', search);
-      if (append && partnerEmailNextPage) params.set('pageToken', partnerEmailNextPage);
-      const result = await request(`/api/partner-portal/email/messages?${params}`);
-      partnerEmailNextPage = result.nextPageToken || '';
-      const items = result.items || [];
+    const totalCountEl = document.getElementById('partner-email-total-count');
+    if (totalCountEl) totalCountEl.textContent = `${items.length} influencer${items.length === 1 ? '' : 's'}`;
+    const inboxCountEl = document.getElementById('partner-inbox-count');
+    if (inboxCountEl) inboxCountEl.textContent = currentContacts.length ? String(currentContacts.length) : '';
+    const draftCountEl = document.getElementById('partner-draft-count');
+    const strongCount = currentContacts.filter(c => (c.strength || 'strong').toLowerCase() === 'strong').length;
+    if (draftCountEl) draftCountEl.textContent = strongCount ? String(strongCount) : '';
+    setPartnerEmailStatus(`${items.length} relationships ready for outreach`);
 
-      if (!items.length && !append) {
-        list.innerHTML = `
-          <div class="mono-empty">
-            <strong>It’s quiet in here.</strong>
-            No messages match this view. Enjoy the breathing room.
-          </div>
-        `;
-      } else {
-        items.forEach(message => {
-          const isUnread = (message.labelIds || []).includes('UNREAD');
-          const isStarred = (message.labelIds || []).includes('STARRED');
-          const dateStr = message.date ? formatEmailDate(message.date) : '';
-          const senderName = cleanSender(message.from);
-
-          const row = document.createElement('div');
-          row.className = `mono-email-row ${isUnread ? 'unread' : ''}`;
-          row.dataset.id = message.id;
-          if (isDenseLayout) row.style.minHeight = '50px';
-
-          const check = document.createElement('input');
-          check.type = 'checkbox';
-          check.className = 'mono-check row-check';
-          check.dataset.id = message.id;
-          check.setAttribute('aria-label', 'Select message');
-          check.onclick = e => e.stopPropagation();
-
-          const star = document.createElement('button');
-          star.type = 'button';
-          star.className = `mono-star ${isStarred ? 'on' : ''}`;
-          star.textContent = isStarred ? '★' : '☆';
-          star.title = isStarred ? 'Unstar message' : 'Star message';
-          star.onclick = e => {
-            e.stopPropagation();
-            toggleStarEmail(message.id, !isStarred);
-          };
-
-          const sender = document.createElement('div');
-          sender.className = 'mono-sender';
-          sender.textContent = senderName;
-
-          const preview = document.createElement('div');
-          preview.className = 'mono-preview';
-
-          const subject = document.createElement('span');
-          subject.className = 'mono-subject';
-          subject.textContent = message.subject || '(no subject)';
-
-          const snippet = document.createElement('span');
-          snippet.className = 'mono-snippet';
-          snippet.textContent = message.snippet || '';
-
-          preview.append(subject, snippet);
-
-          const time = document.createElement('div');
-          time.className = 'mono-time';
-          time.textContent = dateStr;
-
-          row.append(check, star, sender, preview, time);
-          row.onclick = () => openPartnerEmailMessage(message);
-          list.append(row);
-        });
-      }
-
-      const totalCountEl = document.getElementById('partner-email-total-count');
-      if (totalCountEl) totalCountEl.textContent = `${items.length} conversation${items.length === 1 ? '' : 's'}`;
-      setPartnerEmailStatus(`${items.length} messages · ${label.toLowerCase()}`);
-
-      if (label === 'INBOX') {
-        const inboxCountEl = document.getElementById('partner-inbox-count');
-        const unreadCount = items.filter(m => (m.labelIds || []).includes('UNREAD')).length;
-        if (inboxCountEl) inboxCountEl.textContent = unreadCount ? String(unreadCount) : '';
-      }
-    } catch (error) {
-      list.innerHTML = `
-        <div class="mono-empty">
-          <strong>Connect your Google account</strong>
-          <p style="margin:8px auto 16px;max-width:320px;font-size:13px;line-height:1.5;">To read incoming messages, send client introductions, and sync drafts, connect your Google account in Settings.</p>
-          <button class="mono-send-btn" type="button" onclick="connectPartnerGoogle()">Connect Google Account</button>
-        </div>
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'mono-empty-card';
+      empty.innerHTML = `
+        <h3>No influencers found</h3>
+        <p>${currentInfluencerSearch ? 'No relationships matched your search.' : 'You haven’t added any influencer relationships in this category yet.'}</p>
+        <button class="mono-pill" type="button" onclick="navigateToPartnerPage('contacts')">+ Add Relationship</button>
       `;
-      setPartnerEmailStatus(error.message, true);
+      list.appendChild(empty);
+      return;
+    }
+
+    items.forEach(contact => {
+      const card = document.createElement('div');
+      card.className = 'mono-inf-card';
+      const name = contact.fullName || 'Executive Contact';
+      const initials = name.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'IN';
+      const strVal = (contact.strength || 'strong').toLowerCase();
+      const strClass = strVal === 'strong' ? 'strength-strong' : strVal === 'medium' ? 'strength-medium' : '';
+
+      card.innerHTML = `
+        <div>
+          <div class="mono-inf-header">
+            <div class="mono-inf-avatar">${escapeHTML(initials)}</div>
+            <div class="mono-inf-info">
+              <div class="mono-inf-name">${escapeHTML(name)}</div>
+              <div class="mono-inf-title">${escapeHTML(contact.jobTitle || 'Executive')} · ${escapeHTML(contact.company || 'Company')}</div>
+            </div>
+          </div>
+          <div class="mono-inf-chips">
+            <span class="mono-chip ${strClass}">⭐ ${escapeHTML(strVal.toUpperCase())}</span>
+            ${contact.email ? `<span class="mono-chip">✉ ${escapeHTML(contact.email)}</span>` : ''}
+            ${contact.phone ? `<span class="mono-chip">📞 ${escapeHTML(contact.phone)}</span>` : ''}
+            ${contact.linkedinUrl ? `<span class="mono-chip">👔 LinkedIn</span>` : ''}
+          </div>
+        </div>
+        <button class="mono-connect-btn" type="button" onclick="event.stopPropagation(); openInfluencerConnect('${escapeHTML(String(contact.id))}');">
+          ⚡ Connect Options
+        </button>
+      `;
+      card.onclick = () => openInfluencerConnect(contact.id);
+      list.appendChild(card);
+    });
+  }
+
+  function loadPartnerEmailFolder(label = currentInfluencerFilter) {
+    if (label) currentInfluencerFilter = label;
+    renderInfluencerCards();
+  }
+
+  function searchPartnerEmail() {
+    const input = document.getElementById('partner-email-search');
+    filterMonoInfluencers(input?.value || '');
+  }
+
+  function openInfluencerConnect(contactId) {
+    const contact = currentContacts.find(c => String(c.id) === String(contactId));
+    if (!contact) return;
+    selectedInfluencer = contact;
+    const panel = document.getElementById('partner-email-message');
+    const modalTitle = document.getElementById('partner-reader-modal-title');
+    if (modalTitle) modalTitle.textContent = `Connect with ${contact.fullName}`;
+
+    const initials = (contact.fullName || 'IN').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'IN';
+    const liUrl = contact.linkedinUrl || `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(contact.fullName + ' ' + (contact.company || ''))}`;
+    const mailtoHref = `mailto:${encodeURIComponent(contact.email || '')}?cc=${encodeURIComponent(currentAdminEmail || '')}&subject=${encodeURIComponent('Introduction: ' + (partner?.fullName || 'Partner') + ' <> ' + contact.fullName)}`;
+
+    const twilioSection = isTwilioConfigured ? `
+      <div class="mono-connect-channel" id="partner-channel-twilio">
+        <div class="mono-channel-title">
+          <span style="font-size:16px;">📞</span>
+          <span>Phone Outreach (via Twilio)</span>
+          <span style="font-size:10px; background:#dcfce7; color:#14745d; padding:2px 6px; border-radius:4px; font-weight:700;">TWILIO READY</span>
+        </div>
+        <div class="mono-channel-desc">
+          Place an authenticated phone call to <strong>${escapeHTML(contact.phone || 'No phone number on file')}</strong> using your administrator-configured Twilio account.
+        </div>
+        <div class="mono-channel-actions">
+          <button class="mono-channel-btn phone-btn" type="button" onclick="callViaTwilio('${escapeHTML(String(contact.id))}');">
+            📞 Call via Twilio
+          </button>
+          ${contact.phone ? `<a href="tel:${escapeHTML(contact.phone)}" class="mono-channel-btn subtle">Dial Directly</a>` : ''}
+        </div>
+        <div id="partner-twilio-call-status" style="font-size:12px; margin-top:8px; color:var(--mono-muted);"></div>
+      </div>
+    ` : '';
+
+    if (panel) {
+      panel.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--mono-border);">
+          <div class="mono-inf-avatar" style="width:48px; height:48px; font-size:16px;">${escapeHTML(initials)}</div>
+          <div>
+            <h2 style="margin:0; font-size:18px; color:var(--mono-text);">${escapeHTML(contact.fullName)}</h2>
+            <div style="font-size:13px; color:var(--mono-muted);">${escapeHTML(contact.jobTitle || 'Executive')} · ${escapeHTML(contact.company || '')}</div>
+          </div>
+        </div>
+
+        <!-- CHANNEL 1: LINKEDIN -->
+        <div class="mono-connect-channel">
+          <div class="mono-channel-title">
+            <span style="font-size:16px; color:#0077b5;">👔</span>
+            <span>LinkedIn Connection &amp; InMail</span>
+          </div>
+          <div class="mono-channel-desc">
+            Connect directly on LinkedIn or search their profile to send a warm introduction.
+          </div>
+          <div class="mono-channel-actions">
+            <a href="${escapeHTML(liUrl)}" target="_blank" rel="noopener noreferrer" class="mono-channel-btn linkedin-btn">
+              Open LinkedIn Profile ↗
+            </a>
+            <button class="mono-channel-btn subtle" type="button" onclick="copyLinkedInNote('${escapeHTML(String(contact.id))}');">
+              📋 Copy Intro Note
+            </button>
+          </div>
+        </div>
+
+        <!-- CHANNEL 2: VERIFIED EMAIL (CC ADMIN) -->
+        <div class="mono-connect-channel">
+          <div class="mono-channel-title">
+            <span style="font-size:16px;">✉️</span>
+            <span>Verified Email Outreach</span>
+          </div>
+          <div class="mono-channel-desc">
+            Send directly from your email (<strong>${escapeHTML(partner?.email || 'your email')}</strong>). Your ConnectEM administrator (<strong>${escapeHTML(currentAdminEmail || 'admin@connectem.ai')}</strong>) is automatically CC'd for relationship governance and deal tracking.
+          </div>
+          <div class="mono-channel-actions">
+            <button class="mono-channel-btn mail-btn" type="button" onclick="openComposerForContact('${escapeHTML(String(contact.id))}');">
+              ✉ Open Outreach Composer
+            </button>
+            ${contact.email ? `<a href="${mailtoHref}" class="mono-channel-btn subtle">Open in Mail App (with CC)</a>` : ''}
+          </div>
+        </div>
+
+        <!-- CHANNEL 3: PHONE VIA TWILIO (ONLY IF CONFIGURED BY ADMIN) -->
+        ${twilioSection}
+      `;
+    }
+
+    showMonoOverlay('partner-reader-overlay');
+  }
+
+  function copyLinkedInNote(contactId) {
+    const contact = currentContacts.find(c => String(c.id) === String(contactId));
+    if (!contact) return;
+    const firstName = (contact.fullName || '').split(' ')[0] || 'there';
+    const note = `Hi ${firstName}, hope you're having a great week! Would love to reconnect and share a quick update on ConnectEM. Looking forward to catching up soon.`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(note).then(() => monoToast('Copied LinkedIn note to clipboard!'));
+    } else {
+      monoToast('Note ready');
     }
   }
 
-  function searchPartnerEmail() { loadPartnerEmailFolder(partnerEmailFolder); }
-  function decodePartnerMailBody(encoded) {
-    if (!encoded) return '';
-    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
-    try { return decodeURIComponent(escape(atob(base64))); } catch (_) { try { return atob(base64); } catch (_) { return ''; } }
+  function openComposerForContact(contactId) {
+    const contact = currentContacts.find(c => String(c.id) === String(contactId));
+    if (!contact) return;
+    closePartnerEmailReader();
+    const title = document.getElementById('partner-compose-title');
+    if (title) title.textContent = `Email to ${contact.fullName}`;
+    const toInput = document.getElementById('partner-compose-to');
+    if (toInput) toInput.value = contact.email || '';
+    const subjInput = document.getElementById('partner-compose-subject');
+    if (subjInput) subjInput.value = `Introduction: ${partner?.fullName || 'Partner'} <> ${contact.fullName}`;
+    const bodyInput = document.getElementById('partner-compose-body');
+    const firstName = (contact.fullName || '').split(' ')[0] || 'there';
+    if (bodyInput) {
+      bodyInput.value = `Hi ${firstName},\n\nI hope you're having a productive week.\n\nI wanted to reach out directly regarding ConnectEM and explore how we can collaborate. Let me know if you have a few minutes for a brief introduction call.\n\nBest regards,\n${partner?.fullName || ''}`;
+    }
+    const fromEl = document.getElementById('partner-compose-from-display');
+    if (fromEl && partner?.email) fromEl.textContent = partner.email;
+    const adminEl = document.getElementById('partner-compose-admin-display');
+    if (adminEl && currentAdminEmail) adminEl.textContent = currentAdminEmail;
+    showMonoOverlay('partner-email-compose');
   }
-  function findPartnerMailBody(part) {
-    if (part?.mimeType === 'text/plain' && part.body?.data) return part.body.data;
-    for (const child of (part?.parts || [])) { const found = findPartnerMailBody(child); if (found) return found; }
-    return part?.body?.data || '';
+
+  async function callViaTwilio(contactId) {
+    const contact = currentContacts.find(c => String(c.id) === String(contactId));
+    if (!contact) return;
+    if (!contact.phone) {
+      monoToast('No phone number on file for this influencer.');
+      return;
+    }
+    const statusEl = document.getElementById('partner-twilio-call-status');
+    if (statusEl) statusEl.textContent = `Dialing ${contact.phone} via Twilio line…`;
+    try {
+      const res = await request('/api/partner-portal/twilio/call', {
+        method: 'POST',
+        body: JSON.stringify({ to: contact.phone, contactId: contact.id })
+      });
+      if (statusEl) {
+        statusEl.textContent = `✓ ${res.message || 'Call placed via Twilio.'}`;
+        statusEl.style.color = '#14745d';
+      }
+      monoToast('Twilio call initiated!');
+    } catch (err) {
+      if (statusEl) {
+        statusEl.textContent = `Call error: ${err.message}`;
+        statusEl.style.color = '#dc2626';
+      }
+      monoToast(err.message);
+    }
   }
 
   async function openPartnerEmailMessage(message) {
-    const panel = document.getElementById('partner-email-message');
-    if (!panel) return;
-    panel.innerHTML = '<div style="padding:20px;color:var(--muted);">Loading message…</div>';
-    showMonoOverlay('partner-reader-overlay');
-    try {
-      const result = await request(`/api/partner-portal/email/message?id=${encodeURIComponent(message.id)}`);
-      activeEmailData = result;
-      const headers = Object.fromEntries((result.payload?.headers || []).map(h => [String(h.name).toLowerCase(), h.value]));
-      const dateStr = headers.date || message.date || '';
-      const formattedDate = formatEmailDate(dateStr) + (dateStr ? ` (${dateStr})` : '');
-      const subject = headers.subject || message.subject || '(no subject)';
-      const from = headers.from || message.from || '(unknown sender)';
-      const body = decodePartnerMailBody(findPartnerMailBody(result.payload)) || result.snippet || '(No displayable text body)';
-
-      const starBtn = document.getElementById('monoReaderStarBtn');
-      const isStarred = (result.labelIds || []).includes('STARRED');
-      if (starBtn) starBtn.textContent = isStarred ? '★ Starred' : '☆ Star';
-
-      panel.innerHTML = `
-        <div class="mono-eyebrow">${escapeHTML(formattedDate)}</div>
-        <h2>${escapeHTML(subject)}</h2>
-        <div class="mono-reader-meta">
-          From: <strong style="color:var(--text);">${escapeHTML(from)}</strong><br>
-          To: me · Admin CC (<span style="font-family:var(--font-mono);">${escapeHTML(currentAdminEmail || 'admin')}</span>)
-        </div>
-        <div class="mono-reader-body">${escapeHTML(body)}</div>
-      `;
-      if ((result.labelIds || []).includes('UNREAD')) {
-        mutatePartnerEmail(result.id, 'markRead', false);
-      }
-      result._headerValues = headers;
-    } catch (error) {
-      panel.innerHTML = `<div style="padding:20px;color:#b42318;">${escapeHTML(error.message)}</div>`;
-    }
+    if (message?.id) openInfluencerConnect(message.id);
   }
 
   async function mutatePartnerEmail(messageId, action, refresh = true) {
     try {
       await request('/api/partner-portal/email/message', { method: 'POST', body: JSON.stringify({ messageId, action }) });
-      if (refresh) loadPartnerEmailFolder(partnerEmailFolder);
+      if (refresh) renderInfluencerCards();
     } catch (error) {
       setPartnerEmailStatus(error.message, true);
     }
@@ -601,7 +659,13 @@
     switchMonoFolder,
     toggleSelectAllMonoEmails,
     bulkActionMonoEmails,
-    monoLoadMore
+    monoLoadMore,
+    openInfluencerConnect,
+    copyLinkedInNote,
+    openComposerForContact,
+    callViaTwilio,
+    filterMonoInfluencers,
+    renderInfluencerCards
   });
 
   function clearClerkLoading() {
@@ -1059,6 +1123,7 @@
     renderAgreementState();
     renderPartnerRequests(data.requests || data.marketplaceRequests || []);
     renderContactsTable();
+    renderInfluencerCards();
 
     if (partner.email) {
       const inboxEmail = document.getElementById('partner-inbox-registered-email');

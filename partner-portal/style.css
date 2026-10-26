@@ -1706,3 +1706,195 @@ td small {
 .partner-compose-dialog::backdrop{background:#10251f80;backdrop-filter:blur(3px)}
 .partner-compose-dialog form{display:grid;gap:12px}.partner-compose-dialog header,.partner-compose-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .partner-compose-actions{justify-content:flex-end;flex-wrap:wrap}
+
+/* Mono Influencer Reach & Connect Layout */
+.mono-influencer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+.mono-inf-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--mono-card);
+  border: 1px solid var(--mono-border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mono-inf-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mono-text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.mono-inf-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.mono-inf-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #14745d;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+.mono-inf-info {
+  flex: 1;
+  min-width: 0;
+}
+.mono-inf-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mono-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mono-inf-title {
+  font-size: 12.5px;
+  color: var(--mono-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.mono-inf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+.mono-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--mono-panel);
+  border: 1px solid var(--mono-border);
+  color: var(--mono-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.mono-chip.strength-strong {
+  background: #dcfce7;
+  color: #14745d;
+  border-color: #bbf7d0;
+  font-weight: 600;
+}
+.mono-chip.strength-medium {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+  font-weight: 600;
+}
+.mono-connect-btn {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--mono-text);
+  color: var(--mono-bg);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.15s ease;
+}
+.mono-connect-btn:hover {
+  opacity: 0.88;
+}
+.mono-connect-channel {
+  background: var(--mono-panel);
+  border: 1px solid var(--mono-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.mono-channel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mono-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mono-channel-desc {
+  font-size: 12px;
+  color: var(--mono-muted);
+  margin: 4px 0 10px;
+  line-height: 1.4;
+}
+.mono-channel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mono-channel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: opacity 0.15s;
+}
+.mono-channel-btn:hover {
+  opacity: 0.88;
+}
+.mono-channel-btn.linkedin-btn {
+  background: #0077b5;
+  color: #fff;
+}
+.mono-channel-btn.mail-btn {
+  background: var(--mono-text);
+  color: var(--mono-bg);
+}
+.mono-channel-btn.phone-btn {
+  background: #14745d;
+  color: #fff;
+}
+.mono-channel-btn.subtle {
+  background: transparent;
+  border: 1px solid var(--mono-border);
+  color: var(--mono-text);
+}
+.mono-empty-card {
+  grid-column: 1 / -1;
+  padding: 40px 24px;
+  text-align: center;
+  background: var(--mono-card);
+  border: 1px dashed var(--mono-border);
+  border-radius: 12px;
+}
+.mono-empty-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--mono-text);
+}
+.mono-empty-card p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--mono-muted);
+}
+

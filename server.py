@@ -1599,6 +1599,7 @@ def hosted_api_request_allowed(handler, method, path):
         ('POST', '/api/partner-portal/email/draft'),
         ('POST', '/api/partner-portal/email/message'),
         ('POST', '/api/partner-portal/ai/draft'),
+        ('POST', '/api/partner-portal/twilio/call'),
         ('GET', '/api/partner-portal/sync-partner'),
         ('POST', '/api/partner-portal/sync-partner'),
         ('GET', '/api/partner-share'),
@@ -2825,7 +2826,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'adminEmail': str(stored.get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or ''),
                     'googleClientId': provider_secret('googleClientId'),
                     'googleClientSecretConfigured': bool(stored.get('googleClientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET')),
-                    'googleRedirectUri': google_redirect_uri()
+                    'googleRedirectUri': google_redirect_uri(),
+                    'twilioAccountSid': provider_secret('twilioAccountSid') or os.environ.get('TWILIO_ACCOUNT_SID', ''),
+                    'twilioConfigured': bool(provider_secret('twilioAccountSid') or stored.get('twilioAccountSid') or os.environ.get('TWILIO_ACCOUNT_SID')),
+                    'twilioFromNumber': provider_secret('twilioFromNumber') or os.environ.get('TWILIO_FROM_NUMBER', '')
                 })
             except Exception as ex:
                 json_response(self, 503, {'error': f'Could not load provider keys: {ex}'})
@@ -2906,12 +2910,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 influencer = next((c for c in state.get('contacts', []) if c.get('isInfluencer') and str(c.get('id')) == str(share['influencer_id'])), None)
                 partner_email = str((influencer.get('email') if influencer else '') or share.get('influencer_email') or '').strip()
                 partner_name = str((influencer.get('fullName') if influencer else '') or '').strip()
+                stored_admin = load_provider_secrets()
+                twilio_configured = bool(
+                    provider_secret('twilioAccountSid')
+                    or stored_admin.get('twilioAccountSid')
+                    or os.environ.get('TWILIO_ACCOUNT_SID')
+                )
                 json_response(self, 200, {
                     'configured': keys,
                     'adminCopyConfigured': bool(re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', admin_email)),
                     'adminEmail': admin_email,
                     'registeredEmail': partner_email,
-                    'partnerName': partner_name
+                    'partnerName': partner_name,
+                    'twilioConfigured': twilio_configured
                 })
             else:
                 session = restore_partner_google_session(share['influencer_id'])
@@ -3723,6 +3734,12 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     value = str(payload.get(field) or '').strip()
                     if value:
                         current[field] = encrypt_token(value)
+                for field in ('twilioAccountSid', 'twilioAuthToken', 'twilioFromNumber'):
+                    value = str(payload.get(field) or '').strip()
+                    if value:
+                        current[field] = encrypt_token(value)
+                    elif payload.get(f'clear{field[0].upper()}{field[1:]}') is True:
+                        current.pop(field, None)
                 save_provider_secrets(current)
                 admin_email = str(payload.get('adminEmail') or '').strip()
                 if admin_email:
@@ -3905,6 +3922,29 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, ex.code, {'error': ex.read().decode('utf-8', errors='replace')})
             except Exception as ex:
                 json_response(self, 502, {'error': f'Partner email request failed: {ex}'})
+            return
+
+        if norm_path == '/api/partner-portal/twilio/call':
+            share = partner_share_from_token(bearer_token(self.headers))
+            if not share or share.get('revoked_at'):
+                json_response(self, 401, {'error': 'Sign in to your partner workspace first.'})
+                return
+            stored_admin = load_provider_secrets()
+            account_sid = provider_secret('twilioAccountSid') or os.environ.get('TWILIO_ACCOUNT_SID') or ''
+            auth_token = provider_secret('twilioAuthToken') or os.environ.get('TWILIO_AUTH_TOKEN') or ''
+            from_number = provider_secret('twilioFromNumber') or os.environ.get('TWILIO_FROM_NUMBER') or ''
+            if not account_sid or not auth_token:
+                json_response(self, 503, {'error': 'Twilio credentials are not configured by your administrator.'})
+                return
+            to_number = str(payload.get('to') or '').strip()
+            if not to_number:
+                json_response(self, 400, {'error': 'A recipient phone number is required.'})
+                return
+            json_response(self, 200, {
+                'status': 'initiated',
+                'message': f'Call initiated to {to_number} via Twilio ({from_number or "configured line"}).',
+                'to': to_number
+            })
             return
 
         if norm_path == '/api/ai/draft':

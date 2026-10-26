@@ -103,8 +103,8 @@
           Network &amp; Schedule
         </button>
         <button id="partner-nav-email" class="partner-nav-btn" type="button" onclick="navigateToPartnerPage('email')">
-          <svg style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
-          Inbox &amp; Email
+          <svg style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+          Influencers &amp; Connect
         </button>
         <button id="partner-nav-settings" class="partner-nav-btn" type="button" onclick="navigateToPartnerPage('settings')">
           <svg style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -288,7 +288,7 @@
       </section>
       </div>
 
-      <!-- PAGE 2: FULLSCREEN INBOX & EMAIL (MONO MAIL DESIGN) -->
+      <!-- PAGE 2: FULLSCREEN INFLUENCER OUTREACH & CONNECT -->
       <div id="partner-page-email" class="partner-portal-page mono-fullscreen" hidden>
         <div class="mono-app" id="mono-email-app">
           <!-- TOPBAR -->
@@ -299,15 +299,15 @@
             </button>
             <div class="mono-brand">
               <div class="mono-logo">C</div>
-              <span class="mono-brand-name">Connect<span style="font-weight:400">EM</span> <span style="font-weight:300;opacity:0.6;">Mail</span></span>
+              <span class="mono-brand-name">Connect<span style="font-weight:400">EM</span> <span style="font-weight:300;opacity:0.6;">Reach</span></span>
             </div>
             <div class="mono-search">
               <span class="mono-search-icon">⌕</span>
-              <input id="partner-email-search" type="search" placeholder="Search mail (press Enter)" aria-label="Search mail" onkeydown="if(event.key==='Enter') searchPartnerEmail()">
+              <input id="partner-email-search" type="search" placeholder="Search added influencers (by name, company, title)..." aria-label="Search influencers" oninput="filterMonoInfluencers(this.value)">
             </div>
             <div class="mono-top-actions">
               <button class="mono-icon-btn" id="monoThemeBtn" type="button" onclick="toggleMonoTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">☾</button>
-              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh mailbox" aria-label="Refresh">↻</button>
+              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh influencer list" aria-label="Refresh">↻</button>
               <button class="mono-icon-btn" type="button" onclick="navigateToPartnerPage('settings')" title="Partner Settings" aria-label="Settings">⚙</button>
               <div class="mono-avatar" id="partner-avatar-display" title="Partner account">P</div>
             </div>
@@ -315,52 +315,49 @@
 
           <!-- SIDEBAR -->
           <aside class="mono-sidebar">
-            <button class="mono-compose-btn" id="partner-compose-btn" type="button" onclick="newPartnerEmail()">
-              <span>＋</span> Compose
+            <button class="mono-compose-btn" id="partner-compose-btn" type="button" onclick="navigateToPartnerPage('contacts')">
+              <span>＋</span> Add Influencer
             </button>
-            <div class="mono-nav-label">Mailbox</div>
-            <button class="mono-nav-item active" type="button" data-folder="INBOX" onclick="switchMonoFolder('INBOX', this)">
-              <span class="mono-nav-icon">▤</span>
-              <span class="mono-nav-text">Inbox</span>
+            <div class="mono-nav-label">Influencer Directory</div>
+            <button class="mono-nav-item active" type="button" data-folder="ALL" onclick="switchMonoFolder('ALL', this)">
+              <span class="mono-nav-icon">👥</span>
+              <span class="mono-nav-text">All Added</span>
               <span class="mono-count" id="partner-inbox-count"></span>
             </button>
-            <button class="mono-nav-item" type="button" data-folder="STARRED" onclick="switchMonoFolder('STARRED', this)">
-              <span class="mono-nav-icon">☆</span>
-              <span class="mono-nav-text">Starred</span>
-            </button>
-            <button class="mono-nav-item" type="button" data-folder="SENT" onclick="switchMonoFolder('SENT', this)">
-              <span class="mono-nav-icon">↗</span>
-              <span class="mono-nav-text">Sent</span>
-            </button>
-            <button class="mono-nav-item" type="button" data-folder="DRAFT" onclick="switchMonoFolder('DRAFT', this)">
-              <span class="mono-nav-icon">▧</span>
-              <span class="mono-nav-text">Drafts</span>
+            <button class="mono-nav-item" type="button" data-folder="STRONG" onclick="switchMonoFolder('STRONG', this)">
+              <span class="mono-nav-icon">⭐</span>
+              <span class="mono-nav-text">Strong Ties</span>
               <span class="mono-count" id="partner-draft-count"></span>
             </button>
-            <button class="mono-nav-item" type="button" data-folder="ALL" onclick="switchMonoFolder('ALL', this)">
-              <span class="mono-nav-icon">▱</span>
-              <span class="mono-nav-text">All Mail</span>
+            <button class="mono-nav-item" type="button" data-folder="MEDIUM" onclick="switchMonoFolder('MEDIUM', this)">
+              <span class="mono-nav-icon">🤝</span>
+              <span class="mono-nav-text">Medium Ties</span>
+            </button>
+            <button class="mono-nav-item" type="button" data-folder="SCHEDULED" onclick="switchMonoFolder('SCHEDULED', this)">
+              <span class="mono-nav-icon">📅</span>
+              <span class="mono-nav-text">Scheduled</span>
             </button>
 
             <div class="mono-sidebar-bottom">
-              <div class="mono-nav-label">Delivery Routing</div>
+              <div class="mono-nav-label">Outreach &amp; Compliance</div>
               <div class="mono-routing-card">
                 <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:4px;">Sender Identity</div>
                 <div id="partner-inbox-registered-email" style="font-size:11.5px;font-weight:600;word-break:break-all;color:var(--text);">your registered email</div>
                 <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin:10px 0 4px;">Admin Automatic CC</div>
                 <div id="partner-inbox-admin-cc" style="font-size:11.5px;font-family:var(--font-mono);color:var(--muted);word-break:break-all;">admin@connectem.ai</div>
                 <div id="partner-inbox-google-status" style="margin-top:10px;font-size:10.5px;color:var(--muted);">Checking Google connection…</div>
+                <div id="partner-inbox-twilio-status" style="margin-top:6px;font-size:10.5px;color:var(--muted);">Checking Twilio status…</div>
               </div>
             </div>
           </aside>
 
-          <!-- MAIN INBOX AREA -->
+          <!-- MAIN INFLUENCER REACH AREA -->
           <main class="mono-main">
             <div class="mono-heading">
               <div>
-                <div class="mono-eyebrow" id="mono-page-eyebrow">YOUR SPACE, AT A GLANCE</div>
-                <h1 id="mono-page-title">Inbox</h1>
-                <p id="mono-page-subtitle">A little less noise. A little more signal.</p>
+                <div class="mono-eyebrow" id="mono-page-eyebrow">YOUR ADDED NETWORK &amp; OUTREACH</div>
+                <h1 id="mono-page-title">Influencer Outreach &amp; Connect</h1>
+                <p id="mono-page-subtitle">Direct executive outreach. Click any person below to connect via LinkedIn, verified email (CC'ing admin), or phone.</p>
               </div>
               <div class="mono-heading-actions">
                 <button class="mono-pill" id="monoDensityBtn" type="button" onclick="toggleMonoDensity()">☷ &nbsp; Comfortable</button>
@@ -369,48 +366,46 @@
             </div>
 
             <div class="mono-toolbar">
-              <input type="checkbox" class="mono-check" id="monoSelectAll" aria-label="Select all emails" onchange="toggleSelectAllMonoEmails(this.checked)">
+              <input type="checkbox" class="mono-check" id="monoSelectAll" style="display:none;" aria-label="Select all">
               <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh">↻</button>
-              <button class="mono-icon-btn" type="button" onclick="bulkActionMonoEmails('archive')" title="Archive selected">▱</button>
-              <button class="mono-icon-btn" type="button" onclick="bulkActionMonoEmails('star')" title="Star selected">☆</button>
-              <button class="mono-icon-btn" type="button" onclick="bulkActionMonoEmails('markRead')" title="Mark read/unread">✉</button>
               <div class="mono-divider"></div>
               <span id="partner-email-status" class="mono-status-label" role="status" aria-live="polite"></span>
               <div class="mono-spacer"></div>
-              <span class="mono-toolbar-label" id="partner-email-total-count">0 messages</span>
+              <span class="mono-toolbar-label" id="partner-email-total-count">0 influencers</span>
             </div>
 
-            <div class="mono-email-list" id="partner-email-list">
-              <!-- Dynamically populated rows -->
+            <div class="mono-influencer-grid" id="partner-email-list">
+              <!-- Dynamically populated influencer cards -->
             </div>
 
             <div class="mono-footer">
-              <span>Made for a calmer inbox · ConnectEM Certified Deliverability</span>
+              <span>ConnectEM Executive Influencer Relations · Certified Governance</span>
               <div class="mono-pagination">
-                <button class="mono-icon-btn" type="button" onclick="monoToast('You are at the latest messages.')">‹</button>
-                <button class="mono-icon-btn" type="button" onclick="monoLoadMore()">›</button>
+                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">‹</button>
+                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">›</button>
               </div>
             </div>
           </main>
         </div>
 
-        <!-- READER OVERLAY MODAL -->
-        <div class="mono-overlay" id="partner-reader-overlay" role="dialog" aria-modal="true" aria-label="Email message">
+        <!-- READER / CONNECT OVERLAY MODAL -->
+        <div class="mono-overlay" id="partner-reader-overlay" role="dialog" aria-modal="true" aria-label="Connect with influencer">
           <div class="mono-modal">
             <div class="mono-modal-head">
-              <span>Message</span>
+              <span id="partner-reader-modal-title">Connect with Influencer</span>
               <button class="mono-icon-btn" type="button" onclick="closePartnerEmailReader()">×</button>
             </div>
             <div class="mono-reader" id="partner-reader-content">
               <article id="partner-email-message" class="partner-email-message">
-                <!-- Message content rendered here -->
+                <!-- Connect channels and actions rendered here -->
+                <div id="partner-twilio-call-status" hidden></div>
               </article>
             </div>
-            <div class="mono-modal-foot">
-              <button class="mono-pill" type="button" id="monoReaderReplyBtn" onclick="replyFromReader()">↩ Reply</button>
-              <button class="mono-pill" type="button" id="monoReaderArchiveBtn" onclick="archiveFromReader()">Archive</button>
-              <button class="mono-pill" type="button" id="monoReaderStarBtn" onclick="starFromReader()">☆ Star</button>
-              <button class="mono-pill" type="button" id="monoReaderUnreadBtn" onclick="unreadFromReader()">Mark unread</button>
+            <div class="mono-modal-foot" id="partner-reader-foot">
+              <button class="mono-pill" type="button" id="monoReaderReplyBtn" onclick="closePartnerEmailReader()">Close</button>
+              <button class="mono-pill" type="button" id="monoReaderArchiveBtn" style="display:none;" onclick="archiveFromReader()">Archive</button>
+              <button class="mono-pill" type="button" id="monoReaderStarBtn" style="display:none;" onclick="starFromReader()">☆ Star</button>
+              <button class="mono-pill" type="button" id="monoReaderUnreadBtn" style="display:none;" onclick="unreadFromReader()">Mark unread</button>
             </div>
           </div>
         </div>
