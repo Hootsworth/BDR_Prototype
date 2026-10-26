@@ -2981,6 +2981,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
+        if clean_path == '/privacy':
+            self.send_response(302)
+            self.send_header('Location', '/privacy.html')
+            self.end_headers()
+            return
+
+        if clean_path == '/terms':
+            self.send_response(302)
+            self.send_header('Location', '/terms.html')
+            self.end_headers()
+            return
+
         if clean_path == '/api/db/state' or norm_path == '/api/db/state':
             if not is_irm_admin_request(self):
                 json_response(self, 403, {'error': 'Database state is available only from the local console.'})

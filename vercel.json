@@ -78,6 +78,14 @@
   ],
   "rewrites": [
     {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
       "source": "/",
       "has": [{ "type": "host", "value": "connectem.ai" }],
       "destination": "/landing.html"
