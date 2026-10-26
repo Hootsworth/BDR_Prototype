@@ -143,14 +143,25 @@ def create_google_oauth_state(partner_id=None, redirect_uri=None, return_url=Non
 
 def verify_google_oauth_state(state):
     key = str(os.environ.get('TOKEN_ENCRYPTION_KEY') or '').encode('utf-8')
+    if not key:
+        return None
     try:
-        version, encoded, supplied = str(state or '').split('.', 2)
+        parts = str(state or '').strip().split('.')
+        if len(parts) == 3:
+            version, encoded, supplied = parts
+            if version != 'v1':
+                return None
+        elif len(parts) == 2:
+            encoded, supplied = parts
+        else:
+            return None
         expected = base64.urlsafe_b64encode(hmac.new(key, encoded.encode('ascii'), hashlib.sha256).digest()).decode('ascii').rstrip('=')
-        if version != 'v1' or not key or not hmac.compare_digest(supplied, expected):
+        if not hmac.compare_digest(supplied, expected):
             return None
         payload = json.loads(base64.urlsafe_b64decode(encoded + '=' * (-len(encoded) % 4)).decode('utf-8'))
         issued_at = int(payload.get('issued_at') or 0)
-        if not payload.get('nonce') or issued_at > time.time() + 60 or time.time() - issued_at > 600:
+        # Allow up to 2 hours (7200s) for user consent/2FA, and up to 300s clock skew
+        if not payload.get('nonce') or issued_at > time.time() + 300 or time.time() - issued_at > 7200:
             return None
         return payload
     except (ValueError, TypeError, json.JSONDecodeError):
@@ -3564,7 +3575,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             code = query.get('code', [''])[0]
             state_data = verify_google_oauth_state(state)
             if not state_data:
-                json_response(self, 400, {'error': 'Invalid or expired Google OAuth state.'})
+                json_response(self, 400, {'error': 'Invalid or expired Google OAuth state. If your browser window was open for a while, please click Connect Google again to start a fresh authorization.'})
                 return
             partner_owner_id = str(state_data.get('partner_id') or '')
             redirect_uri = state_data.get('redirect_uri') or google_redirect_uri(self)
