@@ -48,6 +48,14 @@ module.exports = async function handler(req, res) {
     // Carry the signed token in an app-specific header instead.
     headers.set('x-connectem-oidc-token', oidcToken);
     headers.set('x-connectem-bridge-secret', bridgeSecret);
+    const originalHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    if (originalHost) {
+      headers.set('x-connectem-client-host', originalHost);
+      headers.set('x-forwarded-host', originalHost);
+    }
+    const originalProto = (req.headers['x-forwarded-proto'] || (originalHost.includes('localhost') ? 'http' : 'https')).split(',')[0].trim();
+    headers.set('x-connectem-client-proto', originalProto);
+    headers.set('x-forwarded-proto', originalProto);
     if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
       headers.set('x-vercel-protection-bypass', process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
     }

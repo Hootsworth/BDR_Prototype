@@ -125,7 +125,7 @@ def decrypt_token(value):
     except Exception as ex:
         raise RuntimeError('Stored credential cannot be decrypted; configure the original TOKEN_ENCRYPTION_KEY or reconnect the integration.') from ex
 
-def create_google_oauth_state(partner_id=None, redirect_uri=None):
+def create_google_oauth_state(partner_id=None, redirect_uri=None, return_url=None):
     key = str(os.environ.get('TOKEN_ENCRYPTION_KEY') or '').encode('utf-8')
     if not key:
         raise RuntimeError('Configure TOKEN_ENCRYPTION_KEY before connecting Google.')
@@ -134,6 +134,8 @@ def create_google_oauth_state(partner_id=None, redirect_uri=None):
         payload['partner_id'] = str(partner_id)
     if redirect_uri:
         payload['redirect_uri'] = str(redirect_uri)
+    if return_url:
+        payload['return_url'] = str(return_url)
     encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(',', ':')).encode('utf-8')).decode('ascii').rstrip('=')
     signature = hmac.new(key, encoded.encode('ascii'), hashlib.sha256).digest()
     signed = base64.urlsafe_b64encode(signature).decode('ascii').rstrip('=')
@@ -228,15 +230,32 @@ def google_oauth_setting(name):
     env_name = {'googleClientId': 'GOOGLE_CLIENT_ID', 'googleClientSecret': 'GOOGLE_CLIENT_SECRET', 'googleRedirectUri': 'GOOGLE_REDIRECT_URI'}.get(name, name.upper())
     return provider_secret(name) or str(os.environ.get(env_name) or '').strip()
 
+def client_host_and_proto(handler=None):
+    if not handler:
+        return '', 'https' if os.environ.get('VERCEL') else 'http'
+    host = (handler.headers.get('x-connectem-client-host') or handler.headers.get('x-forwarded-host') or handler.headers.get('host') or '').split(',')[0].strip()
+    proto = (handler.headers.get('x-connectem-client-proto') or handler.headers.get('x-forwarded-proto') or '').split(',')[0].strip()
+    referer = handler.headers.get('referer') or ''
+    if referer:
+        try:
+            ref_parsed = urllib.parse.urlparse(referer)
+            if ref_parsed.netloc and ('connectem.ai' in ref_parsed.netloc):
+                host = ref_parsed.netloc
+                proto = ref_parsed.scheme or proto
+        except Exception:
+            pass
+    if not proto:
+        proto = 'https' if ('connectem.ai' in host or os.environ.get('VERCEL')) else 'http'
+    return host, proto
+
 def google_redirect_uri(handler=None):
     configured = google_oauth_setting('googleRedirectUri')
     if configured:
         return configured
     if handler:
-        forwarded_host = (handler.headers.get('x-forwarded-host') or handler.headers.get('host') or '').split(',')[0].strip()
-        proto = (handler.headers.get('x-forwarded-proto') or '').split(',')[0].strip() or ('https' if 'connectem.ai' in forwarded_host or os.environ.get('VERCEL') else 'http')
-        if forwarded_host:
-            return f"{proto}://{forwarded_host}/api/google/oauth/callback"
+        host, proto = client_host_and_proto(handler)
+        if host:
+            return f"{proto}://{host}/api/google/oauth/callback"
     if os.environ.get('VERCEL'):
         return 'https://admin.connectem.ai/api/google/oauth/callback'
     return 'http://localhost:8001/api/google/oauth/callback'
@@ -3516,6 +3535,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if norm_path == '/api/google/oauth/start' or clean_path == '/api/google/oauth/start' or self.path == '/api/google/oauth/start':
             client_id = google_oauth_setting('googleClientId')
             redirect_uri = google_redirect_uri(self)
+            host, proto = client_host_and_proto(self)
+            return_url = f"{proto}://{host}/" if host else "https://admin.connectem.ai/"
             if not client_id or not google_oauth_setting('googleClientSecret'):
                 json_response(self, 503, {'error': 'Configure both Google OAuth client ID and client secret in Admin Settings.'})
                 return
@@ -3523,7 +3544,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 503, {'error': 'Configure TOKEN_ENCRYPTION_KEY on the server before connecting Google.'})
                 return
             try:
-                state = create_google_oauth_state(redirect_uri=redirect_uri)
+                state = create_google_oauth_state(redirect_uri=redirect_uri, return_url=return_url)
             except RuntimeError as ex:
                 json_response(self, 503, {'error': str(ex)})
                 return
@@ -3567,23 +3588,33 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     'expires_at': time.time() + tokens.get('expires_in', 3600),
                     'email': profile.get('email'), 'name': profile.get('name'),
                 }
+                return_url = state_data.get('return_url')
                 if partner_owner_id:
                     google_sessions[session_id]['partner_owner_id'] = partner_owner_id
                     persist_partner_google_connection(google_sessions[session_id], partner_owner_id)
-                    portal_url = str(os.environ.get('PARTNER_PORTAL_URL') or '').rstrip('/')
-                    if not portal_url:
-                        cb_host = (self.headers.get('x-forwarded-host') or self.headers.get('host') or '').split(',')[0].strip()
-                        cb_proto = (self.headers.get('x-forwarded-proto') or '').split(',')[0].strip() or ('https' if 'connectem.ai' in cb_host or os.environ.get('VERCEL') else 'http')
-                        portal_url = f"{cb_proto}://{cb_host}/partner-portal" if cb_host else "https://go.connectem.ai/partner-portal"
+                    if not return_url:
+                        portal_url = str(os.environ.get('PARTNER_PORTAL_URL') or '').rstrip('/')
+                        if not portal_url:
+                            cb_host, cb_proto = client_host_and_proto(self)
+                            portal_url = f"{cb_proto}://{cb_host}/partner-portal" if cb_host else "https://go.connectem.ai/partner-portal"
+                        return_url = portal_url
+                    sep = '&' if '?' in return_url else '?'
+                    target_url = f"{return_url}{sep}google=connected#settings"
                     self.send_response(302)
-                    self.send_header('Location', f'{portal_url}?google=connected#settings')
+                    self.send_header('Location', target_url)
                     self.end_headers()
                     return
                 persist_google_connection(google_sessions[session_id])
                 self.send_response(302)
                 self.send_header('Set-Cookie', f'gtm_session={session_id}; HttpOnly; SameSite=Lax; Path=/')
-                self.send_header('Location', '/?google=connected')
+                if not return_url:
+                    cb_host, cb_proto = client_host_and_proto(self)
+                    return_url = f"{cb_proto}://{cb_host}/" if cb_host else "https://admin.connectem.ai/"
+                sep = '&' if '?' in return_url else '?'
+                target_url = f"{return_url}{sep}google=connected"
+                self.send_header('Location', target_url)
                 self.end_headers()
+                return
             except Exception as ex:
                 json_response(self, 502, {'error': f'Google OAuth exchange failed: {ex}'})
             return
@@ -3709,8 +3740,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 503, {'error': 'Google connection storage is not encrypted yet. Ask your administrator to configure TOKEN_ENCRYPTION_KEY.'})
                 return
             redirect_uri = google_redirect_uri(self)
+            host, proto = client_host_and_proto(self)
+            return_url = f"{proto}://{host}/partner-portal" if host else "https://go.connectem.ai/partner-portal"
             try:
-                state = create_google_oauth_state(share['influencer_id'], redirect_uri=redirect_uri)
+                state = create_google_oauth_state(share['influencer_id'], redirect_uri=redirect_uri, return_url=return_url)
             except RuntimeError as ex:
                 json_response(self, 503, {'error': str(ex)})
                 return
