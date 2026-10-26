@@ -103,12 +103,17 @@
         if (settingsEmailEl) settingsEmailEl.textContent = settings.registeredEmail;
       }
       if (settings.adminEmail) {
+        currentAdminEmail = settings.adminEmail;
         const settingsAdminEl = document.getElementById('partner-settings-admin-cc');
         if (settingsAdminEl) settingsAdminEl.textContent = settings.adminEmail;
         const inboxAdminEl = document.getElementById('partner-inbox-admin-cc');
         if (inboxAdminEl) inboxAdminEl.textContent = settings.adminEmail;
         const composeAdminEl = document.getElementById('partner-compose-admin-display');
         if (composeAdminEl) composeAdminEl.textContent = settings.adminEmail;
+      }
+      const inboxGoogleStatus = document.getElementById('partner-inbox-google-status');
+      if (inboxGoogleStatus) {
+        inboxGoogleStatus.textContent = google.connected ? `✓ Google connected: ${google.email || 'active'}` : 'Google account not connected.';
       }
     } catch (error) {
       const status = document.getElementById('partner-ai-key-status');
@@ -145,11 +150,186 @@
     } finally { if (button) button.disabled = false; }
   }
 
+  let currentAdminEmail = '';
+  let activeEmailData = null;
+  let isDenseLayout = false;
+
+  function formatEmailDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr.split(' ')[0] || dateStr;
+      const now = new Date();
+      if (d.toDateString() === now.toDateString()) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      const diffDays = Math.round((now - d) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 6) {
+        return d.toLocaleDateString([], { weekday: 'short' });
+      }
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch (_) {
+      return dateStr;
+    }
+  }
+
+  function cleanSender(fromStr) {
+    if (!fromStr) return '(unknown sender)';
+    const match = fromStr.match(/^"?(.*?)"?\s*<.*>$/);
+    return (match ? match[1] : fromStr).trim() || fromStr;
+  }
+
+  function showMonoOverlay(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('show');
+      if (typeof el.showModal === 'function') {
+        try { if (!el.open) el.showModal(); } catch (_) {}
+      }
+    }
+  }
+
+  function hideMonoOverlay(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.remove('show');
+      if (typeof el.close === 'function') {
+        try { el.close(); } catch (_) {}
+      }
+    }
+  }
+
+  function monoToast(msg) {
+    const t = document.getElementById('partner-mono-toast');
+    if (t) {
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+  }
+
+  function toggleMonoTheme() {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    document.documentElement.dataset.theme = isDark ? 'light' : 'dark';
+    const btn = document.getElementById('monoThemeBtn');
+    if (btn) btn.textContent = isDark ? '☾' : '☼';
+    monoToast(`${isDark ? 'Light' : 'Dark'} mode enabled.`);
+  }
+
+  function toggleMonoDensity() {
+    isDenseLayout = !isDenseLayout;
+    const btn = document.getElementById('monoDensityBtn');
+    if (btn) btn.innerHTML = isDenseLayout ? '☷ &nbsp; Compact' : '☷ &nbsp; Comfortable';
+    document.querySelectorAll('#partner-email-list .mono-email-row').forEach(row => {
+      row.style.minHeight = isDenseLayout ? '50px' : '64px';
+    });
+  }
+
+  function switchMonoFolder(folder, el) {
+    document.querySelectorAll('.mono-nav-item').forEach(btn => btn.classList.remove('active'));
+    if (el) el.classList.add('active');
+    loadPartnerEmailFolder(folder);
+  }
+
+  function monoLoadMore() {
+    if (partnerEmailNextPage) {
+      loadPartnerEmailFolder(partnerEmailFolder, true);
+    } else {
+      monoToast("You've viewed all recent messages.");
+    }
+  }
+
+  function replyFromReader() {
+    if (activeEmailData) {
+      hideMonoOverlay('partner-reader-overlay');
+      replyPartnerEmail(activeEmailData);
+    }
+  }
+
+  async function archiveFromReader() {
+    if (activeEmailData) {
+      await mutatePartnerEmail(activeEmailData.id, 'archive');
+      hideMonoOverlay('partner-reader-overlay');
+      monoToast('Conversation archived.');
+    }
+  }
+
+  async function starFromReader() {
+    if (activeEmailData) {
+      const isStarred = (activeEmailData.labelIds || []).includes('STARRED');
+      await mutatePartnerEmail(activeEmailData.id, isStarred ? 'unstar' : 'star');
+      activeEmailData.labelIds = isStarred
+        ? (activeEmailData.labelIds || []).filter(l => l !== 'STARRED')
+        : [...(activeEmailData.labelIds || []), 'STARRED'];
+      const starBtn = document.getElementById('monoReaderStarBtn');
+      if (starBtn) starBtn.textContent = !isStarred ? '★ Starred' : '☆ Star';
+      monoToast(!isStarred ? 'Starred message.' : 'Unstarred message.');
+    }
+  }
+
+  async function unreadFromReader() {
+    if (activeEmailData) {
+      await mutatePartnerEmail(activeEmailData.id, 'markUnread');
+      hideMonoOverlay('partner-reader-overlay');
+      monoToast('Marked as unread.');
+    }
+  }
+
+  async function toggleStarEmail(messageId, shouldStar) {
+    await mutatePartnerEmail(messageId, shouldStar ? 'star' : 'unstar');
+    monoToast(shouldStar ? 'Starred' : 'Unstarred');
+  }
+
+  async function bulkActionMonoEmails(action) {
+    const selectedBoxes = Array.from(document.querySelectorAll('#partner-email-list .row-check:checked'));
+    if (!selectedBoxes.length) {
+      monoToast('Select at least one message first.');
+      return;
+    }
+    const ids = selectedBoxes.map(b => b.dataset.id).filter(Boolean);
+    for (const id of ids) {
+      await mutatePartnerEmail(id, action, false);
+    }
+    loadPartnerEmailFolder(partnerEmailFolder);
+    monoToast(`${ids.length} message${ids.length === 1 ? '' : 's'} updated.`);
+  }
+
+  function toggleSelectAllMonoEmails(checked) {
+    document.querySelectorAll('#partner-email-list .row-check').forEach(box => {
+      box.checked = checked;
+    });
+  }
+
+  function closePartnerEmailReader() {
+    hideMonoOverlay('partner-reader-overlay');
+  }
+
   async function loadPartnerEmailFolder(label = partnerEmailFolder, append = false) {
     partnerEmailFolder = label;
     const list = document.getElementById('partner-email-list');
     if (!list) return;
     if (!append) { list.replaceChildren(); partnerEmailNextPage = ''; }
+
+    // Update active folder state on sidebar
+    document.querySelectorAll('.mono-nav-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.folder === label);
+    });
+
+    const folderNames = { INBOX: 'Inbox', STARRED: 'Starred', SENT: 'Sent', DRAFT: 'Drafts', ALL: 'All Mail' };
+    const folderSubtitles = {
+      INBOX: 'A little less noise. A little more signal.',
+      STARRED: 'The conversations worth keeping close.',
+      SENT: `Sent from ${partner?.email || 'your registered email'} · Admin CC included.`,
+      DRAFT: 'Unsent drafts and saved messages.',
+      ALL: 'Complete mailbox archive across all categories.'
+    };
+    const titleEl = document.getElementById('mono-page-title');
+    if (titleEl) titleEl.textContent = folderNames[label] || label;
+    const eyebrowEl = document.getElementById('mono-page-eyebrow');
+    if (eyebrowEl) eyebrowEl.textContent = label === 'INBOX' ? 'YOUR SPACE, AT A GLANCE' : `MAIL / ${folderNames[label] || label}`.toUpperCase();
+    const subtitleEl = document.getElementById('mono-page-subtitle');
+    if (subtitleEl) subtitleEl.textContent = folderSubtitles[label] || 'Connected mailbox.';
+
     setPartnerEmailStatus('Loading mailbox…');
     try {
       const params = new URLSearchParams({ maxResults: '30' });
@@ -159,18 +339,90 @@
       if (append && partnerEmailNextPage) params.set('pageToken', partnerEmailNextPage);
       const result = await request(`/api/partner-portal/email/messages?${params}`);
       partnerEmailNextPage = result.nextPageToken || '';
-      if (!result.items?.length && !append) list.textContent = 'No messages found.';
-      (result.items || []).forEach(message => {
-        const row = document.createElement('button'); row.type = 'button'; row.className = 'partner-email-row';
-        const from = document.createElement('strong'); from.textContent = message.from || '(unknown sender)';
-        const subject = document.createElement('span'); subject.textContent = message.subject || '(no subject)'; subject.style.cssText = 'display:block;margin-top:4px';
-        const snippet = document.createElement('small'); snippet.textContent = message.snippet || message.date || ''; snippet.style.cssText = 'display:block;margin-top:5px;color:var(--muted)';
-        if ((message.labelIds || []).includes('UNREAD')) from.style.fontWeight = '800';
-        row.append(from, subject, snippet); row.onclick = () => openPartnerEmailMessage(message); list.append(row);
-      });
-      if (partnerEmailNextPage) { const more = document.createElement('button'); more.className = 'btn btn-secondary'; more.textContent = 'Load more'; more.onclick = () => loadPartnerEmailFolder(partnerEmailFolder, true); list.append(more); }
-      setPartnerEmailStatus(`${result.items?.length || 0} messages · ${label.toLowerCase()}`);
-    } catch (error) { setPartnerEmailStatus(`${error.message} Connect Google in Partner Settings if needed.`, true); }
+      const items = result.items || [];
+
+      if (!items.length && !append) {
+        list.innerHTML = `
+          <div class="mono-empty">
+            <strong>It’s quiet in here.</strong>
+            No messages match this view. Enjoy the breathing room.
+          </div>
+        `;
+      } else {
+        items.forEach(message => {
+          const isUnread = (message.labelIds || []).includes('UNREAD');
+          const isStarred = (message.labelIds || []).includes('STARRED');
+          const dateStr = message.date ? formatEmailDate(message.date) : '';
+          const senderName = cleanSender(message.from);
+
+          const row = document.createElement('div');
+          row.className = `mono-email-row ${isUnread ? 'unread' : ''}`;
+          row.dataset.id = message.id;
+          if (isDenseLayout) row.style.minHeight = '50px';
+
+          const check = document.createElement('input');
+          check.type = 'checkbox';
+          check.className = 'mono-check row-check';
+          check.dataset.id = message.id;
+          check.setAttribute('aria-label', 'Select message');
+          check.onclick = e => e.stopPropagation();
+
+          const star = document.createElement('button');
+          star.type = 'button';
+          star.className = `mono-star ${isStarred ? 'on' : ''}`;
+          star.textContent = isStarred ? '★' : '☆';
+          star.title = isStarred ? 'Unstar message' : 'Star message';
+          star.onclick = e => {
+            e.stopPropagation();
+            toggleStarEmail(message.id, !isStarred);
+          };
+
+          const sender = document.createElement('div');
+          sender.className = 'mono-sender';
+          sender.textContent = senderName;
+
+          const preview = document.createElement('div');
+          preview.className = 'mono-preview';
+
+          const subject = document.createElement('span');
+          subject.className = 'mono-subject';
+          subject.textContent = message.subject || '(no subject)';
+
+          const snippet = document.createElement('span');
+          snippet.className = 'mono-snippet';
+          snippet.textContent = message.snippet || '';
+
+          preview.append(subject, snippet);
+
+          const time = document.createElement('div');
+          time.className = 'mono-time';
+          time.textContent = dateStr;
+
+          row.append(check, star, sender, preview, time);
+          row.onclick = () => openPartnerEmailMessage(message);
+          list.append(row);
+        });
+      }
+
+      const totalCountEl = document.getElementById('partner-email-total-count');
+      if (totalCountEl) totalCountEl.textContent = `${items.length} conversation${items.length === 1 ? '' : 's'}`;
+      setPartnerEmailStatus(`${items.length} messages · ${label.toLowerCase()}`);
+
+      if (label === 'INBOX') {
+        const inboxCountEl = document.getElementById('partner-inbox-count');
+        const unreadCount = items.filter(m => (m.labelIds || []).includes('UNREAD')).length;
+        if (inboxCountEl) inboxCountEl.textContent = unreadCount ? String(unreadCount) : '';
+      }
+    } catch (error) {
+      list.innerHTML = `
+        <div class="mono-empty">
+          <strong>Connect your Google account</strong>
+          <p style="margin:8px auto 16px;max-width:320px;font-size:13px;line-height:1.5;">To read incoming messages, send client introductions, and sync drafts, connect your Google account in Settings.</p>
+          <button class="mono-send-btn" type="button" onclick="connectPartnerGoogle()">Connect Google Account</button>
+        </div>
+      `;
+      setPartnerEmailStatus(error.message, true);
+    }
   }
 
   function searchPartnerEmail() { loadPartnerEmailFolder(partnerEmailFolder); }
@@ -187,53 +439,93 @@
 
   async function openPartnerEmailMessage(message) {
     const panel = document.getElementById('partner-email-message');
-    panel.textContent = 'Loading message…';
+    if (!panel) return;
+    panel.innerHTML = '<div style="padding:20px;color:var(--muted);">Loading message…</div>';
+    showMonoOverlay('partner-reader-overlay');
     try {
       const result = await request(`/api/partner-portal/email/message?id=${encodeURIComponent(message.id)}`);
+      activeEmailData = result;
       const headers = Object.fromEntries((result.payload?.headers || []).map(h => [String(h.name).toLowerCase(), h.value]));
-      const shell = document.createElement('div');
-      const title = document.createElement('h3'); title.textContent = headers.subject || message.subject || '(no subject)';
-      const meta = document.createElement('p'); meta.textContent = `From ${headers.from || message.from || ''} · ${headers.date || message.date || ''}`;
-      const body = document.createElement('pre'); body.textContent = decodePartnerMailBody(findPartnerMailBody(result.payload)) || result.snippet || '(No displayable text body)';
-      body.style.cssText = 'white-space:pre-wrap;font:inherit;line-height:1.5';
-      const actions = document.createElement('div'); actions.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
-      const replyButton = document.createElement('button'); replyButton.className = 'btn btn-secondary btn-sm'; replyButton.textContent = 'Reply'; replyButton.onclick = () => replyPartnerEmail(result); actions.append(replyButton);
-      const actionButton = (label, action) => { const b = document.createElement('button'); b.className = 'btn btn-secondary btn-sm'; b.textContent = label; b.onclick = () => mutatePartnerEmail(result.id, action); actions.append(b); };
-      actionButton((result.labelIds || []).includes('STARRED') ? 'Unstar' : 'Star', (result.labelIds || []).includes('STARRED') ? 'unstar' : 'star'); actionButton('Mark unread', 'markUnread'); actionButton('Archive', 'archive');
-      shell.append(title, meta, actions, body); panel.replaceChildren(shell);
-      if ((result.labelIds || []).includes('UNREAD')) mutatePartnerEmail(result.id, 'markRead', false);
+      const dateStr = headers.date || message.date || '';
+      const formattedDate = formatEmailDate(dateStr) + (dateStr ? ` (${dateStr})` : '');
+      const subject = headers.subject || message.subject || '(no subject)';
+      const from = headers.from || message.from || '(unknown sender)';
+      const body = decodePartnerMailBody(findPartnerMailBody(result.payload)) || result.snippet || '(No displayable text body)';
+
+      const starBtn = document.getElementById('monoReaderStarBtn');
+      const isStarred = (result.labelIds || []).includes('STARRED');
+      if (starBtn) starBtn.textContent = isStarred ? '★ Starred' : '☆ Star';
+
+      panel.innerHTML = `
+        <div class="mono-eyebrow">${escapeHTML(formattedDate)}</div>
+        <h2>${escapeHTML(subject)}</h2>
+        <div class="mono-reader-meta">
+          From: <strong style="color:var(--text);">${escapeHTML(from)}</strong><br>
+          To: me · Admin CC (<span style="font-family:var(--font-mono);">${escapeHTML(currentAdminEmail || 'admin')}</span>)
+        </div>
+        <div class="mono-reader-body">${escapeHTML(body)}</div>
+      `;
+      if ((result.labelIds || []).includes('UNREAD')) {
+        mutatePartnerEmail(result.id, 'markRead', false);
+      }
       result._headerValues = headers;
-      panel.dataset.messageId = result.id;
-      panel._replyData = result;
-    } catch (error) { panel.textContent = error.message; }
+    } catch (error) {
+      panel.innerHTML = `<div style="padding:20px;color:#b42318;">${escapeHTML(error.message)}</div>`;
+    }
   }
 
   async function mutatePartnerEmail(messageId, action, refresh = true) {
-    try { await request('/api/partner-portal/email/message', { method: 'POST', body: JSON.stringify({ messageId, action }) }); if (refresh) loadPartnerEmailFolder(partnerEmailFolder); }
-    catch (error) { setPartnerEmailStatus(error.message, true); }
+    try {
+      await request('/api/partner-portal/email/message', { method: 'POST', body: JSON.stringify({ messageId, action }) });
+      if (refresh) loadPartnerEmailFolder(partnerEmailFolder);
+    } catch (error) {
+      setPartnerEmailStatus(error.message, true);
+    }
   }
 
   function newPartnerEmail() {
     partnerEmailReplyContext = null;
-    document.getElementById('partner-compose-title').textContent = 'New message';
-    ['partner-compose-to', 'partner-compose-subject', 'partner-compose-body'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const title = document.getElementById('partner-compose-title');
+    if (title) title.textContent = 'New message';
+    ['partner-compose-to', 'partner-compose-subject', 'partner-compose-body'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     const fromEl = document.getElementById('partner-compose-from-display');
     if (fromEl && partner?.email) fromEl.textContent = partner.email;
-    document.getElementById('partner-email-compose')?.showModal();
+    const adminEl = document.getElementById('partner-compose-admin-display');
+    if (adminEl && currentAdminEmail) adminEl.textContent = currentAdminEmail;
+    showMonoOverlay('partner-email-compose');
   }
-  function closePartnerEmailComposer() { document.getElementById('partner-email-compose')?.close(); partnerEmailReplyContext = null; }
+
+  function closePartnerEmailComposer() {
+    hideMonoOverlay('partner-email-compose');
+    partnerEmailReplyContext = null;
+  }
+
   function replyPartnerEmail(message) {
     const headers = message?._headerValues || {};
     const from = headers.from || '';
-    document.getElementById('partner-compose-title').textContent = 'Reply';
-    document.getElementById('partner-compose-to').value = from.match(/<([^>]+)>/)?.[1] || from;
-    document.getElementById('partner-compose-subject').value = /^re:/i.test(headers.subject || '') ? headers.subject : `Re: ${headers.subject || ''}`;
-    document.getElementById('partner-compose-body').value = `\n\nOn ${headers.date || ''}, ${from} wrote:\n`;
+    const title = document.getElementById('partner-compose-title');
+    if (title) title.textContent = 'Reply';
+    const toInput = document.getElementById('partner-compose-to');
+    if (toInput) toInput.value = from.match(/<([^>]+)>/)?.[1] || from;
+    const subjInput = document.getElementById('partner-compose-subject');
+    if (subjInput) subjInput.value = /^re:/i.test(headers.subject || '') ? headers.subject : `Re: ${headers.subject || ''}`;
+    const bodyInput = document.getElementById('partner-compose-body');
+    if (bodyInput) bodyInput.value = `\n\nOn ${headers.date || ''}, ${from} wrote:\n`;
     const fromEl = document.getElementById('partner-compose-from-display');
     if (fromEl && partner?.email) fromEl.textContent = partner.email;
-    partnerEmailReplyContext = { threadId: message.threadId, inReplyTo: headers['message-id'] || '', references: [headers.references, headers['message-id']].filter(Boolean).join(' ') };
-    document.getElementById('partner-email-compose')?.showModal();
+    const adminEl = document.getElementById('partner-compose-admin-display');
+    if (adminEl && currentAdminEmail) adminEl.textContent = currentAdminEmail;
+    partnerEmailReplyContext = {
+      threadId: message.threadId,
+      inReplyTo: headers['message-id'] || '',
+      references: [headers.references, headers['message-id']].filter(Boolean).join(' ')
+    };
+    showMonoOverlay('partner-email-compose');
   }
+
   async function sendPartnerEmail() {
     const payload = {
       to: document.getElementById('partner-compose-to').value.trim(),
@@ -247,12 +539,15 @@
     try {
       await request('/api/partner-portal/email/send', { method: 'POST', body: JSON.stringify(payload) });
       closePartnerEmailComposer();
+      monoToast('Message sent. Admin was CC’d.');
       setPartnerEmailStatus('Sent from your registered email; Admin was CC’d.');
       loadPartnerEmailFolder('SENT');
     } catch (error) {
       setPartnerEmailStatus(error.message, true);
+      monoToast(error.message);
     }
   }
+
   async function draftPartnerEmail(withAI = false) {
     try {
       if (withAI) {
@@ -270,8 +565,13 @@
         reply_to: partner?.email || ''
       };
       await request('/api/partner-portal/email/draft', { method: 'POST', body: JSON.stringify(payload) });
-      closePartnerEmailComposer(); setPartnerEmailStatus(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
-    } catch (error) { setPartnerEmailStatus(error.message, true); }
+      closePartnerEmailComposer();
+      monoToast(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
+      setPartnerEmailStatus(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
+    } catch (error) {
+      setPartnerEmailStatus(error.message, true);
+      monoToast(error.message);
+    }
   }
 
   Object.assign(window, {
@@ -280,6 +580,12 @@
     loadPartnerEmailFolder,
     searchPartnerEmail,
     openPartnerEmailMessage,
+    closePartnerEmailReader,
+    replyFromReader,
+    archiveFromReader,
+    starFromReader,
+    unreadFromReader,
+    toggleStarEmail,
     newPartnerEmail,
     closePartnerEmailComposer,
     sendPartnerEmail,
@@ -288,7 +594,14 @@
     savePartnerAiKeys,
     connectPartnerGoogle,
     savePartnerReferralEdit,
-    closePartnerReferralEditor
+    closePartnerReferralEditor,
+    monoToast,
+    toggleMonoTheme,
+    toggleMonoDensity,
+    switchMonoFolder,
+    toggleSelectAllMonoEmails,
+    bulkActionMonoEmails,
+    monoLoadMore
   });
 
   function clearClerkLoading() {
@@ -718,6 +1031,10 @@
     if (data.calendlyUrl) workspaceCalendlyUrl = data.calendlyUrl;
     document.getElementById('partner-name').textContent = partner.fullName || 'Partner workspace';
     document.getElementById('partner-company').textContent = [partner.jobTitle, partner.company].filter(Boolean).join(' · ') || 'Your introductions and their next steps.';
+    const partnerName = partner.fullName || partner.email || 'Partner';
+    const initials = partnerName.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'P';
+    const avatarEl = document.getElementById('partner-avatar-display');
+    if (avatarEl) avatarEl.textContent = initials;
     document.getElementById('total-count').textContent = currentContacts.length;
     const scheduledCount = currentContacts.filter(contact => contact.status === 'scheduled' || contact.status === 'completed').length;
     const completedCount = currentContacts.filter(contact => contact.status === 'completed').length;
