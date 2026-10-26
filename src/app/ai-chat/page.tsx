@@ -274,7 +274,7 @@ function ArtifactCard({onOpen}: {onOpen: () => void}) {
 
 const GEMINI_MODELS = [
   {id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash'},
-  {id: 'gemini-3.6-flash-lite', label: 'Gemini 3.6 Flash-Lite'},
+  {id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite'},
   {id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite'},
 ] as const;
 

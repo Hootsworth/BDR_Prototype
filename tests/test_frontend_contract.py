@@ -73,6 +73,19 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("settings-linkedin-client-id", settings)
         self.assertIn("settings-linkedin-client-secret", settings)
 
+    def test_admin_ai_keys_are_visible_and_draft_buttons_use_real_server_ai(self):
+        settings = self.read("components/settings-keys.html")
+        outbound = self.read("src/components/outbound.js")
+        server = self.read("server.py")
+        self.assertIn('for="settings-key-openai">OpenAI (ChatGPT) API Key', settings)
+        self.assertIn('for="key-gemini">Gemini API Key', settings)
+        self.assertNotIn('value="gemini-3.6-flash-lite"', settings)
+        self.assertIn('fetch("/api/ai/draft"', outbound)
+        self.assertNotIn("generateIntelligentFallbackDraft", outbound)
+        self.assertNotIn("reDrafts[Math.floor", outbound)
+        self.assertIn("/api/ai/draft", server)
+        self.assertIn("No AI draft was generated", server)
+
     def test_fresh_app_has_no_seeded_workflow_data(self):
         main = self.read("src/main.js")
         dashboard = self.read("src/components/dashboard.js")

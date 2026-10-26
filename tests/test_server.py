@@ -101,7 +101,12 @@ class WorkbookPersistenceTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.workbook_path = os.path.join(self.temp_dir.name, "gtm-console-database.xlsx")
-        self.workbook_patch = patch.multiple(server, WORKBOOK_PATH=self.workbook_path)
+        self.workbook_patch = patch.multiple(
+            server,
+            WORKBOOK_PATH=self.workbook_path,
+            DB_PATH=os.path.join(self.temp_dir.name, "test.sqlite3"),
+            DATA_DIR=self.temp_dir.name,
+        )
         self.workbook_patch.start()
 
     def tearDown(self):

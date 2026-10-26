@@ -28,7 +28,7 @@ function renderDashboard() {
 
   // Calculate calls taken & meetings booked
   const callsTakenCount = prospects.filter(c => c.hasTakenCall || (c.callsMade && c.callsMade.length > 0)).length;
-  const meetings = database.meetings ? database.meetings.length : 0;
+  const meetings = database.meetings ? database.meetings.filter(m => m.source !== "Partner Portal Email" || m.status === "Call Scheduled").length : 0;
   const hotLeads = database.contacts.filter(c => c.leadTemp === "Hot Lead").length;
 
   totalContactsEl.textContent = influencersCount.toLocaleString();

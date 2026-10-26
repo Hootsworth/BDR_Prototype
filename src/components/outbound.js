@@ -460,10 +460,6 @@ function switchDrawerChannel(channel) {
   const contact = database.selectedContact;
   if (!contact) return;
 
-  if (channel !== 'call' && callTimer) {
-    hangupOutboundCall();
-  }
-
   if (channel === 'email') {
     const savedInstructions = String(contact.emailPrompt || "")
       .replace(/&/g, "&amp;")
@@ -524,7 +520,7 @@ function switchDrawerChannel(channel) {
         <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Open LinkedIn Profile &amp; Copy Note</button>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <button class="btn btn-secondary" onclick="insertCalendlyLink('linkedin-draft-text')" style="font-size:13px; height:44px;">Insert Calendly</button>
-          <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
+          <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft(event)" style="font-size:13px; height:44px;">AI Re-draft</button>
         </div>
       </div>
     `;
@@ -608,9 +604,9 @@ async function sendOutboundEmail() {
     contact.emailsSent = true;
     contact.emailSentAt = new Date().toISOString();
     contact.emailProviderId = data.id || null;
-    database.stats.emailsSent++;
+    database.stats.emailsSent = (database.stats.emailsSent || 0) + 1;
     saveDatabaseCache();
-    addLogConsole("enrich", `[GMAIL] Confirmed by Google for ${contact.email}. Message ID: ${data.id || 'recorded'}`, "success");
+    addLogConsole("enrich", `[EMAIL] Confirmed by ${data.provider || "email provider"} for ${contact.email}. Message ID: ${data.id}`, "success");
   } catch (error) {
     addLogConsole("enrich", `[GMAIL] Email not sent: ${error.message}`, "error");
     alert(`Email not sent: ${error.message}`);
@@ -632,7 +628,7 @@ async function sendOutboundLinkedin() {
     ?? contact.linkedinDraft;
   const note = typeof draft === "string" ? draft.trim() : String(draft?.body || "").trim();
   if (!note) {
-    alert("Add a connection note before dispatching LinkedIn outreach.");
+    alert("Add a LinkedIn connection note before preparing the handoff.");
     return false;
   }
   if (contact.suppressed || contact.unsubscribed) {
@@ -649,7 +645,7 @@ async function sendOutboundLinkedin() {
     : /^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\/(in|pub|company)\/[A-Za-z0-9_%-]+\/?/i.test(normalizedUrl);
 
   if (!isValidUrl) {
-    alert("Recipient LinkedIn Profile URL is required (e.g. https://www.linkedin.com/in/username). Please enter the recipient's LinkedIn profile URL before dispatching LinkedIn outreach.");
+    alert("Recipient LinkedIn Profile URL is required (e.g. https://www.linkedin.com/in/username). Add it before preparing the handoff.");
     if (modalLiInput) modalLiInput.focus();
     else if (drawerLiInput) drawerLiInput.focus();
     return false;
@@ -668,13 +664,12 @@ async function sendOutboundLinkedin() {
         email: contact.email,
         linkedinUrl: normalizedUrl,
         message: note,
-        contactId: contact.id,
-        token: database.linkedinAccessToken || ""
+        contactId: contact.id
       })
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload.error || `LinkedIn outreach returned ${response.status}`);
+      throw new Error(payload.error || `LinkedIn handoff returned ${response.status}`);
     }
 
     try {
@@ -686,27 +681,24 @@ async function sendOutboundLinkedin() {
     }
 
     contact.linkedinDraft = { body: note };
-    contact.linkedinSent = true;
-    contact.linkedinSentAt = new Date().toISOString();
-    contact.linkedinProviderId = payload.id || `urn:li:outreach:${Date.now()}`;
+    contact.linkedinPreparedAt = new Date().toISOString();
     if (!Array.isArray(contact.outboundHistory)) contact.outboundHistory = [];
     contact.outboundHistory.push({
-      channel: "linkedin",
-      subject: `LinkedIn Outreach (${normalizedUrl})`,
+      channel: "linkedin_handoff",
+      subject: `LinkedIn note prepared (${normalizedUrl})`,
       preview: note.slice(0, 120),
       date: new Date().toISOString().slice(0, 10)
     });
-    database.stats.linkedinSent = (database.stats.linkedinSent || 0) + 1;
     saveDatabaseCache();
 
-    addLogConsole("enrich", `[LINKEDIN OUTREACH] Copied note & opened ${normalizedUrl} for ${contact.fullName}`, "success");
+    addLogConsole("enrich", `[LINKEDIN HANDOFF] Copied the note and opened ${normalizedUrl} for ${contact.fullName}; it has not been sent.`, "info");
     filterOutboundTable();
     renderOutboundModalHistory(contact);
-    alert(`LinkedIn connection note copied to clipboard and ${contact.fullName}'s LinkedIn profile opened (${normalizedUrl}).`);
+    alert(`Copied the LinkedIn note and opened ${contact.fullName}'s profile. Send it there to complete outreach; it has not been marked sent.`);
     return true;
   } catch (err) {
     addLogConsole("enrich", `[LINKEDIN OUTREACH ERROR] ${err.message}`, "error");
-    alert(`LinkedIn outreach failed: ${err.message}`);
+    alert(`Could not prepare the LinkedIn handoff: ${err.message}`);
     return false;
   }
 }
@@ -751,74 +743,40 @@ async function generateLLMEmailDraft(triggerEvent) {
     textarea.classList.add("redrafting");
   }
 
-  let finalBody = "";
-  let finalSubject = "";
-
-  if (database.llmHelperKey) {
-    try {
-      const prompt = `Draft a short, highly personalized B2B cold email from SDR Campaign Agent to ${contact.fullName}, working as ${contact.jobTitle} at ${contact.company}.
-Our value proposition: Secure query validation guardrails for credit unions adopting database LLMs.
-${customInstructions ? `Additional instructions from the sender: ${customInstructions}\n` : ""}Use the recipient's details and the additional instructions where relevant. Include a single subject line prefixed with "Subject:" followed by the email body in simple text format. Keep it under 4 sentences, polite, and direct. Do not invent facts not supplied in the recipient details or instructions.`;
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${database.llmHelperKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        const fullContent = json.choices[0].message.content;
-        const subjectMatch = fullContent.match(/Subject:\s*(.*)/i);
-        if (subjectMatch) {
-          finalSubject = subjectMatch[1];
-          finalBody = fullContent.replace(/Subject:\s*(.*)/i, "").trim();
-        } else {
-          finalSubject = `Safe database compliance for ${contact.company}`;
-          finalBody = fullContent;
-        }
-      }
-    } catch (err) {
-      console.error(err);
+  try {
+    const draft = await callGeminiOrLlmDraft({
+      instructions: customInstructions,
+      contact,
+      isBulk: false,
+      existingSubject: document.getElementById("email-draft-subject")?.value || "",
+      existingBody: textarea?.value || ""
+    });
+    const finalBody = ensureCalendlyBookingLink(draft.body);
+    contact.emailDraft = { subject: draft.subject, body: finalBody };
+    if (typeof saveDatabaseCache === "function") saveDatabaseCache();
+    const subjectInput = document.getElementById("email-draft-subject");
+    if (subjectInput) subjectInput.value = draft.subject;
+    if (textarea) {
+      textarea.classList.remove("redrafting");
+      animateTextWordByWord(textarea, finalBody);
     }
-  }
-
-  if (!finalBody) {
-    // Artificial delay to show the rainbow blur animation
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    finalSubject = `Safe compliance LLM queries for ${contact.company}`;
-    finalBody = `Hi ${contact.firstName},\n\nI noticed you are leading tech processes as ${contact.jobTitle} at ${contact.company}. Safe operations with LLMs are a major concern for credit union boards today.${customInstructions ? `\n\n${customInstructions}` : ""}\n\nWe build query verification gateways ensuring zero compliance leaks for financial databases.\n\nLet's get a 10 min overview chat next week?\n\nBest,\nSDR Campaign Agent`;
-  }
-
-  btn.disabled = false;
-  btn.textContent = originalText;
-
-  finalBody = ensureCalendlyBookingLink(finalBody);
-  contact.emailDraft = { subject: finalSubject, body: finalBody };
-
-  const subjectInput = document.getElementById("email-draft-subject");
-  if (subjectInput) subjectInput.value = finalSubject;
-
-  if (textarea) {
-    textarea.classList.remove("redrafting");
-    animateTextWordByWord(textarea, finalBody);
+  } catch (error) {
+    console.error("AI email draft failed:", error);
+    if (typeof showToast === "function") showToast(error.message || "AI email drafting failed.", "error");
+    else alert(error.message || "AI email drafting failed.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    if (textarea) textarea.classList.remove("redrafting");
   }
 }
 
-async function generateLLMLinkedinDraft() {
+async function generateLLMLinkedinDraft(triggerEvent) {
   const contact = database.selectedContact;
   if (!contact) return;
 
-  const btn = event.target;
+  const btn = triggerEvent?.currentTarget || triggerEvent?.target;
+  if (!btn) return;
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Drafting...";
@@ -828,54 +786,27 @@ async function generateLLMLinkedinDraft() {
     textarea.classList.add("redrafting");
   }
 
-  let finalNote = "";
-
-  if (database.llmHelperKey) {
-    try {
-      const prompt = `Draft a short, highly personalized LinkedIn connection note (under 300 characters) to ${contact.fullName}, working as ${contact.jobTitle} at ${contact.company}. Mention secure LLM query guardrails for credit unions. Keep it conversational.`;
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${database.llmHelperKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        finalNote = json.choices[0].message.content.slice(0, 300);
-      }
-    } catch (err) {
-      console.error(err);
+  try {
+    const draft = await callGeminiOrLlmDraft({
+      instructions: `Write a natural connection note. ${contact.emailDraft?.subject ? `Align it with this email topic: ${contact.emailDraft.subject}` : ""}`,
+      contact,
+      isBulk: false,
+      channel: "linkedin"
+    });
+    contact.linkedinDraft = draft.note;
+    if (typeof saveDatabaseCache === "function") saveDatabaseCache();
+    if (textarea) {
+      textarea.classList.remove("redrafting");
+      animateTextWordByWord(textarea, draft.note);
     }
-  }
-
-  if (!finalNote) {
-    // Artificial delay to show the rainbow blur animation
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    const reDrafts = [
-      `Hi ${contact.firstName}, saw your tech role at ${contact.company}. We're helping credit unions secure database LLM interfaces. Connect?`,
-      `Hi ${contact.firstName}, noticed your background at ${contact.company}. We construct secure gateways for financial LLM setups. Love to connect.`
-    ];
-    finalNote = reDrafts[Math.floor(Math.random() * reDrafts.length)];
-  }
-
-  btn.disabled = false;
-  btn.textContent = originalText;
-
-  contact.linkedinDraft = finalNote;
-
-  if (textarea) {
-    textarea.classList.remove("redrafting");
-    animateTextWordByWord(textarea, finalNote);
+  } catch (error) {
+    console.error("AI LinkedIn draft failed:", error);
+    if (typeof showToast === "function") showToast(error.message || "AI LinkedIn drafting failed.", "error");
+    else alert(error.message || "AI LinkedIn drafting failed.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    if (textarea) textarea.classList.remove("redrafting");
   }
 }
 
@@ -888,8 +819,7 @@ function loadEmailDrawer(contact) { loadOutboundDrawer(contact, 'email'); }
 function loadLinkedinDrawer(contact) { loadOutboundDrawer(contact, 'linkedin'); }
 function loadCallDrawer(contact) { loadOutboundDrawer(contact, 'call'); }
 
-// Interactive calling simulation
-let callTimer = null;
+// Manual click-to-call; live calling and transcription require a configured provider.
 let callingAudioContext = null;
 let callingOscillator = null;
 
@@ -897,8 +827,9 @@ function renderDialerInterface(state, durationText = "00:00") {
   const contact = database.selectedContact;
   const body = document.getElementById("call-drawer-body");
   if (!body || !contact) return;
+  if (!Array.isArray(contact.callsMade)) contact.callsMade = [];
 
-  const phone = contact.phone || "+1 (555) 000-0000";
+  const phone = contact.phone || "Add a phone number";
 
   let screenClass = "dialer-status";
   if (state === "dialing" || state === "ringing") screenClass = "dialer-status ringing";
@@ -924,25 +855,18 @@ function renderDialerInterface(state, durationText = "00:00") {
         <div class="${screenClass}" id="call-screen-status">${state.toUpperCase()} ${state === "connected" ? durationText : ""}</div>
       </div>
 
-      <div class="dialer-grid">
-        <button class="dial-key">1<span></span></button><button class="dial-key">2<span>ABC</span></button><button class="dial-key">3<span>DEF</span></button>
-        <button class="dial-key">4<span>GHI</span></button><button class="dial-key">5<span>JKL</span></button><button class="dial-key">6<span>MNO</span></button>
-        <button class="dial-key">7<span>PQRS</span></button><button class="dial-key">8<span>TUV</span></button><button class="dial-key">9<span>WXYZ</span></button>
-        <button class="dial-key">*<span></span></button><button class="dial-key">0<span>+</span></button><button class="dial-key">#<span></span></button>
-      </div>
-
       <div class="dial-actions">
         ${controlsHtml}
       </div>
     </div>
 
-    <div class="call-outcome-logger" id="outcome-logger-area" style="display: ${state === "connected" || contact.callsMade.length > 0 ? "block" : "none"}">
+    <div class="call-outcome-logger" id="outcome-logger-area" style="display: block">
       <label style="font-weight:600;margin-bottom:8px;display:block;">Call Logs History</label>
       <div style="max-height:80px;overflow-y:auto;font-size:12px;color:var(--muted);margin-bottom:12px;" id="call-logs-history">
         ${contact.callsMade.map(h => `- [${h.date}] ${h.outcome}`).join("<br>")}
       </div>
       
-      <div id="outcome-buttons-div" style="display: ${state === "connected" ? "flex" : "none"}; flex-direction:column; gap:8px;">
+      <div id="outcome-buttons-div" style="display: flex; flex-direction:column; gap:8px;">
         <button class="btn btn-secondary btn-sm" onclick="logCallOutcome('Spoke to prospect - Interested')">Spoke to prospect - Interested</button>
         <button class="btn btn-secondary btn-sm" onclick="logCallOutcome('Left voicemail')">Left voicemail</button>
         <button class="btn btn-secondary btn-sm" onclick="logCallOutcome('No answer')">No answer</button>
@@ -952,36 +876,22 @@ function renderDialerInterface(state, durationText = "00:00") {
 }
 
 function startOutboundCall() {
-  renderDialerInterface("ringing");
-  playBeepSound(440, 0.4);
-  setTimeout(() => {
-    let sec = 0;
-    renderDialerInterface("connected", "00:00");
-    callTimer = setInterval(() => {
-      sec++;
-      const mm = String(Math.floor(sec / 60)).padStart(2, "0");
-      const ss = String(sec % 60).padStart(2, "0");
-      const statusEl = document.getElementById("call-screen-status");
-      if (statusEl) statusEl.textContent = `CONNECTED ${mm}:${ss}`;
-    }, 1000);
-  }, 1200);
+  const contact = database.selectedContact;
+  const dialable = String(contact?.phone || "").trim().replace(/[^\d+*#]/g, "");
+  if (!dialable) {
+    alert("Add a valid phone number to this contact before calling.");
+    return;
+  }
+  const statusEl = document.getElementById("call-status-label");
+  const transcriptBox = document.getElementById("call-transcript-box");
+  if (statusEl) statusEl.textContent = "Opening your device phone app…";
+  if (transcriptBox) transcriptBox.textContent = "This is a manual phone call. No AI transcript or automatic call outcome is available.";
+  window.location.href = `tel:${dialable}`;
 }
 
 function hangupOutboundCall() {
-  if (callTimer) {
-    clearInterval(callTimer);
-    callTimer = null;
-  }
-  stopBeepSound();
-  
-  const statusEl = document.getElementById("call-screen-status");
-  if (statusEl) {
-    statusEl.textContent = "DISCONNECTED";
-  }
-
-  setTimeout(() => {
-    renderDialerInterface("idle");
-  }, 1000);
+  const statusEl = document.getElementById("call-status-label");
+  if (statusEl) statusEl.textContent = "Call ended in your phone app. Record an outcome only after confirming it.";
 }
 
 function logCallOutcome(outcome) {
@@ -992,23 +902,23 @@ function logCallOutcome(outcome) {
     contact.callsMade = [];
   }
 
+  const taken = /spoke|interested|taken/i.test(outcome);
+  const scheduled = /scheduled|booked|confirmed/i.test(outcome);
   contact.callsMade.push({
     date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString(),
     outcome: outcome,
-    status: "taken"
+    status: taken ? "taken" : "attempted"
   });
-  contact.hasTakenCall = true;
-  contact.hasScheduledCall = true;
+  if (taken) contact.hasTakenCall = true;
+  if (scheduled) contact.hasScheduledCall = true;
 
-  database.stats.callsMade++;
+  database.stats.callsMade = (database.stats.callsMade || 0) + 1;
   saveDatabaseCache();
   filterOutboundTable();
 
   addLogConsole("enrich", `[OUTBOUND] Call logged for ${contact.fullName}. Outcome: ${outcome}`, "info");
 
-  // Keep connected state showing dialer but update log list
-  const state = callTimer ? "connected" : "idle";
-  renderDialerInterface(state);
+  renderDialerInterface("idle");
 
   const timeline = document.getElementById("outbound-timeline-container");
   if (timeline) timeline.innerHTML = renderContactTimeline(contact);
@@ -1352,58 +1262,24 @@ function insertOutboundModalCalendlyLink() {
 }
 
 function scheduleCallFromOutboundModal() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-  const calUrl = typeof getCustomerCalendlyUrl === "function"
-    ? getCustomerCalendlyUrl()
-    : (database.calendlyUrl || "https://calendly.com/bdr-ai-demo/15min");
-  contact.hasScheduledCall = true;
-  contact.callScheduledAt = new Date().toISOString().slice(0, 10);
-  if (!contact.hasTakenCall) {
-    contact.status = "Call Scheduled";
+  const calUrl = typeof getCustomerCalendlyUrl === "function" ? getCustomerCalendlyUrl() : "";
+  let bookingUrl;
+  try {
+    bookingUrl = new URL(calUrl);
+    if (!['http:', 'https:'].includes(bookingUrl.protocol)) throw new Error('Invalid booking URL.');
+  } catch (_) {
+    alert("Set a valid booking URL in Settings before opening a scheduling page. No call was marked as scheduled.");
+    return;
   }
-  if (!Array.isArray(contact.callsMade)) contact.callsMade = [];
-  contact.callsMade.push({
-    date: new Date().toISOString().slice(0, 10),
-    outcome: `GTM Call Scheduled via Calendly (${calUrl})`,
-    status: "scheduled"
-  });
-  if (!Array.isArray(database.meetings)) database.meetings = [];
-  const nextSlot = new Date(Date.now() + 86400000 * 2);
-  nextSlot.setHours(14, 0, 0, 0);
-  if (!database.meetings.some(m => m.contactEmail === contact.email)) {
-    database.meetings.push({
-      id: `meet-${Date.now()}`,
-      contactName: contact.fullName,
-      contactTitle: contact.jobTitle || "Executive",
-      contactCompany: contact.company || "Organization",
-      contactEmail: contact.email,
-      contactPhone: contact.phone || "",
-      platform: "Calendly / Google Meet",
-      meetingUrl: calUrl,
-      timeString: `${nextSlot.toLocaleDateString()} at 02:00 PM`,
-      influencerName: contact.referredBy || "Direct",
-      influencerCredits: contact.referredBy ? 25 : 0,
-      status: "Scheduled",
-      notes: `Scheduled via Outbound GTM Console (${calUrl})`,
-      datetimeRaw: nextSlot.toISOString()
-    });
-  }
-  if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
-  saveDatabaseCache();
-  if (typeof saveWorkbookToServer === "function") saveWorkbookToServer();
   insertOutboundModalCalendlyLink();
-  renderOutboundModalHistory(contact);
-  filterOutboundTable();
-  if (typeof renderCalendar === "function") renderCalendar();
-  if (typeof renderInfluencersTable === "function") renderInfluencersTable();
-  if (typeof renderDashboard === "function") renderDashboard();
-  alert(`Scheduled GTM call for ${contact.fullName} and inserted booking link (${calUrl}).${contact.referredBy ? ` Partner credits updated for ${contact.referredBy}.` : ""}`);
+  window.open(bookingUrl.href, "_blank", "noopener,noreferrer");
+  alert("Booking page opened. The call will appear on the Admin Schedule only after it is actually booked.");
 }
 
 function markCallCompletedFromOutboundModal() {
   const contact = database.selectedContact;
   if (!contact) return;
+  if (!confirm(`Confirm that a call with ${contact.fullName} has already taken place? This action records a completed call.`)) return;
   contact.hasScheduledCall = true;
   contact.hasTakenCall = true;
   contact.callScheduledAt = contact.callScheduledAt || new Date().toISOString().slice(0, 10);
@@ -1479,7 +1355,7 @@ function switchOutboundModalChannel(channel) {
     if (draftInputsGroup) draftInputsGroup.style.display = "none";
     if (callPanel) callPanel.style.display = "flex";
     if (liUrlGroup) liUrlGroup.style.display = "none";
-    if (secTitle) secTitle.textContent = "AI Voice Calling & Transcription";
+    if (secTitle) secTitle.textContent = "Manual Calls & Outcomes";
     if (actionBtn) actionBtn.style.display = "none";
     if (aiHookBtn) aiHookBtn.style.display = "none";
   }
@@ -1549,7 +1425,7 @@ async function executeOutboundSendAction() {
       contact.emailDraft = { subject, body };
       database.stats.emailsSent = (database.stats.emailsSent || 0) + 1;
       saveDatabaseCache();
-      addLogConsole("campaign-outbound", `[GMAIL] Confirmed by Google for ${contact.fullName} (${contact.email})`, "success");
+      addLogConsole("campaign-outbound", `[EMAIL] Confirmed by ${result.provider || "email provider"} for ${contact.fullName} (${contact.email})`, "success");
       alert(`Email sent to ${contact.fullName}.`);
       renderOutboundModalHistory(contact);
     } catch (error) {
@@ -1561,7 +1437,7 @@ async function executeOutboundSendAction() {
   } else if (currentModalChannel === 'linkedin') {
     const note = document.getElementById("outbound-email-body-input")?.value.trim();
     if (!note) {
-      alert("Add a connection note before dispatching LinkedIn outreach.");
+      alert("Add a LinkedIn connection note before preparing the handoff.");
       return;
     }
     contact.linkedinDraft = { body: note };
@@ -1571,14 +1447,8 @@ async function executeOutboundSendAction() {
     }
     return;
   } else if (currentModalChannel === 'call') {
-    if (!contact.callsMade) contact.callsMade = [];
-    contact.callsMade.push({ date: new Date().toISOString(), outcome: "Completed Briefing Call (Call Taken)", status: "taken" });
-    contact.hasTakenCall = true;
-    contact.hasScheduledCall = true;
-    database.stats.callsMade = (database.stats.callsMade || 0) + 1;
-    if (typeof recalculateAllInfluencerCredits === "function") recalculateAllInfluencerCredits();
-    addLogConsole("enrich", `[VOICE CALL] Logged briefing call with ${contact.fullName}`, "success");
-    alert(`Call logged for ${contact.fullName}!`);
+    alert("No live telephony provider is connected. No call was placed or logged. Use Schedule GTM Call to book a real meeting.");
+    return;
   }
 
   saveDatabaseCache();
@@ -1597,6 +1467,8 @@ function renderOutboundModalHistory(contact) {
   }
   if (contact.linkedinSent) {
     html += `<div style="padding:0.375rem; border-bottom:1px solid var(--color-border);"><strong>LinkedIn Sent:</strong> ${typeof contact.linkedinDraft === 'string' ? contact.linkedinDraft : (contact.linkedinDraft?.body || 'Connection & outreach sent')}</div>`;
+  } else if (contact.linkedinPreparedAt) {
+    html += `<div style="padding:0.375rem; border-bottom:1px solid var(--color-border);"><strong>LinkedIn Note Prepared:</strong> ${typeof contact.linkedinDraft === 'string' ? contact.linkedinDraft : (contact.linkedinDraft?.body || 'Open profile and send manually')}</div>`;
   }
   if (contact.callsMade && contact.callsMade.length > 0) {
     contact.callsMade.forEach(c => {
@@ -1625,160 +1497,7 @@ function deleteContactRecord(contactId) {
   }
 }
 
-function generateAIOutboundHook() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  const area = document.getElementById("outbound-email-body-input");
-  const prevBox = document.getElementById("outbound-email-preview-box");
-  if (!area) return;
-
-  // 1. Blur out existing text & activate rainbow border glow
-  area.classList.add("text-blur-out", "rainbow-active");
-  if (prevBox) prevBox.classList.add("rainbow-active");
-
-  const newHook = `Hi ${contact.firstName},\n\nGiven ${contact.company}'s recent expansion in credit union operations, our automated BDR pipeline helps executive teams streamline partner referrals and compliance checking.\n\nWould 15 minutes next Tuesday work to discuss a live demo briefing?\n\nBest regards,\nSDR Campaign Agent`;
-
-  setTimeout(() => {
-    area.value = "";
-    area.classList.remove("text-blur-out");
-    area.classList.add("text-swoosh-in");
-
-    // 2. Apple-style rapid word-by-word swooshing typewriter animation
-    const words = newHook.split(" ");
-    let idx = 0;
-    const interval = setInterval(() => {
-      if (idx < words.length) {
-        area.value += (idx === 0 ? "" : " ") + words[idx];
-        updateOutboundLivePreview();
-        idx++;
-      } else {
-        clearInterval(interval);
-        area.classList.remove("rainbow-active", "text-swoosh-in");
-        if (prevBox) prevBox.classList.remove("rainbow-active");
-      }
-    }, 22);
-  }, 350);
-}
-
-// --- AI VOICE CALL SIMULATOR & REAL-TIME TRANSCRIPTION ---
-let callTimerInterval = null;
-let callSeconds = 0;
-
-function startSimulatedAICall() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  playBeepSound(440, 0.35);
-
-  const statusEl = document.getElementById("call-status-label");
-  const timerEl = document.getElementById("call-timer-display");
-  const transcriptBox = document.getElementById("call-transcript-box");
-  const summaryBox = document.getElementById("call-summary-box");
-
-  if (statusEl) statusEl.textContent = "In Call • Transcribing Live Speech...";
-  if (summaryBox) summaryBox.style.display = "none";
-  if (transcriptBox) {
-    transcriptBox.style.display = "block";
-    transcriptBox.innerHTML = `<div><strong style="color:var(--color-text-primary);">[AI Agent]:</strong> Dialing ${contact.phone || '+1 (555) 019-2834'}...</div>`;
-  }
-
-  callSeconds = 0;
-  clearInterval(callTimerInterval);
-  callTimerInterval = setInterval(() => {
-    callSeconds++;
-    const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
-    const secs = String(callSeconds % 60).padStart(2, '0');
-    if (timerEl) timerEl.textContent = `${mins}:${secs}`;
-  }, 1000);
-
-  // Live Speech Dialog Simulation
-  const speechLines = [
-    { speaker: "AI Agent", text: `Hello ${contact.fullName}, this is the GTM Copilot calling regarding ${contact.company}.` },
-    { speaker: contact.fullName, text: `Hi! Yes, I was looking into automated BDR query compliance.` },
-    { speaker: "AI Agent", text: `Great! We provide real-time prompt guardrails & referral credit tracking for credit union IT.` },
-    { speaker: contact.fullName, text: `That sounds very relevant for our stack. Let's schedule a 15-minute briefing next Tuesday at 2 PM.` },
-    { speaker: "AI Agent", text: `Confirmed! Locking in Tuesday at 2:00 PM EST. Sending the calendar invite to ${contact.email} now.` }
-  ];
-
-  speechLines.forEach((line, index) => {
-    setTimeout(() => {
-      if (transcriptBox) {
-        const lineDiv = document.createElement("div");
-        lineDiv.style.marginBottom = "0.375rem";
-        lineDiv.innerHTML = `<strong style="color:var(--color-text-primary);">[${line.speaker}]:</strong> ${line.text}`;
-        transcriptBox.appendChild(lineDiv);
-        transcriptBox.scrollTop = transcriptBox.scrollHeight;
-      }
-    }, (index + 1) * 1600);
-  });
-
-  // Auto-finish call and generate AI summary
-  setTimeout(() => {
-    stopSimulatedAICall();
-  }, 9500);
-}
-
-function stopSimulatedAICall() {
-  stopBeepSound();
-  clearInterval(callTimerInterval);
-
-  const contact = database.selectedContact;
-  const statusEl = document.getElementById("call-status-label");
-  const summaryBox = document.getElementById("call-summary-box");
-
-  if (statusEl) statusEl.textContent = "Call Ended • AI Summarizer Active";
-
-  if (summaryBox && contact) {
-    summaryBox.style.display = "block";
-    summaryBox.innerHTML = `
-      <div style="font-weight:700; font-size:var(--font-size-xs); color:var(--color-success); margin-bottom:0.5rem;">AI Call Insights &amp; Meeting Booked</div>
-      <div style="font-size:var(--font-size-xs); color:var(--color-text-primary); display:flex; flex-direction:column; gap:0.25rem;">
-        <div><strong>Key Need:</strong> BDR query guardrails &amp; partner referral credit tracking.</div>
-        <div><strong>Confirmed Meeting:</strong> Next Tuesday at 02:00 PM EST (Google Meet)</div>
-        <div><strong>Action Item:</strong> Calendar invite dispatched to ${contact.email}</div>
-      </div>
-    `;
-
-    // Save call outcome & meeting
-    if (!contact.callsMade) contact.callsMade = [];
-    contact.callsMade.push({ date: new Date().toLocaleTimeString(), outcome: "Meeting Confirmed (Tuesday 2:00 PM) - Call Taken", status: "taken" });
-    contact.hasTakenCall = true;
-    contact.hasScheduledCall = true;
-    database.stats.callsMade = (database.stats.callsMade || 0) + 1;
-
-    if (!database.meetings) database.meetings = [];
-    const nextTuesday = new Date();
-    nextTuesday.setDate(nextTuesday.getDate() + ((2 + 7 - nextTuesday.getDay()) % 7 || 7));
-    nextTuesday.setHours(14, 0, 0, 0);
-
-    const exists = database.meetings.find(m => m.contactEmail === contact.email);
-    if (!exists) {
-      database.meetings.push({
-        id: `meet-${Date.now()}`,
-        contactName: contact.fullName,
-        contactTitle: contact.jobTitle,
-        contactCompany: contact.company,
-        contactEmail: contact.email,
-        contactPhone: contact.phone || "+1 (555) 019-2834",
-        platform: "Google Meet",
-        meetingUrl: "https://meet.google.com/abc-defg-hij",
-        timeString: `${nextTuesday.toLocaleDateString()} at 02:00 PM (EST)`,
-        influencerName: contact.referredBy || "Kim Beluzo",
-        influencerCredits: 25,
-        status: "Call Taken & Follow-up Scheduled",
-        notes: `AI Call Summary: Interested in query injection guardrails & referral portal benefits. Executive briefing confirmed for Tuesday at 2:00 PM.`,
-        datetimeRaw: nextTuesday.toISOString()
-      });
-    }
-
-    saveDatabaseCache();
-    filterOutboundTable();
-    renderOutboundModalHistory(contact);
-    if (typeof renderCalendar === "function") renderCalendar();
-  }
-}
-
+// --- Manual click-to-call and call outcome logging ---
 // --- CATEGORY 4B: REAL-TIME SPAM AUDITOR & DELIVERABILITY CHECKER ---
 function runSpamAuditorCheck(text) {
   const scoreEl = document.getElementById("spam-score-val");
@@ -1876,8 +1595,6 @@ function runInlineSpamCheck(text) {
 }
 
 
-window.startSimulatedAICall = startSimulatedAICall;
-window.stopSimulatedAICall = stopSimulatedAICall;
 window.switchOutboundSubtab = switchOutboundSubtab;
 window.filterOutboundTable = filterOutboundTable;
 window.changeOutboundPage = changeOutboundPage;
@@ -1892,7 +1609,6 @@ window.switchOutboundModalChannel = switchOutboundModalChannel;
 window.updateOutboundLivePreview = updateOutboundLivePreview;
 window.executeOutboundSendAction = executeOutboundSendAction;
 window.deleteContactRecord = deleteContactRecord;
-window.generateAIOutboundHook = generateAIOutboundHook;
 window.sendOutboundEmail = sendOutboundEmail;
 window.suppressSelectedContact = suppressSelectedContact;
 window.sendOutboundLinkedin = sendOutboundLinkedin;
@@ -2214,7 +1930,7 @@ function openBulkOutboundModal(source) {
   }
 
   if (senderStatus) {
-    senderStatus.textContent = database.googleAccessToken ? "Google Workspace (Connected)" : "Google Workspace (Browser OAuth/Demo Mode)";
+    senderStatus.textContent = isLiveGoogleOAuthToken(database.googleAccessToken) ? "Google Workspace (Connected)" : "Website Email (Resend)";
   }
 
   if (chipsContainer) {
@@ -2434,120 +2150,36 @@ function parseSubjectAndBody(content, fallbackSubject) {
   return { subject, body };
 }
 
-function generateIntelligentFallbackDraft(instructions, contact, isBulk) {
-  const norm = (instructions || "").toLowerCase();
-  const nameVar = isBulk ? "{{firstName}}" : (contact?.firstName || (contact?.fullName ? contact.fullName.split(" ")[0] : "there"));
-  const companyVar = isBulk ? "{{company}}" : (contact?.company || "your organization");
-  const jobTitleVar = isBulk ? "{{jobTitle}}" : (contact?.jobTitle || "leadership team");
-
-  let subject = `Quick question re: ${companyVar}`;
-  let body = "";
-
-  if (norm.includes("soc2") || norm.includes("compliance") || norm.includes("security") || norm.includes("guardrail")) {
-    subject = `Compliance & Query Guardrails for ${companyVar}`;
-    body = `Hi ${nameVar},\n\nGiven your focus on ${jobTitleVar} at ${companyVar}, I wanted to reach out regarding query security guardrails and automated compliance.\n\nWe help data-driven teams enforce real-time audit guardrails without slowing down analytics velocity.\n\nWould next Tuesday afternoon work for a concise 10-minute briefing?\n\nBest regards,\nBDR Outreach Agent`;
-  } else if (norm.includes("50 words") || norm.includes("short") || norm.includes("punchy") || norm.includes("concise")) {
-    subject = `10-min intro re: ${companyVar}`;
-    body = `Hi ${nameVar},\n\nSaw your team at ${companyVar} expanding and thought our automated BDR pipeline could help streamline outreach.\n\nWould 10 minutes next Tuesday work for a quick demo?\n\nBest,\nBDR Outreach Agent`;
-  } else if (norm.includes("roi") || norm.includes("hour") || norm.includes("cost") || norm.includes("reduction")) {
-    subject = `Saving 15+ engineering hours weekly for ${companyVar}`;
-    body = `Hi ${nameVar},\n\nOur automated pipeline helps organizations like ${companyVar} reduce manual intake workflows by 40% while preserving strict security standards.\n\nCould we share a 3-minute executive breakdown next Tuesday?\n\nBest regards,\nBDR Outreach Agent`;
-  } else if (norm.includes("casual") || norm.includes("coffee") || norm.includes("mutual")) {
-    subject = `Quick intro / coffee chat?`;
-    body = `Hi ${nameVar},\n\nHope your week is off to a great start! Following your work with ${companyVar}, I'd love to connect and share notes on automated workflow orchestration.\n\nOpen to a casual 10-minute virtual chat next Tuesday?\n\nWarm regards,\nBDR Outreach Agent`;
-  } else {
-    subject = instructions && instructions.length < 50 ? `${instructions.slice(0, 45)}` : `Accelerating workflows for ${companyVar}`;
-    body = `Hi ${nameVar},\n\nI am reaching out regarding ${companyVar}'s growth.\n\n${instructions ? `Based on your focus: ${instructions}.\n\n` : ""}Our autonomous BDR pipeline equips leadership teams with real-time prospect intelligence and compliant outreach.\n\nWould you be open to a brief 10-minute conversation next week?\n\nBest regards,\nBDR Outreach Agent`;
+async function callGeminiOrLlmDraft({ instructions, contact, isBulk, existingSubject, existingBody, channel = "email" }) {
+  const headers = { "Content-Type": "application/json" };
+  const token = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch("/api/ai/draft", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      instructions,
+      contact: contact ? {
+        fullName: contact.fullName,
+        jobTitle: contact.jobTitle,
+        company: contact.company,
+        industry: contact.industry
+      } : {},
+      isBulk: Boolean(isBulk),
+      existingSubject: existingSubject || "",
+      existingBody: existingBody || "",
+      channel,
+      geminiModel: database.geminiModel || "gemini-3.5-flash"
+    })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `AI drafting failed (${response.status}).`);
+  if (channel === "linkedin") {
+    if (!result.note || !result.provider) throw new Error("The AI provider returned an incomplete LinkedIn note. No placeholder draft was used.");
+  } else if (!result.subject || !result.body || !result.provider) {
+    throw new Error("The AI provider returned an incomplete draft. No placeholder draft was used.");
   }
-
-  return { subject, body };
-}
-
-async function callGeminiOrLlmDraft({ instructions, contact, isBulk, existingSubject, existingBody }) {
-  const contactCtx = isBulk
-    ? "Bulk campaign template. Use template variable placeholders: {{firstName}}, {{company}}, {{jobTitle}}, {{industry}}."
-    : `Target Lead: ${contact?.fullName || 'Contact'}, Job Title: ${contact?.jobTitle || 'Lead'}, Company: ${contact?.company || 'Organization'}, Industry: ${contact?.industry || 'B2B'}.`;
-
-  const prompt = `You are an elite B2B SDR copywriter. Draft a high-converting, personalized cold email following these specific user instructions.
-
-SPECIFIC USER INSTRUCTIONS:
-"${instructions || "Draft a compelling, professional B2B outreach email"}"
-
-TARGET CONTEXT:
-${contactCtx}
-
-CURRENT SUBJECT (if updating): ${existingSubject || "None"}
-CURRENT BODY (if updating): ${existingBody || "None"}
-
-RULES:
-1. Include a single "Subject: [Your Subject Line]" on the very first line.
-2. Followed by the email body.
-3. Keep the email concise, persuasive, and under 120 words unless explicitly asked otherwise.
-4. Adhere closely to the user's instructions (e.g. specific CTA dates, tone, value props).
-5. ${isBulk ? "Use {{firstName}}, {{company}}, {{jobTitle}} variable tags in place of hardcoded recipient details." : "Use recipient's real details where relevant."}
-6. No conversational preamble or markdown code fences like \`\`\`. Output raw email text directly.`;
-
-  // 1. Primary: Gemini API
-  if (database.geminiApiKey) {
-    try {
-      const model = database.geminiModel || "gemini-3.5-flash";
-      const apiKey = database.geminiApiKey;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 500
-          }
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText && rawText.trim().length > 0) {
-          return parseSubjectAndBody(rawText.trim(), `Outreach for ${isBulk ? '{{company}}' : (contact?.company || 'Partnership')}`);
-        }
-      }
-    } catch (err) {
-      console.warn("Gemini draft error, falling back:", err);
-    }
-  }
-
-  // 2. Secondary: OpenAI Helper Key
-  if (database.llmHelperKey) {
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${database.llmHelperKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const rawText = data?.choices?.[0]?.message?.content;
-        if (rawText && rawText.trim().length > 0) {
-          return parseSubjectAndBody(rawText.trim(), `Outreach for ${isBulk ? '{{company}}' : (contact?.company || 'Partnership')}`);
-        }
-      }
-    } catch (err) {
-      console.warn("OpenAI draft error, falling back:", err);
-    }
-  }
-
-  // 3. Intelligent fallback generator
-  await new Promise(resolve => setTimeout(resolve, 350));
-  return generateIntelligentFallbackDraft(instructions, contact, isBulk);
+  return result;
 }
 
 async function generateAIOutboundWithPrompt() {
@@ -2592,6 +2224,10 @@ async function generateAIOutboundWithPrompt() {
     }
 
     if (bodyInput && draft.body) {
+      if (contact) {
+        contact.emailDraft = { subject: draft.subject, body: draft.body };
+        if (typeof saveDatabaseCache === "function") saveDatabaseCache();
+      }
       bodyInput.value = "";
       bodyInput.classList.remove("text-blur-out");
       bodyInput.classList.add("text-swoosh-in");

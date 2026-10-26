@@ -516,7 +516,7 @@
             <div id="outbound-linkedin-url-group" style="display: none; background: var(--surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-xs); padding: 0.75rem;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.5rem; flex-wrap: wrap;">
                 <label class="form-label" for="outbound-modal-linkedin-url-input" style="margin: 0; font-size: 11.5px; font-weight: 700;">Recipient LinkedIn Profile URL *</label>
-                <span id="outbound-modal-linkedin-url-status" style="font-size: 11px; color: var(--color-text-secondary);">Required to message or connect on LinkedIn</span>
+                <span id="outbound-modal-linkedin-url-status" style="font-size: 11px; color: var(--color-text-secondary);">Required to open the profile for manual sending</span>
               </div>
               <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                 <input type="url" class="form-input" id="outbound-modal-linkedin-url-input" placeholder="https://www.linkedin.com/in/recipient-profile" style="flex: 1; min-width: 220px; font-size: 12.5px; background: var(--surface-card);" />
@@ -570,18 +570,16 @@
             <div class="card" style="margin: 0; padding: 1rem; background-color: var(--color-background-muted); border: 1px solid var(--color-border);">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                 <div>
-                  <div id="call-status-label" style="font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-primary);">Ready to Initiate AI Voice Call</div>
-                  <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Direct BDR dialer with live speech transcription</div>
+                  <div id="call-status-label" style="font-size: var(--font-size-xs); font-weight: 700; color: var(--color-text-primary);">Manual phone call</div>
+                  <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Opens your device phone app. This workspace does not record audio.</div>
                 </div>
-                <div id="call-timer-display" style="font-family: var(--font-family-code); font-size: var(--font-size-base); font-weight: 700; color: var(--color-text-primary);">00:00</div>
               </div>
 
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-start-call" onclick="startOutboundCall()">
                   <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                  Connect Twilio in Settings
+                  Call from device
                 </button>
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-hangup-call" onclick="stopSimulatedAICall()">Hang Up</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="scheduleCallFromOutboundModal()">Schedule GTM Call</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="markCallCompletedFromOutboundModal()">Mark Call Completed (+25 pts)</button>
               </div>
@@ -589,16 +587,12 @@
 
             <!-- Live Call Transcript Box -->
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-              <label class="form-label" style="margin: 0;">Live Call Transcript</label>
+              <label class="form-label" style="margin: 0;">Call Notes</label>
               <div id="call-transcript-box" style="background-color: var(--color-background-muted); border: 1px solid var(--color-border); border-radius: var(--radius-inner); padding: 0.875rem; font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text-primary); height: 160px; overflow-y: auto;">
-                <div style="color: var(--color-text-secondary);">Click "Start AI Call" above to begin call dialer and live speech transcription.</div>
+                <div style="color: var(--color-text-secondary);">Use Call from device to open your phone app. Record an outcome only after the call.</div>
               </div>
             </div>
 
-            <!-- AI Call Summary Box -->
-            <div id="call-summary-box" class="card" style="display: none; margin: 0; padding: 0.875rem; background-color: var(--color-background-surface); border: 1px solid var(--color-border);">
-              <!-- Populated when call finishes -->
-            </div>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">

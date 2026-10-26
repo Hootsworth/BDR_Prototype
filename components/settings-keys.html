@@ -131,17 +131,25 @@
         <div class="form-group">
           <label class="form-label" for="key-gemini">Gemini API Key</label>
           <div style="display: flex; gap: 0.5rem;">
-            <input type="password" class="form-input" id="key-gemini" placeholder="AIzaSy..." onchange="saveGeminiKey()">
+            <input type="password" class="form-input" id="key-gemini" placeholder="AIzaSy..." autocomplete="new-password" onchange="saveGeminiKey()">
             <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('key-gemini', this)">Show</button>
           </div>
-          <small style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Enter a key here. It is encrypted on the server and loaded into the Admin session for Copilot Agent Mode and live web grounding.</small>
+          <small style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Used for AI drafting and partner call checks. The key is encrypted on the server.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="settings-key-openai">OpenAI (ChatGPT) API Key</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="password" class="form-input" id="settings-key-openai" placeholder="sk-..." autocomplete="new-password" onchange="syncOpenAIKeyFromSettings()">
+            <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-openai', this)">Show</button>
+          </div>
+          <small style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">Used when Gemini is unavailable and for partner call checks. The key is encrypted on the server.</small>
         </div>
 
         <div class="form-group">
           <label class="form-label" for="select-gemini-model">Gemini Primary Model</label>
           <select class="form-select" id="select-gemini-model" onchange="saveGeminiModel()">
             <option value="gemini-3.5-flash">Gemini 3.5 Flash (Recommended)</option>
-            <option value="gemini-3.6-flash-lite">Gemini 3.6 Flash-Lite</option>
             <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
           </select>
         </div>
@@ -158,14 +166,6 @@
           <div style="display: flex; gap: 0.5rem;">
             <input type="password" class="form-input" id="settings-key-explorium" placeholder="agentsource-..." onchange="syncExploriumKeyFromSettings()">
             <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-explorium', this)">Show</button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="settings-key-openai">OpenAI API Key (Secondary Helper)</label>
-          <div style="display: flex; gap: 0.5rem;">
-            <input type="password" class="form-input" id="settings-key-openai" placeholder="sk-..." onchange="syncOpenAIKeyFromSettings()">
-            <button class="btn btn-secondary btn-sm" type="button" onclick="togglePasswordVisibility('settings-key-openai', this)">Show</button>
           </div>
         </div>
 

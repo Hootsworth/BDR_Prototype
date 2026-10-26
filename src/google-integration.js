@@ -23,76 +23,6 @@ async function connectGoogleWorkspace() {
   return false;
 }
 
-function promptGoogleClientIdModal() {
-  return new Promise((resolve) => {
-    let modal = document.getElementById("google-client-id-modal");
-    if (!modal) {
-      modal = document.createElement("div");
-      modal.id = "google-client-id-modal";
-      modal.className = "modal-overlay";
-      modal.style.cssText = "display: flex; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 1.5rem;";
-      modal.innerHTML = `
-        <div class="modal-container" style="width: 100%; max-width: 520px; background: var(--surface-card); color: var(--color-text-primary); border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-lg); border: 1px solid var(--color-border);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.75rem;">
-            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--color-text-primary);">Connect Google Workspace Account</h3>
-            <button class="btn btn-secondary btn-sm" id="btn-close-google-modal" style="padding: 2px 8px; font-weight: 600;">✕</button>
-          </div>
-          <p style="font-size: 12.5px; color: var(--color-text-secondary); margin: 0 0 1rem 0; line-height: 1.5;">
-            To authorize Gmail sending, Calendar availability, and Google Meet scheduling directly in your browser, enter your public Google OAuth Client ID below:
-          </p>
-          <div style="margin-bottom: 1.25rem;">
-            <label style="font-size: 12px; font-weight: 700; color: var(--color-text-primary); display: block; margin-bottom: 4px;">Google OAuth Client ID</label>
-            <input type="text" id="google-modal-client-id-input" class="form-input" placeholder="e.g. 1234567890-abc123xyz.apps.googleusercontent.com" style="width: 100%; font-size: 12.5px; font-family: var(--font-family-mono); padding: 0.6rem 0.75rem;" />
-            <small style="font-size: 11px; color: var(--color-text-secondary); margin-top: 4px; display: block;">This key is public and contains no client secret.</small>
-          </div>
-          <div style="display: flex; justify-content: space-between; gap: 0.5rem;">
-            <button class="btn btn-secondary btn-sm" id="btn-cancel-google-modal">Cancel</button>
-            <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-secondary btn-sm" id="btn-demo-google-connect">Connect Demo Mode</button>
-              <button class="btn btn-primary btn-sm" id="btn-save-google-modal" style="font-weight: 700;">Connect &amp; Authenticate </button>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    } else {
-      modal.style.display = "flex";
-    }
-
-    const closeBtn = document.getElementById("btn-close-google-modal");
-    const cancelBtn = document.getElementById("btn-cancel-google-modal");
-    const saveBtn = document.getElementById("btn-save-google-modal");
-    const demoBtn = document.getElementById("btn-demo-google-connect");
-    const input = document.getElementById("google-modal-client-id-input");
-
-    const cleanup = () => {
-      if (modal) modal.style.display = "none";
-    };
-
-    if (closeBtn) closeBtn.onclick = () => { cleanup(); resolve(null); };
-    if (cancelBtn) cancelBtn.onclick = () => { cleanup(); resolve(null); };
-    
-    if (demoBtn) demoBtn.onclick = () => {
-      cleanup();
-      database.googleAccessToken = "demo_google_access_token_" + Date.now();
-      database.googleAccessTokenExpiresAt = Date.now() + 3600000;
-      database.googleCalendarConnected = true;
-      database.googleEmailConnected = true;
-      if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
-      if (typeof addLogConsole === "function") {
-        addLogConsole("enrich", "[GOOGLE] Connected in demo mode (browser session).", "success");
-      }
-      resolve(null);
-    };
-
-    if (saveBtn) saveBtn.onclick = () => {
-      const val = (input?.value || "").trim();
-      cleanup();
-      resolve(val);
-    };
-  });
-}
-
 function disconnectGoogleWorkspace() {
   if (database.googleAccessToken && window.google?.accounts?.oauth2?.revoke) {
     window.google.accounts.oauth2.revoke(database.googleAccessToken, () => {});
@@ -134,34 +64,31 @@ function isLiveGoogleOAuthToken(token) {
 async function sendGoogleGmail({ to, subject, body }) {
   if (isLiveGoogleOAuthToken(database.googleAccessToken)) {
     try {
-      return await googleApiFetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      const result = await googleApiFetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ raw: gmailRawMessage(to, subject, body) })
       });
+      return { ...result, provider: "gmail" };
     } catch (err) {
       console.warn("Live Gmail API send failed, falling back to operational server email gateway:", err.message);
     }
   }
-  // Operational server email gateway (supports live Resend API or Investor Demo SQLite persistence)
-  database.googleEmailConnected = true;
-  if (!database.googleAccessToken) {
-    database.googleAccessToken = "google_workspace_token_" + Date.now();
-  }
+  // Website email is sent by the server's configured provider; it never reports a demo send as delivered.
+  const headers = { "Content-Type": "application/json" };
+  const clerkToken = window.Clerk?.session ? await window.Clerk.session.getToken().catch(() => "") : "";
+  if (clerkToken) headers.Authorization = `Bearer ${clerkToken}`;
   const response = await fetch("/api/email/send", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ to, subject, body })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(payload.error || `Email gateway returned ${response.status}`);
   }
-  return {
-    id: payload.id || `msg_${Date.now()}`,
-    threadId: `thread_${Date.now()}`,
-    mode: payload.mode || "operational"
-  };
+  if (!payload.id || payload.provider !== "resend") throw new Error("Email provider did not confirm delivery. No sent status was recorded.");
+  return payload;
 }
 
 async function verifyGoogleWorkspace() {
@@ -208,7 +135,7 @@ async function checkGoogleAvailability(startDate, endDate) {
       return [];
     }
   }
-  return [];
+  throw new Error("Connect Google Workspace to check calendar availability.");
 }
 
 async function syncGoogleReplies(contacts) {

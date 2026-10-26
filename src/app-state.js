@@ -49,7 +49,6 @@ let database = {
   meetings: [],
   currentOutboundSubtab: 'influencers',
   autoEnrich: false,
-  simulationMode: true,
   workbookMode: false,
   workbookName: "",
   workbookPath: "",
@@ -192,7 +191,7 @@ function getCustomerCalendlyUrl() {
   return (
     database.calendlyUrl ||
     localStorage.getItem("gtm_calendly_url") ||
-    "https://calendly.com/gtm-console/executive-briefing"
+    ""
   ).trim();
 }
 window.getCustomerCalendlyUrl = getCustomerCalendlyUrl;
@@ -207,7 +206,9 @@ function computeContactReferralCredits(contact) {
   const hasScheduled = Boolean(
     contact.hasScheduledCall ||
     (Array.isArray(contact.callsMade) && contact.callsMade.length > 0) ||
-    (Array.isArray(database.meetings) && database.meetings.some(m => m.contactEmail === contact.email || String(m.contactId) === String(contact.id)))
+    (Array.isArray(database.meetings) && database.meetings.some(m =>
+      (m.source !== "Partner Portal Email" || m.status === "Call Scheduled") &&
+      (m.contactEmail === contact.email || String(m.contactId) === String(contact.id))))
   );
   if (hasScheduled) return 15;
   return 10;

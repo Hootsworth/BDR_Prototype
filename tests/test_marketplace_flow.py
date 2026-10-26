@@ -428,16 +428,18 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
 
     def test_auto_generated_temporary_password_and_mandatory_change_flow(self):
         # Admin provisions partner without specifying password; system auto-generates temporary password
-        create_status, create_res = self.request("/api/influencers/create", "POST", {
-            "profile": {
-                "fullName": "Marcus Vance",
-                "email": "marcus.vance@cu-growth.test",
-                "company": "Vance Advisory",
-                "jobTitle": "Strategic Advisor"
-            },
-            "autoGeneratePassword": True,
-            "sendInvite": True
-        })
+        with patch.dict(os.environ, {"RESEND_API_KEY": "test-resend-key", "RESEND_FROM_EMAIL": "notifications@example.test"}), \
+             patch.object(server, "post_json", return_value=(200, {"id": "resend-invite-test"})):
+            create_status, create_res = self.request("/api/influencers/create", "POST", {
+                "profile": {
+                    "fullName": "Marcus Vance",
+                    "email": "marcus.vance@cu-growth.test",
+                    "company": "Vance Advisory",
+                    "jobTitle": "Strategic Advisor"
+                },
+                "autoGeneratePassword": True,
+                "sendInvite": True
+            })
         self.assertEqual(create_status, 201)
         self.assertTrue(create_res["success"])
         temp_pwd = create_res["temporaryPassword"]

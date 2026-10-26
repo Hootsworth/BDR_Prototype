@@ -60,6 +60,7 @@ function renderCalendar() {
     const altDateStr = `${cellMonthPad}/${cellDayPad}/${year}`;
 
     const dayMeetings = (database.meetings || []).filter(m => {
+      if (m.source === "Partner Portal Email" && m.status !== "Call Scheduled") return false;
       if (m.datetimeRaw) {
         const mDate = new Date(m.datetimeRaw);
         if (!isNaN(mDate.getTime()) && mDate.getFullYear() === year && mDate.getMonth() === month && mDate.getDate() === day) {

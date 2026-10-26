@@ -480,7 +480,13 @@
     try {
       const result = await request('/api/partner-share/schedule', {
         method: 'POST',
-        body: JSON.stringify({ contactId: contact.id, datetime: values.datetime, subject: values.subject, body: values.body })
+        body: JSON.stringify({
+          contactId: contact.id,
+          datetime: values.datetime,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+          subject: values.subject,
+          body: values.body
+        })
       });
       feedback.className = 'success';
       feedback.textContent = `Invitation sent to ${contact.email}; your administrator was copied. The call is on the Admin Schedule for ${result.meeting.timeString}.`;
