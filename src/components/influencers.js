@@ -636,8 +636,10 @@ async function savePartnerProfile() {
   } catch (error) { feedback.textContent = error.message; }
 }
 
-async function deletePartnerProfile() {
-  const partner = currentPartner();
+async function deletePartnerProfile(partnerId = '') {
+  const partner = partnerId
+    ? (database.contacts || []).find(c => c.isInfluencer && String(c.id) === String(partnerId))
+    : currentPartner();
   if (!partner) return;
   if (!confirm(`Remove ${partner.fullName} from the partner list? Their contact records will remain in the database but will be unassigned, and their share links will be revoked.`)) return;
   const headers = { 'Content-Type': 'application/json' };

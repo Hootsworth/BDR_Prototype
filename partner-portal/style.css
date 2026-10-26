@@ -1067,3 +1067,27 @@ td small {
     grid-template-columns: 1fr;
   }
 }
+
+.partner-workspace-nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+.partner-workspace-nav button{border:1px solid var(--color-border,#d9e1df);border-radius:8px;background:var(--surface-card,#fff);padding:9px 14px;color:var(--color-text-primary,#20312d);font-weight:650;cursor:pointer}
+.partner-email-shell{display:flex;min-height:520px;border:1px solid var(--color-border,#d9e1df);border-radius:12px;overflow:hidden;background:var(--surface-card,#fff)}
+.partner-email-folders{width:170px;flex:none;padding:12px;display:grid;align-content:start;gap:6px;border-right:1px solid var(--color-border,#d9e1df)}
+.partner-email-folders>button:not(.btn){text-align:left;border:0;border-radius:7px;background:transparent;padding:9px 10px;color:inherit;cursor:pointer}
+.partner-email-folders>button:hover{background:var(--surface-soft,#f2f6f4)}
+.partner-email-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.partner-email-toolbar{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--color-border,#d9e1df)}
+.partner-email-toolbar input{flex:1;min-width:80px;border:1px solid var(--color-border,#d9e1df);border-radius:8px;padding:9px 11px}
+#partner-email-status{padding:0 12px;min-height:22px;font-size:12px;color:var(--muted,#68736f)}
+.partner-email-content{display:flex;flex:1;min-height:0}
+.partner-email-list{width:min(42%,380px);min-width:220px;overflow:auto;border-right:1px solid var(--color-border,#d9e1df)}
+.partner-email-message{flex:1;min-width:0;overflow:auto;padding:18px;white-space:pre-wrap}
+.partner-email-row{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--color-border,#e5e9e7);padding:12px;cursor:pointer;color:inherit}
+.partner-email-row:hover{background:var(--surface-soft,#f2f6f4)}
+.partner-settings-card{display:grid;gap:10px;max-width:700px;padding:20px;border:1px solid var(--color-border,#d9e1df);border-radius:12px;background:var(--surface-card,#fff)}
+.partner-settings-card h3{margin:12px 0 0}.partner-settings-card label{display:grid;gap:5px;font-size:13px;font-weight:650}
+.partner-settings-card input,.partner-compose-dialog input,.partner-compose-dialog textarea{width:100%;box-sizing:border-box;border:1px solid var(--color-border,#d9e1df);border-radius:8px;background:var(--surface-card,#fff);padding:10px;color:inherit}
+.partner-compose-dialog{width:min(650px,94vw);border:1px solid var(--color-border,#d9e1df);border-radius:12px;padding:20px;color:inherit;background:var(--surface-card,#fff)}
+.partner-compose-dialog::backdrop{background:#10251f80;backdrop-filter:blur(3px)}
+.partner-compose-dialog form{display:grid;gap:12px}.partner-compose-dialog header,.partner-compose-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.partner-compose-actions{justify-content:flex-end;flex-wrap:wrap}
+@media(max-width:680px){.partner-email-shell{display:block}.partner-email-folders{width:auto;display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--color-border,#d9e1df)}.partner-email-content{min-height:430px}.partner-email-list{min-width:150px;width:42%}.partner-email-message{padding:12px}}

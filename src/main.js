@@ -5,7 +5,6 @@ const componentsList = {
   'upload': 'components/upload.html',
   'analyse': 'components/analytics.html',
   'campaign-outbound': 'components/campaign-outbound.html',
-  'email': 'components/email.html',
   // [PARTNERS TAB DISCONNECTED]: Preserved in codebase. Uncomment below to reconnect:
   // 'influencers': 'components/influencers.html',
   'settings-keys': 'components/settings-keys.html',
@@ -392,8 +391,6 @@ function switchTab(tabId) {
         if (typeof filterOutboundTable === "function") filterOutboundTable();
       }).catch(err => console.warn("Failed background refresh of outbound data:", err));
     }
-  } else if (tabId === 'email' && typeof initEmailPage === 'function') {
-    initEmailPage();
   } else if (tabId === 'influencers') {
     if (typeof renderInfluencersTable === "function") renderInfluencersTable();
     const isLocal = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
@@ -444,10 +441,6 @@ function updateHeader(tabId) {
     case 'campaign-outbound':
       titleEl.textContent = "Campaign Outbound";
       subtitleEl.textContent = "Engage prospects and partners across Email, LinkedIn, and Phone — and manage scheduled briefings.";
-      break;
-    case 'email':
-      titleEl.textContent = "Email";
-      subtitleEl.textContent = "Manage your connected Gmail inbox and send messages from your account.";
       break;
     case 'events-list':
       titleEl.textContent = "Import — Events";

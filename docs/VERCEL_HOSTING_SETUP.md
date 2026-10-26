@@ -95,3 +95,16 @@ Backup storage is billable. A read-only check found no schedule, and the Firesto
 - Add and verify the two custom domains and configure the Clerk allowed origins.
 - Confirm scheduled Firestore backups and complete a restore rehearsal before real pilot data is entered.
 - The project still needs a public marketing landing page if connectem.ai is intended to be a customer-facing website rather than the existing app console.
+
+## Partner email and calendar release gate
+
+The partner portal now contains Email and Settings sections. Each partner can save Gemini, OpenAI, and Meta API keys; connect their own Google mailbox; send mail through that mailbox with the Admin address copied; and schedule events on their primary Google Calendar. Partner provider keys and Google tokens are encrypted in the Firestore-backed provider settings document. `TOKEN_ENCRYPTION_KEY` must be a stable Fernet key, configured server-side in Vercel Production before partners save keys or connect Google. Losing or replacing it makes existing encrypted credentials unreadable and requires partners to reconnect/re-enter keys.
+
+Before enabling this release in Production:
+
+1. Deploy this checkout to the Vercel Production project, then verify the deployed `/partner-portal` route serves the Email and Settings UI and the backend version includes partner Gmail/Calendar routes.
+2. Configure Google OAuth client ID and secret in Admin Settings → General & AI Configuration (or server environment). Register the exact HTTPS `GOOGLE_REDIRECT_URI`, normally `https://go.connectem.ai/api/google/oauth/callback`, in the Google OAuth client. Enable Gmail API and Calendar API.
+3. Set `TOKEN_ENCRYPTION_KEY` in Vercel Production and keep a secure backup of the key independent of Firestore. Confirm `FIREBASE_USE_FIRESTORE=true`, the existing Vercel-to-Firestore workload identity configuration, and the Admin CC address.
+4. Configure the Google OAuth consent screen with ConnectEM branding, verified domain, home page, privacy policy, and support details. The current full inbox requests `gmail.modify` and `gmail.send`, plus Calendar event access. Submit the production app for Google scope verification; restricted Gmail data may require an independent security assessment. Until approval, restrict access to allowed test users and expect Google’s unverified-app limits.
+5. In a staging or approved test account, complete OAuth and verify the Gmail identity, inbox list/read/send, CC delivery, AI draft with each configured provider, Calendar event creation, Admin schedule display, disconnect/reconnect, and token refresh. Then repeat the smoke test on Production with a designated test partner and recipient.
+6. Confirm the old production partner portal is no longer served after deployment. The updated local checkout and passing tests do not prove Production configuration or Google verification is complete.

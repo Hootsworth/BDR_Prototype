@@ -97,6 +97,11 @@
         <div><h1>Welcome, <span id="partner-name">Partner</span></h1><p id="partner-company">Your trusted partner relationship network</p></div>
         <div class="partner-calendly-bar"><a id="partner-calendly-open-link" class="btn btn-secondary btn-sm" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer">Open Briefing Calendar</a><button id="partner-calendly-copy-btn" class="btn btn-secondary btn-sm" type="button">Copy booking link</button></div>
       </header>
+      <nav class="partner-workspace-nav" aria-label="Partner workspace pages">
+        <button type="button" onclick="showPartnerWorkspaceSection('introduction-section')">Contacts &amp; schedule</button>
+        <button type="button" onclick="showPartnerWorkspaceSection('partner-email-section')">Email</button>
+        <button type="button" onclick="showPartnerWorkspaceSection('partner-settings-section')">Settings</button>
+      </nav>
       <p id="page-error" role="alert" hidden></p>
       
       <!-- ConnectEM Quality Metrics & Trust Score -->
@@ -215,7 +220,7 @@
           </div>
         </div>
         
-        <div class="table-wrap"><table><thead><tr><th>Contact &amp; Role</th><th>Organization</th><th>Relationship &amp; Privacy</th><th>Actions</th></tr></thead><tbody id="contacts-body"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Contact &amp; Role</th><th>Organization</th><th>Relationship &amp; Privacy</th><th>Status &amp; Actions</th></tr></thead><tbody id="contacts-body"></tbody></table></div>
       </section>
 
       <!-- SECTION: PARTNER PROFILE & OPEN-TO PREFERENCES -->
@@ -268,6 +273,68 @@
         <p style="font-size:12.5px; color:var(--muted); margin:0;">
           Commercial payouts and referral commissions are settled monthly pursuant to your signed ConnectEM Partner Referral Agreement. Direct wire details are managed by your administrator.
         </p>
+      </section>
+
+      <section id="partner-email-section" class="portal-section">
+        <div class="section-heading"><div><h2>Email</h2><p>Read and send from your connected Google account. Admin is automatically CC’d.</p></div></div>
+        <div class="partner-email-shell">
+          <aside class="partner-email-folders">
+            <button class="btn btn-primary" type="button" onclick="newPartnerEmail()">Compose</button>
+            <button type="button" onclick="loadPartnerEmailFolder('INBOX')">Inbox</button>
+            <button type="button" onclick="loadPartnerEmailFolder('STARRED')">Starred</button>
+            <button type="button" onclick="loadPartnerEmailFolder('SENT')">Sent</button>
+            <button type="button" onclick="loadPartnerEmailFolder('DRAFT')">Drafts</button>
+            <button type="button" onclick="loadPartnerEmailFolder('ALL')">All mail</button>
+            <button type="button" onclick="showPartnerWorkspaceSection('partner-settings-section')">Email settings</button>
+          </aside>
+          <div class="partner-email-main">
+            <div class="partner-email-toolbar"><input id="partner-email-search" type="search" placeholder="Search mail" onkeydown="if(event.key==='Enter') searchPartnerEmail()"><button class="btn btn-secondary" type="button" onclick="searchPartnerEmail()">Search</button><button class="btn btn-secondary" type="button" onclick="loadPartnerEmailFolder()">Refresh</button></div>
+            <p id="partner-email-status" role="status" aria-live="polite"></p>
+            <div class="partner-email-content"><div id="partner-email-list" class="partner-email-list"></div><article id="partner-email-message" class="partner-email-message">Connect Google in Settings to load your mailbox.</article></div>
+          </div>
+        </div>
+        <dialog id="partner-email-compose" class="partner-compose-dialog">
+          <form onsubmit="event.preventDefault(); sendPartnerEmail();">
+            <header><h3 id="partner-compose-title">New message</h3><button class="btn btn-subtle" type="button" onclick="closePartnerEmailComposer()">Close</button></header>
+            <label>To<input id="partner-compose-to" type="email" required></label>
+            <label>Subject<input id="partner-compose-subject" required></label>
+            <label>Message<textarea id="partner-compose-body" rows="10" required></textarea></label>
+            <small>Admin CC is added automatically. Mail is sent from your connected Google account.</small>
+            <div class="partner-compose-actions"><button class="btn btn-secondary" type="button" onclick="draftPartnerEmail()">Save draft</button><button class="btn btn-secondary" type="button" onclick="draftPartnerEmail(true)">Draft with AI</button><button class="btn btn-primary" type="submit">Send</button></div>
+          </form>
+        </dialog>
+      </section>
+
+      <dialog id="partner-referral-edit-dialog" class="partner-compose-dialog">
+        <form onsubmit="event.preventDefault(); savePartnerReferralEdit();">
+          <header><h3>Edit contact</h3><button class="btn btn-subtle" type="button" onclick="closePartnerReferralEditor()">Close</button></header>
+          <input id="partner-referral-edit-id" type="hidden">
+          <label>Full name<input id="partner-referral-edit-name" required></label>
+          <label>Email<input id="partner-referral-edit-email" type="email" required></label>
+          <label>Company<input id="partner-referral-edit-company" required></label>
+          <label>Job title<input id="partner-referral-edit-title"></label>
+          <label>Phone<input id="partner-referral-edit-phone"></label>
+          <label>LinkedIn URL<input id="partner-referral-edit-linkedin" type="url"></label>
+          <label>Relationship strength<select id="partner-referral-edit-strength"><option value="strong">Strong</option><option value="medium">Medium</option><option value="weak">Weak</option></select></label>
+          <label>Privacy<select id="partner-referral-edit-privacy"><option value="ask_partner">Ask partner</option><option value="discoverable">Discoverable</option><option value="anonymous">Anonymous</option><option value="private">Private</option></select></label>
+          <div class="partner-compose-actions"><button class="btn btn-primary" type="submit">Save contact</button></div>
+          <p id="partner-referral-edit-feedback" role="status" aria-live="polite"></p>
+        </form>
+      </dialog>
+
+      <section id="partner-settings-section" class="portal-section">
+        <div class="section-heading"><div><h2>Partner Settings</h2><p>Connect your mailbox and add private AI keys. Keys are encrypted and visible only to this partner account.</p></div></div>
+        <div class="partner-settings-card">
+          <h3>Email account</h3><p id="partner-google-status" role="status">Checking Google connection…</p>
+          <p>Google access is requested for Gmail mail, sending, and Calendar events. Reconnect if you previously granted a narrower permission.</p>
+          <button id="partner-google-connect" class="btn btn-primary" type="button" onclick="connectPartnerGoogle()">Connect / reconnect Google</button>
+          <h3>AI provider keys</h3><p id="partner-ai-key-status" role="status" aria-live="polite">Loading key status…</p>
+          <label>Gemini API key<input id="partner-key-gemini" type="password" autocomplete="new-password" placeholder="Saved key is not displayed"></label>
+          <label>OpenAI API key<input id="partner-key-openai" type="password" autocomplete="new-password" placeholder="Saved key is not displayed"></label>
+          <label>Meta Model API key<input id="partner-key-meta" type="password" autocomplete="new-password" placeholder="Saved key is not displayed"></label>
+          <p>Meta keys use the Meta Model API. Ask an administrator to configure the Admin CC address and server-side Google OAuth credentials.</p>
+          <button class="btn btn-primary" type="button" onclick="savePartnerAiKeys()">Save AI keys</button>
+        </div>
       </section>
 
       <!-- Hidden legacy contract anchors for backwards compatibility -->

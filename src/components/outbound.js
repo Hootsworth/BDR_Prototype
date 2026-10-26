@@ -212,7 +212,7 @@ function changeOutboundPage(page) {
                 <button type="button" onclick="openInfluencerAgreementsModal(${c.id}); this.closest('details').open = false">Agreements (${agreementsCount})</button>
                 ${affiliated.length ? `<button type="button" onclick="toggleExpandInfluencerReferrals(${c.id}); this.closest('details').open = false">${isExpanded ? 'Hide' : 'Show'} ${affiliated.length} referrals</button>` : ''}
                 <button type="button" onclick="openPartnerProfileEditorById(${c.id}); this.closest('details').open = false">Edit partner</button>
-                <button type="button" class="danger" onclick="deleteContactRecord(${c.id}); this.closest('details').open = false">Delete partner</button>
+                <button type="button" class="danger" onclick="deletePartnerProfile('${escapePartnerHTML(c.id)}'); this.closest('details').open = false">Delete partner</button>
               </div>
             </details>
           </div>

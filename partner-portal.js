@@ -39,6 +39,171 @@
   let pendingChangeToken = '';
   let clerkListenerAdded = false;
   let selectedAuthMode = 'signin';
+  let partnerEmailFolder = 'INBOX';
+  let partnerEmailNextPage = '';
+  let partnerEmailReplyContext = null;
+
+  function showPartnerWorkspaceSection(sectionId) {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (sectionId === 'partner-email-section') loadPartnerEmailFolder('INBOX');
+    if (sectionId === 'partner-settings-section') loadPartnerSettings();
+  }
+
+  function setPartnerEmailStatus(message, isError = false) {
+    const el = document.getElementById('partner-email-status');
+    if (el) { el.textContent = message; el.style.color = isError ? '#b42318' : ''; }
+  }
+
+  async function loadPartnerSettings() {
+    if (!token) return;
+    try {
+      const [settings, google] = await Promise.all([request('/api/partner-portal/settings'), request('/api/partner-portal/google/status')]);
+      const configured = settings.configured || {};
+      const status = document.getElementById('partner-ai-key-status');
+      if (status) status.textContent = `Gemini ${configured.gemini ? 'saved' : 'not set'} · OpenAI ${configured.openai ? 'saved' : 'not set'} · Meta ${configured.meta ? 'saved' : 'not set'} · Admin copy ${settings.adminCopyConfigured ? 'configured' : 'not configured'}.`;
+      const googleStatus = document.getElementById('partner-google-status');
+      if (googleStatus) googleStatus.textContent = google.connected ? `Connected: ${google.email || 'Google account'}` : 'Google account not connected.';
+    } catch (error) {
+      const status = document.getElementById('partner-ai-key-status');
+      if (status) status.textContent = error.message;
+      const googleStatus = document.getElementById('partner-google-status');
+      if (googleStatus) googleStatus.textContent = error.message;
+    }
+  }
+
+  async function savePartnerAiKeys() {
+    const body = {
+      gemini: document.getElementById('partner-key-gemini')?.value.trim() || '',
+      openai: document.getElementById('partner-key-openai')?.value.trim() || '',
+      meta: document.getElementById('partner-key-meta')?.value.trim() || ''
+    };
+    try {
+      await request('/api/partner-portal/settings', { method: 'POST', body: JSON.stringify(body) });
+      ['partner-key-gemini', 'partner-key-openai', 'partner-key-meta'].forEach(id => { const input = document.getElementById(id); if (input) input.value = ''; });
+      await loadPartnerSettings();
+      const status = document.getElementById('partner-ai-key-status');
+      if (status) status.textContent += ' Saved securely.';
+    } catch (error) { const status = document.getElementById('partner-ai-key-status'); if (status) status.textContent = error.message; }
+  }
+
+  async function connectPartnerGoogle() {
+    const button = document.getElementById('partner-google-connect');
+    if (button) button.disabled = true;
+    try {
+      const result = await request('/api/partner-portal/google/connect', { method: 'POST', body: JSON.stringify({}) });
+      window.location.assign(result.authorizationUrl);
+    } catch (error) {
+      const status = document.getElementById('partner-google-status');
+      if (status) status.textContent = error.message;
+    } finally { if (button) button.disabled = false; }
+  }
+
+  async function loadPartnerEmailFolder(label = partnerEmailFolder, append = false) {
+    partnerEmailFolder = label;
+    const list = document.getElementById('partner-email-list');
+    if (!list) return;
+    if (!append) { list.replaceChildren(); partnerEmailNextPage = ''; }
+    setPartnerEmailStatus('Loading mailbox…');
+    try {
+      const params = new URLSearchParams({ maxResults: '30' });
+      if (label !== 'ALL') params.set('labelIds', label);
+      const search = document.getElementById('partner-email-search')?.value.trim();
+      if (search) params.set('q', search);
+      if (append && partnerEmailNextPage) params.set('pageToken', partnerEmailNextPage);
+      const result = await request(`/api/partner-portal/email/messages?${params}`);
+      partnerEmailNextPage = result.nextPageToken || '';
+      if (!result.items?.length && !append) list.textContent = 'No messages found.';
+      (result.items || []).forEach(message => {
+        const row = document.createElement('button'); row.type = 'button'; row.className = 'partner-email-row';
+        const from = document.createElement('strong'); from.textContent = message.from || '(unknown sender)';
+        const subject = document.createElement('span'); subject.textContent = message.subject || '(no subject)'; subject.style.cssText = 'display:block;margin-top:4px';
+        const snippet = document.createElement('small'); snippet.textContent = message.snippet || message.date || ''; snippet.style.cssText = 'display:block;margin-top:5px;color:var(--muted)';
+        if ((message.labelIds || []).includes('UNREAD')) from.style.fontWeight = '800';
+        row.append(from, subject, snippet); row.onclick = () => openPartnerEmailMessage(message); list.append(row);
+      });
+      if (partnerEmailNextPage) { const more = document.createElement('button'); more.className = 'btn btn-secondary'; more.textContent = 'Load more'; more.onclick = () => loadPartnerEmailFolder(partnerEmailFolder, true); list.append(more); }
+      setPartnerEmailStatus(`${result.items?.length || 0} messages · ${label.toLowerCase()}`);
+    } catch (error) { setPartnerEmailStatus(`${error.message} Connect Google in Partner Settings if needed.`, true); }
+  }
+
+  function searchPartnerEmail() { loadPartnerEmailFolder(partnerEmailFolder); }
+  function decodePartnerMailBody(encoded) {
+    if (!encoded) return '';
+    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    try { return decodeURIComponent(escape(atob(base64))); } catch (_) { try { return atob(base64); } catch (_) { return ''; } }
+  }
+  function findPartnerMailBody(part) {
+    if (part?.mimeType === 'text/plain' && part.body?.data) return part.body.data;
+    for (const child of (part?.parts || [])) { const found = findPartnerMailBody(child); if (found) return found; }
+    return part?.body?.data || '';
+  }
+
+  async function openPartnerEmailMessage(message) {
+    const panel = document.getElementById('partner-email-message');
+    panel.textContent = 'Loading message…';
+    try {
+      const result = await request(`/api/partner-portal/email/message?id=${encodeURIComponent(message.id)}`);
+      const headers = Object.fromEntries((result.payload?.headers || []).map(h => [String(h.name).toLowerCase(), h.value]));
+      const shell = document.createElement('div');
+      const title = document.createElement('h3'); title.textContent = headers.subject || message.subject || '(no subject)';
+      const meta = document.createElement('p'); meta.textContent = `From ${headers.from || message.from || ''} · ${headers.date || message.date || ''}`;
+      const body = document.createElement('pre'); body.textContent = decodePartnerMailBody(findPartnerMailBody(result.payload)) || result.snippet || '(No displayable text body)';
+      body.style.cssText = 'white-space:pre-wrap;font:inherit;line-height:1.5';
+      const actions = document.createElement('div'); actions.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+      const replyButton = document.createElement('button'); replyButton.className = 'btn btn-secondary btn-sm'; replyButton.textContent = 'Reply'; replyButton.onclick = () => replyPartnerEmail(result); actions.append(replyButton);
+      const actionButton = (label, action) => { const b = document.createElement('button'); b.className = 'btn btn-secondary btn-sm'; b.textContent = label; b.onclick = () => mutatePartnerEmail(result.id, action); actions.append(b); };
+      actionButton((result.labelIds || []).includes('STARRED') ? 'Unstar' : 'Star', (result.labelIds || []).includes('STARRED') ? 'unstar' : 'star'); actionButton('Mark unread', 'markUnread'); actionButton('Archive', 'archive');
+      shell.append(title, meta, actions, body); panel.replaceChildren(shell);
+      if ((result.labelIds || []).includes('UNREAD')) mutatePartnerEmail(result.id, 'markRead', false);
+      result._headerValues = headers;
+      panel.dataset.messageId = result.id;
+      panel._replyData = result;
+    } catch (error) { panel.textContent = error.message; }
+  }
+
+  async function mutatePartnerEmail(messageId, action, refresh = true) {
+    try { await request('/api/partner-portal/email/message', { method: 'POST', body: JSON.stringify({ messageId, action }) }); if (refresh) loadPartnerEmailFolder(partnerEmailFolder); }
+    catch (error) { setPartnerEmailStatus(error.message, true); }
+  }
+
+  function newPartnerEmail() {
+    partnerEmailReplyContext = null;
+    document.getElementById('partner-compose-title').textContent = 'New message';
+    ['partner-compose-to', 'partner-compose-subject', 'partner-compose-body'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('partner-email-compose')?.showModal();
+  }
+  function closePartnerEmailComposer() { document.getElementById('partner-email-compose')?.close(); partnerEmailReplyContext = null; }
+  function replyPartnerEmail(message) {
+    const headers = message?._headerValues || {};
+    const from = headers.from || '';
+    document.getElementById('partner-compose-title').textContent = 'Reply';
+    document.getElementById('partner-compose-to').value = from.match(/<([^>]+)>/)?.[1] || from;
+    document.getElementById('partner-compose-subject').value = /^re:/i.test(headers.subject || '') ? headers.subject : `Re: ${headers.subject || ''}`;
+    document.getElementById('partner-compose-body').value = `\n\nOn ${headers.date || ''}, ${from} wrote:\n`;
+    partnerEmailReplyContext = { threadId: message.threadId, inReplyTo: headers['message-id'] || '', references: [headers.references, headers['message-id']].filter(Boolean).join(' ') };
+    document.getElementById('partner-email-compose')?.showModal();
+  }
+  async function sendPartnerEmail() {
+    const payload = { to: document.getElementById('partner-compose-to').value.trim(), subject: document.getElementById('partner-compose-subject').value.trim(), body: document.getElementById('partner-compose-body').value, approved: true, ...(partnerEmailReplyContext || {}) };
+    try { await request('/api/partner-portal/email/send', { method: 'POST', body: JSON.stringify(payload) }); closePartnerEmailComposer(); setPartnerEmailStatus('Sent from your Google account; Admin was CC’d.'); loadPartnerEmailFolder('SENT'); }
+    catch (error) { setPartnerEmailStatus(error.message, true); }
+  }
+  async function draftPartnerEmail(withAI = false) {
+    try {
+      if (withAI) {
+        const to = document.getElementById('partner-compose-to').value.trim();
+        const contact = currentContacts.find(c => String(c.email || '').toLowerCase() === to.toLowerCase()) || {};
+        const result = await request('/api/partner-portal/ai/draft', { method: 'POST', body: JSON.stringify({ contact, instructions: 'Write a concise, professional introduction email.' }) });
+        document.getElementById('partner-compose-subject').value = result.subject;
+        document.getElementById('partner-compose-body').value = result.body;
+      }
+      const payload = { to: document.getElementById('partner-compose-to').value.trim(), subject: document.getElementById('partner-compose-subject').value.trim(), body: document.getElementById('partner-compose-body').value };
+      await request('/api/partner-portal/email/draft', { method: 'POST', body: JSON.stringify(payload) });
+      closePartnerEmailComposer(); setPartnerEmailStatus(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
+    } catch (error) { setPartnerEmailStatus(error.message, true); }
+  }
+
+  Object.assign(window, { showPartnerWorkspaceSection, loadPartnerEmailFolder, searchPartnerEmail, openPartnerEmailMessage, newPartnerEmail, closePartnerEmailComposer, sendPartnerEmail, draftPartnerEmail, loadPartnerSettings, savePartnerAiKeys, connectPartnerGoogle, savePartnerReferralEdit, closePartnerReferralEditor });
 
   function clearClerkLoading() {
     clerkMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
@@ -259,9 +424,40 @@
         bookLink.style.cssText = 'display:block;margin-top:4px;font-size:11.5px;color:var(--ok);font-weight:600;';
         statusTd.appendChild(bookLink);
       }
+      const actionRow = document.createElement('div');
+      actionRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
+      const editButton = document.createElement('button'); editButton.type = 'button'; editButton.className = 'btn btn-secondary btn-sm'; editButton.textContent = 'Edit'; editButton.onclick = () => openPartnerReferralEditor(contact);
+      const deleteButton = document.createElement('button'); deleteButton.type = 'button'; deleteButton.className = 'btn btn-secondary btn-sm'; deleteButton.textContent = 'Delete'; deleteButton.style.color = '#b42318'; deleteButton.onclick = () => deletePartnerReferral(contact);
+      actionRow.append(editButton, deleteButton); statusTd.appendChild(actionRow);
       row.appendChild(statusTd);
       body.appendChild(row);
     });
+  }
+
+  function openPartnerReferralEditor(contact) {
+    const fields = { id: contact.id, name: contact.fullName, email: contact.email, company: contact.company, title: contact.jobTitle, phone: contact.phone, linkedin: contact.linkedinUrl, strength: contact.strength || 'strong', privacy: contact.privacyLevel || 'ask_partner' };
+    for (const [key, value] of Object.entries(fields)) {
+      const el = document.getElementById(`partner-referral-edit-${key}`);
+      if (el) el.value = value || '';
+    }
+    document.getElementById('partner-referral-edit-feedback').textContent = '';
+    document.getElementById('partner-referral-edit-dialog')?.showModal();
+  }
+  function closePartnerReferralEditor() { document.getElementById('partner-referral-edit-dialog')?.close(); }
+  async function savePartnerReferralEdit() {
+    const payload = { fullName: document.getElementById('partner-referral-edit-name').value.trim(), email: document.getElementById('partner-referral-edit-email').value.trim(), company: document.getElementById('partner-referral-edit-company').value.trim(), jobTitle: document.getElementById('partner-referral-edit-title').value.trim(), phone: document.getElementById('partner-referral-edit-phone').value.trim(), linkedinUrl: document.getElementById('partner-referral-edit-linkedin').value.trim(), strength: document.getElementById('partner-referral-edit-strength').value, privacyLevel: document.getElementById('partner-referral-edit-privacy').value };
+    const feedback = document.getElementById('partner-referral-edit-feedback');
+    try {
+      await request('/api/partner-share/referrals', { method: 'POST', body: JSON.stringify({ action: 'update', contactId: document.getElementById('partner-referral-edit-id').value, contact: payload }) });
+      closePartnerReferralEditor(); render(await request('/api/partner-share'));
+    } catch (error) { feedback.textContent = error.message; }
+  }
+  async function deletePartnerReferral(contact) {
+    if (!confirm(`Delete ${contact.fullName} from your referred contacts?`)) return;
+    try {
+      await request('/api/partner-share/referrals', { method: 'POST', body: JSON.stringify({ action: 'delete', contactId: contact.id }) });
+      render(await request('/api/partner-share'));
+    } catch (error) { alert(error.message); }
   }
 
   function renderAgreementState() {
@@ -460,6 +656,12 @@
     renderAgreementState();
     renderPartnerRequests(data.requests || data.marketplaceRequests || []);
     renderContactsTable();
+    loadPartnerSettings();
+    if (new URLSearchParams(window.location.search).get('google') === 'connected' || window.location.hash === '#email') {
+      showPartnerWorkspaceSection('partner-email-section');
+      const cleanUrl = new URL(window.location.href); cleanUrl.searchParams.delete('google'); cleanUrl.hash = '';
+      window.history.replaceState(null, '', cleanUrl.toString());
+    }
   }
 
   document.getElementById('partner-schedule-form')?.addEventListener('submit', async event => {
@@ -489,7 +691,7 @@
         })
       });
       feedback.className = 'success';
-      feedback.textContent = `Invitation sent to ${contact.email}; your administrator was copied. The call is on the Admin Schedule for ${result.meeting.timeString}.`;
+      feedback.textContent = `Invitation sent to ${contact.email}; your administrator was copied. The call is on the Admin Schedule and the connected Google Calendar for ${result.meeting.timeString}.`;
       scheduleForm.reset();
       scheduleForm.elements.subject.value = 'ConnectEM partner introduction';
     } catch (error) {

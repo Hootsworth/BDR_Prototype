@@ -35,11 +35,28 @@ class ServerSafetyTests(unittest.TestCase):
         server.record_sent_email(payload, "gmail-message-1")
         self.assertIn("already", server.check_send_guardrails(payload))
 
+    @unittest.skipUnless(server.HAS_CRYPTOGRAPHY, "cryptography is required for token encryption")
     def test_token_round_trip(self):
         token = "access-token-value"
-        encrypted = server.encrypt_token(token)
-        self.assertNotEqual(encrypted, token)
-        self.assertEqual(server.decrypt_token(encrypted), token)
+        key = server.Fernet.generate_key().decode("ascii")
+        with patch.dict(os.environ, {"TOKEN_ENCRYPTION_KEY": key}):
+            encrypted = server.encrypt_token(token)
+            self.assertNotEqual(encrypted, token)
+            self.assertEqual(server.decrypt_token(encrypted), token)
+
+    def test_credential_storage_fails_closed_without_encryption_key(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "TOKEN_ENCRYPTION_KEY"):
+                server.encrypt_token("secret")
+
+    def test_google_oauth_state_is_signed_and_portable_between_requests(self):
+        key = "test-token-encryption-key-for-oauth"
+        with patch.dict(os.environ, {"TOKEN_ENCRYPTION_KEY": key}):
+            state = server.create_google_oauth_state(42)
+            self.assertEqual(server.verify_google_oauth_state(state)["partner_id"], "42")
+            self.assertIsNone(server.verify_google_oauth_state(state + "tampered"))
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(server.verify_google_oauth_state(state))
 
     def test_gmail_website_send_always_includes_admin_cc(self):
         captured = {}

@@ -1336,3 +1336,36 @@ Autonomous GTM Copilot</div>
     </div>
   </div>
 </dialog>
+
+<dialog id="partner-contact-edit-dialog" class="partner-edit-dialog" style="max-width:560px;width:calc(100% - 2rem);border:1px solid var(--color-border);border-radius:12px;background:var(--surface-card);color:var(--color-text-primary);padding:1.25rem;">
+  <form method="dialog" id="partner-contact-edit-form" onsubmit="event.preventDefault(); savePartnerContactEdit();">
+    <header><div><p class="partner-kicker">PARTNER CONTACT</p><h3>Edit referred contact</h3></div><button class="btn btn-secondary btn-sm" type="button" onclick="closePartnerContactEditor()">Close</button></header>
+    <input id="partner-edit-contact-id" type="hidden">
+    <label>Full name<input class="form-input" id="partner-edit-name" required></label>
+    <label>Email<input class="form-input" id="partner-edit-email" type="email" required></label>
+    <label>Company<input class="form-input" id="partner-edit-company"></label>
+    <label>Job title<input class="form-input" id="partner-edit-title"></label>
+    <label>Phone<input class="form-input" id="partner-edit-phone"></label>
+    <label>LinkedIn Profile URL<input class="form-input" id="partner-edit-linkedin" type="url"></label>
+    <label>Location<input class="form-input" id="partner-edit-location"></label>
+    <label>Internal notes<textarea class="form-input" id="partner-edit-notes" rows="3"></textarea></label>
+    <button class="btn btn-primary" type="submit">Save contact</button>
+    <p id="partner-edit-feedback" role="status" aria-live="polite"></p>
+  </form>
+</dialog>
+
+<dialog id="partner-profile-dialog" class="partner-edit-dialog" style="max-width:560px;width:calc(100% - 2rem);border:1px solid var(--color-border);border-radius:12px;background:var(--surface-card);color:var(--color-text-primary);padding:1.25rem;">
+  <form id="partner-profile-form" onsubmit="event.preventDefault(); savePartnerProfile();">
+    <header><div><p class="partner-kicker">PARTNER NETWORK</p><h3 id="partner-profile-dialog-title">Edit partner</h3></div><button class="btn btn-secondary btn-sm" type="button" onclick="closePartnerProfileEditor()">Close</button></header>
+    <input id="partner-profile-id" type="hidden">
+    <label>Full name<input class="form-input" id="partner-profile-name" required></label>
+    <label>Email<input class="form-input" id="partner-profile-email" type="email" required></label>
+    <label>Company<input class="form-input" id="partner-profile-company"></label>
+    <label>Job title<input class="form-input" id="partner-profile-title"></label>
+    <label>Phone<input class="form-input" id="partner-profile-phone"></label>
+    <label>LinkedIn Profile URL<input class="form-input" id="partner-profile-linkedin" type="url"></label>
+    <label>Location<input class="form-input" id="partner-profile-location"></label>
+    <div class="partner-profile-actions"><button class="btn btn-primary" type="submit">Save partner</button><button class="btn btn-secondary" id="partner-profile-delete" type="button" onclick="deletePartnerProfile()">Remove partner</button></div>
+    <p id="partner-profile-feedback" role="status" aria-live="polite"></p>
+  </form>
+</dialog>
