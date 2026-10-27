@@ -302,13 +302,21 @@
               <span class="mono-brand-name">Connect<span style="font-weight:400">EM</span> <span style="font-weight:300;opacity:0.6;">Reach</span></span>
             </div>
             <div class="mono-search">
-              <span class="mono-search-icon">⌕</span>
+              <span class="mono-search-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
               <input id="partner-email-search" type="search" placeholder="Search added influencers (by name, company, title)..." aria-label="Search influencers" oninput="filterMonoInfluencers(this.value)">
             </div>
             <div class="mono-top-actions">
-              <button class="mono-icon-btn" id="monoThemeBtn" type="button" onclick="toggleMonoTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">☾</button>
-              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh influencer list" aria-label="Refresh">↻</button>
-              <button class="mono-icon-btn" type="button" onclick="navigateToPartnerPage('settings')" title="Partner Settings" aria-label="Settings">⚙</button>
+              <button class="mono-icon-btn" id="monoThemeBtn" type="button" onclick="toggleMonoTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </button>
+              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh influencer list" aria-label="Refresh">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
+              <button class="mono-icon-btn" type="button" onclick="navigateToPartnerPage('settings')" title="Partner Settings" aria-label="Settings">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
               <div class="mono-avatar" id="partner-avatar-display" title="Partner account">P</div>
             </div>
           </header>
@@ -316,25 +324,26 @@
           <!-- SIDEBAR -->
           <aside class="mono-sidebar">
             <button class="mono-compose-btn" id="partner-compose-btn" type="button" onclick="navigateToPartnerPage('contacts')">
-              <span>＋</span> Add Influencer
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Add Influencer</span>
             </button>
             <div class="mono-nav-label">Influencer Directory</div>
             <button class="mono-nav-item active" type="button" data-folder="ALL" onclick="switchMonoFolder('ALL', this)">
-              <span class="mono-nav-icon">👥</span>
+              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
               <span class="mono-nav-text">All Added</span>
               <span class="mono-count" id="partner-inbox-count"></span>
             </button>
             <button class="mono-nav-item" type="button" data-folder="STRONG" onclick="switchMonoFolder('STRONG', this)">
-              <span class="mono-nav-icon">⭐</span>
+              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
               <span class="mono-nav-text">Strong Ties</span>
               <span class="mono-count" id="partner-draft-count"></span>
             </button>
             <button class="mono-nav-item" type="button" data-folder="MEDIUM" onclick="switchMonoFolder('MEDIUM', this)">
-              <span class="mono-nav-icon">🤝</span>
+              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg></span>
               <span class="mono-nav-text">Medium Ties</span>
             </button>
             <button class="mono-nav-item" type="button" data-folder="SCHEDULED" onclick="switchMonoFolder('SCHEDULED', this)">
-              <span class="mono-nav-icon">📅</span>
+              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
               <span class="mono-nav-text">Scheduled</span>
             </button>
 
@@ -360,14 +369,22 @@
                 <p id="mono-page-subtitle">Direct executive outreach. Click any person below to connect via LinkedIn, verified email (CC'ing admin), or phone.</p>
               </div>
               <div class="mono-heading-actions">
-                <button class="mono-pill" id="monoDensityBtn" type="button" onclick="toggleMonoDensity()">☷ &nbsp; Comfortable</button>
-                <button class="mono-pill" type="button" onclick="navigateToPartnerPage('settings')">⚙ &nbsp; Settings</button>
+                <button class="mono-pill" id="monoDensityBtn" type="button" onclick="toggleMonoDensity()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  <span>Comfortable</span>
+                </button>
+                <button class="mono-pill" type="button" onclick="navigateToPartnerPage('settings')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <span>Settings</span>
+                </button>
               </div>
             </div>
 
             <div class="mono-toolbar">
               <input type="checkbox" class="mono-check" id="monoSelectAll" style="display:none;" aria-label="Select all">
-              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh">↻</button>
+              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
               <div class="mono-divider"></div>
               <span id="partner-email-status" class="mono-status-label" role="status" aria-live="polite"></span>
               <div class="mono-spacer"></div>
@@ -381,8 +398,12 @@
             <div class="mono-footer">
               <span>ConnectEM Executive Influencer Relations · Certified Governance</span>
               <div class="mono-pagination">
-                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">‹</button>
-                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">›</button>
+                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
               </div>
             </div>
           </main>
@@ -393,7 +414,9 @@
           <div class="mono-modal">
             <div class="mono-modal-head">
               <span id="partner-reader-modal-title">Connect with Influencer</span>
-              <button class="mono-icon-btn" type="button" onclick="closePartnerEmailReader()">×</button>
+              <button class="mono-icon-btn" type="button" onclick="closePartnerEmailReader()" aria-label="Close">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
             <div class="mono-reader" id="partner-reader-content">
               <article id="partner-email-message" class="partner-email-message">
@@ -404,7 +427,7 @@
             <div class="mono-modal-foot" id="partner-reader-foot">
               <button class="mono-pill" type="button" id="monoReaderReplyBtn" onclick="closePartnerEmailReader()">Close</button>
               <button class="mono-pill" type="button" id="monoReaderArchiveBtn" style="display:none;" onclick="archiveFromReader()">Archive</button>
-              <button class="mono-pill" type="button" id="monoReaderStarBtn" style="display:none;" onclick="starFromReader()">☆ Star</button>
+              <button class="mono-pill" type="button" id="monoReaderStarBtn" style="display:none;" onclick="starFromReader()">Star</button>
               <button class="mono-pill" type="button" id="monoReaderUnreadBtn" style="display:none;" onclick="unreadFromReader()">Mark unread</button>
             </div>
           </div>
@@ -415,7 +438,9 @@
           <div class="mono-modal">
             <div class="mono-modal-head">
               <span id="partner-compose-title">New message</span>
-              <button class="mono-icon-btn" type="button" onclick="closePartnerEmailComposer()">×</button>
+              <button class="mono-icon-btn" type="button" onclick="closePartnerEmailComposer()" aria-label="Close">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
             <form onsubmit="event.preventDefault(); sendPartnerEmail();">
               <div class="mono-modal-body">
@@ -429,9 +454,15 @@
               <div class="mono-modal-foot">
                 <div style="display:flex;gap:8px;align-items:center;">
                   <button class="mono-pill" type="button" onclick="draftPartnerEmail()">Save draft</button>
-                  <button class="mono-pill" type="button" onclick="draftPartnerEmail(true)">✨ Draft with AI</button>
+                  <button class="mono-pill" type="button" onclick="draftPartnerEmail(true)" style="display:inline-flex;align-items:center;gap:6px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                    <span>Draft with AI</span>
+                  </button>
                 </div>
-                <button class="mono-send-btn" type="submit">Send ↗</button>
+                <button class="mono-send-btn" type="submit" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                  <span>Send</span>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
               </div>
             </form>
           </div>

@@ -114,11 +114,11 @@
       isTwilioConfigured = Boolean(settings.twilioConfigured);
       const inboxGoogleStatus = document.getElementById('partner-inbox-google-status');
       if (inboxGoogleStatus) {
-        inboxGoogleStatus.textContent = google.connected ? `✓ Google connected: ${google.email || 'active'}` : 'Google account not connected.';
+        inboxGoogleStatus.textContent = google.connected ? `Google connected: ${google.email || 'active'}` : 'Google account not connected.';
       }
       const inboxTwilioStatus = document.getElementById('partner-inbox-twilio-status');
       if (inboxTwilioStatus) {
-        inboxTwilioStatus.textContent = isTwilioConfigured ? '✓ Twilio calling: Line active' : 'Twilio: Not configured by admin';
+        inboxTwilioStatus.textContent = isTwilioConfigured ? 'Twilio calling: Line active' : 'Twilio: Not configured by admin';
         inboxTwilioStatus.style.color = isTwilioConfigured ? '#14745d' : 'var(--muted)';
       }
     } catch (error) {
@@ -214,20 +214,33 @@
     }
   }
 
+  const ICONS = {
+    moon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+    sun: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+    grid: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+    star: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    mail: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    phone: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    linkedin: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>',
+    zap: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+    copy: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    external: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+  };
+
   function toggleMonoTheme() {
     const isDark = document.documentElement.dataset.theme === 'dark';
     document.documentElement.dataset.theme = isDark ? 'light' : 'dark';
     const btn = document.getElementById('monoThemeBtn');
-    if (btn) btn.textContent = isDark ? '☾' : '☼';
+    if (btn) btn.innerHTML = isDark ? ICONS.moon : ICONS.sun;
     monoToast(`${isDark ? 'Light' : 'Dark'} mode enabled.`);
   }
 
   function toggleMonoDensity() {
     isDenseLayout = !isDenseLayout;
     const btn = document.getElementById('monoDensityBtn');
-    if (btn) btn.innerHTML = isDenseLayout ? '☷ &nbsp; Compact' : '☷ &nbsp; Comfortable';
-    document.querySelectorAll('#partner-email-list .mono-email-row').forEach(row => {
-      row.style.minHeight = isDenseLayout ? '50px' : '64px';
+    if (btn) btn.innerHTML = `${ICONS.grid} <span>${isDenseLayout ? 'Compact' : 'Comfortable'}</span>`;
+    document.querySelectorAll('#partner-email-list .mono-inf-card').forEach(card => {
+      card.style.padding = isDenseLayout ? '12px 14px' : '18px 20px';
     });
   }
 
@@ -355,14 +368,15 @@
             </div>
           </div>
           <div class="mono-inf-chips">
-            <span class="mono-chip ${strClass}">⭐ ${escapeHTML(strVal.toUpperCase())}</span>
-            ${contact.email ? `<span class="mono-chip">✉ ${escapeHTML(contact.email)}</span>` : ''}
-            ${contact.phone ? `<span class="mono-chip">📞 ${escapeHTML(contact.phone)}</span>` : ''}
-            ${contact.linkedinUrl ? `<span class="mono-chip">👔 LinkedIn</span>` : ''}
+            <span class="mono-chip ${strClass}">${ICONS.star} <span>${escapeHTML(strVal.toUpperCase())}</span></span>
+            ${contact.email ? `<span class="mono-chip">${ICONS.mail} <span>${escapeHTML(contact.email)}</span></span>` : ''}
+            ${contact.phone ? `<span class="mono-chip">${ICONS.phone} <span>${escapeHTML(contact.phone)}</span></span>` : ''}
+            ${contact.linkedinUrl ? `<span class="mono-chip">${ICONS.linkedin} <span>LinkedIn</span></span>` : ''}
           </div>
         </div>
         <button class="mono-connect-btn" type="button" onclick="event.stopPropagation(); openInfluencerConnect('${escapeHTML(String(contact.id))}');">
-          ⚡ Connect Options
+          ${ICONS.zap}
+          <span>Connect</span>
         </button>
       `;
       card.onclick = () => openInfluencerConnect(contact.id);
@@ -395,37 +409,38 @@
     const twilioSection = isTwilioConfigured ? `
       <div class="mono-connect-channel" id="partner-channel-twilio">
         <div class="mono-channel-title">
-          <span style="font-size:16px;">📞</span>
+          <span style="color:#14745d; display:flex; align-items:center;">${ICONS.phone}</span>
           <span>Phone Outreach (via Twilio)</span>
-          <span style="font-size:10px; background:#dcfce7; color:#14745d; padding:2px 6px; border-radius:4px; font-weight:700;">TWILIO READY</span>
+          <span style="font-size:10px; background:#dcfce7; color:#14745d; padding:2px 7px; border-radius:4px; font-weight:700; margin-left:auto;">TWILIO READY</span>
         </div>
         <div class="mono-channel-desc">
           Place an authenticated phone call to <strong>${escapeHTML(contact.phone || 'No phone number on file')}</strong> using your administrator-configured Twilio account.
         </div>
         <div class="mono-channel-actions">
           <button class="mono-channel-btn phone-btn" type="button" onclick="callViaTwilio('${escapeHTML(String(contact.id))}');">
-            📞 Call via Twilio
+            ${ICONS.phone}
+            <span>Call via Twilio</span>
           </button>
-          ${contact.phone ? `<a href="tel:${escapeHTML(contact.phone)}" class="mono-channel-btn subtle">Dial Directly</a>` : ''}
+          ${contact.phone ? `<a href="tel:${escapeHTML(contact.phone)}" class="mono-channel-btn subtle"><span>Dial Directly</span> ${ICONS.external}</a>` : ''}
         </div>
-        <div id="partner-twilio-call-status" style="font-size:12px; margin-top:8px; color:var(--mono-muted);"></div>
+        <div id="partner-twilio-call-status" style="font-size:12px; margin-top:10px; color:var(--muted, #71717a);"></div>
       </div>
     ` : '';
 
     if (panel) {
       panel.innerHTML = `
-        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--mono-border);">
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line, #e4e4e7);">
           <div class="mono-inf-avatar" style="width:48px; height:48px; font-size:16px;">${escapeHTML(initials)}</div>
-          <div>
-            <h2 style="margin:0; font-size:18px; color:var(--mono-text);">${escapeHTML(contact.fullName)}</h2>
-            <div style="font-size:13px; color:var(--mono-muted);">${escapeHTML(contact.jobTitle || 'Executive')} · ${escapeHTML(contact.company || '')}</div>
+          <div style="display:flex; flex-direction:column; justify-content:center;">
+            <h2 style="margin:0; font-size:18px; font-weight:700; color:var(--text, #171717); line-height:1.2;">${escapeHTML(contact.fullName)}</h2>
+            <div style="font-size:13px; color:var(--muted, #71717a); margin-top:4px; line-height:1.2;">${escapeHTML(contact.jobTitle || 'Executive')} · ${escapeHTML(contact.company || '')}</div>
           </div>
         </div>
 
         <!-- CHANNEL 1: LINKEDIN -->
         <div class="mono-connect-channel">
           <div class="mono-channel-title">
-            <span style="font-size:16px; color:#0077b5;">👔</span>
+            <span style="color:#0077b5; display:flex; align-items:center;">${ICONS.linkedin}</span>
             <span>LinkedIn Connection &amp; InMail</span>
           </div>
           <div class="mono-channel-desc">
@@ -433,10 +448,12 @@
           </div>
           <div class="mono-channel-actions">
             <a href="${escapeHTML(liUrl)}" target="_blank" rel="noopener noreferrer" class="mono-channel-btn linkedin-btn">
-              Open LinkedIn Profile ↗
+              <span>Open LinkedIn Profile</span>
+              ${ICONS.external}
             </a>
             <button class="mono-channel-btn subtle" type="button" onclick="copyLinkedInNote('${escapeHTML(String(contact.id))}');">
-              📋 Copy Intro Note
+              ${ICONS.copy}
+              <span>Copy Intro Note</span>
             </button>
           </div>
         </div>
@@ -444,7 +461,7 @@
         <!-- CHANNEL 2: VERIFIED EMAIL (CC ADMIN) -->
         <div class="mono-connect-channel">
           <div class="mono-channel-title">
-            <span style="font-size:16px;">✉️</span>
+            <span style="display:flex; align-items:center;">${ICONS.mail}</span>
             <span>Verified Email Outreach</span>
           </div>
           <div class="mono-channel-desc">
@@ -452,9 +469,10 @@
           </div>
           <div class="mono-channel-actions">
             <button class="mono-channel-btn mail-btn" type="button" onclick="openComposerForContact('${escapeHTML(String(contact.id))}');">
-              ✉ Open Outreach Composer
+              ${ICONS.mail}
+              <span>Open Outreach Composer</span>
             </button>
-            ${contact.email ? `<a href="${mailtoHref}" class="mono-channel-btn subtle">Open in Mail App (with CC)</a>` : ''}
+            ${contact.email ? `<a href="${mailtoHref}" class="mono-channel-btn subtle"><span>Open in Mail App</span> ${ICONS.external}</a>` : ''}
           </div>
         </div>
 
@@ -515,7 +533,7 @@
         body: JSON.stringify({ to: contact.phone, contactId: contact.id })
       });
       if (statusEl) {
-        statusEl.textContent = `✓ ${res.message || 'Call placed via Twilio.'}`;
+        statusEl.textContent = res.message || 'Call placed via Twilio line.';
         statusEl.style.color = '#14745d';
       }
       monoToast('Twilio call initiated!');
@@ -1015,7 +1033,7 @@
               <button type="button" class="btn btn-secondary decline-btn" data-id="${req.id}" style="min-height:34px; padding:0 12px; font-size:12px;">Decline</button>
               <button type="button" class="btn btn-secondary question-btn" data-id="${req.id}" style="min-height:34px; padding:0 12px; font-size:12px;">Ask Question</button>
             ` : isAccepted ? `
-              <span class="portal-badge ok" style="padding:6px 12px; font-size:12px;">✓ Introduction Made &amp; Scheduled</span>
+              <span class="portal-badge ok" style="padding:6px 12px; font-size:12px;">Introduction Made &amp; Scheduled</span>
             ` : `
               <button type="button" class="btn btn-secondary copy-optin-link-btn" data-url="${optInUrl}" style="min-height:34px; padding:0 14px; font-size:12px;">Share Opt-In Link With Contact</button>
             `}
@@ -1927,7 +1945,7 @@
         method: 'POST',
         body: JSON.stringify({ expertise, geography, openTo })
       });
-      feedback.textContent = '✓ Preferences updated successfully.';
+      feedback.textContent = 'Preferences updated successfully.';
       setTimeout(() => { feedback.textContent = ''; }, 3000);
     } catch (err) {
       feedback.textContent = err.message;
