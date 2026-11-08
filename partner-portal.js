@@ -1954,5 +1954,28 @@
     }
   });
 
+  window.navigateToPartnerPage = navigateToPartnerPage;
+  window.toggleMonoTheme = toggleMonoTheme;
+  window.toggleMonoDensity = toggleMonoDensity;
+  window.switchMonoFolder = switchMonoFolder;
+  window.loadPartnerEmailFolder = loadPartnerEmailFolder;
+  window.closePartnerEmailComposer = closePartnerEmailComposer;
+  window.closePartnerEmailReader = closePartnerEmailReader;
+  window.sendPartnerEmail = sendPartnerEmail;
+  window.draftPartnerEmail = draftPartnerEmail;
+  window.archiveFromReader = archiveFromReader;
+  window.starFromReader = starFromReader;
+  window.unreadFromReader = unreadFromReader;
+  window.connectPartnerGoogle = connectPartnerGoogle;
+  window.savePartnerAiKeys = savePartnerAiKeys;
+  window.closePartnerReferralEditor = closePartnerReferralEditor;
+  window.savePartnerReferralEdit = savePartnerReferralEdit;
+  window.openInfluencerConnect = openInfluencerConnect;
+  window.callViaTwilio = callViaTwilio;
+  window.copyLinkedInNote = copyLinkedInNote;
+  window.openComposerForContact = openComposerForContact;
+  window.filterMonoInfluencers = filterMonoInfluencers;
+  window.monoToast = monoToast;
+
   load();
 })();

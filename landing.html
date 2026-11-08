@@ -604,6 +604,7 @@
         <ul class="nav-links">
           <li><a href="#how-it-works">How It Works</a></li>
           <li><a href="#solutions">Solutions</a></li>
+          <li><a href="/marketplace">Marketplace</a></li>
           <li><a href="#privacy">Privacy &amp; Trust</a></li>
           <li><a href="https://admin.connectem.ai/">Admin Console</a></li>
         </ul>
@@ -814,6 +815,7 @@
         <ul class="footer-links">
           <li><a href="https://admin.connectem.ai/">Admin Console</a></li>
           <li><a href="https://go.connectem.ai/partner-portal">Partner Workspace (Go)</a></li>
+          <li><a href="/marketplace">Marketplace</a></li>
           <li><a href="/privacy">Privacy Policy</a></li>
           <li><a href="/terms">Terms of Service</a></li>
           <li><a href="mailto:contact@connectem.ai">Contact Support</a></li>
@@ -838,8 +840,8 @@
       });
     }
 
-    // Adapt links if accessed on localhost / development environment
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Adapt links if accessed outside production connectem.ai domain (e.g. localhost, vercel preview)
+    if (window.location.hostname !== 'connectem.ai' && window.location.hostname !== 'www.connectem.ai') {
       document.querySelectorAll('a[href*="admin.connectem.ai"]').forEach(function(a) {
         a.href = '/index.html' + window.location.search + window.location.hash;
       });

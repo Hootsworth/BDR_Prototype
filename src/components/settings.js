@@ -72,11 +72,13 @@ async function saveMailSettings() {
 }
 
 function saveExploriumKey() {
-  const val = document.getElementById("key-explorium").value.trim();
+  const val = (document.getElementById("settings-key-explorium") || document.getElementById("key-explorium"))?.value.trim() || "";
   database.exploriumApiKey = val;
 
   const settingsInput = document.getElementById("settings-key-explorium");
   if (settingsInput) settingsInput.value = val;
+  const originalInput = document.getElementById("key-explorium");
+  if (originalInput) originalInput.value = val;
 
   checkEnrichButtonState();
   addLogConsole("enrich", `[SYSTEM] Explorium / AgentSource credential updated.`, "system");
@@ -104,39 +106,46 @@ async function exportWorkbookFromSettings() {
 }
 
 function saveLLMHelperKey() {
-  const val = document.getElementById("key-llm-helper").value.trim();
+  const val = (document.getElementById("settings-key-openai") || document.getElementById("key-llm-helper"))?.value.trim() || "";
   database.llmHelperKey = val;
 
   const settingsInput = document.getElementById("settings-key-openai");
   if (settingsInput) settingsInput.value = val;
+  const originalInput = document.getElementById("key-llm-helper");
+  if (originalInput) originalInput.value = val;
 
   addLogConsole("enrich", `[SYSTEM] LLM helper credential updated.`, "system");
   persistProviderKey('openai', val);
 }
 
 function saveGeminiKey() {
-  const val = document.getElementById("key-gemini").value.trim();
+  const input = document.getElementById("key-gemini") || document.getElementById("settings-key-gemini");
+  const val = input ? input.value.trim() : "";
   database.geminiApiKey = val;
   addLogConsole("enrich", `[SYSTEM] Gemini API credential updated.`, "system");
   persistProviderKey('gemini', val);
 }
 
 function saveGeminiModel() {
-  const val = document.getElementById("select-gemini-model").value;
+  const el = document.getElementById("select-gemini-model");
+  if (!el) return;
+  const val = el.value;
   database.geminiModel = val;
   localStorage.setItem("gtm_model_gemini", val);
   addLogConsole("enrich", `[SYSTEM] Gemini model changed to ${val}.`, "system");
 }
 
 function saveGeminiSearchGrounding() {
-  const checked = document.getElementById("toggle-gemini-search").checked;
+  const el = document.getElementById("toggle-gemini-search");
+  if (!el) return;
+  const checked = el.checked;
   database.geminiSearchGrounding = checked;
   localStorage.setItem("gtm_gemini_search_grounding", checked ? "true" : "false");
   addLogConsole("enrich", `[SYSTEM] Gemini Search Grounding ${checked ? 'enabled' : 'disabled'}.`, "system");
 }
 
 function syncExploriumKeyFromSettings() {
-  const val = document.getElementById("settings-key-explorium").value.trim();
+  const val = document.getElementById("settings-key-explorium")?.value.trim() || "";
   database.exploriumApiKey = val;
 
   const originalInput = document.getElementById("key-explorium");
@@ -147,7 +156,7 @@ function syncExploriumKeyFromSettings() {
 }
 
 function syncOpenAIKeyFromSettings() {
-  const val = document.getElementById("settings-key-openai").value.trim();
+  const val = document.getElementById("settings-key-openai")?.value.trim() || "";
   database.llmHelperKey = val;
 
   const originalInput = document.getElementById("key-llm-helper");
@@ -158,8 +167,8 @@ function syncOpenAIKeyFromSettings() {
 }
 
 function saveLemlistMcpConfig() {
-  const cmd = document.getElementById("settings-lemlist-mcp-command").value.trim();
-  const args = document.getElementById("settings-lemlist-mcp-args").value.trim();
+  const cmd = (document.getElementById("settings-lemlist-mcp-command") || document.getElementById("settings-lemlist-mcp-args"))?.value.trim() || "mcp-remote https://app.lemlist.com/mcp";
+  const args = document.getElementById("settings-lemlist-mcp-args")?.value.trim() || "";
   database.lemlistMcpCommand = cmd;
   database.lemlistMcpArgs = args;
   localStorage.setItem("gtm_lemlist_mcp_command", cmd);
@@ -937,3 +946,288 @@ window.setLemlistModalStep = setLemlistModalStep;
 window.saveModalLemlistCredentialsAndNext = saveModalLemlistCredentialsAndNext;
 window.updateModalEmailPreview = updateModalEmailPreview;
 window.sendLemlistTestDemoEmail = sendLemlistTestDemoEmail;
+
+// --- PLATFORM INTEGRATION SANDBOX SIMULATOR ---
+
+function openSandbox(appType = 'apollo') {
+  const modal = document.getElementById("sandbox-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+    switchSandboxTab(appType);
+  }
+}
+
+function closeSandbox() {
+  const modal = document.getElementById("sandbox-modal");
+  if (modal) {
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function switchSandboxTab(tabId) {
+  document.querySelectorAll(".subtab-btn").forEach(btn => {
+    btn.classList.remove("active");
+  });
+  const activeBtn = document.getElementById(`sb-menu-${tabId}`);
+  if (activeBtn) activeBtn.classList.add("active");
+
+  const viewport = document.getElementById("sandbox-viewport");
+  if (!viewport) return;
+
+  viewport.innerHTML = "";
+
+  if (tabId === 'apollo') {
+    renderApolloSandbox(viewport);
+  } else if (tabId === 'outlook') {
+    renderOutlookSandbox(viewport);
+  } else if (tabId === 'linkedin') {
+    renderLinkedinSandbox(viewport);
+  } else if (tabId === 'lemlist') {
+    renderLemlistSandbox(viewport);
+  } else if (tabId === 'zerobounce') {
+    renderZerobounceSandbox(viewport);
+  }
+}
+
+function renderApolloSandbox(viewport) {
+  let rows = "";
+  (database.contacts || []).forEach((c, i) => {
+    const badgeClass = c.enriched ? "badge-success" : "badge-secondary";
+    const badgeText = c.enriched ? "Enriched" : "Unenriched";
+    rows += `
+      <tr style="border-bottom:1px solid var(--color-border); text-align:left;">
+        <td style="padding:10px; font-weight:600;">${c.fullName}</td>
+        <td style="padding:10px;">${c.company || "N/A"}</td>
+        <td style="padding:10px; font-family:monospace;">${c.email || "N/A"}</td>
+        <td style="padding:10px;"><span class="badge ${badgeClass}" style="padding:2px 8px; border-radius:10px; font-size:11px;">${badgeText}</span></td>
+        <td style="padding:10px; font-weight:bold; color:var(--color-primary);">${c.matchPercentage || 85}%</td>
+        <td style="padding:10px;">
+          <button class="btn btn-secondary btn-sm" onclick="triggerApolloEnrich(${i})">Enrich</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  viewport.innerHTML = `
+    <div style="text-align:left;">
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">Apollo.io Prospect Board</h3>
+      <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:16px;">View leads parsed from the Apollo.io scraper. Enriched leads include verified cell numbers and seniority scores.</p>
+      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+        <thead>
+          <tr style="background:var(--color-background-muted); text-align:left; border-bottom:1.5px solid var(--color-border);">
+            <th style="padding:10px;">Name</th>
+            <th style="padding:10px;">Company</th>
+            <th style="padding:10px;">Email</th>
+            <th style="padding:10px;">Enrich State</th>
+            <th style="padding:10px;">ICP Match</th>
+            <th style="padding:10px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--color-text-secondary);">No contacts loaded. Go to "Import Contacts" tab first.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+window.triggerApolloEnrich = function (idx) {
+  const c = (database.contacts || [])[idx];
+  if (!c) return;
+  c.enriched = true;
+  c.phone = c.phone || `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const cleanComp = (c.company || "tech").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
+  c.linkedinUrl = c.linkedinUrl || `https://linkedin.com/in/${(c.firstName || "prospect").toLowerCase()}-${(c.lastName || "contact").toLowerCase()}-${cleanComp}`;
+  c.matchPercentage = 95;
+  c.leadTemp = "Hot Lead";
+  saveDatabaseCache();
+  addLogConsole("enrich", `[APOLLO] Enriched lead manually: ${c.fullName}`, "success");
+  switchSandboxTab('apollo');
+  if (typeof filterEnrichTable === "function") filterEnrichTable();
+  if (typeof filterUploadTable === "function") filterUploadTable();
+};
+
+function renderOutlookSandbox(viewport) {
+  const sentLeads = (database.contacts || []).filter(c => c.emailsSent);
+  let listHtml = "";
+  sentLeads.forEach(c => {
+    listHtml += `
+      <div style="border:1.5px solid var(--color-border); border-radius: var(--radius-sm); background:var(--color-background-muted); padding:14px; margin-bottom:12px; text-align:left;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px;">
+          <div>To: <strong>${c.fullName}</strong> (${c.email})</div>
+          <div style="color:var(--color-success, #16a34a); font-weight:600;">Status: Outbound Delivered</div>
+        </div>
+        <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">Subject: ${c.emailDraft ? (c.emailDraft.subject || c.emailDraft) : 'Safe compliance for ' + c.company}</div>
+        <div style="font-size:12px; color:var(--color-text-secondary); white-space:pre-wrap; background:var(--color-background-surface); padding:10px; border-radius:4px; border:1px solid var(--color-border); max-height:120px; overflow-y:auto;">${c.emailDraft ? (c.emailDraft.body || c.emailDraft) : 'N/A'}</div>
+      </div>
+    `;
+  });
+
+  viewport.innerHTML = `
+    <div style="text-align:left;">
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">Outlook Campaign Outbox</h3>
+      <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:16px;">Tracks direct SDR email outbound campaigns dispatched through your integrated Outlook account. Total Sent: <strong>${sentLeads.length}</strong></p>
+      ${listHtml || '<div style="padding:40px; text-align:center; color:var(--color-text-secondary); border:1.5px dashed var(--color-border); border-radius:8px;">No emails sent yet. Select a contact in Campaign Outbound tab and dispatch an email.</div>'}
+    </div>
+  `;
+}
+
+function renderLinkedinSandbox(viewport) {
+  let contactsList = "";
+  (database.contacts || []).forEach((c, idx) => {
+    contactsList += `
+      <button class="subtab-btn" style="padding:8px; font-size:11.5px; border-bottom:1px solid var(--color-border); text-align:left; width:100%;" onclick="showLinkedinSandboxProfile(${idx})">
+        ${c.fullName}
+      </button>
+    `;
+  });
+
+  viewport.innerHTML = `
+    <div style="text-align:left; display:flex; gap:16px; height:100%;">
+      <div style="width:180px; border-right:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+        <div style="font-size:11px; font-weight:bold; color:var(--color-text-secondary); margin-bottom:6px; text-transform:uppercase;">Select Lead</div>
+        <div style="overflow-y:auto; flex:1;">
+          ${contactsList || '<div style="font-size:11px; color:var(--color-text-secondary);">No leads.</div>'}
+        </div>
+      </div>
+      <div id="linkedin-sb-profile-view" style="flex:1; display:flex; align-items:center; justify-content:center; border:1px dashed var(--color-border); border-radius:8px; padding:20px; color:var(--color-text-secondary); font-size:12px;">
+        Select a contact from the left list to inspect their live mock LinkedIn profile.
+      </div>
+    </div>
+  `;
+
+  if ((database.contacts || []).length > 0) {
+    showLinkedinSandboxProfile(0);
+  }
+}
+
+window.showLinkedinSandboxProfile = function (idx) {
+  const c = (database.contacts || [])[idx];
+  const el = document.getElementById("linkedin-sb-profile-view");
+  if (!c || !el) return;
+
+  const initials = (c.fullName || "P").split(" ").map(n => n[0]).join("");
+  const inviteMsg = c.linkedinDraft?.body || c.linkedinMessage || `Hi ${c.firstName || "there"}, I saw your role as ${c.jobTitle || "Leader"} at ${c.company || "your team"}. I'd love to share how we secure database operations. Let's connect!`;
+
+  el.innerHTML = `
+    <div style="width:100%; border:1px solid var(--color-border); background:var(--color-background-surface); border-radius:8px; text-align:left; overflow:hidden;">
+      <div style="height:65px; background:linear-gradient(90deg, #0284c7, #38bdf8);"></div>
+      <div style="padding: 0 16px; margin-top:-25px; display:flex; justify-content:space-between; align-items:flex-end;">
+        <div style="width:50px; height:50px; border-radius:50%; background:#0284c7; border:3px solid #ffffff; display:flex; align-items:center; justify-content:center; color:#ffffff; font-weight:bold; font-size:18px;">${initials}</div>
+        <span style="font-size:10.5px; background:rgba(2,132,199,0.15); color:#0284c7; font-weight:bold; padding:2px 8px; border-radius:10px;">${c.leadTemp || "Warm Lead"}</span>
+      </div>
+      <div style="padding:12px 16px 16px;">
+        <h4 style="margin:0; font-size:15px; color:var(--color-text-primary);">${c.fullName}</h4>
+        <div style="font-size:12px; color:var(--color-text-secondary); margin-top:2px;">${c.jobTitle || "Executive"} at <strong>${c.company || "Enterprise"}</strong></div>
+        <div style="font-size:11px; color:var(--color-text-secondary); margin-top:2px;">Industry: ${c.industry || "B2B"} • Match: ${c.matchPercentage || 85}%</div>
+        
+        <div style="border-top:1px solid var(--color-border); margin-top:14px; padding-top:12px;">
+          <div style="font-size:11px; font-weight:bold; color:var(--color-text-primary); margin-bottom:6px;">Personalized Invitation Note</div>
+          <div style="font-size:11.5px; line-height:1.45; background:var(--color-background-muted); color:var(--color-text-primary); padding:8px 10px; border-radius:4px; border:1px solid var(--color-border);">
+            ${inviteMsg}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+function renderLemlistSandbox(viewport) {
+  const enrolled = (database.contacts || []).filter(c => c.emailsSent);
+  let rows = "";
+  enrolled.forEach(c => {
+    const template = c.leadTemp === "Hot Lead" ? "enterprise_cto_llm" : "general_gtm";
+    rows += `
+      <tr style="border-bottom:1px solid var(--color-border); text-align:left;">
+        <td style="padding:8px; font-weight:600;">${c.fullName}</td>
+        <td style="padding:8px;"><code>${c.email}</code></td>
+        <td style="padding:8px; font-family:monospace;">#lemlist_${template}</td>
+        <td style="padding:8px; color:var(--color-primary); font-weight:bold;">100% (Sent)</td>
+        <td style="padding:8px; color:var(--color-text-secondary); font-size:11px;">Draft Review Only</td>
+      </tr>
+    `;
+  });
+
+  viewport.innerHTML = `
+    <div style="text-align:left;">
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">Lemlist Campaigns Dashboard</h3>
+      <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:12px;">View prospective sequences pushed from GTM Console. Total Pushed: <strong>${enrolled.length}</strong>. Direct dispatch is locked under review guardrails.</p>
+      
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:var(--color-background-muted); text-align:left; border-bottom:1.5px solid var(--color-border);">
+            <th style="padding:8px;">Recipient</th>
+            <th style="padding:8px;">Email Address</th>
+            <th style="padding:8px;">Campaign Sequence</th>
+            <th style="padding:8px;">Sync Progress</th>
+            <th style="padding:8px;">Sending Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="5" style="padding:30px; text-align:center; color:var(--color-text-secondary);">No sequences synced yet. Start campaign flows in Campaign Outbound.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderZerobounceSandbox(viewport) {
+  let rows = "";
+  (database.contacts || []).forEach((c, idx) => {
+    let status = "Unverified";
+    let color = "var(--color-text-secondary)";
+    if (c.email) {
+      if (c.email.includes("invalid") || c.email.includes("test")) {
+        status = "Invalid";
+        color = "#ef4444";
+      } else {
+        status = "Valid";
+        color = "var(--color-success, #16a34a)";
+      }
+    }
+    rows += `
+      <tr style="border-bottom:1px solid var(--color-border); text-align:left;">
+        <td style="padding:8px; font-weight:600;">${c.fullName}</td>
+        <td style="padding:8px; font-family:monospace;">${c.email || "N/A"}</td>
+        <td style="padding:8px; font-weight:bold; color:${color};">${status}</td>
+        <td style="padding:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="verifyZeroBounce(${idx})">Verify</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  viewport.innerHTML = `
+    <div style="text-align:left;">
+      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;">ZeroBounce Email Validator</h3>
+      <p style="font-size:12px; color:var(--color-text-secondary); margin-bottom:16px;">Perform real-time checkups on lead email bounce rates. Validation results prevent bounces and protect sender score reputation.</p>
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:var(--color-background-muted); text-align:left; border-bottom:1.5px solid var(--color-border);">
+            <th style="padding:8px;">Prospect</th>
+            <th style="padding:8px;">Email</th>
+            <th style="padding:8px;">Verification Status</th>
+            <th style="padding:8px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--color-text-secondary);">No prospects available.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+window.verifyZeroBounce = function (idx) {
+  const c = (database.contacts || [])[idx];
+  if (!c || !c.email) return;
+  addLogConsole("enrich", `[ZEROBOUNCE] Verified email validity for ${c.email}: VALID.`, "success");
+  alert(`ZeroBounce Verification Success!\nEmail: ${c.email}\nStatus: Valid [Safe to Send]`);
+  switchSandboxTab('zerobounce');
+};
+
+window.openSandbox = openSandbox;
+window.closeSandbox = closeSandbox;
+window.switchSandboxTab = switchSandboxTab;

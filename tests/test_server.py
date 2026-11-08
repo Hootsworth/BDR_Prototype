@@ -354,6 +354,50 @@ class WorkbookPersistenceTests(unittest.TestCase):
             self.assertTrue(server.hosted_api_request_allowed(handler_mock, "GET", "/api/health/"))
             self.assertTrue(server.hosted_api_request_allowed(handler_mock, "POST", "/api/partner-portal/login/"))
 
+    def test_clean_url_redirects_and_query_preservation(self):
+        class Harness(server.ProxyHTTPRequestHandler):
+            def __init__(self, request_path, request_headers=None):
+                self.path = request_path
+                self.command = "GET"
+                self.rfile = io.BytesIO()
+                self.wfile = io.BytesIO()
+                self.headers = request_headers or {"Host": "localhost:8001"}
+                self.client_address = ("127.0.0.1", 12345)
+                self.server = type("ServerStub", (), {"server_name": "localhost", "server_port": 8001})()
+                self.responses = []
+                self.headers_sent = {}
+
+            def send_response(self, status, message=None):
+                self.responses.append(status)
+
+            def send_header(self, key, value):
+                self.headers_sent[key] = value
+
+            def end_headers(self):
+                pass
+
+            def log_message(self, *_args):
+                pass
+
+        test_cases = [
+            ("/landing", "/landing.html"),
+            ("/landing?ref=demo", "/landing.html?ref=demo"),
+            ("/opt-in?token=test1234", "/opt-in.html?token=test1234"),
+            ("/partner-portal", "/partner-portal.html"),
+            ("/marketplace", "/marketplace.html"),
+            ("/marketplace?filter=fintech", "/marketplace.html?filter=fintech"),
+            ("/privacy", "/privacy.html"),
+            ("/terms", "/terms.html"),
+            ("/admin", "/index.html"),
+            ("/go", "/partner-portal.html"),
+        ]
+
+        for req_path, expected_dest in test_cases:
+            h = Harness(req_path)
+            h.do_GET()
+            self.assertEqual(h.responses[-1], 302, f"Expected 302 for {req_path}, got {h.responses}")
+            self.assertEqual(h.headers_sent.get("Location"), expected_dest, f"Wrong redirect for {req_path}")
+
 
 if __name__ == "__main__":
     unittest.main()

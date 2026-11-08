@@ -737,6 +737,66 @@ async function bulkConvertSelectedToInfluencers() {
   }
 }
 
+function viewReferralsDetails(email) {
+  const influencer = database.contacts.find(c => c.email === email);
+  if (!influencer) return;
+
+  const nameEl = document.getElementById("referrals-view-influencer-name");
+  const creditsEl = document.getElementById("referrals-view-total-credits");
+  if (nameEl) nameEl.textContent = influencer.fullName;
+  if (creditsEl) creditsEl.textContent = influencer.referralCredits || 0;
+
+  const tbody = document.getElementById("referrals-view-table-body");
+  if (tbody) {
+    tbody.innerHTML = "";
+    const referrals = (influencer.referrals && influencer.referrals.length > 0)
+      ? influencer.referrals
+      : database.contacts.filter(c => !c.isInfluencer && (
+          String(c.influencerId) === String(influencer.id) ||
+          (c.referredByEmail && c.referredByEmail.toLowerCase() === (influencer.email || "").toLowerCase()) ||
+          (c.referredBy && c.referredBy.toLowerCase() === (influencer.fullName || "").toLowerCase())
+        ));
+
+    if (referrals.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:1.25rem; color:var(--color-text-secondary);">No referrals registered yet.</td></tr>`;
+    } else {
+      referrals.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${r.fullName || 'Prospect'}</strong></td>
+          <td>${r.jobTitle || 'N/A'}</td>
+          <td>${r.company || 'N/A'}</td>
+          <td>${r.email || 'N/A'}</td>
+          <td style="font-weight:600; color:var(--color-success, #16a34a); text-align:right;">+${r.credits || r.referralCredits || 10} credits</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+
+  const dialog = document.getElementById("referrals-view-dialog");
+  if (dialog) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.style.display = "block";
+  }
+}
+
+function closeReferralsViewDialog() {
+  const dialog = document.getElementById("referrals-view-dialog");
+  if (dialog) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.style.display = "none";
+  }
+}
+
+function closeDrawer(drawerId) {
+  const drawer = document.getElementById(`${drawerId}-drawer`);
+  if (drawer) {
+    drawer.style.transform = "translateX(100%)";
+    drawer.style.opacity = "0";
+  }
+}
+
 window.getFilteredData = getFilteredData;
 window.paginateData = paginateData;
 window.filterUploadTable = filterUploadTable;
@@ -762,3 +822,6 @@ window.handleQuickDirectAddContact = handleQuickDirectAddContact;
 window.convertContactToInfluencer = convertContactToInfluencer;
 window.openInfluencerPortalForContact = openInfluencerPortalForContact;
 window.bulkConvertSelectedToInfluencers = bulkConvertSelectedToInfluencers;
+window.viewReferralsDetails = viewReferralsDetails;
+window.closeReferralsViewDialog = closeReferralsViewDialog;
+window.closeDrawer = closeDrawer;

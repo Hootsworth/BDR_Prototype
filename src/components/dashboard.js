@@ -84,6 +84,8 @@ window.currentDashboardRoleFilter = "contacts";
 
 function filterDashboardDirectoryByRole(roleFilter) {
   window.currentDashboardRoleFilter = roleFilter || "all";
+  const roleSelect = document.getElementById("dashboard-role-filter");
+  if (roleSelect) roleSelect.value = window.currentDashboardRoleFilter;
   const allContacts = database.contacts || [];
   let filtered = [];
   let summaryLabel = "";
@@ -211,15 +213,26 @@ function renderDashboardDirectoryRows(results, summaryText, explainText) {
           <div class="directory-actions">
             ${c.isInfluencer
               ? `
-                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerPortal('${safeEmail}')">Portal</button>
-                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerEarningsModal(${c.id})">Earnings</button>
-                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openInfluencerAgreementsModal(${c.id})">Terms</button>
+                <button class="btn btn-primary btn-xs" onclick="openInfluencerPortal('${safeEmail}')">Open portal</button>
+                <details class="directory-actions-more">
+                  <summary aria-label="More actions for ${String(c.fullName || "contact").replace(/"/g, "&quot;")}">More</summary>
+                  <div class="directory-actions-menu">
+                    <button type="button" onclick="openInfluencerEarningsModal(${c.id})">View earnings</button>
+                    <button type="button" onclick="openInfluencerAgreementsModal(${c.id})">View terms</button>
+                    <button type="button" onclick="openOutboundModal(${c.id}, 'email')">Start outreach</button>
+                  </div>
+                </details>
               `
               : `
-                <button class="btn btn-secondary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="convertContactToInfluencer(${c.id}, false)" title="Convert this Contact to an Influencer Partner">+ Partner</button>
+                <button class="btn btn-primary btn-xs" onclick="openOutboundModal(${c.id}, 'email')">Start outreach</button>
+                <details class="directory-actions-more">
+                  <summary aria-label="More actions for ${String(c.fullName || "contact").replace(/"/g, "&quot;")}">More</summary>
+                  <div class="directory-actions-menu">
+                    <button type="button" onclick="convertContactToInfluencer(${c.id}, false)">Add as partner</button>
+                  </div>
+                </details>
               `
             }
-            <button class="btn btn-primary btn-xs" style="border-radius:0; font-family:var(--font-family-mono); font-size:10px; text-transform:uppercase; font-weight:700;" onclick="openOutboundModal(${c.id}, 'email')">Outreach</button>
           </div>
         </td>
       </tr>

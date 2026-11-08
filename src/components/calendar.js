@@ -190,9 +190,9 @@ function saveManualMeeting() {
   const contact = database.selectedContact;
   if (!contact) return;
 
-  const platform = document.getElementById("booking-platform").value;
-  const datetimeVal = document.getElementById("booking-datetime").value;
-  const notes = document.getElementById("booking-notes").value;
+  const platform = document.getElementById("booking-platform")?.value || "Google Meet";
+  const datetimeVal = document.getElementById("booking-datetime")?.value;
+  const notes = document.getElementById("booking-notes")?.value || "";
 
   if (!datetimeVal) {
     alert("Please select a date and time for the meeting.");

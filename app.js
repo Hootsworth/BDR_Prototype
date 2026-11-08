@@ -403,8 +403,8 @@ function updateHeader(tabId) {
 
   switch (tabId) {
     case 'dashboard':
-      titleEl.textContent = "GTM Orchestrator Dashboard";
-      subtitleEl.textContent = "Monitor campaign metrics, agent execution progress, and meeting conversion rates.";
+      titleEl.textContent = "Overview";
+      subtitleEl.textContent = "A clear view of your contacts and outreach.";
       break;
     case 'upload':
       titleEl.textContent = "Upload Contacts";

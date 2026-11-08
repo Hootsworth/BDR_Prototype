@@ -3,10 +3,10 @@
   <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
     <div>
       <h2 style="margin: 0; font-family: var(--font-family-heading); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text-primary);">
-        Contacts &amp; Relationship Directory
+        Your workspace
       </h2>
       <p style="margin: 3px 0 0 0; font-size: 13px; color: var(--color-text-secondary);">
-        Unified index of executive decision-makers, verified advisory partners, and warm paths.
+        Manage your contacts and move introductions forward.
       </p>
     </div>
 
@@ -19,27 +19,28 @@
 
 <!-- ═══ SLEEK COMPACT METRIC STRIP ═══ -->
 <div class="directory-summary-strip" style="display: flex; gap: 1.5rem; align-items: center; padding: 0.75rem 1.25rem; background: var(--surface-card); border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 13px; flex-wrap: wrap;">
-  <div><span style="color: var(--color-text-secondary);">Advisory Partners:</span> <strong id="dashboard-total-contacts" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong></div>
-  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Target Prospects:</span> <strong id="dashboard-prospects-count" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong> <span id="dashboard-affiliated-count" style="font-size: 11px; color: #0d9488; font-weight: 600;">(0 Affiliated)</span></div>
-  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Outbound Sent:</span> <strong id="dashboard-outbound-sent" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong></div>
-  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Briefings Booked:</span> <strong id="dashboard-meetings-booked" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong> <span id="dashboard-meetings-subtext" style="display:none;">demos</span></div>
+  <div><span style="color: var(--color-text-secondary);">Partners:</span> <strong id="dashboard-total-contacts" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong></div>
+  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Contacts:</span> <strong id="dashboard-prospects-count" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong> <span id="dashboard-affiliated-count" style="font-size: 11px; color: #0d9488; font-weight: 600;">(0 Affiliated)</span></div>
+  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Messages sent:</span> <strong id="dashboard-outbound-sent" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong></div>
+  <div style="border-left: 1px solid var(--color-border); padding-left: 1.5rem;"><span style="color: var(--color-text-secondary);">Meetings:</span> <strong id="dashboard-meetings-booked" style="color: var(--color-text-primary); font-family: var(--font-family-mono);">0</strong> <span id="dashboard-meetings-subtext" style="display:none;">demos</span></div>
 </div>
 
 <!-- ═══ RELATIONAL & GRAPH DATABASE DIRECTORY ═══ -->
 <div class="editorial-ledger-card" id="dashboard-nl-search-card">
   <div class="editorial-section-lead" style="margin-bottom: 1rem;">
     <div>
-      <h3 class="editorial-section-title" style="margin: 0; font-size: 1.05rem;">Search &amp; Query System</h3>
+      <h3 class="editorial-section-title" style="margin: 0; font-size: 1.05rem;">Find a contact</h3>
     </div>
 
-    <!-- Category Filter Tabs -->
-    <div class="editorial-filter-tabs">
-      <button type="button" class="editorial-filter-btn active" id="dash-filter-btn-contacts" onclick="filterDashboardDirectoryByRole('contacts')">Contacts</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-all" onclick="filterDashboardDirectoryByRole('all')">All Records</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-influencers" onclick="filterDashboardDirectoryByRole('influencers')">Partners</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-referrals" onclick="filterDashboardDirectoryByRole('referrals')">Warm Referrals</button>
-      <button type="button" class="editorial-filter-btn" id="dash-filter-btn-calls" onclick="filterDashboardDirectoryByRole('calls')">Briefings Booked</button>
-    </div>
+    <label class="directory-filter-control" for="dashboard-role-filter">Show
+      <select id="dashboard-role-filter" onchange="filterDashboardDirectoryByRole(this.value)">
+        <option value="contacts" id="dash-filter-btn-contacts">Contacts</option>
+        <option value="all">All records</option>
+        <option value="influencers">Partners</option>
+        <option value="referrals">Warm referrals</option>
+        <option value="calls">Meetings booked</option>
+      </select>
+    </label>
   </div>
 
   <!-- Search Input Group -->
@@ -48,12 +49,12 @@
       type="text"
       id="dashboard-nl-search-input"
       class="editorial-search-input"
-      placeholder="Search contacts, companies, partners, or ask in plain English..."
+      placeholder="Search contacts or companies"
       value=""
       onkeydown="if(event.key==='Enter') executeDashboardDatabaseSearch()"
     />
     <button type="button" class="editorial-search-btn" onclick="executeDashboardDatabaseSearch()">
-      Search Database
+      Search
     </button>
     <button type="button" class="editorial-reset-btn" onclick="clearDashboardDatabaseSearch()">
       Reset
@@ -64,10 +65,10 @@
   <div id="dashboard-nl-search-results-panel" style="margin-top: 1.25rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.625rem; flex-wrap: wrap; gap: 0.5rem; border-top: 1px solid var(--color-border); padding-top: 0.875rem;">
       <div id="dashboard-nl-search-summary" style="font-family: var(--font-family-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-primary);">
-        LEDGER INDEX: SHOWING CONTACTS
+        Contacts
       </div>
       <span class="badge" id="dashboard-nl-search-explanation" style="font-size: 10px; font-family: var(--font-family-mono); letter-spacing: 0.05em; text-transform: uppercase; background: var(--surface-soft); color: var(--color-text-primary); border: 1px solid var(--color-border);">
-        Showing Imported &amp; Pipeline Contacts
+        Your current contact list
       </span>
     </div>
 
@@ -78,7 +79,7 @@
             <th>Executive Contact</th>
             <th>Title &amp; Organization</th>
             <th>Warm Path &amp; Activity</th>
-            <th>Actions</th>
+            <th>Next step</th>
           </tr>
         </thead>
         <tbody id="dashboard-nl-search-tbody"></tbody>

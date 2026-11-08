@@ -1,0 +1,20 @@
+{
+  "name": "connectem-ts",
+  "version": "0.1.0",
+  "description": "ConnectEM TypeScript Prototype — Warm introductions & relationship matching engine",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "test": "node --test 'tests/**/*.test.ts'",
+    "check": "node --check src/server.ts"
+  },
+  "keywords": [
+    "connectem",
+    "typescript",
+    "bdr",
+    "gtm",
+    "warm-intros"
+  ],
+  "license": "ISC"
+}

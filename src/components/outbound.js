@@ -389,11 +389,17 @@ function changeOutboundPage(page) {
 }
 
 function loadOutboundDrawer(contact, initialChannel = 'email') {
+  if (!contact) return;
   database.selectedContact = contact;
   const drawer = document.getElementById("outbound-drawer");
   const body = document.getElementById("outbound-drawer-body");
 
-  if (!drawer || !body) return;
+  if (!drawer || !body) {
+    if (typeof openOutboundModal === "function") {
+      openOutboundModal(contact.id, initialChannel);
+    }
+    return;
+  }
 
   drawer.style.transform = "translateX(0)";
   drawer.style.opacity = "1";
@@ -593,8 +599,8 @@ async function sendOutboundEmail() {
   const contact = database.selectedContact;
   if (!contact) return;
 
-  const subject = document.getElementById("email-draft-subject").value;
-  const body = document.getElementById("email-draft-body").value;
+  const subject = (document.getElementById("email-draft-subject") || document.getElementById("outbound-email-subject-input"))?.value || "";
+  const body = (document.getElementById("email-draft-body") || document.getElementById("outbound-email-body-input"))?.value || "";
   if (!contact.email || !subject.trim() || !body.trim()) return alert("Recipient, subject, and body are required.");
   if (contact.suppressed || contact.unsubscribed) return alert("This contact is suppressed or unsubscribed.");
   if (contact.emailsSent && !confirm("This contact has already been emailed. Send this new message anyway?")) return;

@@ -321,10 +321,10 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   const browserUrl = document.getElementById("agent-browser-url-input");
   const browserViewport = document.getElementById("agent-browser-viewport");
 
-  if (!history || !browserUrl || !browserViewport) return;
+  if (!history) return;
 
   if (!database.geminiApiKey) {
-    appendAgentLog(` <strong>Gemini API key is not configured!</strong><br>
+    appendAgentLog(`<strong>Gemini API key is not configured!</strong><br>
     Please configure your Gemini API Key in the Settings tab to activate web-grounded research.<br><br>
     <button class="btn btn-primary btn-sm" onclick="switchTab('settings-keys')">Configure Credentials</button>`);
     return;
@@ -333,14 +333,18 @@ async function startAgentResearchSequence(contact, customUserQuestion = "") {
   database.agentRunning = true;
   updateBrowserStep("target-step-1", "running", `Researching ${contact.fullName}`);
 
-  browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
-  browserViewport.innerHTML = `
-    <div style="text-align:center; padding:20px;">
-      <div style="font-size:28px; margin-bottom:8px;"></div>
-      <strong style="font-size:14px; color:var(--ink);">Scraping &amp; Grounding Lead Intelligence...</strong>
-      <p style="font-size:12px; color:var(--muted); margin-top:4px;">Retrieving web profile for ${contact.fullName} (${contact.jobTitle} at ${contact.company})...</p>
-    </div>
-  `;
+  if (browserUrl) {
+    browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
+  }
+  if (browserViewport) {
+    browserViewport.innerHTML = `
+      <div style="text-align:center; padding:20px;">
+        <div style="font-size:28px; margin-bottom:8px;"></div>
+        <strong style="font-size:14px; color:var(--ink);">Scraping &amp; Grounding Lead Intelligence...</strong>
+        <p style="font-size:12px; color:var(--muted); margin-top:4px;">Retrieving web profile for ${contact.fullName} (${contact.jobTitle} at ${contact.company})...</p>
+      </div>
+    `;
+  }
 
   try {
     const model = database.geminiModel || "gemini-3.5-flash";
@@ -384,12 +388,14 @@ Provide structured HTML output (no markdown like ** or #):
         .replace(/### (.*?)\n/g, '<h4 style="margin:8px 0; color:var(--ink);">$1</h4>')
         .replace(/\n/g, '<br>');
 
-      appendAgentLog(` <strong>Research Dossier for ${contact.fullName} (${contact.company}):</strong><br><br>${reportHtml}`);
-      browserViewport.innerHTML = `
-        <div style="text-align:left; font-size:12.5px; line-height:1.5; color:var(--ink); overflow-y:auto; max-height:220px; padding:10px;">
-          ${reportHtml}
-        </div>
-      `;
+      appendAgentLog(`<strong>Research Dossier for ${contact.fullName} (${contact.company}):</strong><br><br>${reportHtml}`);
+      if (browserViewport) {
+        browserViewport.innerHTML = `
+          <div style="text-align:left; font-size:12.5px; line-height:1.5; color:var(--ink); overflow-y:auto; max-height:220px; padding:10px;">
+            ${reportHtml}
+          </div>
+        `;
+      }
       updateBrowserStep("target-step-1", "completed", "Dossier Compiled ✓");
     }
   } catch (err) {

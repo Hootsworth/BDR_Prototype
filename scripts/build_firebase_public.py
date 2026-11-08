@@ -9,7 +9,7 @@ PUBLIC = ROOT / "public"
 FILES = [
     "index.html", "admin.html", "landing.html", "style.css", "app.js", "config.js",
     "marketplace.html", "marketplace.js", "partner-portal.html", "partner-portal.js",
-    "portal.html", "login_bg.png", "privacy.html", "terms.html",
+    "opt-in.html", "portal.html", "login_bg.png", "privacy.html", "terms.html", "favicon.svg",
 ]
 DIRECTORIES = ["components", "src", "vendor", "partner-portal"]
 

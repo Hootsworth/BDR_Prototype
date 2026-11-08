@@ -18,7 +18,8 @@ for root, dirs, files in os.walk(os.path.join(ROOT, "src")):
         if f.endswith(".js"):
             JS_FILES.append(os.path.join(root, f))
 
-JS_FILES.append(os.path.join(ROOT, "app.js"))
+# Note: app.js is dead code and not loaded by index.html; only check live scripts
+# JS_FILES.append(os.path.join(ROOT, "app.js"))
 JS_FILES.append(os.path.join(ROOT, "config.js"))
 JS_FILES.append(os.path.join(ROOT, "partner-portal.js"))
 JS_FILES.append(os.path.join(ROOT, "marketplace.js"))
@@ -43,7 +44,7 @@ for html_path in HTML_FILES:
                 if fn not in ("return", "if", "for", "while", "switch", "console"):
                     all_onclick_funcs.add(fn)
 
-DOM_BUILTINS = {"return", "if", "for", "while", "switch", "console", "getElementById", "querySelector", "querySelectorAll", "setAttribute", "removeAttribute", "stopPropagation", "preventDefault", "focus", "blur", "click", "showModal", "close", "alert", "print"}
+DOM_BUILTINS = {"return", "if", "for", "while", "switch", "console", "getElementById", "querySelector", "querySelectorAll", "setAttribute", "getAttribute", "removeAttribute", "stopPropagation", "preventDefault", "focus", "blur", "click", "showModal", "close", "alert", "print"}
 
 missing_funcs = []
 for fn in sorted(all_onclick_funcs):
