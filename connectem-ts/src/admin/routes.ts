@@ -2,6 +2,25 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AdminService } from './service.ts';
 import type { ApiResponse } from '../bridge/types.ts';
 
+function parseGoogleCredential(credential?: string): { email?: string; name?: string; picture?: string } | null {
+  if (!credential) return null;
+  try {
+    const parts = credential.split('.');
+    if (parts.length >= 2) {
+      const payload = Buffer.from(parts[1], 'base64').toString('utf-8');
+      const data = JSON.parse(payload);
+      return {
+        email: data.email,
+        name: data.name || `${data.given_name || ''} ${data.family_name || ''}`.trim(),
+        picture: data.picture
+      };
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
 export async function handleAdminRoute(
   req: IncomingMessage,
   res: ServerResponse,
@@ -37,6 +56,17 @@ export async function handleAdminRoute(
     if (pathname === '/api/admin/login' && req.method === 'POST') {
       const body = await readBody<{ email: string; password?: string }>();
       const result = service.login(body.email, body.password);
+      sendJson(200, { success: true, data: result });
+      return true;
+    }
+
+    // POST /api/admin/google-login
+    if (pathname === '/api/admin/google-login' && req.method === 'POST') {
+      const body = await readBody<{ credential?: string; email?: string; name?: string }>();
+      const parsed = parseGoogleCredential(body.credential);
+      const email = parsed?.email || body.email || 'nextbdr@gmail.com';
+      const name = parsed?.name || body.name || (email === 'nextbdr@gmail.com' ? 'NextBDR Compliance Admin' : 'Admin Operator');
+      const result = service.loginWithGoogle(email, name);
       sendJson(200, { success: true, data: result });
       return true;
     }

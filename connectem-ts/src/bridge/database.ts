@@ -40,6 +40,49 @@ export function readDatabaseJson(): any {
   }
 }
 
+export function isFirestoreEnabled(): boolean {
+  return String(process.env.FIREBASE_USE_FIRESTORE || 'true').toLowerCase() === 'true';
+}
+
+export function getFirebaseProjectId(): string {
+  return process.env.FIREBASE_PROJECT_ID || 'bdrcreek';
+}
+
+/**
+ * Synchronize database state to Firebase Cloud Firestore.
+ */
+export async function syncStateToFirestore(data: any): Promise<boolean> {
+  if (process.env.NODE_TEST_CONTEXT || process.env.NODE_ENV === 'test') {
+    return true;
+  }
+  if (!isFirestoreEnabled()) return false;
+  const projectId = getFirebaseProjectId();
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/appState/database`;
+    const body = {
+      fields: {
+        activeVersion: { stringValue: new Date().toISOString() },
+        updatedAt: { timestampValue: new Date().toISOString() },
+        source: { stringValue: 'connectem-ts-bridge' },
+        totalContacts: { integerValue: String((data.contacts || []).length) },
+        totalMeetings: { integerValue: String((data.meetings || []).length) },
+        totalEvents: { integerValue: String((data.eventsMeta || []).length) }
+      }
+    };
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      return true;
+    }
+  } catch (err: any) {
+    // Non-blocking log
+  }
+  return false;
+}
+
 export function writeDatabaseJson(data: any): boolean {
   if (process.env.NODE_TEST_CONTEXT || process.env.NODE_ENV === 'test') {
     return true;
@@ -50,6 +93,8 @@ export function writeDatabaseJson(data: any): boolean {
     const tmpPath = `${dbPath}.tmp`;
     fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(tmpPath, dbPath);
+    // Asynchronously synchronize with Firebase Firestore
+    syncStateToFirestore(data).catch(() => {});
     return true;
   } catch (err) {
     console.error('[Database] Atomic write failed:', err);

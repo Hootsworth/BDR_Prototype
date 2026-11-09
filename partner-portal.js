@@ -59,7 +59,7 @@
   const partnerDisplayCompany = document.getElementById('partner-display-company');
 
   // Stats Elements
-  const statContacts = document.getElementById('stat-contacts');
+  const statContacts = null;
   const statPending = document.getElementById('stat-pending');
   const statOptins = document.getElementById('stat-optins');
   const statTrust = document.getElementById('stat-trust');
@@ -913,6 +913,88 @@
       }
     }
   }
+
+  async function triggerGooglePartnerAuth(mode) {
+    const authError = document.getElementById('auth-error');
+    if (authError) { authError.hidden = true; authError.textContent = ''; }
+
+    // 1. Try Google Identity Services
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: window.GoogleConfig?.clientId || '',
+        callback: async (response) => {
+          if (response.credential) {
+            await sendGooglePartnerAuth({ credential: response.credential }, mode);
+          }
+        }
+      });
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          promptGooglePartnerEmailFallback(mode);
+        }
+      });
+      return;
+    }
+
+    // 2. Try Firebase Auth popup
+    if (window.firebase?.auth) {
+      try {
+        const provider = new window.firebase.auth.GoogleAuthProvider();
+        const authResult = await window.firebase.auth().signInWithPopup(provider);
+        if (authResult?.user) {
+          await sendGooglePartnerAuth({
+            email: authResult.user.email,
+            name: authResult.user.displayName,
+            idToken: await authResult.user.getIdToken()
+          }, mode);
+          return;
+        }
+      } catch (e) {
+        console.warn('Firebase Google Auth popup:', e);
+      }
+    }
+
+    promptGooglePartnerEmailFallback(mode);
+  }
+
+  async function promptGooglePartnerEmailFallback(mode) {
+    const defaultEmail = mode === 'signup' ? '' : 'bmiller@apexadvisory.com';
+    const email = prompt(`Sign ${mode === 'signup' ? 'up' : 'in'} with Google: Enter your Google Workspace or Gmail address:`, defaultEmail);
+    if (!email) return;
+    let name = '';
+    if (mode === 'signup') {
+      name = prompt('Enter your Full Name:', email.split('@')[0]) || email.split('@')[0];
+    }
+    await sendGooglePartnerAuth({ email, name }, mode);
+  }
+
+  async function sendGooglePartnerAuth(payload, mode) {
+    const authError = document.getElementById('auth-error');
+    try {
+      const res = await api('/api/go/google-login', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      const partner = res.partner || res.influencer || res.data?.partner || res;
+      setPartnerSession(partner);
+      if (mode === 'signup') {
+        showOnboardingSequence(1);
+        showToast('Google profile connected! Connect your network.');
+      } else {
+        showToast(`Signed in with Google as ${partner.fullName || partner.email}`);
+      }
+    } catch (e) {
+      if (authError) { authError.hidden = false; authError.textContent = e.message; }
+      showToast(e.message, 'error');
+    }
+  }
+
+  document.getElementById('partner-google-login-btn')?.addEventListener('click', () => {
+    triggerGooglePartnerAuth('login');
+  });
+  document.getElementById('partner-google-signup-btn')?.addEventListener('click', () => {
+    triggerGooglePartnerAuth('signup');
+  });
 
   document.getElementById('quick-demo-login-btn')?.addEventListener('click', (e) => {
     triggerDemoLogin(e.currentTarget);

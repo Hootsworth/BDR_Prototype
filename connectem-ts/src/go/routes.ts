@@ -2,6 +2,25 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { GoPartnerService } from './service.ts';
 import type { ApiResponse, PrivacyTier } from '../bridge/types.ts';
 
+function parseGoogleCredential(credential?: string): { email?: string; name?: string; picture?: string } | null {
+  if (!credential) return null;
+  try {
+    const parts = credential.split('.');
+    if (parts.length >= 2) {
+      const payload = Buffer.from(parts[1], 'base64').toString('utf-8');
+      const data = JSON.parse(payload);
+      return {
+        email: data.email,
+        name: data.name || `${data.given_name || ''} ${data.family_name || ''}`.trim(),
+        picture: data.picture
+      };
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
 export async function handleGoRoute(
   req: IncomingMessage,
   res: ServerResponse,
@@ -53,6 +72,40 @@ export async function handleGoRoute(
           ...result,
           referrals,
           mustChangePassword: Boolean(result.partner.mustChangePassword)
+        }
+      });
+      return true;
+    }
+
+    // POST /api/go/google-login & POST /api/partner-portal/google-login
+    if ((pathname === '/api/go/google-login' || pathname === '/api/partner-portal/google-login') && req.method === 'POST') {
+      const body = await readBody<{ credential?: string; email?: string; name?: string; company?: string; jobTitle?: string }>();
+      const parsed = parseGoogleCredential(body.credential);
+      const email = (parsed?.email || body.email || '').trim().toLowerCase();
+      if (!email) {
+        sendJson(400, { success: false, error: 'A valid Google email is required.' });
+        return true;
+      }
+      const name = parsed?.name || body.name || email.split('@')[0];
+      const result = service.loginWithGoogle({
+        email,
+        name,
+        company: body.company,
+        jobTitle: body.jobTitle
+      });
+      const referrals = service.listNetwork(result.partner.id);
+      sendJson(200, {
+        success: true,
+        status: 'success',
+        token: result.token,
+        partner: result.partner,
+        influencer: result.partner,
+        referrals,
+        mustChangePassword: false,
+        data: {
+          ...result,
+          referrals,
+          mustChangePassword: false
         }
       });
       return true;

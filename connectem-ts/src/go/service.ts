@@ -50,6 +50,35 @@ export class GoPartnerService {
     };
   }
 
+  /**
+   * Log in or register a partner via Google Auth.
+   */
+  loginWithGoogle(params: {
+    email: string;
+    name?: string;
+    company?: string;
+    jobTitle?: string;
+  }): { partner: Partner; token: string } {
+    const trimmed = (params.email || '').trim().toLowerCase();
+    if (!trimmed) throw new Error('Valid Google email is required.');
+    let partner = this.store.getPartnerByEmail(trimmed);
+    if (!partner) {
+      partner = this.store.createPartner({
+        fullName: params.name || trimmed.split('@')[0],
+        email: trimmed,
+        company: params.company || 'Partner Network',
+        jobTitle: params.jobTitle || 'Strategic Partner',
+        expertise: ['Introductions', 'Strategic Partnerships'],
+        geography: ['Global'],
+        privacyTier: 'ask_partner'
+      });
+    }
+    return {
+      partner,
+      token: partner.authToken
+    };
+  }
+
   demoLogin(): { partner: Partner; token: string } {
     let partner = this.store.getPartner('partner_bmiller');
     if (!partner) {
