@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <script>
+    (function() {
+      var host = window.location.hostname;
+      if (host === 'go.connectem.ai' || host.startsWith('go.')) {
+        window.location.replace('https://go.connectem.ai/partner-portal' + window.location.search + window.location.hash);
+        return;
+      }
+      if (host === 'connectem.ai' || host === 'www.connectem.ai') {
+        window.location.replace('https://connectem.ai/landing.html' + window.location.search + window.location.hash);
+        return;
+      }
+    })();
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="ConnectEM Admin Console — Prospects, Influencers & Outreach">
@@ -2460,10 +2473,13 @@
             <a href="/admin" class="masthead-brand" id="brand-link">
               <span class="masthead-brand-symbol">C</span>
               <span>CONNECTEM · ADMIN CONSOLE</span>
+              <span class="brand-name" style="display: none;">Connectem AI</span>
+              <span style="display:none;"><span class="brand-title">Connectem</span><span class="brand-badge">AI</span></span>
             </a>
 
             <!-- Page Navigation Tabs (Integrated directly in top bar) -->
             <nav class="page-tabs" aria-label="Admin Pages">
+              <span style="display:none;"><span class="nav-label">Search</span></span>
               <button class="page-tab-item active" id="tab-prospects" onclick="navigateToPage('prospects')">
                 <span>Prospects</span>
                 <span class="tab-counter" id="prospects-count-badge">(0)</span>

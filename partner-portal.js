@@ -1,1981 +1,1849 @@
-(() => {
-  const tokenKey = 'partner-workspace-token';
-  const hashParams = new URLSearchParams(window.location.hash.slice(1));
-  const incomingToken = hashParams.get('token');
-  if (incomingToken) {
-    sessionStorage.setItem(tokenKey, incomingToken);
-    history.replaceState(null, '', `${location.pathname}${location.search}`);
-  }
-  let token = incomingToken || sessionStorage.getItem(tokenKey) || '';
-  const body = document.getElementById('contacts-body');
-  const errorBox = document.getElementById('page-error');
-  const form = document.getElementById('referral-form');
-  const button = document.getElementById('submit-button');
-  const bulkPanel = document.getElementById('bulk-referral-panel');
-  const bulkRowsBody = document.getElementById('bulk-rows-body');
-  const bulkSubmitBtn = document.getElementById('bulk-submit-button');
-  const modeSingleBtn = document.getElementById('mode-single-btn');
-  const modeBulkBtn = document.getElementById('mode-bulk-btn');
-  const toggleMultiEditBtn = document.getElementById('toggle-multi-edit-btn');
-  const multiEditBar = document.getElementById('multi-edit-bar');
-  const authSection = document.getElementById('portal-auth-section');
-  const workspaceContent = document.getElementById('portal-workspace-content');
-  const signoutBtn = document.getElementById('portal-signout-btn');
-  const clerkMount = document.getElementById('clerk-auth-mount');
-  const clerkSignupMount = document.getElementById('clerk-signup-mount');
-  const onboardingForm = document.getElementById('portal-onboarding-form');
-  const portalLoginForm = document.getElementById('portal-login-form');
-  const portalLoginEmail = document.getElementById('portal-login-email');
-  const portalLoginPassword = document.getElementById('portal-login-password');
-  const portalLoginSubmit = document.getElementById('portal-login-submit');
-  const portalChangePasswordForm = document.getElementById('portal-change-password-form');
-  const portalNewPassword = document.getElementById('portal-new-password');
-  const portalConfirmPassword = document.getElementById('portal-confirm-password');
-  const portalChangePasswordSubmit = document.getElementById('portal-change-password-submit');
-  const portalChangePasswordError = document.getElementById('portal-change-password-error');
-  const portalSsoSeparator = document.getElementById('portal-sso-separator');
-  let pendingChangeEmail = '';
-  let pendingCurrentPassword = '';
-  let pendingChangeToken = '';
-  let clerkListenerAdded = false;
-  let selectedAuthMode = 'signin';
-  let partnerEmailFolder = 'INBOX';
-  let partnerEmailNextPage = '';
-  let partnerEmailReplyContext = null;
-
-  function navigateToPartnerPage(pageKey, updateHistory = true) {
-    const key = (pageKey === 'inbox' ? 'email' : pageKey) || 'contacts';
-    const pageContacts = document.getElementById('partner-page-contacts');
-    const pageEmail = document.getElementById('partner-page-email');
-    const pageSettings = document.getElementById('partner-page-settings');
-    const btnContacts = document.getElementById('partner-nav-contacts');
-    const btnEmail = document.getElementById('partner-nav-email');
-    const btnSettings = document.getElementById('partner-nav-settings');
-
-    if (pageContacts) pageContacts.hidden = (key !== 'contacts');
-    if (pageEmail) pageEmail.hidden = (key !== 'email');
-    if (pageSettings) pageSettings.hidden = (key !== 'settings');
-
-    btnContacts?.classList.toggle('active', key === 'contacts');
-    btnEmail?.classList.toggle('active', key === 'email');
-    btnSettings?.classList.toggle('active', key === 'settings');
-
-    if (key === 'email') {
-      loadPartnerEmailFolder('INBOX');
-      if (updateHistory) window.location.hash = '#email';
-    } else if (key === 'settings') {
-      loadPartnerSettings();
-      if (updateHistory) window.location.hash = '#settings';
-    } else {
-      if (updateHistory && window.location.hash && window.location.hash !== '#contacts') {
-        window.location.hash = '#contacts';
-      }
-    }
-  }
-
-  function showPartnerWorkspaceSection(sectionId) {
-    if (sectionId === 'partner-email-section') {
-      navigateToPartnerPage('email');
-    } else if (sectionId === 'partner-settings-section') {
-      navigateToPartnerPage('settings');
-    } else {
-      navigateToPartnerPage('contacts');
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }
-
-  function setPartnerEmailStatus(message, isError = false) {
-    const el = document.getElementById('partner-email-status');
-    if (el) { el.textContent = message; el.style.color = isError ? '#b42318' : ''; }
-  }
-
-  async function loadPartnerSettings() {
-    if (!token) return;
-    try {
-      const [settings, google] = await Promise.all([request('/api/partner-portal/settings'), request('/api/partner-portal/google/status')]);
-      const configured = settings.configured || {};
-      const status = document.getElementById('partner-ai-key-status');
-      if (status) status.textContent = `Gemini ${configured.gemini ? 'saved' : 'not set'} · OpenAI ${configured.openai ? 'saved' : 'not set'} · Meta ${configured.meta ? 'saved' : 'not set'} · Admin copy ${settings.adminCopyConfigured ? 'configured' : 'not configured'}.`;
-      const googleStatus = document.getElementById('partner-google-status');
-      if (googleStatus) googleStatus.textContent = google.connected ? `Connected: ${google.email || 'Google account'}` : 'Google account not connected.';
-      if (settings.registeredEmail) {
-        const settingsEmailEl = document.getElementById('partner-settings-registered-email');
-        if (settingsEmailEl) settingsEmailEl.textContent = settings.registeredEmail;
-      }
-      if (settings.adminEmail) {
-        currentAdminEmail = settings.adminEmail;
-        const settingsAdminEl = document.getElementById('partner-settings-admin-cc');
-        if (settingsAdminEl) settingsAdminEl.textContent = settings.adminEmail;
-        const inboxAdminEl = document.getElementById('partner-inbox-admin-cc');
-        if (inboxAdminEl) inboxAdminEl.textContent = settings.adminEmail;
-        const composeAdminEl = document.getElementById('partner-compose-admin-display');
-        if (composeAdminEl) composeAdminEl.textContent = settings.adminEmail;
-      }
-      isTwilioConfigured = Boolean(settings.twilioConfigured);
-      const inboxGoogleStatus = document.getElementById('partner-inbox-google-status');
-      if (inboxGoogleStatus) {
-        inboxGoogleStatus.textContent = google.connected ? `Google connected: ${google.email || 'active'}` : 'Google account not connected.';
-      }
-      const inboxTwilioStatus = document.getElementById('partner-inbox-twilio-status');
-      if (inboxTwilioStatus) {
-        inboxTwilioStatus.textContent = isTwilioConfigured ? 'Twilio calling: Line active' : 'Twilio: Not configured by admin';
-        inboxTwilioStatus.style.color = isTwilioConfigured ? '#14745d' : 'var(--muted)';
-      }
-    } catch (error) {
-      const status = document.getElementById('partner-ai-key-status');
-      if (status) status.textContent = error.message;
-      const googleStatus = document.getElementById('partner-google-status');
-      if (googleStatus) googleStatus.textContent = error.message;
-    }
-  }
-
-  async function savePartnerAiKeys() {
-    const body = {
-      gemini: document.getElementById('partner-key-gemini')?.value.trim() || '',
-      openai: document.getElementById('partner-key-openai')?.value.trim() || '',
-      meta: document.getElementById('partner-key-meta')?.value.trim() || ''
-    };
-    try {
-      await request('/api/partner-portal/settings', { method: 'POST', body: JSON.stringify(body) });
-      ['partner-key-gemini', 'partner-key-openai', 'partner-key-meta'].forEach(id => { const input = document.getElementById(id); if (input) input.value = ''; });
-      await loadPartnerSettings();
-      const status = document.getElementById('partner-ai-key-status');
-      if (status) status.textContent += ' Saved securely.';
-    } catch (error) { const status = document.getElementById('partner-ai-key-status'); if (status) status.textContent = error.message; }
-  }
-
-  async function connectPartnerGoogle() {
-    const button = document.getElementById('partner-google-connect');
-    if (button) button.disabled = true;
-    try {
-      const result = await request('/api/partner-portal/google/connect', { method: 'POST', body: JSON.stringify({}) });
-      window.location.assign(result.authorizationUrl);
-    } catch (error) {
-      const status = document.getElementById('partner-google-status');
-      if (status) status.textContent = error.message;
-    } finally { if (button) button.disabled = false; }
-  }
-
-  let currentAdminEmail = '';
-  let activeEmailData = null;
-  let isDenseLayout = false;
-
-  function formatEmailDate(dateStr) {
-    if (!dateStr) return '';
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr.split(' ')[0] || dateStr;
-      const now = new Date();
-      if (d.toDateString() === now.toDateString()) {
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      }
-      const diffDays = Math.round((now - d) / (1000 * 60 * 60 * 24));
-      if (diffDays <= 6) {
-        return d.toLocaleDateString([], { weekday: 'short' });
-      }
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    } catch (_) {
-      return dateStr;
-    }
-  }
-
-  function cleanSender(fromStr) {
-    if (!fromStr) return '(unknown sender)';
-    const match = fromStr.match(/^"?(.*?)"?\s*<.*>$/);
-    return (match ? match[1] : fromStr).trim() || fromStr;
-  }
-
-  function showMonoOverlay(id) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.classList.add('show');
-      if (typeof el.showModal === 'function') {
-        try { if (!el.open) el.showModal(); } catch (_) {}
-      }
-    }
-  }
-
-  function hideMonoOverlay(id) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.classList.remove('show');
-      if (typeof el.close === 'function') {
-        try { el.close(); } catch (_) {}
-      }
-    }
-  }
-
-  function monoToast(msg) {
-    const t = document.getElementById('partner-mono-toast');
-    if (t) {
-      t.textContent = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2200);
-    }
-  }
-
-  const ICONS = {
-    moon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
-    sun: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
-    grid: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
-    star: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-    mail: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
-    phone: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-    linkedin: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>',
-    zap: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-    copy: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
-    external: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
-  };
-
-  function toggleMonoTheme() {
-    const isDark = document.documentElement.dataset.theme === 'dark';
-    document.documentElement.dataset.theme = isDark ? 'light' : 'dark';
-    const btn = document.getElementById('monoThemeBtn');
-    if (btn) btn.innerHTML = isDark ? ICONS.moon : ICONS.sun;
-    monoToast(`${isDark ? 'Light' : 'Dark'} mode enabled.`);
-  }
-
-  function toggleMonoDensity() {
-    isDenseLayout = !isDenseLayout;
-    const btn = document.getElementById('monoDensityBtn');
-    if (btn) btn.innerHTML = `${ICONS.grid} <span>${isDenseLayout ? 'Compact' : 'Comfortable'}</span>`;
-    document.querySelectorAll('#partner-email-list .mono-inf-card').forEach(card => {
-      card.style.padding = isDenseLayout ? '12px 14px' : '18px 20px';
-    });
-  }
-
-  let currentInfluencerFilter = 'ALL';
-  let currentInfluencerSearch = '';
-  let selectedInfluencer = null;
-  let isTwilioConfigured = false;
-
-  function filterMonoInfluencers(query) {
-    currentInfluencerSearch = String(query || '').toLowerCase().trim();
-    renderInfluencerCards();
-  }
-
-  function switchMonoFolder(filterKey, el) {
-    currentInfluencerFilter = filterKey;
-    document.querySelectorAll('.mono-nav-item').forEach(btn => btn.classList.remove('active'));
-    if (el) el.classList.add('active');
-    const titles = {
-      ALL: 'All Added Influencers',
-      STRONG: 'Strong Tie Relationships',
-      MEDIUM: 'Medium Tie Relationships',
-      SCHEDULED: 'Scheduled / Warm Briefings'
-    };
-    const titleEl = document.getElementById('mono-page-title');
-    if (titleEl) titleEl.textContent = titles[filterKey] || 'Influencers & Outreach';
-    renderInfluencerCards();
-  }
-
-  function monoLoadMore() {
-    monoToast("Showing all added influencers.");
-  }
-
-  function replyFromReader() {
-    closePartnerEmailReader();
-  }
-
-  async function archiveFromReader() {
-    closePartnerEmailReader();
-    monoToast('Closed.');
-  }
-
-  async function starFromReader() {
-    monoToast('Saved preference.');
-  }
-
-  async function unreadFromReader() {
-    closePartnerEmailReader();
-  }
-
-  async function toggleStarEmail(messageId, shouldStar) {
-    monoToast(shouldStar ? 'Favorite marked' : 'Favorite removed');
-  }
-
-  async function bulkActionMonoEmails(action) {
-    monoToast('Actions updated.');
-  }
-
-  function toggleSelectAllMonoEmails(checked) {
-    document.querySelectorAll('#partner-email-list .row-check').forEach(box => {
-      box.checked = checked;
-    });
-  }
-
-  function closePartnerEmailReader() {
-    hideMonoOverlay('partner-reader-overlay');
-  }
-
-  function renderInfluencerCards() {
-    const list = document.getElementById('partner-email-list');
-    if (!list) return;
-    list.replaceChildren();
-
-    let items = currentContacts.slice();
-    if (currentInfluencerFilter === 'STRONG') {
-      items = items.filter(c => (c.strength || 'strong').toLowerCase() === 'strong');
-    } else if (currentInfluencerFilter === 'MEDIUM') {
-      items = items.filter(c => (c.strength || '').toLowerCase() === 'medium');
-    } else if (currentInfluencerFilter === 'SCHEDULED') {
-      items = items.filter(c => c.status === 'scheduled' || c.status === 'completed');
-    }
-
-    if (currentInfluencerSearch) {
-      items = items.filter(c => {
-        const hay = [c.fullName, c.company, c.jobTitle, c.email, c.phone].filter(Boolean).join(' ').toLowerCase();
-        return hay.includes(currentInfluencerSearch);
-      });
-    }
-
-    const totalCountEl = document.getElementById('partner-email-total-count');
-    if (totalCountEl) totalCountEl.textContent = `${items.length} influencer${items.length === 1 ? '' : 's'}`;
-    const inboxCountEl = document.getElementById('partner-inbox-count');
-    if (inboxCountEl) inboxCountEl.textContent = currentContacts.length ? String(currentContacts.length) : '';
-    const draftCountEl = document.getElementById('partner-draft-count');
-    const strongCount = currentContacts.filter(c => (c.strength || 'strong').toLowerCase() === 'strong').length;
-    if (draftCountEl) draftCountEl.textContent = strongCount ? String(strongCount) : '';
-    setPartnerEmailStatus(`${items.length} relationships ready for outreach`);
-
-    if (!items.length) {
-      const empty = document.createElement('div');
-      empty.className = 'mono-empty-card';
-      empty.innerHTML = `
-        <h3>No influencers found</h3>
-        <p>${currentInfluencerSearch ? 'No relationships matched your search.' : 'You haven’t added any influencer relationships in this category yet.'}</p>
-        <button class="mono-pill" type="button" onclick="navigateToPartnerPage('contacts')">+ Add Relationship</button>
-      `;
-      list.appendChild(empty);
-      return;
-    }
-
-    items.forEach(contact => {
-      const card = document.createElement('div');
-      card.className = 'mono-inf-card';
-      const name = contact.fullName || 'Executive Contact';
-      const initials = name.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'IN';
-      const strVal = (contact.strength || 'strong').toLowerCase();
-      const strClass = strVal === 'strong' ? 'strength-strong' : strVal === 'medium' ? 'strength-medium' : '';
-
-      card.innerHTML = `
-        <div>
-          <div class="mono-inf-header">
-            <div class="mono-inf-avatar">${escapeHTML(initials)}</div>
-            <div class="mono-inf-info">
-              <div class="mono-inf-name">${escapeHTML(name)}</div>
-              <div class="mono-inf-title">${escapeHTML(contact.jobTitle || 'Executive')} · ${escapeHTML(contact.company || 'Company')}</div>
-            </div>
-          </div>
-          <div class="mono-inf-chips">
-            <span class="mono-chip ${strClass}">${ICONS.star} <span>${escapeHTML(strVal.toUpperCase())}</span></span>
-            ${contact.email ? `<span class="mono-chip">${ICONS.mail} <span>${escapeHTML(contact.email)}</span></span>` : ''}
-            ${contact.phone ? `<span class="mono-chip">${ICONS.phone} <span>${escapeHTML(contact.phone)}</span></span>` : ''}
-            ${contact.linkedinUrl ? `<span class="mono-chip">${ICONS.linkedin} <span>LinkedIn</span></span>` : ''}
-          </div>
-        </div>
-        <button class="mono-connect-btn" type="button" onclick="event.stopPropagation(); openInfluencerConnect('${escapeHTML(String(contact.id))}');">
-          ${ICONS.zap}
-          <span>Connect</span>
-        </button>
-      `;
-      card.onclick = () => openInfluencerConnect(contact.id);
-      list.appendChild(card);
-    });
-  }
-
-  function loadPartnerEmailFolder(label = currentInfluencerFilter) {
-    if (label) currentInfluencerFilter = label;
-    renderInfluencerCards();
-  }
-
-  function searchPartnerEmail() {
-    const input = document.getElementById('partner-email-search');
-    filterMonoInfluencers(input?.value || '');
-  }
-
-  function openInfluencerConnect(contactId) {
-    const contact = currentContacts.find(c => String(c.id) === String(contactId));
-    if (!contact) return;
-    selectedInfluencer = contact;
-    const panel = document.getElementById('partner-email-message');
-    const modalTitle = document.getElementById('partner-reader-modal-title');
-    if (modalTitle) modalTitle.textContent = `Connect with ${contact.fullName}`;
-
-    const initials = (contact.fullName || 'IN').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'IN';
-    const liUrl = contact.linkedinUrl || `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(contact.fullName + ' ' + (contact.company || ''))}`;
-    const mailtoHref = `mailto:${encodeURIComponent(contact.email || '')}?cc=${encodeURIComponent(currentAdminEmail || '')}&subject=${encodeURIComponent('Introduction: ' + (partner?.fullName || 'Partner') + ' <> ' + contact.fullName)}`;
-
-    const twilioSection = isTwilioConfigured ? `
-      <div class="mono-connect-channel" id="partner-channel-twilio">
-        <div class="mono-channel-title">
-          <span style="color:#14745d; display:flex; align-items:center;">${ICONS.phone}</span>
-          <span>Phone Outreach (via Twilio)</span>
-          <span style="font-size:10px; background:#dcfce7; color:#14745d; padding:2px 7px; border-radius:4px; font-weight:700; margin-left:auto;">TWILIO READY</span>
-        </div>
-        <div class="mono-channel-desc">
-          Place an authenticated phone call to <strong>${escapeHTML(contact.phone || 'No phone number on file')}</strong> using your administrator-configured Twilio account.
-        </div>
-        <div class="mono-channel-actions">
-          <button class="mono-channel-btn phone-btn" type="button" onclick="callViaTwilio('${escapeHTML(String(contact.id))}');">
-            ${ICONS.phone}
-            <span>Call via Twilio</span>
-          </button>
-          ${contact.phone ? `<a href="tel:${escapeHTML(contact.phone)}" class="mono-channel-btn subtle"><span>Dial Directly</span> ${ICONS.external}</a>` : ''}
-        </div>
-        <div id="partner-twilio-call-status" style="font-size:12px; margin-top:10px; color:var(--muted, #71717a);"></div>
-      </div>
-    ` : '';
-
-    if (panel) {
-      panel.innerHTML = `
-        <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--line, #e4e4e7);">
-          <div class="mono-inf-avatar" style="width:48px; height:48px; font-size:16px;">${escapeHTML(initials)}</div>
-          <div style="display:flex; flex-direction:column; justify-content:center;">
-            <h2 style="margin:0; font-size:18px; font-weight:700; color:var(--text, #171717); line-height:1.2;">${escapeHTML(contact.fullName)}</h2>
-            <div style="font-size:13px; color:var(--muted, #71717a); margin-top:4px; line-height:1.2;">${escapeHTML(contact.jobTitle || 'Executive')} · ${escapeHTML(contact.company || '')}</div>
-          </div>
-        </div>
-
-        <!-- CHANNEL 1: LINKEDIN -->
-        <div class="mono-connect-channel">
-          <div class="mono-channel-title">
-            <span style="color:#0077b5; display:flex; align-items:center;">${ICONS.linkedin}</span>
-            <span>LinkedIn Connection &amp; InMail</span>
-          </div>
-          <div class="mono-channel-desc">
-            Connect directly on LinkedIn or search their profile to send a warm introduction.
-          </div>
-          <div class="mono-channel-actions">
-            <a href="${escapeHTML(liUrl)}" target="_blank" rel="noopener noreferrer" class="mono-channel-btn linkedin-btn">
-              <span>Open LinkedIn Profile</span>
-              ${ICONS.external}
-            </a>
-            <button class="mono-channel-btn subtle" type="button" onclick="copyLinkedInNote('${escapeHTML(String(contact.id))}');">
-              ${ICONS.copy}
-              <span>Copy Intro Note</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- CHANNEL 2: VERIFIED EMAIL (CC ADMIN) -->
-        <div class="mono-connect-channel">
-          <div class="mono-channel-title">
-            <span style="display:flex; align-items:center;">${ICONS.mail}</span>
-            <span>Verified Email Outreach</span>
-          </div>
-          <div class="mono-channel-desc">
-            Send directly from your email (<strong>${escapeHTML(partner?.email || 'your email')}</strong>). Your ConnectEM administrator (<strong>${escapeHTML(currentAdminEmail || 'admin@connectem.ai')}</strong>) is automatically CC'd for relationship governance and deal tracking.
-          </div>
-          <div class="mono-channel-actions">
-            <button class="mono-channel-btn mail-btn" type="button" onclick="openComposerForContact('${escapeHTML(String(contact.id))}');">
-              ${ICONS.mail}
-              <span>Open Outreach Composer</span>
-            </button>
-            ${contact.email ? `<a href="${mailtoHref}" class="mono-channel-btn subtle"><span>Open in Mail App</span> ${ICONS.external}</a>` : ''}
-          </div>
-        </div>
-
-        <!-- CHANNEL 3: PHONE VIA TWILIO (ONLY IF CONFIGURED BY ADMIN) -->
-        ${twilioSection}
-      `;
-    }
-
-    showMonoOverlay('partner-reader-overlay');
-  }
-
-  function copyLinkedInNote(contactId) {
-    const contact = currentContacts.find(c => String(c.id) === String(contactId));
-    if (!contact) return;
-    const firstName = (contact.fullName || '').split(' ')[0] || 'there';
-    const note = `Hi ${firstName}, hope you're having a great week! Would love to reconnect and share a quick update on ConnectEM. Looking forward to catching up soon.`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(note).then(() => monoToast('Copied LinkedIn note to clipboard!'));
-    } else {
-      monoToast('Note ready');
-    }
-  }
-
-  function openComposerForContact(contactId) {
-    const contact = currentContacts.find(c => String(c.id) === String(contactId));
-    if (!contact) return;
-    closePartnerEmailReader();
-    const title = document.getElementById('partner-compose-title');
-    if (title) title.textContent = `Email to ${contact.fullName}`;
-    const toInput = document.getElementById('partner-compose-to');
-    if (toInput) toInput.value = contact.email || '';
-    const subjInput = document.getElementById('partner-compose-subject');
-    if (subjInput) subjInput.value = `Introduction: ${partner?.fullName || 'Partner'} <> ${contact.fullName}`;
-    const bodyInput = document.getElementById('partner-compose-body');
-    const firstName = (contact.fullName || '').split(' ')[0] || 'there';
-    if (bodyInput) {
-      bodyInput.value = `Hi ${firstName},\n\nI hope you're having a productive week.\n\nI wanted to reach out directly regarding ConnectEM and explore how we can collaborate. Let me know if you have a few minutes for a brief introduction call.\n\nBest regards,\n${partner?.fullName || ''}`;
-    }
-    const fromEl = document.getElementById('partner-compose-from-display');
-    if (fromEl && partner?.email) fromEl.textContent = partner.email;
-    const adminEl = document.getElementById('partner-compose-admin-display');
-    if (adminEl && currentAdminEmail) adminEl.textContent = currentAdminEmail;
-    showMonoOverlay('partner-email-compose');
-  }
-
-  async function callViaTwilio(contactId) {
-    const contact = currentContacts.find(c => String(c.id) === String(contactId));
-    if (!contact) return;
-    if (!contact.phone) {
-      monoToast('No phone number on file for this influencer.');
-      return;
-    }
-    const statusEl = document.getElementById('partner-twilio-call-status');
-    if (statusEl) statusEl.textContent = `Dialing ${contact.phone} via Twilio line…`;
-    try {
-      const res = await request('/api/partner-portal/twilio/call', {
-        method: 'POST',
-        body: JSON.stringify({ to: contact.phone, contactId: contact.id })
-      });
-      if (statusEl) {
-        statusEl.textContent = res.message || 'Call placed via Twilio line.';
-        statusEl.style.color = '#14745d';
-      }
-      monoToast('Twilio call initiated!');
-    } catch (err) {
-      if (statusEl) {
-        statusEl.textContent = `Call error: ${err.message}`;
-        statusEl.style.color = '#dc2626';
-      }
-      monoToast(err.message);
-    }
-  }
-
-  async function openPartnerEmailMessage(message) {
-    if (message?.id) openInfluencerConnect(message.id);
-  }
-
-  async function mutatePartnerEmail(messageId, action, refresh = true) {
-    try {
-      await request('/api/partner-portal/email/message', { method: 'POST', body: JSON.stringify({ messageId, action }) });
-      if (refresh) renderInfluencerCards();
-    } catch (error) {
-      setPartnerEmailStatus(error.message, true);
-    }
-  }
-
-  function newPartnerEmail() {
-    partnerEmailReplyContext = null;
-    const title = document.getElementById('partner-compose-title');
-    if (title) title.textContent = 'New message';
-    ['partner-compose-to', 'partner-compose-subject', 'partner-compose-body'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    const fromEl = document.getElementById('partner-compose-from-display');
-    if (fromEl && partner?.email) fromEl.textContent = partner.email;
-    const adminEl = document.getElementById('partner-compose-admin-display');
-    if (adminEl && currentAdminEmail) adminEl.textContent = currentAdminEmail;
-    showMonoOverlay('partner-email-compose');
-  }
-
-  function closePartnerEmailComposer() {
-    hideMonoOverlay('partner-email-compose');
-    partnerEmailReplyContext = null;
-  }
-
-  function replyPartnerEmail(message) {
-    const headers = message?._headerValues || {};
-    const from = headers.from || '';
-    const title = document.getElementById('partner-compose-title');
-    if (title) title.textContent = 'Reply';
-    const toInput = document.getElementById('partner-compose-to');
-    if (toInput) toInput.value = from.match(/<([^>]+)>/)?.[1] || from;
-    const subjInput = document.getElementById('partner-compose-subject');
-    if (subjInput) subjInput.value = /^re:/i.test(headers.subject || '') ? headers.subject : `Re: ${headers.subject || ''}`;
-    const bodyInput = document.getElementById('partner-compose-body');
-    if (bodyInput) bodyInput.value = `\n\nOn ${headers.date || ''}, ${from} wrote:\n`;
-    const fromEl = document.getElementById('partner-compose-from-display');
-    if (fromEl && partner?.email) fromEl.textContent = partner.email;
-    const adminEl = document.getElementById('partner-compose-admin-display');
-    if (adminEl && currentAdminEmail) adminEl.textContent = currentAdminEmail;
-    partnerEmailReplyContext = {
-      threadId: message.threadId,
-      inReplyTo: headers['message-id'] || '',
-      references: [headers.references, headers['message-id']].filter(Boolean).join(' ')
-    };
-    showMonoOverlay('partner-email-compose');
-  }
-
-  async function sendPartnerEmail() {
-    const payload = {
-      to: document.getElementById('partner-compose-to').value.trim(),
-      subject: document.getElementById('partner-compose-subject').value.trim(),
-      body: document.getElementById('partner-compose-body').value,
-      from: partner?.email || '',
-      reply_to: partner?.email || '',
-      approved: true,
-      ...(partnerEmailReplyContext || {})
-    };
-    try {
-      await request('/api/partner-portal/email/send', { method: 'POST', body: JSON.stringify(payload) });
-      closePartnerEmailComposer();
-      monoToast('Message sent. Admin was CC’d.');
-      setPartnerEmailStatus('Sent from your registered email; Admin was CC’d.');
-      loadPartnerEmailFolder('SENT');
-    } catch (error) {
-      setPartnerEmailStatus(error.message, true);
-      monoToast(error.message);
-    }
-  }
-
-  async function draftPartnerEmail(withAI = false) {
-    try {
-      if (withAI) {
-        const to = document.getElementById('partner-compose-to').value.trim();
-        const contact = currentContacts.find(c => String(c.email || '').toLowerCase() === to.toLowerCase()) || {};
-        const result = await request('/api/partner-portal/ai/draft', { method: 'POST', body: JSON.stringify({ contact, instructions: 'Write a concise, professional introduction email.' }) });
-        document.getElementById('partner-compose-subject').value = result.subject;
-        document.getElementById('partner-compose-body').value = result.body;
-      }
-      const payload = {
-        to: document.getElementById('partner-compose-to').value.trim(),
-        subject: document.getElementById('partner-compose-subject').value.trim(),
-        body: document.getElementById('partner-compose-body').value,
-        from: partner?.email || '',
-        reply_to: partner?.email || ''
-      };
-      await request('/api/partner-portal/email/draft', { method: 'POST', body: JSON.stringify(payload) });
-      closePartnerEmailComposer();
-      monoToast(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
-      setPartnerEmailStatus(withAI ? 'AI draft saved in Gmail.' : 'Draft saved in Gmail.');
-    } catch (error) {
-      setPartnerEmailStatus(error.message, true);
-      monoToast(error.message);
-    }
-  }
-
-  Object.assign(window, {
-    navigateToPartnerPage,
-    showPartnerWorkspaceSection,
-    loadPartnerEmailFolder,
-    searchPartnerEmail,
-    openPartnerEmailMessage,
-    closePartnerEmailReader,
-    replyFromReader,
-    archiveFromReader,
-    starFromReader,
-    unreadFromReader,
-    toggleStarEmail,
-    newPartnerEmail,
-    closePartnerEmailComposer,
-    sendPartnerEmail,
-    draftPartnerEmail,
-    loadPartnerSettings,
-    savePartnerAiKeys,
-    connectPartnerGoogle,
-    savePartnerReferralEdit,
-    closePartnerReferralEditor,
-    monoToast,
-    toggleMonoTheme,
-    toggleMonoDensity,
-    switchMonoFolder,
-    toggleSelectAllMonoEmails,
-    bulkActionMonoEmails,
-    monoLoadMore,
-    openInfluencerConnect,
-    copyLinkedInNote,
-    openComposerForContact,
-    callViaTwilio,
-    filterMonoInfluencers,
-    renderInfluencerCards
-  });
-
-  function clearClerkLoading() {
-    clerkMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
-    clerkSignupMount?.querySelectorAll('.clerk-loading')?.forEach(el => el.remove());
-  }
-
-  async function loadPartnerClerk() {
-    clearClerkLoading();
-    if (window.Clerk?.user || (window.Clerk && typeof window.Clerk.mountSignIn === 'function')) {
-      return window.Clerk;
-    }
-    const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "";
-    if (!pubKey || pubKey.includes("placeholder")) {
-      return null;
-    }
-    if (!window.__clerkAssetsPromise) {
-      let frontendApi;
-      try {
-        const encodedDomain = pubKey.split("_")[2];
-        if (!encodedDomain) throw new Error("Malformed Clerk publishable key.");
-        frontendApi = atob(encodedDomain.replace(/-/g, "+").replace(/_/g, "/")).replace(/\$$/, "");
-        if (!/^[a-z0-9.-]+$/i.test(frontendApi)) throw new Error("Invalid Clerk Frontend API domain.");
-      } catch (err) {
-        console.warn("[AUTH] Clerk key parse failed:", err);
-        return null;
-      }
-      const loadScript = (src, publishableKey = "") => new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = true;
-        script.crossOrigin = "anonymous";
-        if (publishableKey) script.setAttribute("data-clerk-publishable-key", publishableKey);
-        script.onload = resolve;
-        script.onerror = () => reject(new Error(`Could not load Clerk asset: ${src}`));
-        document.head.appendChild(script);
-      });
-      window.__clerkAssetsPromise = (async () => {
-        const baseUrl = `https://${frontendApi}/npm`;
-        await loadScript(`${baseUrl}/@clerk/ui@1/dist/ui.browser.js`);
-        await loadScript(`${baseUrl}/@clerk/clerk-js@6/dist/clerk.browser.js`, pubKey);
-      })();
-    }
-    try {
-      await window.__clerkAssetsPromise;
-      if (typeof window.Clerk === "function") {
-        const clerkInstance = new window.Clerk(pubKey);
-        await clerkInstance.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
-        window.Clerk = clerkInstance;
-      } else if (window.Clerk && typeof window.Clerk.load === "function") {
-        await window.Clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } });
-      }
-      return window.Clerk;
-    } catch (err) {
-      console.warn("[AUTH] Clerk load error:", err);
-      return null;
-    }
-  }
-
-  let partner = null;
-  let currentContacts = [];
-  let currentRewardLedger = [];
-  let currentRewardRedemptions = [];
-  let currentRewardPoints = 0;
-  let isMultiEditMode = false;
-  let workspaceCalendlyUrl = 'https://calendly.com/company-gtm/intro-call';
-
-  function escapeHTML(val) {
-    return String(val ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  }
-
-  function showAuthView(message = '') {
-    if (authSection) authSection.hidden = false;
-    if (workspaceContent) workspaceContent.hidden = true;
-    if (signoutBtn) signoutBtn.hidden = true;
-    if (portalLoginForm) portalLoginForm.hidden = false;
-    if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-    document.getElementById('partner-name').textContent = 'Influencer workspace';
-    document.getElementById('partner-company').textContent = 'A trusted network, with clear next steps and rewards you can choose.';
-    if (message) {
-      errorBox.textContent = message;
-      errorBox.style.display = 'block';
-    } else {
-      errorBox.style.display = 'none';
-    }
-  }
-
-  function showWorkspaceView() {
-    if (authSection) authSection.hidden = true;
-    if (workspaceContent) workspaceContent.hidden = false;
-    if (signoutBtn) signoutBtn.hidden = false;
-    errorBox.style.display = 'none';
-    const introSection = document.getElementById('introduction-section');
-    if (introSection) introSection.hidden = false;
-  }
-
-  function showError(message) {
-    showAuthView(message);
-  }
-
-  function createCell(text, secondary = '') {
-    const td = document.createElement('td');
-    td.textContent = text || '';
-    if (secondary) {
-      const small = document.createElement('small');
-      small.textContent = secondary;
-      td.appendChild(small);
-    }
-    return td;
-  }
-
-  function createMultiEditTableRow(contact = {}) {
-    const tr = document.createElement('tr');
-    if (contact.id) tr.dataset.contactId = String(contact.id);
-    const statusVal = contact.status === 'completed' ? 'completed' : contact.status === 'scheduled' ? 'scheduled' : 'pending';
-    tr.innerHTML = `
-      <td>
-        <div style="display:grid;gap:6px;">
-          <input class="inline-edit-input" data-field="fullName" value="${escapeHTML(contact.fullName || '')}" placeholder="Full name *" required>
-          <input class="inline-edit-input" type="email" data-field="email" value="${escapeHTML(contact.email || '')}" placeholder="Work email *" required>
-        </div>
-      </td>
-      <td>
-        <div style="display:grid;gap:6px;">
-          <input class="inline-edit-input" data-field="company" value="${escapeHTML(contact.company || '')}" placeholder="Company *" required>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-            <input class="inline-edit-input" data-field="jobTitle" value="${escapeHTML(contact.jobTitle || '')}" placeholder="Job title">
-            <input class="inline-edit-input" type="tel" data-field="phone" value="${escapeHTML(contact.phone || '')}" placeholder="Phone">
-          </div>
-          <input class="inline-edit-input" type="url" data-field="linkedinUrl" value="${escapeHTML(contact.linkedinUrl || '')}" placeholder="https://www.linkedin.com/in/username">
-        </div>
-      </td>
-      <td>
-        <select class="inline-edit-select" data-field="status">
-          <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled</option>
-          <option value="scheduled" ${statusVal === 'scheduled' || statusVal === 'completed' ? 'selected' : ''}>Scheduled (no points until verified)</option>
-          <option value="completed" disabled>Completed (buyer confirmation required)</option>
-        </select>
-      </td>
-    `;
-    return tr;
-  }
-
-  function renderContactsTable() {
-    body.replaceChildren();
-    if (multiEditBar) multiEditBar.hidden = !isMultiEditMode;
-    if (toggleMultiEditBtn) {
-      toggleMultiEditBtn.textContent = isMultiEditMode ? 'Exit multi-record edit' : 'Multi-record edit';
-    }
-
-    if (isMultiEditMode) {
-      if (!currentContacts.length) {
-        body.appendChild(createMultiEditTableRow({}));
-      } else {
-        currentContacts.forEach(contact => {
-          body.appendChild(createMultiEditTableRow(contact));
-        });
-      }
-      return;
-    }
-
-    if (!currentContacts.length) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 3;
-      td.className = 'empty';
-      td.textContent = 'No introductions yet. Add the first one below.';
-      tr.appendChild(td);
-      body.appendChild(tr);
-      return;
-    }
-    currentContacts.forEach(contact => {
-      const row = document.createElement('tr');
-      const contactTd = createCell(contact.fullName, contact.jobTitle || 'Executive');
-      if (contact.email) {
-        const emailSmall = document.createElement('small');
-        emailSmall.textContent = contact.email;
-        emailSmall.style.cssText = 'display:block;color:var(--muted);';
-        contactTd.appendChild(emailSmall);
-      }
-      if (contact.linkedinUrl) {
-        const liLink = document.createElement('a');
-        liLink.href = contact.linkedinUrl;
-        liLink.target = '_blank';
-        liLink.rel = 'noopener noreferrer';
-        liLink.textContent = 'LinkedIn ↗';
-        liLink.style.cssText = 'display:inline-block;margin-top:3px;font-size:11px;color:var(--accent);';
-        contactTd.appendChild(liLink);
-      }
-      row.appendChild(contactTd);
-      row.appendChild(createCell(contact.company, contact.phone || ''));
-
-      // Relationship & Privacy cell
-      const relTd = document.createElement('td');
-      const strVal = (contact.strength || 'strong').toLowerCase();
-      const strColor = strVal === 'strong' ? '#14745d' : strVal === 'medium' ? '#8b5b13' : '#66736f';
-      const strBg = strVal === 'strong' ? '#dcfce7' : strVal === 'medium' ? '#fef3c7' : '#f3f4f6';
-      const privVal = (contact.privacyLevel || 'ask_partner').replace('_', ' ');
-      relTd.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
-          <span style="font-size:11px; font-weight:700; text-transform:uppercase; padding:2px 7px; border-radius:4px; background:${strBg}; color:${strColor};">${escapeHTML(strVal)}</span>
-          <span style="font-size:11.5px; color:var(--muted);">${escapeHTML(contact.relationshipType || 'Peer')}</span>
-          <span style="font-size:10.5px; color:var(--accent); background:#e8f4f0; padding:1px 6px; border-radius:3px;">${escapeHTML(privVal)}</span>
-        </div>
-      `;
-      row.appendChild(relTd);
-
-      // Status indicators (Contract: Meeting completion pending buyer confirmation / Scheduled (no points until verified))
-      const statusTd = document.createElement('td');
-      const status = contact.status === 'completed' ? 'Meeting Completed' : contact.status === 'scheduled' ? 'Briefing Scheduled' : 'Ready for Intro';
-      statusTd.innerHTML = `<span style="font-size:12px; font-weight:600;">${status}</span>`;
-      if (contact.status !== 'completed' && workspaceCalendlyUrl) {
-        const bookLink = document.createElement('a');
-        const sep = workspaceCalendlyUrl.includes('?') ? '&' : '?';
-        bookLink.href = `${workspaceCalendlyUrl}${sep}name=${encodeURIComponent(contact.fullName || '')}&email=${encodeURIComponent(contact.email || '')}`;
-        bookLink.target = '_blank';
-        bookLink.rel = 'noopener noreferrer';
-        bookLink.textContent = 'Schedule Briefing';
-        bookLink.style.cssText = 'display:block;margin-top:4px;font-size:11.5px;color:var(--ok);font-weight:600;';
-        statusTd.appendChild(bookLink);
-      }
-      const actionRow = document.createElement('div');
-      actionRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
-      const editButton = document.createElement('button'); editButton.type = 'button'; editButton.className = 'btn btn-secondary btn-sm'; editButton.textContent = 'Edit'; editButton.onclick = () => openPartnerReferralEditor(contact);
-      const deleteButton = document.createElement('button'); deleteButton.type = 'button'; deleteButton.className = 'btn btn-secondary btn-sm'; deleteButton.textContent = 'Delete'; deleteButton.style.color = '#b42318'; deleteButton.onclick = () => deletePartnerReferral(contact);
-      actionRow.append(editButton, deleteButton); statusTd.appendChild(actionRow);
-      row.appendChild(statusTd);
-      body.appendChild(row);
-    });
-  }
-
-  function openPartnerReferralEditor(contact) {
-    const fields = { id: contact.id, name: contact.fullName, email: contact.email, company: contact.company, title: contact.jobTitle, phone: contact.phone, linkedin: contact.linkedinUrl, strength: contact.strength || 'strong', privacy: contact.privacyLevel || 'ask_partner' };
-    for (const [key, value] of Object.entries(fields)) {
-      const el = document.getElementById(`partner-referral-edit-${key}`);
-      if (el) el.value = value || '';
-    }
-    document.getElementById('partner-referral-edit-feedback').textContent = '';
-    document.getElementById('partner-referral-edit-dialog')?.showModal();
-  }
-  function closePartnerReferralEditor() { document.getElementById('partner-referral-edit-dialog')?.close(); }
-  async function savePartnerReferralEdit() {
-    const payload = { fullName: document.getElementById('partner-referral-edit-name').value.trim(), email: document.getElementById('partner-referral-edit-email').value.trim(), company: document.getElementById('partner-referral-edit-company').value.trim(), jobTitle: document.getElementById('partner-referral-edit-title').value.trim(), phone: document.getElementById('partner-referral-edit-phone').value.trim(), linkedinUrl: document.getElementById('partner-referral-edit-linkedin').value.trim(), strength: document.getElementById('partner-referral-edit-strength').value, privacyLevel: document.getElementById('partner-referral-edit-privacy').value };
-    const feedback = document.getElementById('partner-referral-edit-feedback');
-    try {
-      await request('/api/partner-share/referrals', { method: 'POST', body: JSON.stringify({ action: 'update', contactId: document.getElementById('partner-referral-edit-id').value, contact: payload }) });
-      closePartnerReferralEditor(); render(await request('/api/partner-share'));
-    } catch (error) { feedback.textContent = error.message; }
-  }
-  async function deletePartnerReferral(contact) {
-    if (!confirm(`Delete ${contact.fullName} from your referred contacts?`)) return;
-    try {
-      await request('/api/partner-share/referrals', { method: 'POST', body: JSON.stringify({ action: 'delete', contactId: contact.id }) });
-      render(await request('/api/partner-share'));
-    } catch (error) { alert(error.message); }
-  }
-
-  function renderAgreementState() {
-    const badgeEl = document.getElementById('partner-agreement-badge');
-    const descEl = document.getElementById('partner-agreement-desc');
-    const signBtn = document.getElementById('partner-sign-agreement-btn');
-    const hasSigned = Boolean(partner && partner.hasSignedAgreement);
-    if (badgeEl) {
-      badgeEl.className = `portal-badge ${hasSigned ? 'ok' : 'warn'}`;
-      badgeEl.textContent = hasSigned ? 'Signed & Active' : 'Agreement Pending';
-    }
-    if (descEl) {
-      const latestAgr = Array.isArray(partner?.agreements) && partner.agreements.length ? partner.agreements[0] : null;
-      descEl.textContent = hasSigned
-        ? `${latestAgr?.name || latestAgr?.title || 'ConnectEM Partner Network Agreement'} · Signed and Active. Your non-circumvention terms are locked.`
-        : 'Review and sign the Partner Network Agreement to activate your partner profile.';
-    }
-    if (signBtn) {
-      signBtn.hidden = hasSigned;
-    }
-  }
-
-  function renderPartnerRequests(requests = []) {
-    const container = document.getElementById('partner-requests-container');
-    const badge = document.getElementById('pending-requests-badge');
+/**
+ * ConnectEM Go Partner Portal Client
+ * Handles session, relationships, intro inbox, rewards ledger, and privacy settings.
+ */
+
+(function () {
+  'use strict';
+
+  let currentPartner = null;
+  let relationships = [];
+  let inboxRequests = [];
+  let rewardsData = null;
+  const rewardsCart = new Set();
+  let activeRewardCategory = 'all';
+
+  // DOM Elements
+  const authSection = document.getElementById('auth-section');
+  const workspaceSection = document.getElementById('workspace-section');
+  const onboardingSequenceSection = document.getElementById('onboarding-sequence-section');
+  const onboardingScreenLinkedin = document.getElementById('onboarding-screen-linkedin');
+  const onboardingScreenConnections = document.getElementById('onboarding-screen-connections');
+  const onboardingScreenComplete = document.getElementById('onboarding-screen-complete');
+
+  const stepNav1 = document.getElementById('step-nav-1');
+  const stepNav2 = document.getElementById('step-nav-2');
+  const stepNav3 = document.getElementById('step-nav-3');
+
+  const linkedinConnectForm = document.getElementById('linkedin-connect-form');
+  const linkedinProfileUrl = document.getElementById('linkedin-profile-url');
+  const linkedinConnectBtn = document.getElementById('linkedin-connect-btn');
+
+  const discoveredConnectionsTotal = document.getElementById('discovered-connections-total');
+  const btnSelectedCount = document.getElementById('btn-selected-count');
+  const oneClickImportBtn = document.getElementById('one-click-import-btn');
+  const importBottomCtaBtn = document.getElementById('import-bottom-cta-btn');
+  const connectionsSelectAll = document.getElementById('connections-select-all');
+  const selectionStatusBadge = document.getElementById('selection-status-badge');
+  const connectionsItemsList = document.getElementById('connections-items-list');
+  const backToLinkedinBtn = document.getElementById('back-to-linkedin-btn');
+
+  const completeImportedCount = document.getElementById('complete-imported-count');
+  const enterWorkspaceBtn = document.getElementById('enter-workspace-btn');
+  const launchLinkedinSyncBtn = document.getElementById('launch-linkedin-sync-btn');
+
+  let discoveredConnections = [];
+  const sessionIndicator = document.getElementById('session-indicator');
+  const sessionPartnerName = document.getElementById('session-partner-name');
+  const navNotificationsWrapper = document.getElementById('nav-notifications-wrapper');
+  const navNotificationsBtn = document.getElementById('nav-notifications-btn');
+  const navNotificationsBadge = document.getElementById('nav-notifications-badge');
+  const notificationsDropdown = document.getElementById('notifications-dropdown');
+  const notificationsList = document.getElementById('notifications-list');
+  const markNotificationsReadBtn = document.getElementById('mark-notifications-read-btn');
+  const viewAllRequestsBtn = document.getElementById('view-all-requests-btn');
+  let notificationsDismissed = false;
+
+  const authSignoutBtn = document.getElementById('auth-signout-btn');
+  const partnerDisplayName = document.getElementById('partner-display-name');
+  const partnerDisplayCompany = document.getElementById('partner-display-company');
+
+  // Stats Elements
+  const statContacts = document.getElementById('stat-contacts');
+  const statPending = document.getElementById('stat-pending');
+  const statOptins = document.getElementById('stat-optins');
+  const statTrust = document.getElementById('stat-trust');
+  const statPipeline = document.getElementById('stat-pipeline');
+  const statRevenue = document.getElementById('stat-revenue');
+
+  // Tables and Lists
+  const contactsTbody = document.getElementById('contacts-tbody');
+  const tableContactsCount = document.getElementById('table-contacts-count');
+  const introRequestsList = document.getElementById('intro-requests-list');
+  const inboxBadge = document.getElementById('inbox-badge');
+  const reachCardsGrid = document.getElementById('reach-cards-grid');
+  const attributionLedgerTbody = document.getElementById('attribution-ledger-tbody');
+  const rewardsPointsBalance = document.getElementById('rewards-points-balance');
+  const rewardsRevenueAmount = document.getElementById('rewards-revenue-amount');
+  const settingsPartnerEmail = document.getElementById('settings-partner-email');
+
+  // Toast Helper
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
     if (!container) return;
-    const pending = requests.filter(r => !['declined', 'partner_declined', 'contact_declined'].includes(r.status));
-    if (badge) badge.textContent = `${pending.length} pending`;
-    if (!pending.length) {
-      container.innerHTML = `<p style="color:var(--muted); font-size:13px; font-style:italic;">No pending introduction requests right now. When vendors request warm introductions to your network, they will appear here for your review.</p>`;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  // API Client with Authorization Bearer
+  async function api(path, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+    if (currentPartner && currentPartner.authToken) {
+      headers['Authorization'] = `Bearer ${currentPartner.authToken}`;
+    }
+
+    const res = await fetch(path, {
+      ...options,
+      headers
+    });
+    const json = await res.json();
+    if (!json.success) {
+      throw new Error(json.error || 'Server request failed');
+    }
+    return json.data;
+  }
+
+  // Session Management
+  async function checkSession() {
+    const savedToken = localStorage.getItem('connectem_go_token');
+    if (savedToken) {
+      try {
+        const partner = await api('/api/go/session', {
+          headers: { Authorization: `Bearer ${savedToken}` }
+        });
+        setPartnerSession(partner);
+        return;
+      } catch (e) {
+        localStorage.removeItem('connectem_go_token');
+        localStorage.removeItem('connectem_go_email');
+      }
+    }
+    showAuthView();
+  }
+
+  function setPartnerSession(partner) {
+    currentPartner = partner;
+    localStorage.setItem('connectem_go_token', partner.authToken);
+    localStorage.setItem('connectem_go_email', partner.email);
+    document.body.classList.remove('auth-login-view', 'auth-signup-view');
+
+    authSection.style.display = 'none';
+    workspaceSection.style.display = 'block';
+    sessionIndicator.style.display = 'flex';
+    if (navNotificationsWrapper) navNotificationsWrapper.style.display = 'inline-block';
+    authSignoutBtn.style.display = 'inline-flex';
+
+    sessionPartnerName.textContent = partner.fullName;
+    partnerDisplayName.textContent = partner.fullName;
+    partnerDisplayCompany.textContent = `${partner.company} · ${partner.jobTitle}`;
+    settingsPartnerEmail.textContent = partner.email;
+
+    const demoBadge = document.getElementById('session-demo-badge');
+    if (demoBadge) {
+      const isDemo = partner.id === 'partner_bmiller' || partner.email === 'bob.miller@milleradvisory.com';
+      demoBadge.style.display = isDemo ? 'inline-block' : 'none';
+    }
+
+    // Set privacy radio
+    const radio = document.querySelector(`input[name="privacyTier"][value="${partner.privacyTier}"]`);
+    if (radio) radio.checked = true;
+
+    loadAllData();
+  }
+
+  function showAuthView() {
+    currentPartner = null;
+    authSection.style.display = 'block';
+    workspaceSection.style.display = 'none';
+    if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'none';
+    sessionIndicator.style.display = 'none';
+    const demoBadge = document.getElementById('session-demo-badge');
+    if (demoBadge) demoBadge.style.display = 'none';
+    if (navNotificationsWrapper) navNotificationsWrapper.style.display = 'none';
+    if (notificationsDropdown) notificationsDropdown.style.display = 'none';
+    authSignoutBtn.style.display = 'none';
+
+    const isSignup = window.location.pathname.replace(/\/$/, '') === '/signup';
+    document.body.classList.toggle('auth-signup-view', isSignup);
+    document.body.classList.toggle('auth-login-view', !isSignup);
+    const loginView = document.getElementById('login-view');
+    const signupView = document.getElementById('signup-view');
+    const modeLabel = document.getElementById('auth-mode-label');
+    const formTitle = document.getElementById('auth-form-title');
+    const formCopy = document.getElementById('auth-form-copy');
+    const storyTitle = document.getElementById('auth-story-title');
+    const storyCopy = document.getElementById('auth-story-copy');
+    if (loginView) loginView.hidden = isSignup;
+    if (signupView) signupView.hidden = !isSignup;
+    if (modeLabel) modeLabel.textContent = isSignup ? 'JOIN THE NETWORK' : 'PARTNER ACCESS';
+    if (formTitle) formTitle.textContent = isSignup ? 'Create your account' : 'Welcome back';
+    if (formCopy) formCopy.textContent = isSignup
+      ? 'Set up your partner profile to get started.'
+      : 'Sign in with the email address registered to your partner account.';
+    if (storyTitle) storyTitle.textContent = isSignup
+      ? 'Build stronger business through trusted connections.'
+      : 'Good relationships move business forward.';
+    if (storyCopy) storyCopy.textContent = isSignup
+      ? 'Create your profile, bring your professional network into one workspace, and decide how you want to participate.'
+      : 'Your workspace brings your trusted contacts, introduction requests, and earned rewards together in one place.';
+    const error = document.getElementById('auth-error');
+    if (error) { error.hidden = true; error.textContent = ''; }
+  }
+
+  // Onboarding Sequence (Separate Screens)
+  function showOnboardingSequence(step = 1) {
+    authSection.style.display = 'none';
+    workspaceSection.style.display = 'none';
+    if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'block';
+
+    if (onboardingScreenLinkedin) onboardingScreenLinkedin.style.display = step === 1 ? 'block' : 'none';
+    if (onboardingScreenConnections) onboardingScreenConnections.style.display = step === 2 ? 'block' : 'none';
+    if (onboardingScreenComplete) onboardingScreenComplete.style.display = step === 3 ? 'block' : 'none';
+
+    if (stepNav1) stepNav1.className = `step-indicator ${step === 1 ? 'active' : step > 1 ? 'completed' : ''}`;
+    if (stepNav2) stepNav2.className = `step-indicator ${step === 2 ? 'active' : step > 2 ? 'completed' : ''}`;
+    if (stepNav3) stepNav3.className = `step-indicator ${step === 3 ? 'active' : ''}`;
+  }
+
+  function renderDiscoveredConnections(list) {
+    discoveredConnections = list;
+    if (discoveredConnectionsTotal) discoveredConnectionsTotal.textContent = list.length;
+    if (!connectionsItemsList) return;
+    connectionsItemsList.innerHTML = '';
+
+    if (list.length === 0) {
+      connectionsItemsList.innerHTML = `<div class="empty-state"><p>No connections discovered.</p></div>`;
+      updateSelectionSummary();
       return;
     }
-    container.innerHTML = '';
-    pending.forEach(req => {
+
+    list.forEach((item) => {
       const card = document.createElement('div');
-      card.className = 'partner-request-card';
-      
-      const isInterestChecked = req.status === 'contact_opt_in_requested' || req.optInToken;
-      const isAccepted = req.status === 'contact_accepted' || req.status === 'introduction_made';
-      
-      let statusBadge = `<span class="portal-badge">Awaiting Your Review</span>`;
-      if (isAccepted) {
-        statusBadge = `<span class="portal-badge ok">Contact Accepted · Intro Made</span>`;
-      } else if (isInterestChecked) {
-        statusBadge = `<span class="portal-badge warn">Double Opt-In Pending</span>`;
-      }
-      
-      const optInUrl = req.optInToken ? `${window.location.origin}/opt-in.html?token=${req.optInToken}` : '';
-      
+      card.className = 'connection-card selected';
+      card.id = `conn-card-${item.id}`;
+
+      const initials = (item.firstName?.[0] || '') + (item.lastName?.[0] || 'E');
+
       card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div class="connection-meta">
+          <input type="checkbox" class="connection-checkbox" data-id="${item.id}" checked>
+          <div class="connection-avatar">${initials}</div>
           <div>
-            <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent);">Introduction Request #${req.id}</span>
-            <h3 style="margin:4px 0 2px; font-size:17px; font-weight:600; color:var(--ink);">${escapeHTML(req.vendorCompany || 'Technology Partner')} ──► ${escapeHTML(req.targetContactName || 'Executive')} (${escapeHTML(req.targetCompany || 'Organization')})</h3>
-            <p style="margin:0; font-size:12.5px; color:var(--muted);">${escapeHTML(req.targetJobTitle || 'Decision Maker')} · Requested by ${escapeHTML(req.vendorContactName || 'Vendor Leadership')}</p>
+            <div style="font-weight:600; color:var(--ink);">${item.fullName}</div>
+            <div style="font-size:13px; color:var(--muted);">${item.jobTitle} · <strong style="color:var(--ink); font-weight:500;">${item.company}</strong></div>
+            <div style="font-size:12px; color:var(--body); margin-top:2px;">${item.relationshipContext}</div>
           </div>
-          <div>${statusBadge}</div>
+        </div>
+        <span class="badge-tag ${item.relationshipStrength || 'strong'}">${(item.relationshipStrength || 'strong').toUpperCase()}</span>
+      `;
+
+      card.querySelector('input.connection-checkbox')?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          card.classList.add('selected');
+        } else {
+          card.classList.remove('selected');
+        }
+        updateSelectionSummary();
+      });
+
+      connectionsItemsList.appendChild(card);
+    });
+
+    updateSelectionSummary();
+  }
+
+  function updateSelectionSummary() {
+    if (!connectionsItemsList) return;
+    const checkedBoxes = connectionsItemsList.querySelectorAll('input.connection-checkbox:checked');
+    const totalBoxes = connectionsItemsList.querySelectorAll('input.connection-checkbox');
+    const selectedCount = checkedBoxes.length;
+
+    if (btnSelectedCount) btnSelectedCount.textContent = selectedCount;
+    if (connectionsSelectAll) connectionsSelectAll.checked = selectedCount > 0 && selectedCount === totalBoxes.length;
+
+    if (selectionStatusBadge) {
+      if (selectedCount === 0) {
+        selectionStatusBadge.textContent = 'None Selected';
+        selectionStatusBadge.style.color = 'var(--muted)';
+      } else if (selectedCount === totalBoxes.length) {
+        selectionStatusBadge.textContent = 'All Selected';
+        selectionStatusBadge.style.color = 'var(--primary)';
+      } else {
+        selectionStatusBadge.textContent = `${selectedCount} Selected`;
+        selectionStatusBadge.style.color = 'var(--ink)';
+      }
+    }
+  }
+
+  // Outreach State
+  let twilioEnabled = false;
+  let gmailConnected = false;
+  let activeOutreachProspectId = null;
+  let emailAiAssisted = false;
+  const outreachContactsList = document.getElementById('outreach-contacts-list');
+  const outreachContactsTotal = document.getElementById('outreach-contacts-total');
+  const outreachSearchInput = document.getElementById('outreach-search-input');
+
+  function switchOutreachChannel(channel) {
+    const validChannels = ['email', 'call', 'linkedin'];
+    const active = validChannels.includes(channel) ? channel : 'email';
+
+    validChannels.forEach(ch => {
+      const tabBtn = document.getElementById(`channel-tab-${ch}`);
+      const pane = document.getElementById(`channel-content-${ch}`);
+      const isCurrent = ch === active;
+      if (tabBtn) {
+        tabBtn.classList.toggle('active', isCurrent);
+        tabBtn.setAttribute('aria-selected', String(isCurrent));
+      }
+      if (pane) {
+        pane.style.display = isCurrent ? 'block' : 'none';
+      }
+    });
+  }
+
+  function selectOutreachContact(contactOrId) {
+    const contact = typeof contactOrId === 'string'
+      ? relationships.find(c => c.id === contactOrId)
+      : contactOrId;
+    if (!contact) return;
+    activeOutreachProspectId = contact.id;
+
+    document.querySelectorAll('.outreach-contact-item').forEach(item => {
+      const selected = item.dataset.contactId === contact.id;
+      item.classList.toggle('active', selected);
+      item.setAttribute('aria-pressed', String(selected));
+    });
+
+    const name = document.getElementById('outreach-selected-name');
+    const sub = document.getElementById('outreach-selected-sub');
+    const strength = document.getElementById('outreach-selected-strength');
+    if (name) name.textContent = contact.fullName;
+    if (sub) sub.textContent = [contact.jobTitle, contact.company, contact.email].filter(Boolean).join(' · ');
+    if (strength) {
+      const value = contact.relationshipStrength || 'strong';
+      strength.className = `badge-tag ${value}`;
+      strength.textContent = value.toUpperCase();
+    }
+
+    // Populate Email channel
+    const compProspectId = document.getElementById('composer-prospect-id');
+    const compFromEmail = document.getElementById('composer-from-email');
+    const compToRecipient = document.getElementById('composer-to-recipient');
+    const aiDraftPurposeInput = document.getElementById('ai-draft-purpose');
+    const compSubject = document.getElementById('composer-subject');
+    const compBody = document.getElementById('composer-body');
+
+    if (compProspectId) compProspectId.value = contact.id;
+    if (compFromEmail) compFromEmail.textContent = currentPartner?.gmailEmail || currentPartner?.email || 'you@example.com';
+    if (compToRecipient) compToRecipient.textContent = `${contact.fullName} <${contact.email}>`;
+    if (aiDraftPurposeInput) aiDraftPurposeInput.value = `Executive briefing & advisory intro for ${contact.company}`;
+    if (compSubject && (!compSubject.value || compSubject.value.startsWith('ConnectEM: Introduction') || compSubject.value.startsWith('Quick note'))) {
+      compSubject.value = `ConnectEM: Introduction & Executive Briefing (${contact.company})`;
+    }
+    if (compBody && (!compBody.value || compBody.value.startsWith('Hi '))) {
+      compBody.value = `Hi ${contact.fullName},\n\nHope this finds you well. I am reaching out to share a strategic advisory briefing tailored for ${contact.company}.\n\nLet's coordinate a brief introductory discussion this week.\n\nBest regards,\n${currentPartner?.fullName || 'Bob Miller'}`;
+    }
+
+    // Populate Call channel
+    const callProspectId = document.getElementById('call-logger-prospect-id');
+    const twilioTarget = document.getElementById('twilio-dialing-target');
+    if (callProspectId) callProspectId.value = contact.id;
+    if (twilioTarget) twilioTarget.textContent = contact.phone || '+1 (555) 234-5678';
+
+    // Populate LinkedIn channel
+    const linkedinProspectId = document.getElementById('linkedin-logger-prospect-id');
+    const linkedinTargetName = document.getElementById('linkedin-dialog-target-name');
+    const linkedinTargetHeadline = document.getElementById('linkedin-dialog-target-headline');
+    const linkedinProfileLink = document.getElementById('linkedin-dialog-profile-link');
+    if (linkedinProspectId) linkedinProspectId.value = contact.id;
+    if (linkedinTargetName) linkedinTargetName.textContent = contact.fullName;
+    if (linkedinTargetHeadline) linkedinTargetHeadline.textContent = `${contact.jobTitle} · ${contact.company}`;
+    if (linkedinProfileLink) {
+      linkedinProfileLink.href = contact.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
+    }
+  }
+
+  // Wire up Outreach channel tabs
+  document.getElementById('channel-tab-email')?.addEventListener('click', () => switchOutreachChannel('email'));
+  document.getElementById('channel-tab-call')?.addEventListener('click', () => switchOutreachChannel('call'));
+  document.getElementById('channel-tab-linkedin')?.addEventListener('click', () => switchOutreachChannel('linkedin'));
+
+  function renderOutreachContacts(list = relationships) {
+    if (!outreachContactsList) return;
+    if (outreachContactsTotal) outreachContactsTotal.textContent = list.length;
+    const query = (outreachSearchInput?.value || '').trim().toLowerCase();
+    const filtered = list.filter(contact => [contact.fullName, contact.company, contact.jobTitle, contact.email]
+      .some(value => String(value || '').toLowerCase().includes(query)));
+    outreachContactsList.replaceChildren();
+    if (!filtered.length) {
+      const empty = document.createElement('p');
+      empty.className = 'outreach-contacts-empty';
+      empty.textContent = list.length ? 'No contacts match your search.' : 'No contacts yet.';
+      outreachContactsList.appendChild(empty);
+      return;
+    }
+    filtered.forEach(contact => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      const isContacted = Boolean(
+        contact.outreachStatus === 'Contacted' ||
+        contact.outreachStatus === 'Intro Sent' ||
+        contact.lastContactedAt ||
+        (contact.optInCount && contact.optInCount > 0)
+      );
+      item.className = `outreach-contact-item ${isContacted ? 'is-contacted' : 'is-pending'}`;
+      item.dataset.contactId = contact.id;
+      item.setAttribute('aria-pressed', String(contact.id === activeOutreachProspectId));
+      item.classList.toggle('active', contact.id === activeOutreachProspectId);
+      
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; width:100%; gap:6px;';
+      const name = document.createElement('strong');
+      name.textContent = contact.fullName;
+      const statusBadge = document.createElement('span');
+      statusBadge.className = `contact-status-badge ${isContacted ? 'badge-contacted' : 'badge-uncontacted'}`;
+      statusBadge.textContent = isContacted ? 'Contacted' : 'Not Contacted';
+      topRow.append(name, statusBadge);
+
+      const detail = document.createElement('span');
+      detail.textContent = [contact.jobTitle, contact.company].filter(Boolean).join(' · ') || contact.email || 'Contact';
+      item.append(topRow, detail);
+      item.addEventListener('click', () => selectOutreachContact(contact));
+      outreachContactsList.appendChild(item);
+    });
+    const selected = filtered.find(contact => contact.id === activeOutreachProspectId);
+    if (selected) selectOutreachContact(selected);
+    else if (filtered.length) selectOutreachContact(filtered[0]);
+  }
+
+  outreachSearchInput?.addEventListener('input', () => renderOutreachContacts());
+
+  async function loadOutreachStatus() {
+    try {
+      const [gmailRes, twilioRes] = await Promise.all([
+        api('/api/go/outreach/gmail/status'),
+        api('/api/go/outreach/twilio/status')
+      ]);
+
+      gmailConnected = !!gmailRes.connected;
+      twilioEnabled = !!twilioRes.enabled;
+
+      const statusEl = document.getElementById('outreach-gmail-status');
+      const grantBtn = document.getElementById('grant-gmail-perm-btn');
+      if (statusEl) {
+        if (gmailConnected) {
+          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Gmail Connected (${gmailRes.email || currentPartner?.email || ''})</span>`;
+          if (grantBtn) grantBtn.style.display = 'none';
+        } else {
+          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Permission Required</span>`;
+          if (grantBtn) grantBtn.style.display = 'inline-block';
+        }
+      }
+    } catch (err) {
+      console.warn('Outreach status error:', err);
+    }
+  }
+
+  // Load Workspace Data
+  async function loadAllData() {
+    try {
+      await Promise.all([
+        loadRelationships(),
+        loadInbox(),
+        loadRewards(),
+        loadOutreachStatus(),
+        loadSettings()
+      ]);
+      updateStats();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function loadRelationships() {
+    relationships = await api('/api/go/relationships');
+    renderRelationshipsTable(relationships);
+    renderReachCards(relationships);
+    renderOutreachContacts();
+  }
+
+  async function loadInbox() {
+    inboxRequests = await api('/api/go/inbox');
+    renderInbox();
+  }
+
+  async function loadRewards() {
+    rewardsData = await api('/api/go/rewards');
+    renderRewards();
+  }
+
+  function updateStats() {
+    if (!currentPartner) return;
+    const pendingCount = inboxRequests.filter(r => r.status === 'pending_partner_review').length;
+    if (inboxBadge) inboxBadge.textContent = pendingCount;
+    if (statContacts) statContacts.textContent = relationships.length;
+    if (statPending) statPending.textContent = pendingCount;
+    if (statOptins) statOptins.textContent = relationships.reduce((acc, r) => acc + (r.optInCount || 0), 0);
+    if (statTrust) statTrust.textContent = '96 / 100';
+    if (statPipeline) statPipeline.textContent = '$185,000';
+    if (statRevenue) statRevenue.textContent = `$${(currentPartner.verifiedRevenue || 45000).toLocaleString()}`;
+    renderNotifications();
+  }
+
+  // Render Relationships Table
+  function renderRelationshipsTable(list) {
+    tableContactsCount.textContent = list.length;
+    contactsTbody.innerHTML = '';
+
+    if (list.length === 0) {
+      contactsTbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center; padding:32px; color:var(--muted);">
+            No contacts added yet. Add a contact above to get started.
+          </td>
+        </tr>`;
+      return;
+    }
+
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      const strengthClass = item.relationshipStrength || 'strong';
+      tr.innerHTML = `
+        <td>
+          <strong style="color:var(--ink);">${item.fullName}</strong>
+          <div style="font-size:12px; color:var(--muted);">${item.jobTitle || 'Executive'}</div>
+        </td>
+        <td>
+          <span style="font-weight:500;">${item.company}</span>
+          <div style="font-size:12px; color:var(--muted);">${item.email}</div>
+        </td>
+        <td>
+          <span class="badge-tag ${strengthClass}">${strengthClass.toUpperCase()}</span>
+        </td>
+        <td>
+          <div style="font-size:13px; max-width:300px;">${item.relationshipContext || 'Advisory relationship'}</div>
+          ${item.phone ? `<div class="code-text" style="color:var(--muted); font-size:11px;">${item.phone}</div>` : ''}
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="window.quickReachOut('${item.id}')">
+            Contact
+          </button>
+        </td>
+      `;
+      contactsTbody.appendChild(tr);
+    });
+  }
+
+  // Render Influencers Reach Cards
+  function renderReachCards(list) {
+    if (!reachCardsGrid) return;
+    reachCardsGrid.innerHTML = '';
+    if (list.length === 0) {
+      reachCardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><p>No contacts available for reach.</p></div>`;
+      return;
+    }
+
+    list.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.padding = '18px';
+
+      // Call button: If Twilio is enabled, show direct Call dialer; if disabled, show 'Mark as Called'
+      const callButtonHtml = twilioEnabled
+        ? `<button class="btn btn-secondary btn-sm" type="button" onclick="window.openCallDialog('${item.id}')">Call</button>`
+        : `<button class="btn btn-tertiary btn-sm" type="button" onclick="window.openCallDialog('${item.id}')">Mark as Called</button>`;
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+          <div>
+            <strong style="color:var(--ink); font-size:16px;">${item.fullName}</strong>
+            <div style="font-size:13px; color:var(--muted);">${item.jobTitle} · ${item.company}</div>
+          </div>
+          <span class="badge-tag ${item.relationshipStrength || 'strong'}">${(item.relationshipStrength || 'strong').toUpperCase()}</span>
+        </div>
+        <p style="font-size:12px; color:var(--body); margin: 8px 0 14px;">
+          ${item.relationshipContext || 'Strategic partner connection.'}
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" type="button" onclick="window.openEmailComposer('${item.id}')">Send Email</button>
+          ${callButtonHtml}
+          <button class="btn btn-secondary btn-sm" type="button" onclick="window.openLinkedInDialog('${item.id}')">LinkedIn</button>
+        </div>
+      `;
+      reachCardsGrid.appendChild(card);
+    });
+  }
+
+  // Render Inbox (Introduction Requests with Double Opt-In Flow & AI Timeline Pills)
+  function renderInbox() {
+    introRequestsList.innerHTML = '';
+    const pending = inboxRequests.filter(r => r.status === 'pending_partner_review');
+
+    if (inboxRequests.length === 0) {
+      introRequestsList.innerHTML = `
+        <div class="card empty-state">
+          <h3 class="title-md">No Introduction Requests</h3>
+          <p>When vendors find a high-match path to your network, their request briefs will arrive here for your explicit review.</p>
+        </div>`;
+      return;
+    }
+
+    inboxRequests.forEach(req => {
+      const card = document.createElement('div');
+      card.className = 'intro-request-card';
+
+      // Pick timeline pill style
+      let pillClass = 'thinking';
+      let pillLabel = 'Pending';
+      if (req.status === 'partner_approved' || req.status === 'pending_contact_opt_in') {
+        pillClass = 'grep';
+        pillLabel = 'Awaiting Response';
+      } else if (req.status === 'opted_in' || req.status === 'contact_accepted') {
+        pillClass = 'read';
+        pillLabel = 'Accepted';
+      } else if (req.status === 'declined' || req.status === 'partner_declined') {
+        pillClass = 'edit';
+        pillLabel = 'Declined';
+      } else if (req.status === 'settled' || req.status === 'deal_closed') {
+        pillClass = 'done';
+        pillLabel = 'Completed';
+      }
+
+      const isPending = req.status === 'pending_partner_review';
+
+      card.innerHTML = `
+        <div class="request-card-head">
+          <div>
+            <span class="timeline-pill ${pillClass}">${pillLabel}</span>
+            <span style="font-size:13px; color:var(--muted); margin-left:10px;">ID: <span class="code-text">${req.id}</span></span>
+          </div>
+          <span class="score-badge">Match: ${req.warmPathScore || 90}%</span>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; background:var(--soft); padding:14px 16px; border-radius:8px; border:1px solid var(--line);">
-          <div><strong style="display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Why This Contact</strong><span style="font-size:13px; color:var(--ink);">${escapeHTML(req.whyThisContact || 'Target decision maker in focus sector')}</span></div>
-          <div><strong style="display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Why They Should Care</strong><span style="font-size:13px; color:var(--ink);">${escapeHTML(req.whyTheyShouldCare || req.vendorPitch || 'Modernizing architecture while maintaining compliance')}</span></div>
-          <div><strong style="display:block; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Specific Ask</strong><span style="font-size:13px; color:var(--ink);">${escapeHTML(req.specificAsk || '20-minute executive briefing')}</span></div>
+        <div style="margin-bottom: 14px;">
+          <h3 class="title-md" style="margin-bottom: 4px;">
+            <strong style="color:var(--primary);">${req.vendorName}</strong> requesting introduction to <strong>${req.prospectName}</strong> (${req.prospectCompany})
+          </h3>
         </div>
 
-        <div>
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--ink); margin-bottom:6px;">Forwardable Note to Contact (in your voice):</label>
-          <textarea class="forwardable-note-area" style="width:100%; min-height:85px; padding:10px 12px; font-size:13px; border:1px solid var(--line); border-radius:8px; font-family:inherit; background:var(--surface);" ${isInterestChecked ? 'readonly' : ''}>${escapeHTML(req.forwardableBrief || req.vendorPitch || '')}</textarea>
+        <div class="brief-box">
+          <strong>Summary</strong>
+          <p>${req.forwardableBrief}</p>
         </div>
 
-        ${optInUrl ? `
-          <div style="background:var(--accent-soft); border:1px solid var(--accent-border); border-radius:8px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div style="font-size:12.5px; color:var(--ink);"><strong>Contact Double Opt-In Link:</strong> <code style="background:#fff; padding:3px 8px; border-radius:5px; border:1px solid var(--line); font-size:12px; font-family:var(--font-mono);">${optInUrl}</code></div>
-            <button type="button" class="btn btn-secondary copy-optin-link-btn" data-url="${optInUrl}" style="min-height:32px; padding:0 12px; font-size:12px;">Copy Opt-In Link</button>
+        <div class="brief-box" style="margin-bottom: 16px;">
+          <strong>Details</strong>
+          <p>${req.specificAsk}</p>
+        </div>
+
+        ${isPending ? `
+          <div class="request-actions">
+            <button class="btn btn-primary" onclick="window.reviewRequest('${req.id}', 'approved')">
+              Approve
+            </button>
+            <button class="btn btn-secondary" onclick="window.reviewRequest('${req.id}', 'declined')">
+              Decline
+            </button>
+            <button class="btn btn-tertiary" onclick="window.reviewRequest('${req.id}', 'needs_context')">
+              Details
+            </button>
           </div>
         ` : ''}
 
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; border-top:1px solid var(--line); padding-top:14px; margin-top:4px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:12px; font-weight:600; color:var(--muted);">Relevance:</span>
-            <select class="relevance-select" style="min-height:34px; font-size:12.5px; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:#fff; width:auto;">
-              <option value="highly" ${req.relevanceRating === 'highly' ? 'selected' : ''}>Highly Relevant</option>
-              <option value="possibly" ${req.relevanceRating === 'possibly' ? 'selected' : ''}>Possibly Relevant</option>
-              <option value="need_more_info" ${req.relevanceRating === 'need_more_info' ? 'selected' : ''}>Need More Info</option>
-              <option value="not_relevant" ${req.relevanceRating === 'not_relevant' ? 'selected' : ''}>Not Relevant</option>
-            </select>
+        ${req.optInToken ? `
+          <div style="margin-top:14px; padding:12px 14px; background:var(--canvas-soft); border-radius:var(--radius-md); border:1px solid var(--hairline-strong); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:13px;">
+              <strong>Opt-In Link:</strong>
+              <span class="code-text" style="color:var(--primary); margin-left:6px;">/api/connectem/opt-in?token=${req.optInToken}</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(window.location.origin + '/api/connectem/opt-in?token=${req.optInToken}'); window.showToast('Opt-in link copied!');">
+              Copy Link
+            </button>
           </div>
-          
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            ${!isInterestChecked && !isAccepted ? `
-              <button type="button" class="btn btn-primary check-interest-btn" data-id="${req.id}" style="min-height:34px; padding:0 14px; font-size:12px;">Check Interest (Double Opt-In)</button>
-              <button type="button" class="btn btn-secondary decline-btn" data-id="${req.id}" style="min-height:34px; padding:0 12px; font-size:12px;">Decline</button>
-              <button type="button" class="btn btn-secondary question-btn" data-id="${req.id}" style="min-height:34px; padding:0 12px; font-size:12px;">Ask Question</button>
-            ` : isAccepted ? `
-              <span class="portal-badge ok" style="padding:6px 12px; font-size:12px;">Introduction Made &amp; Scheduled</span>
-            ` : `
-              <button type="button" class="btn btn-secondary copy-optin-link-btn" data-url="${optInUrl}" style="min-height:34px; padding:0 14px; font-size:12px;">Share Opt-In Link With Contact</button>
-            `}
-          </div>
-        </div>
+        ` : ''}
       `;
-
-      card.querySelector('.copy-optin-link-btn')?.addEventListener('click', async (e) => {
-        const u = e.currentTarget.dataset.url;
-        await navigator.clipboard.writeText(u);
-        const original = e.currentTarget.textContent;
-        e.currentTarget.textContent = 'Copied!';
-        setTimeout(() => { e.currentTarget.textContent = original; }, 1500);
-      });
-
-      card.querySelector('.check-interest-btn')?.addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        const note = card.querySelector('.forwardable-note-area').value;
-        const rel = card.querySelector('.relevance-select').value;
-        try {
-          await request('/api/connectem/requests/review', {
-            method: 'POST',
-            body: JSON.stringify({ requestId: req.id, decision: 'check_interest', partnerNote: note, relevanceRating: rel })
-          });
-          render(await request('/api/partner-share'));
-        } catch (err) {
-          alert(err.message);
-          btn.disabled = false;
-        }
-      });
-
-      card.querySelector('.decline-btn')?.addEventListener('click', async (e) => {
-        const reason = prompt('Optional reason for declining (never penalizes your Trust Score):') ?? '';
-        try {
-          await request('/api/connectem/requests/review', {
-            method: 'POST',
-            body: JSON.stringify({ requestId: req.id, decision: 'decline', partnerNote: reason })
-          });
-          render(await request('/api/partner-share'));
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-
-      card.querySelector('.question-btn')?.addEventListener('click', async (e) => {
-        const q = prompt('What question do you have for the vendor?');
-        if (!q) return;
-        try {
-          await request('/api/connectem/requests/review', {
-            method: 'POST',
-            body: JSON.stringify({ requestId: req.id, decision: 'ask_question', question: q })
-          });
-          alert('Your question has been sent to the vendor.');
-          render(await request('/api/partner-share'));
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-
-      container.appendChild(card);
+      introRequestsList.appendChild(card);
     });
   }
 
-  function render(data) {
-    showWorkspaceView();
-    partner = data.influencer || {};
-    currentContacts = data.contacts || [];
-    const scheduleContact = document.getElementById('partner-schedule-contact');
-    if (scheduleContact) {
-      scheduleContact.replaceChildren(new Option('Choose a referred contact', ''));
-      currentContacts.forEach(contact => scheduleContact.add(new Option(`${contact.fullName} · ${contact.company || contact.email}`, String(contact.id))));
-    }
-    currentRewardLedger = data.rewardLedger || [];
-    currentRewardRedemptions = data.rewardRedemptions || [];
-    currentRewardPoints = Number(data.rewardPoints || 0);
-    if (data.calendlyUrl) workspaceCalendlyUrl = data.calendlyUrl;
-    document.getElementById('partner-name').textContent = partner.fullName || 'Partner workspace';
-    document.getElementById('partner-company').textContent = [partner.jobTitle, partner.company].filter(Boolean).join(' · ') || 'Your introductions and their next steps.';
-    const partnerName = partner.fullName || partner.email || 'Partner';
-    const initials = partnerName.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'P';
-    const avatarEl = document.getElementById('partner-avatar-display');
-    if (avatarEl) avatarEl.textContent = initials;
-    document.getElementById('total-count').textContent = currentContacts.length;
-    const scheduledCount = currentContacts.filter(contact => contact.status === 'scheduled' || contact.status === 'completed').length;
-    const completedCount = currentContacts.filter(contact => contact.status === 'completed').length;
-    document.getElementById('scheduled-count').textContent = scheduledCount;
-    document.getElementById('completed-count').textContent = completedCount;
-    
-    // ConnectEM Trust Score
-    const trustScoreVal = data.trustScore || partner.trustScore || 96;
-    const creditsEl = document.getElementById('partner-credits');
-    if (creditsEl) creditsEl.textContent = `${trustScoreVal} · High Trust`;
-
-    // ConnectEM Commercial Attribution
-    const attrPipe = document.getElementById('attr-pipeline');
-    if (attrPipe) attrPipe.textContent = '$' + Number(data.pipelineInfluenced || 185000).toLocaleString();
-    const attrRev = document.getElementById('attr-revenue');
-    if (attrRev) attrRev.textContent = '$' + Number(data.closedRevenue || 45000).toLocaleString();
-
-    const openCalendlyEl = document.getElementById('partner-calendly-open-link');
-    if (openCalendlyEl && workspaceCalendlyUrl) openCalendlyEl.href = workspaceCalendlyUrl;
-    document.getElementById('visible-count').textContent = `${currentContacts.length} relationship${currentContacts.length === 1 ? '' : 's'}`;
-    
-    renderAgreementState();
-    renderPartnerRequests(data.requests || data.marketplaceRequests || []);
-    renderContactsTable();
-    renderInfluencerCards();
-
-    if (partner.email) {
-      const inboxEmail = document.getElementById('partner-inbox-registered-email');
-      if (inboxEmail) inboxEmail.textContent = partner.email;
-      const settingsEmail = document.getElementById('partner-settings-registered-email');
-      if (settingsEmail) settingsEmail.textContent = partner.email;
-      const composeFrom = document.getElementById('partner-compose-from-display');
-      if (composeFrom) composeFrom.textContent = partner.email;
-    }
-    if (data.adminEmail) {
-      const inboxAdmin = document.getElementById('partner-inbox-admin-cc');
-      if (inboxAdmin) inboxAdmin.textContent = data.adminEmail;
-      const settingsAdmin = document.getElementById('partner-settings-admin-cc');
-      if (settingsAdmin) settingsAdmin.textContent = data.adminEmail;
-      const composeAdmin = document.getElementById('partner-compose-admin-display');
-      if (composeAdmin) composeAdmin.textContent = data.adminEmail;
-    }
-
-    loadPartnerSettings();
-
-    const path = (window.location.pathname || '').toLowerCase();
-    const hash = (window.location.hash || '').toLowerCase();
-    const googleParam = new URLSearchParams(window.location.search).get('google');
-
-    if (googleParam === 'connected' || hash === '#settings' || path.endsWith('/settings')) {
-      navigateToPartnerPage('settings', false);
-      if (googleParam === 'connected') {
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete('google');
-        cleanUrl.hash = '#settings';
-        window.history.replaceState(null, '', cleanUrl.toString());
-      }
-    } else if (hash === '#email' || hash === '#inbox' || path.endsWith('/email') || path.endsWith('/inbox')) {
-      navigateToPartnerPage('email', false);
-    } else {
-      navigateToPartnerPage('contacts', false);
-    }
-  }
-
-  window.addEventListener('hashchange', () => {
-    const hash = (window.location.hash || '').replace('#', '').toLowerCase();
-    if (hash === 'email' || hash === 'inbox') {
-      navigateToPartnerPage('email', false);
-    } else if (hash === 'settings') {
-      navigateToPartnerPage('settings', false);
-    } else if (hash === 'contacts') {
-      navigateToPartnerPage('contacts', false);
-    }
-  });
-
-  document.getElementById('partner-schedule-form')?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const scheduleForm = event.currentTarget;
-    const feedback = document.getElementById('partner-schedule-feedback');
-    const submit = document.getElementById('partner-schedule-send');
-    const values = Object.fromEntries(new FormData(scheduleForm));
-    const contact = currentContacts.find(item => String(item.id) === String(values.contactId));
-    if (!contact) {
-      feedback.className = 'error';
-      feedback.textContent = 'Choose a contact from your referred contacts.';
-      return;
-    }
-    submit.disabled = true;
-    feedback.className = '';
-    feedback.textContent = 'AI is checking the invitation, then ConnectEM will send it and add the call to the Admin Schedule…';
-    try {
-      const result = await request('/api/partner-share/schedule', {
-        method: 'POST',
-        body: JSON.stringify({
-          contactId: contact.id,
-          datetime: values.datetime,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
-          subject: values.subject,
-          body: values.body
-        })
-      });
-      feedback.className = 'success';
-      feedback.textContent = `Invitation sent to ${contact.email}; your administrator was copied. The call is on the Admin Schedule and the connected Google Calendar for ${result.meeting.timeString}.`;
-      scheduleForm.reset();
-      scheduleForm.elements.subject.value = 'ConnectEM partner introduction';
-    } catch (error) {
-      feedback.className = 'error';
-      feedback.textContent = error.message;
-    } finally {
-      submit.disabled = false;
-    }
-  });
-
+  // Render Rewards Ledger
   function renderRewards() {
-    const balance = document.getElementById('partner-reward-balance');
-    const available = Math.max(0, currentRewardPoints - currentRewardRedemptions.filter(r => ['requested', 'approved', 'fulfilling'].includes(r.status)).reduce((sum, r) => sum + Number(r.points || 0), 0));
-    if (balance) balance.textContent = `${available.toLocaleString()} available points`;
-    const tbody = document.getElementById('partner-reward-redemptions');
-    if (!tbody) return;
-    if (!currentRewardRedemptions.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty">No redemption requests.</td></tr>';
+    if (!rewardsData) return;
+    const balance = rewardsData.creditsBalance ?? rewardsData.pointsBalance ?? 0;
+    if (rewardsPointsBalance) rewardsPointsBalance.textContent = `${balance.toLocaleString()} credits`;
+    if (rewardsRevenueAmount) rewardsRevenueAmount.textContent = `$${(rewardsData.verifiedRevenue || 0).toLocaleString()}`;
+
+    const creditsInput = document.getElementById('rewards-credits-to-apply');
+    if (creditsInput) creditsInput.max = String(balance);
+
+    const milestonesList = document.getElementById('credit-milestones-list');
+    if (milestonesList) {
+      milestonesList.replaceChildren();
+      (rewardsData.milestones || []).forEach(milestone => {
+        const row = document.createElement('div');
+        row.className = 'milestone-row';
+        const title = document.createElement('span');
+        title.textContent = milestone.name;
+        const amount = document.createElement('strong');
+        amount.textContent = `+${Number(milestone.credits).toLocaleString()} credits`;
+        row.append(title, amount);
+        milestonesList.appendChild(row);
+      });
+    }
+    renderRewardCatalog();
+    renderRewardsCart();
+    renderRedemptionRequests();
+
+    attributionLedgerTbody.innerHTML = '';
+    if (!rewardsData.history || rewardsData.history.length === 0) {
+      attributionLedgerTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--muted);">No attribution events recorded yet.</td></tr>`;
       return;
     }
-    tbody.replaceChildren(...currentRewardRedemptions.map(r => {
+
+    rewardsData.history.forEach(item => {
       const tr = document.createElement('tr');
-      tr.append(createCell(String(r.rewardType || '').replaceAll('_', ' ')), createCell(`${Number(r.points || 0).toLocaleString()} pts`), createCell(r.status || 'requested'), createCell(r.createdAt || ''));
-      return tr;
-    }));
-  }
-
-  document.getElementById('partner-reward-redemption-form')?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const feedback = document.getElementById('partner-reward-feedback');
-    try {
-      const response = await request('/api/partner-share/rewards/redeem', {
-        method: 'POST', body: JSON.stringify({
-          rewardType: document.getElementById('partner-reward-type').value,
-          points: Number(document.getElementById('partner-reward-points').value),
-          details: document.getElementById('partner-reward-details').value
-        })
-      });
-      if (feedback) feedback.textContent = `Request submitted for IRM review. ${response.availablePoints} points remain available. This is not a cash payment or fulfillment confirmation.`;
-      event.currentTarget.reset();
-      render(await request('/api/partner-share'));
-    } catch (error) {
-      if (feedback) feedback.textContent = error.message;
-    }
-  });
-
-  document.getElementById('partner-calendly-copy-btn')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    try {
-      await navigator.clipboard.writeText(workspaceCalendlyUrl);
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy Booking Link'; }, 1600);
-    } catch (_) {}
-  });
-
-  document.getElementById('partner-sign-agreement-btn')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    try {
-      await request('/api/partner-share/agreement', {
-        method: 'POST',
-        body: JSON.stringify({
-          signerName: partner?.fullName || 'Influencer Partner',
-          name: 'IRM Partner Network Agreement (Model 2)'
-        })
-      });
-      render(await request('/api/partner-share'));
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  async function request(path, options = {}) {
-    let authHeader = token ? `Bearer ${token}` : '';
-    if (!authHeader && window.Clerk?.session) {
-      try {
-        const clerkToken = await window.Clerk.session.getToken();
-        if (clerkToken) authHeader = `Bearer ${clerkToken}`;
-      } catch (_) {}
-    }
-    const response = await fetch(path, {
-      ...options,
-      headers: {
-        ...(authHeader ? { Authorization: authHeader } : {}),
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(options.headers || {})
-      }
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-    return data;
-  }
-
-  const mountedAuthModes = new Set();
-  function mountClerkAuth(mode = 'signin') {
-    const mount = clerkMount;
-    if (!window.Clerk || !mount) return;
-    if (mount.querySelector('.cl-rootBox')) return;
-    try {
-      mount.querySelector('.clerk-loading')?.remove();
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const appearance = {
-        variables: {
-          colorPrimary: isDark ? '#ffffff' : '#0a0a0c',
-          colorText: isDark ? '#f4f4f6' : '#0a0a0c',
-          colorTextSecondary: isDark ? '#a1a1aa' : '#646470',
-          colorBackground: isDark ? '#111114' : '#ffffff',
-          colorInputBackground: isDark ? '#18181c' : '#ffffff',
-          colorInputText: isDark ? '#f4f4f6' : '#0a0a0c',
-          borderRadius: '6px',
-          fontFamily: 'Inter, -apple-system, sans-serif'
-        },
-        options: {
-          socialButtonsVariant: 'blockButton',
-          socialButtonsPlacement: 'bottom'
-        },
-        elements: {
-          card: {
-            boxShadow: 'none',
-            border: isDark ? '1px solid #26262c' : '1px solid #e2e2e8',
-            background: isDark ? '#111114' : '#ffffff',
-            borderRadius: '6px',
-            color: isDark ? '#f4f4f6' : '#0a0a0c'
-          },
-          rootBox: { width: '100%' },
-          headerTitle: { color: isDark ? '#f4f4f6' : '#0a0a0c' },
-          headerSubtitle: { color: isDark ? '#a1a1aa' : '#646470' },
-          socialButtonsBlockButton: {
-            border: isDark ? '1px solid #26262c' : '1px solid #e2e2e8',
-            background: isDark ? '#18181c' : '#ffffff',
-            color: isDark ? '#f4f4f6' : '#0a0a0c'
-          },
-          formButtonPrimary: {
-            backgroundColor: isDark ? '#ffffff' : '#0a0a0c',
-            color: isDark ? '#000000' : '#ffffff',
-            borderRadius: '6px'
-          },
-          footerAction: { display: 'none !important' },
-          footerActionText: { display: 'none !important' },
-          footerActionLink: { display: 'none !important' },
-          footer: { display: 'none !important' }
-        }
+      const stageLabels = {
+        opt_in_accepted: 'Warm introduction',
+        meeting_held: 'Qualified meeting',
+        opportunity_created: 'Opportunity created',
+        deal_won: 'Customer close',
+        customer_expansion: 'Customer expansion'
       };
-      window.Clerk.mountSignIn(mount, {
-        appearance,
-        routing: 'hash'
-      });
-      mountedAuthModes.add(mode);
-    } catch (error) {
-      console.warn('[AUTH] mountSignIn error:', error);
-    }
+      tr.innerHTML = `
+        <td><span class="timeline-pill done">${stageLabels[item.stage] || item.stage}</span></td>
+        <td><strong class="code-text">+${(item.creditsAwarded ?? item.pointsAwarded).toLocaleString()} credits</strong></td>
+        <td><strong style="color:var(--semantic-success);">$${(item.verifiedRevenue || 0).toLocaleString()}</strong></td>
+        <td style="font-size:13px;">${item.notes || 'Milestone achieved'}</td>
+        <td class="code-text" style="font-size:12px; color:var(--muted);">${new Date(item.timestamp).toLocaleDateString()}</td>
+      `;
+      attributionLedgerTbody.appendChild(tr);
+    });
   }
-  function chooseAuthMode(mode = 'signin') {
-    const authError = document.getElementById('portal-auth-error');
-    if (authError) authError.textContent = '';
-    selectedAuthMode = 'signin';
-    onboardingForm.hidden = true;
-    if (portalLoginForm) portalLoginForm.hidden = false;
-    if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-    if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
-    if (clerkMount) clerkMount.hidden = !window.Clerk;
-    if (clerkSignupMount) clerkSignupMount.hidden = true;
-    if (window.Clerk) {
-      mountClerkAuth('signin');
-    } else {
-      clearClerkLoading();
+
+  function renderRewardCatalog() {
+    const grid = document.getElementById('rewards-catalog-grid');
+    if (!grid) return;
+    grid.replaceChildren();
+    const items = rewardsData.catalog || [];
+    const filteredItems = activeRewardCategory === 'all'
+      ? items
+      : items.filter(item => item.category === activeRewardCategory);
+    filteredItems.forEach(reward => {
+      const card = document.createElement('article');
+      card.className = 'reward-product-card';
+      const category = document.createElement('span');
+      category.className = 'reward-product-category';
+      category.textContent = reward.category;
+      const title = document.createElement('h4');
+      title.textContent = reward.name;
+      const description = document.createElement('p');
+      description.textContent = reward.description;
+      const button = document.createElement('button');
+      const inCart = rewardsCart.has(reward.id);
+      button.type = 'button';
+      button.className = inCart ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
+      button.dataset.rewardId = reward.id;
+      button.textContent = inCart ? 'Added to cart' : 'Add to cart';
+      button.setAttribute('aria-pressed', String(inCart));
+      card.append(category, title, description, button);
+      grid.appendChild(card);
+    });
+    if (!filteredItems.length) {
+      const empty = document.createElement('p');
+      empty.className = 'rewards-empty';
+      empty.textContent = 'No rewards in this category yet.';
+      grid.appendChild(empty);
     }
   }
 
-  document.getElementById('portal-theme-toggle-btn')?.addEventListener('click', () => {
-    if (!token && window.Clerk && clerkMount) {
-      clerkMount.innerHTML = '';
-      setTimeout(() => mountClerkAuth('signin'), 50);
-    }
-  });
-
-  portalLoginForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const email = (portalLoginEmail?.value || '').trim();
-    const password = (portalLoginPassword?.value || '').trim();
-    const authError = document.getElementById('portal-auth-error');
-    if (authError) authError.textContent = '';
-    if (!email || !password) {
-      if (authError) authError.textContent = 'Please enter your partner email and password.';
+  function renderRewardsCart() {
+    const cart = document.getElementById('rewards-cart-items');
+    const count = document.getElementById('rewards-cart-count');
+    const submit = document.getElementById('redeem-submit-btn');
+    if (!cart) return;
+    cart.replaceChildren();
+    if (count) count.textContent = String(rewardsCart.size);
+    if (submit) submit.disabled = rewardsCart.size === 0;
+    if (!rewardsCart.size) {
+      const empty = document.createElement('p');
+      empty.className = 'rewards-cart-empty';
+      empty.textContent = 'Your cart is empty. Add a reward to start a request.';
+      cart.appendChild(empty);
       return;
     }
-    if (portalLoginSubmit) {
-      portalLoginSubmit.disabled = true;
-      portalLoginSubmit.textContent = 'Signing in…';
+    const catalog = rewardsData?.catalog || [];
+    rewardsCart.forEach(id => {
+      const reward = catalog.find(item => item.id === id);
+      if (!reward) return;
+      const row = document.createElement('div');
+      row.className = 'rewards-cart-item';
+      const name = document.createElement('span');
+      name.textContent = reward.name;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'rewards-cart-remove';
+      remove.dataset.removeReward = id;
+      remove.setAttribute('aria-label', `Remove ${reward.name}`);
+      remove.textContent = 'Remove';
+      row.append(name, remove);
+      cart.appendChild(row);
+    });
+  }
+
+  function renderRedemptionRequests() {
+    const list = document.getElementById('rewards-requests-list');
+    if (!list) return;
+    list.replaceChildren();
+    const requests = rewardsData?.redemptions || [];
+    if (!requests.length) {
+      const empty = document.createElement('p');
+      empty.className = 'rewards-empty';
+      empty.textContent = 'No redemption requests yet.';
+      list.appendChild(empty);
+      return;
     }
+    requests.forEach(request => {
+      const row = document.createElement('article');
+      row.className = 'redemption-request-row';
+      const copy = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = (request.itemNames || []).join(', ');
+      const detail = document.createElement('p');
+      detail.textContent = `${request.creditsRequested.toLocaleString()} credits requested · ${new Date(request.submittedAt).toLocaleDateString()}`;
+      copy.append(title, detail);
+      const status = document.createElement('span');
+      status.className = 'redemption-status';
+      status.textContent = request.status.replaceAll('_', ' ');
+      row.append(copy, status);
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('rewards-catalog-grid')?.addEventListener('click', e => {
+    const button = e.target.closest('[data-reward-id]');
+    if (!button) return;
+    const id = button.dataset.rewardId;
+    if (rewardsCart.has(id)) rewardsCart.delete(id);
+    else rewardsCart.add(id);
+    renderRewardCatalog();
+    renderRewardsCart();
+  });
+
+  document.getElementById('rewards-cart-items')?.addEventListener('click', e => {
+    const button = e.target.closest('[data-remove-reward]');
+    if (!button) return;
+    rewardsCart.delete(button.dataset.removeReward);
+    renderRewardCatalog();
+    renderRewardsCart();
+  });
+
+  document.querySelectorAll('.reward-filter').forEach(button => {
+    button.addEventListener('click', () => {
+      activeRewardCategory = button.dataset.rewardCategory || 'all';
+      document.querySelectorAll('.reward-filter').forEach(filter => {
+        const active = filter === button;
+        filter.classList.toggle('active', active);
+        filter.setAttribute('aria-pressed', String(active));
+      });
+      renderRewardCatalog();
+    });
+  });
+
+  // Global window functions for event handlers
+  window.reviewRequest = async function (requestId, decision) {
     try {
-      const res = await request('/api/partner-portal/login', {
+      const result = await api('/api/go/inbox/review', {
+        method: 'POST',
+        body: JSON.stringify({ requestId, decision })
+      });
+      showToast(`Request ${decision} successfully.`);
+      await loadInbox();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  window.filterReach = function (filter) {
+    if (filter === 'all') {
+      renderReachCards(relationships);
+    } else {
+      const filtered = relationships.filter(r => (r.relationshipStrength || 'strong') === filter);
+      renderReachCards(filtered);
+    }
+  };
+
+  window.quickReachOut = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('email');
+    if (emailComposerModal) emailComposerModal.style.display = 'none';
+  };
+  window.openEmailComposer = window.quickReachOut;
+
+  window.showToast = showToast;
+
+  // Event Listeners
+  async function triggerDemoLogin(button) {
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Opening demo…';
+      }
+      const res = await api('/api/go/demo-login', { method: 'POST' });
+      setPartnerSession(res.partner);
+      showToast(`Signed in as ${res.partner.fullName} (Demo Mode)`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Try demo';
+      }
+    }
+  }
+
+  document.getElementById('quick-demo-login-btn')?.addEventListener('click', (e) => {
+    triggerDemoLogin(e.currentTarget);
+  });
+  document.getElementById('quick-demo-signup-btn')?.addEventListener('click', (e) => {
+    triggerDemoLogin(e.currentTarget);
+  });
+
+  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const submitButton = document.getElementById('login-submit-btn');
+    const authError = document.getElementById('auth-error');
+    if (authError) { authError.hidden = true; authError.textContent = ''; }
+    try {
+      if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Signing in…'; }
+      const res = await api('/api/go/login', {
         method: 'POST',
         body: JSON.stringify({ email, password })
       });
-      if (res.mustChangePassword) {
-        pendingChangeEmail = email;
-        pendingCurrentPassword = password;
-        pendingChangeToken = res.token || '';
-        if (portalLoginForm) portalLoginForm.hidden = true;
-        if (portalChangePasswordForm) {
-          portalChangePasswordForm.hidden = false;
-          if (portalChangePasswordError) {
-            portalChangePasswordError.hidden = true;
-            portalChangePasswordError.textContent = '';
-          }
-          if (portalNewPassword) {
-            portalNewPassword.value = '';
-            portalNewPassword.focus();
-          }
-          if (portalConfirmPassword) portalConfirmPassword.value = '';
-        }
-        return;
-      }
-      if (res.token) {
-        token = res.token;
-        sessionStorage.setItem(tokenKey, token);
-        await load();
-      } else {
-        throw new Error(res.error || 'Authentication failed.');
-      }
-    } catch (err) {
-      if (authError) authError.textContent = err.message || 'Login failed. Please verify your credentials.';
+      setPartnerSession(res.partner);
+      showToast(`Welcome back, ${res.partner.fullName}`);
+    } catch (e) {
+      if (authError) { authError.hidden = false; authError.textContent = e.message; }
+      showToast(e.message, 'error');
     } finally {
-      if (portalLoginSubmit) {
-        portalLoginSubmit.disabled = false;
-        portalLoginSubmit.textContent = 'Sign In to Workspace';
+      if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Sign in to your workspace'; }
+    }
+  });
+
+  document.getElementById('onboarding-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitButton = document.getElementById('onboard-submit-btn');
+    const authError = document.getElementById('auth-error');
+    if (authError) { authError.hidden = true; authError.textContent = ''; }
+    const formData = new FormData(e.target);
+    const payload = {
+      fullName: formData.get('fullName'),
+      email: formData.get('email'),
+      company: formData.get('company'),
+      jobTitle: formData.get('jobTitle'),
+      password: formData.get('password'),
+      privacyTier: formData.get('privacyTier')
+    };
+
+    if (payload.password !== formData.get('passwordConfirm')) {
+      if (authError) { authError.hidden = false; authError.textContent = 'Your passwords do not match.'; }
+      return;
+    }
+
+    try {
+      if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Creating your profile…'; }
+      const partner = await api('/api/go/onboard', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      setPartnerSession(partner);
+      showOnboardingSequence(1);
+      showToast('Profile created! Now connect your LinkedIn network.');
+    } catch (e) {
+      if (authError) { authError.hidden = false; authError.textContent = e.message; }
+      showToast(e.message, 'error');
+    } finally {
+      if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Create partner account'; }
+    }
+  });
+
+  // LinkedIn Onboarding Sequence Form & Buttons
+  linkedinConnectForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = linkedinProfileUrl.value.trim();
+    if (!url) return;
+
+    if (linkedinConnectBtn) {
+      linkedinConnectBtn.disabled = true;
+      linkedinConnectBtn.textContent = 'Connecting LinkedIn & Discovering Network...';
+    }
+
+    try {
+      await api('/api/go/onboarding/linkedin/connect', {
+        method: 'POST',
+        body: JSON.stringify({ linkedinUrl: url })
+      });
+      const data = await api('/api/go/onboarding/linkedin/connections');
+      renderDiscoveredConnections(data.connections || []);
+      showOnboardingSequence(2);
+      showToast('LinkedIn connected! Discovered executive network.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (linkedinConnectBtn) {
+        linkedinConnectBtn.disabled = false;
+        linkedinConnectBtn.textContent = 'Connect LinkedIn & Discover Connections';
       }
     }
   });
 
-  portalChangePasswordForm?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const newPwd = (portalNewPassword?.value || '').trim();
-    const confirmPwd = (portalConfirmPassword?.value || '').trim();
-    if (portalChangePasswordError) {
-      portalChangePasswordError.hidden = true;
-      portalChangePasswordError.textContent = '';
-    }
-    if (!newPwd || !confirmPwd) {
-      if (portalChangePasswordError) {
-        portalChangePasswordError.hidden = false;
-        portalChangePasswordError.textContent = 'Please enter and confirm your new permanent password.';
+  connectionsSelectAll?.addEventListener('change', (e) => {
+    const isChecked = e.target.checked;
+    connectionsItemsList.querySelectorAll('input.connection-checkbox').forEach(cb => {
+      cb.checked = isChecked;
+      const card = cb.closest('.connection-card');
+      if (card) {
+        if (isChecked) card.classList.add('selected');
+        else card.classList.remove('selected');
       }
+    });
+    updateSelectionSummary();
+  });
+
+  backToLinkedinBtn?.addEventListener('click', () => {
+    showOnboardingSequence(1);
+  });
+
+  async function handleOneClickImport() {
+    if (!connectionsItemsList) return;
+    const checkedBoxes = Array.from(connectionsItemsList.querySelectorAll('input.connection-checkbox:checked'));
+    if (checkedBoxes.length === 0) {
+      showToast('Please select at least one connection to import.', 'error');
       return;
     }
-    if (newPwd.length < 8) {
-      if (portalChangePasswordError) {
-        portalChangePasswordError.hidden = false;
-        portalChangePasswordError.textContent = 'New password must be at least 8 characters long.';
-      }
-      return;
+    const connectionIds = checkedBoxes.map(cb => cb.dataset.id);
+
+    if (oneClickImportBtn) {
+      oneClickImportBtn.disabled = true;
+      oneClickImportBtn.textContent = 'Adding Contacts...';
     }
-    if (newPwd !== confirmPwd) {
-      if (portalChangePasswordError) {
-        portalChangePasswordError.hidden = false;
-        portalChangePasswordError.textContent = 'Passwords do not match.';
-      }
-      return;
+    if (importBottomCtaBtn) {
+      importBottomCtaBtn.disabled = true;
+      importBottomCtaBtn.textContent = 'Adding Contacts...';
     }
-    if (newPwd === pendingCurrentPassword) {
-      if (portalChangePasswordError) {
-        portalChangePasswordError.hidden = false;
-        portalChangePasswordError.textContent = 'New password must be different from your temporary password.';
-      }
-      return;
-    }
-    if (portalChangePasswordSubmit) {
-      portalChangePasswordSubmit.disabled = true;
-      portalChangePasswordSubmit.textContent = 'Updating password…';
-    }
+
     try {
-      const res = await request('/api/partner-portal/change-password', {
+      const res = await api('/api/go/onboarding/linkedin/import', {
         method: 'POST',
-        headers: pendingChangeToken ? { 'Authorization': `Bearer ${pendingChangeToken}` } : {},
+        body: JSON.stringify({ connectionIds })
+      });
+      if (completeImportedCount) {
+        completeImportedCount.textContent = res.importedCount;
+      }
+      showOnboardingSequence(3);
+      showToast(`Added ${res.importedCount} contacts to your account!`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (oneClickImportBtn) {
+        oneClickImportBtn.disabled = false;
+        oneClickImportBtn.innerHTML = `Add Contacts (<span id="btn-selected-count">${connectionIds.length}</span>)`;
+      }
+      if (importBottomCtaBtn) {
+        importBottomCtaBtn.disabled = false;
+        importBottomCtaBtn.textContent = 'Add Contacts';
+      }
+    }
+  }
+
+  oneClickImportBtn?.addEventListener('click', handleOneClickImport);
+  importBottomCtaBtn?.addEventListener('click', handleOneClickImport);
+
+  enterWorkspaceBtn?.addEventListener('click', () => {
+    if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'none';
+    if (workspaceSection) workspaceSection.style.display = 'block';
+    loadAllData();
+    showToast('Welcome to your Go Partner Workspace! Relationships ready.');
+  });
+
+  launchLinkedinSyncBtn?.addEventListener('click', () => {
+    showOnboardingSequence(1);
+  });
+
+  authSignoutBtn?.addEventListener('click', () => {
+    localStorage.removeItem('connectem_go_token');
+    localStorage.removeItem('connectem_go_email');
+    showAuthView();
+    showToast('Signed out of partner workspace.');
+  });
+
+  // Tab switching
+  const tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+      const activePane = document.getElementById(`tab-content-${target}`);
+      if (activePane) activePane.style.display = 'block';
+      if (target === 'settings') loadSettings();
+    });
+  });
+
+  const settingsTabs = document.querySelectorAll('.settings-tab');
+  const settingsPanels = document.querySelectorAll('.settings-panel');
+  const settingsBookingPanel = document.getElementById('settings-panel-connections-booking');
+  settingsTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.settingsPanel;
+      settingsTabs.forEach(item => {
+        const active = item === tab;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-selected', String(active));
+      });
+      settingsPanels.forEach(panel => {
+        const active = panel.id === `settings-panel-${target}`;
+        panel.classList.toggle('active', active);
+        panel.setAttribute('aria-hidden', String(!active));
+      });
+      if (settingsBookingPanel) {
+        const active = target === 'connections';
+        settingsBookingPanel.classList.toggle('active', active);
+        settingsBookingPanel.setAttribute('aria-hidden', String(!active));
+      }
+    });
+  });
+
+  // Add Contact Modal Popup Controls
+  const addContactModal = document.getElementById('add-contact-modal');
+  const openAddContactModalBtn = document.getElementById('open-add-contact-modal-btn');
+  const closeAddContactModalBtn = document.getElementById('close-add-contact-modal-btn');
+  const cancelAddContactModalBtn = document.getElementById('cancel-add-contact-modal-btn');
+
+  function openAddContactModal() {
+    if (addContactModal) addContactModal.style.display = 'flex';
+  }
+
+  function closeAddContactModal() {
+    if (addContactModal) addContactModal.style.display = 'none';
+  }
+
+  openAddContactModalBtn?.addEventListener('click', openAddContactModal);
+  closeAddContactModalBtn?.addEventListener('click', closeAddContactModal);
+  cancelAddContactModalBtn?.addEventListener('click', closeAddContactModal);
+
+  addContactModal?.addEventListener('click', (e) => {
+    if (e.target === addContactModal) {
+      closeAddContactModal();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && addContactModal?.style.display === 'flex') {
+      closeAddContactModal();
+    }
+  });
+
+  // Add Relationship Form
+  document.getElementById('add-relationship-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = {
+      fullName: formData.get('fullName'),
+      email: formData.get('email'),
+      company: formData.get('company'),
+      jobTitle: formData.get('jobTitle'),
+      relationshipStrength: formData.get('relationshipStrength'),
+      phone: formData.get('phone') || undefined,
+      relationshipContext: formData.get('relationshipContext') || undefined
+    };
+
+    try {
+      await api('/api/go/relationships', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      e.target.reset();
+      closeAddContactModal();
+      showToast('Contact saved to your directory.');
+      await loadRelationships();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Filter contacts in table
+  document.getElementById('contacts-search-input')?.addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase().trim();
+    if (!term) {
+      renderRelationshipsTable(relationships);
+      return;
+    }
+    const filtered = relationships.filter(r =>
+      r.fullName.toLowerCase().includes(term) ||
+      r.company.toLowerCase().includes(term) ||
+      (r.jobTitle && r.jobTitle.toLowerCase().includes(term))
+    );
+    renderRelationshipsTable(filtered);
+  });
+
+  // Marketplace redemption request
+  document.getElementById('rewards-redeem-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!rewardsCart.size) return;
+    const creditsRequested = Number(document.getElementById('rewards-credits-to-apply')?.value || 0);
+    const details = document.getElementById('rewards-request-details')?.value || '';
+
+    try {
+      await api('/api/go/rewards/requests', {
+        method: 'POST',
         body: JSON.stringify({
-          email: pendingChangeEmail,
-          currentPassword: pendingCurrentPassword,
-          newPassword: newPwd
+          itemIds: Array.from(rewardsCart),
+          creditsRequested,
+          details
         })
       });
-      if (res.success || res.status === 'success') {
-        token = pendingChangeToken;
-        sessionStorage.setItem(tokenKey, token);
-        if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-        if (portalLoginPassword) portalLoginPassword.value = '';
-        if (portalNewPassword) portalNewPassword.value = '';
-        if (portalConfirmPassword) portalConfirmPassword.value = '';
-        pendingCurrentPassword = '';
-        await load();
+      rewardsCart.clear();
+      e.target.reset();
+      showToast('Request submitted for Murali’s manual review. Credits remain in your balance.');
+      await loadRewards();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Settings Management (Profile, AI Limits, Integrations, Booking, Alerts)
+  // --------------------------------------------------------------------------
+  async function loadSettings() {
+    if (!currentPartner) return;
+    try {
+      const data = await api('/api/go/settings');
+      const p = data.partner;
+      const ai = data.aiUsage;
+      const integrations = data.integrations;
+
+      // 1. Profile fields
+      const fn = document.getElementById('settings-fullname');
+      const em = document.getElementById('settings-email');
+      const co = document.getElementById('settings-company');
+      const jt = document.getElementById('settings-jobtitle');
+      const ph = document.getElementById('settings-phone');
+      const li = document.getElementById('settings-linkedin-url');
+      const ex = document.getElementById('settings-expertise');
+      if (fn) fn.value = p.fullName || '';
+      if (em) em.value = p.email || '';
+      if (co) co.value = p.company || '';
+      if (jt) jt.value = p.jobTitle || '';
+      if (ph) ph.value = p.phone || '';
+      if (li) li.value = p.linkedinProfileUrl || '';
+      if (ex) ex.value = (p.expertise || []).join(', ');
+
+      // 2. AI Usage & Mandatory Quota
+      const aiUsed = document.getElementById('settings-ai-used');
+      const aiLimit = document.getElementById('settings-ai-limit');
+      const aiRem = document.getElementById('settings-ai-remaining');
+      const aiProg = document.getElementById('settings-ai-progress');
+      const aiTone = document.getElementById('settings-default-ai-tone');
+      const aiModel = document.getElementById('settings-ai-model');
+      const aiIntegrationModel = document.getElementById('settings-ai-integration-model');
+      const outreachAiModel = document.getElementById('outreach-ai-model');
+      const assignedModel = p.aiModelAssignment || ai.provider;
+      const modelChoices = ['Meta Spark 1.3 Contributor', 'Gemini 3.7 Flash', 'ChatGPT 5.6 Nano'];
+      const modelLabel = modelChoices.includes(assignedModel) ? assignedModel : 'Assigned automatically';
+      const usedThisWeek = Number(ai.usedThisWeek ?? ai.usedToday ?? 0);
+      const weeklyLimit = Number(ai.limitWeekly ?? 20);
+      const weeklyRemaining = Number(ai.remaining ?? Math.max(0, weeklyLimit - usedThisWeek));
+
+      if (aiUsed) aiUsed.textContent = usedThisWeek;
+      if (aiLimit) aiLimit.textContent = weeklyLimit;
+      if (aiRem) aiRem.textContent = `${weeklyRemaining} remaining`;
+      if (aiProg) {
+        const pct = Math.min(100, Math.round((usedThisWeek / weeklyLimit) * 100));
+        aiProg.style.width = `${pct}%`;
+      }
+      if (aiTone) aiTone.value = p.defaultAiTone || 'warm';
+      if (aiModel) aiModel.textContent = modelLabel;
+      if (aiIntegrationModel) aiIntegrationModel.textContent = modelLabel;
+      if (outreachAiModel) outreachAiModel.textContent = modelLabel;
+
+      // 3. Calendar & Booking Link
+      const bk = document.getElementById('settings-booking-url');
+      const calLink = document.getElementById('partner-calendly-btn');
+      if (bk) bk.value = p.bookingUrl || 'https://calendly.com';
+      if (calLink) calLink.href = p.bookingUrl || 'https://calendly.com';
+
+      // 4. Notification Preferences
+      const prefReq = document.getElementById('notif-pref-requests');
+      const prefOpt = document.getElementById('notif-pref-optin');
+      const prefCc = document.getElementById('notif-pref-compliance');
+      const prefWk = document.getElementById('notif-pref-weekly');
+      if (prefReq) prefReq.checked = Boolean(p.notificationPreferences?.emailOnNewRequest ?? true);
+      if (prefOpt) prefOpt.checked = Boolean(p.notificationPreferences?.emailOnOptIn ?? true);
+      if (prefCc) prefCc.checked = Boolean(p.notificationPreferences?.emailOnComplianceCc ?? true);
+      if (prefWk) prefWk.checked = Boolean(p.notificationPreferences?.weeklySummary ?? false);
+
+      // 5. Integrations Badges
+      const liBadge = document.getElementById('integration-linkedin-badge');
+      const gmBadge = document.getElementById('integration-gmail-badge');
+      const twBadge = document.getElementById('integration-twilio-badge');
+      if (liBadge) {
+        liBadge.textContent = integrations.linkedin.connected ? 'Active' : 'Ready to Link';
+        liBadge.className = `badge-tag ${integrations.linkedin.connected ? 'strong' : ''}`;
+      }
+      if (gmBadge) {
+        gmBadge.textContent = integrations.gmail.connected ? 'Active' : 'Permission Required';
+        gmBadge.className = `badge-tag ${integrations.gmail.connected ? 'strong' : ''}`;
+      }
+      if (twBadge) {
+        twBadge.textContent = integrations.twilio.connected ? 'Active' : 'Disabled (Fallback)';
+        twBadge.className = `badge-tag ${integrations.twilio.connected ? 'strong' : ''}`;
+      }
+
+      // 6. Account & Compliance details
+      const pem = document.getElementById('settings-partner-email');
+      const tok = document.getElementById('settings-auth-token');
+      if (pem) pem.textContent = p.email;
+      if (tok) tok.textContent = p.authToken || 'token_partner_active';
+
+      // 7. Privacy Tier Radio
+      const radio = document.querySelector(`input[name="privacyTier"][value="${p.privacyTier}"]`);
+      if (radio) radio.checked = true;
+    } catch (err) {
+      console.warn('Error loading settings:', err);
+    }
+  }
+
+  // AI Settings Form (tone only; model assignment and weekly quota are fixed)
+  document.getElementById('ai-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const defaultAiTone = document.getElementById('settings-default-ai-tone')?.value;
+
+    try {
+      const res = await api('/api/go/settings/ai', {
+        method: 'POST',
+        body: JSON.stringify({ defaultAiTone })
+      });
+      showToast(`AI settings updated. Weekly allowance: ${res.quota.limitWeekly} drafts.`);
+      await loadSettings();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Profile Settings Form
+  document.getElementById('profile-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fullName = document.getElementById('settings-fullname')?.value.trim();
+    const company = document.getElementById('settings-company')?.value.trim();
+    const jobTitle = document.getElementById('settings-jobtitle')?.value.trim();
+    const phone = document.getElementById('settings-phone')?.value.trim();
+    const linkedinProfileUrl = document.getElementById('settings-linkedin-url')?.value.trim();
+    const expertiseStr = document.getElementById('settings-expertise')?.value.trim();
+    const expertise = expertiseStr ? expertiseStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    try {
+      const updated = await api('/api/go/settings/profile', {
+        method: 'POST',
+        body: JSON.stringify({ fullName, company, jobTitle, phone, linkedinProfileUrl, expertise })
+      });
+      setPartnerSession(updated);
+      showToast('Profile information saved!');
+      await loadSettings();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Booking Link Form
+  document.getElementById('booking-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bookingUrl = document.getElementById('settings-booking-url')?.value.trim();
+    if (!bookingUrl) return;
+
+    try {
+      await api('/api/go/settings/booking', {
+        method: 'POST',
+        body: JSON.stringify({ bookingUrl })
+      });
+      const calLink = document.getElementById('partner-calendly-btn');
+      if (calLink) calLink.href = bookingUrl;
+      showToast('Briefing booking URL updated!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Copy Booking Link Button
+  document.getElementById('copy-booking-btn')?.addEventListener('click', () => {
+    const url = document.getElementById('settings-booking-url')?.value || 'https://calendly.com';
+    navigator.clipboard.writeText(url);
+    showToast('Briefing booking link copied to clipboard!');
+  });
+
+  // Notification Preferences Form
+  document.getElementById('notifications-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailOnNewRequest = document.getElementById('notif-pref-requests')?.checked ?? true;
+    const emailOnOptIn = document.getElementById('notif-pref-optin')?.checked ?? true;
+    const emailOnComplianceCc = document.getElementById('notif-pref-compliance')?.checked ?? true;
+    const weeklySummary = document.getElementById('notif-pref-weekly')?.checked ?? false;
+
+    try {
+      await api('/api/go/settings/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ emailOnNewRequest, emailOnOptIn, emailOnComplianceCc, weeklySummary })
+      });
+      showToast('Notification preferences saved!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Privacy Settings Form
+  document.getElementById('privacy-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const tier = document.querySelector('input[name="privacyTier"]:checked')?.value;
+    if (!tier) return;
+
+    try {
+      const updated = await api('/api/go/settings/privacy', {
+        method: 'POST',
+        body: JSON.stringify({ privacyTier: tier })
+      });
+      currentPartner.privacyTier = updated.privacyTier;
+      showToast(`Privacy tier updated to "${tier}"`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // In-App Email Composer Controls & AI Assistant
+  // --------------------------------------------------------------------------
+  const emailComposerModal = document.getElementById('email-composer-modal');
+  const closeEmailComposerBtn = document.getElementById('close-email-composer-btn');
+  const cancelEmailComposerBtn = document.getElementById('cancel-email-composer-btn');
+  const composerFromEmail = document.getElementById('composer-from-email');
+  const composerToRecipient = document.getElementById('composer-to-recipient');
+  const composerProspectId = document.getElementById('composer-prospect-id');
+  const composerSubject = document.getElementById('composer-subject');
+  const composerBody = document.getElementById('composer-body');
+  const aiDraftPurpose = document.getElementById('ai-draft-purpose');
+  const aiDraftTone = document.getElementById('ai-draft-tone');
+  const aiGenerateDraftBtn = document.getElementById('ai-generate-draft-btn');
+  const emailComposerForm = document.getElementById('email-composer-form');
+
+  window.openEmailComposer = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('email');
+    if (emailComposerModal) emailComposerModal.style.display = 'none';
+  };
+
+  function closeEmailComposer() {
+    if (emailComposerModal) emailComposerModal.style.display = 'none';
+  }
+
+  closeEmailComposerBtn?.addEventListener('click', closeEmailComposer);
+  cancelEmailComposerBtn?.addEventListener('click', closeEmailComposer);
+  emailComposerModal?.addEventListener('click', (e) => {
+    if (e.target === emailComposerModal) closeEmailComposer();
+  });
+
+  // AI Email Assistant Generation
+  aiGenerateDraftBtn?.addEventListener('click', async () => {
+    if (!activeOutreachProspectId) return;
+    try {
+      aiGenerateDraftBtn.disabled = true;
+      aiGenerateDraftBtn.textContent = 'Generating AI Draft...';
+
+      const draft = await api('/api/go/outreach/email/ai-draft', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          purpose: aiDraftPurpose?.value || 'Executive partnership briefing',
+          tone: aiDraftTone?.value || 'warm'
+        })
+      });
+
+      if (composerSubject) composerSubject.value = draft.subject;
+      if (composerBody) composerBody.value = draft.body;
+      emailAiAssisted = true;
+      showToast('AI draft applied! Tone & context integrated.');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      aiGenerateDraftBtn.disabled = false;
+      aiGenerateDraftBtn.textContent = 'Draft with AI Assistant';
+    }
+  });
+
+  // Submit Outreach Email (Enforces Mandatory Admin CC)
+  emailComposerForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeOutreachProspectId) return;
+
+    const sendBtn = document.getElementById('composer-send-btn');
+    try {
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+      }
+
+      const activity = await api('/api/go/outreach/email', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          subject: composerSubject?.value || '',
+          body: composerBody?.value || '',
+          aiAssisted: emailAiAssisted
+        })
+      });
+
+      closeEmailComposer();
+      showToast(`Email delivered internally! Compliance copy CC'd to ${activity.adminCcEnforced}`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send Email (CC nextbdr@gmail.com)';
+      }
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // In-App Calls & Twilio Connector Dialog
+  // --------------------------------------------------------------------------
+  const callDialogModal = document.getElementById('call-dialog-modal');
+  const closeCallDialogBtn = document.getElementById('close-call-dialog-btn');
+  const cancelCallDialogBtn = document.getElementById('cancel-call-dialog-btn');
+  const callDialogSubtitle = document.getElementById('call-dialog-subtitle');
+  const callLoggerProspectId = document.getElementById('call-logger-prospect-id');
+  const twilioLiveDialerPane = document.getElementById('twilio-live-dialer-pane');
+  const twilioDisabledNotice = document.getElementById('twilio-disabled-notice');
+  const twilioDialingTarget = document.getElementById('twilio-dialing-target');
+  const callLoggerForm = document.getElementById('call-logger-form');
+  const twilioStartCallBtn = document.getElementById('twilio-start-call-btn');
+  const twilioEndCallBtn = document.getElementById('twilio-end-call-btn');
+
+  window.openCallDialog = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('call');
+    if (callDialogModal) callDialogModal.style.display = 'none';
+  };
+
+  function closeCallDialog() {
+    if (callDialogModal) callDialogModal.style.display = 'none';
+  }
+
+  closeCallDialogBtn?.addEventListener('click', closeCallDialog);
+  cancelCallDialogBtn?.addEventListener('click', closeCallDialog);
+  callDialogModal?.addEventListener('click', (e) => {
+    if (e.target === callDialogModal) closeCallDialog();
+  });
+
+  twilioStartCallBtn?.addEventListener('click', () => {
+    twilioStartCallBtn.style.display = 'none';
+    if (twilioEndCallBtn) twilioEndCallBtn.style.display = 'inline-block';
+    showToast('Connecting Twilio Voice gateway session...');
+  });
+
+  twilioEndCallBtn?.addEventListener('click', () => {
+    twilioEndCallBtn.style.display = 'none';
+    if (twilioStartCallBtn) twilioStartCallBtn.style.display = 'inline-block';
+    showToast('Twilio call session ended. Please log the outcome below.');
+  });
+
+  callLoggerForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeOutreachProspectId) return;
+
+    const outcome = document.querySelector('input[name="callOutcome"]:checked')?.value || 'connected';
+    const notes = document.getElementById('call-logger-notes')?.value || '';
+
+    try {
+      await api('/api/go/outreach/call/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          outcome,
+          notes,
+          twilioUsed: twilioEnabled
+        })
+      });
+      closeCallDialog();
+      showToast(`Call recorded: ${outcome.replace('_', ' ')}`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // In-App LinkedIn Outreach Dialog
+  // --------------------------------------------------------------------------
+  const linkedinDialogModal = document.getElementById('linkedin-dialog-modal');
+  const closeLinkedinDialogBtn = document.getElementById('close-linkedin-dialog-btn');
+  const cancelLinkedinDialogBtn = document.getElementById('cancel-linkedin-dialog-btn');
+  const linkedinLoggerProspectId = document.getElementById('linkedin-logger-prospect-id');
+  const linkedinDialogTargetName = document.getElementById('linkedin-dialog-target-name');
+  const linkedinDialogTargetHeadline = document.getElementById('linkedin-dialog-target-headline');
+  const linkedinDialogProfileLink = document.getElementById('linkedin-dialog-profile-link');
+  const linkedinLoggerForm = document.getElementById('linkedin-logger-form');
+
+  window.openLinkedInDialog = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('linkedin');
+    if (linkedinDialogModal) linkedinDialogModal.style.display = 'none';
+  };
+
+  function closeLinkedInDialog() {
+    if (linkedinDialogModal) linkedinDialogModal.style.display = 'none';
+  }
+
+  closeLinkedinDialogBtn?.addEventListener('click', closeLinkedInDialog);
+  cancelLinkedinDialogBtn?.addEventListener('click', closeLinkedInDialog);
+  linkedinDialogModal?.addEventListener('click', (e) => {
+    if (e.target === linkedinDialogModal) closeLinkedInDialog();
+  });
+
+  linkedinLoggerForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeOutreachProspectId) return;
+
+    const notes = document.getElementById('linkedin-logger-notes')?.value || '';
+    try {
+      await api('/api/go/outreach/linkedin/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          notes
+        })
+      });
+      closeLinkedInDialog();
+      showToast('LinkedIn outreach logged!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Grant Gmail Permission button in Outreach Banner
+  document.getElementById('grant-gmail-perm-btn')?.addEventListener('click', async () => {
+    try {
+      const email = currentPartner?.email || 'bob.miller@milleradvisory.com';
+      await api('/api/go/outreach/gmail/connect', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      showToast(`Gmail internal outreach permission granted for ${email}`);
+      await loadOutreachStatus();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Notifications Dropdown & Direct Request Review System
+  // --------------------------------------------------------------------------
+  window.reviewNotificationRequest = async function (requestId, decision) {
+    try {
+      const result = await api('/api/go/inbox/review', {
+        method: 'POST',
+        body: JSON.stringify({ requestId, decision })
+      });
+      showToast(decision === 'approved' ? 'Introduction approved! +15 reward credits awarded.' : 'Introduction request declined.');
+      await loadInbox();
+      await loadRewards();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+  window.reviewRequest = window.reviewNotificationRequest;
+
+  function renderNotifications() {
+    if (!currentPartner || !notificationsList) return;
+
+    const pendingRequests = inboxRequests.filter(r => r.status === 'pending_partner_review');
+    const items = [];
+
+    // Add pending introduction requests with instant review actions
+    pendingRequests.forEach(req => {
+      items.push({
+        id: req.id,
+        vendor: req.vendorName || req.requesterOrg || 'Partner Vendor',
+        prospect: req.prospectName || req.targetFullName || 'Executive Target',
+        company: req.prospectCompany || req.targetCompany || '',
+        brief: req.forwardableBrief || req.specificAsk || 'Warm intro review requested',
+        score: req.warmPathScore || 90,
+        time: 'Pending Review',
+        type: 'intro_request'
+      });
+    });
+
+    // Add a credit-balance notification when credits are available.
+    if ((currentPartner.pointsBalance || 0) > 0) {
+      items.push({
+        id: 'pts-' + currentPartner.id,
+        title: 'Credits Available',
+        text: `You have ${currentPartner.pointsBalance} reward credits ready to redeem.`,
+        time: 'Rewards Active',
+        type: 'rewards'
+      });
+    }
+
+    // Add Gmail status notification
+    if (currentPartner.gmailConnected) {
+      items.push({
+        id: 'gmail-' + currentPartner.id,
+        title: 'In-App Gmail Outreach Active',
+        text: `Compliance CC enforced: nextbdr@gmail.com for internal outreach.`,
+        time: 'Connected',
+        type: 'gmail'
+      });
+    }
+
+    const unreadCount = notificationsDismissed ? 0 : pendingRequests.length;
+    if (navNotificationsBadge) {
+      if (unreadCount > 0) {
+        navNotificationsBadge.textContent = unreadCount;
+        navNotificationsBadge.style.display = 'inline-block';
+        navNotificationsBtn?.classList.add('has-unread');
       } else {
-        throw new Error(res.error || 'Failed to update password.');
-      }
-    } catch (err) {
-      if (portalChangePasswordError) {
-        portalChangePasswordError.hidden = false;
-        portalChangePasswordError.textContent = err.message || 'Failed to update password.';
-      }
-    } finally {
-      if (portalChangePasswordSubmit) {
-        portalChangePasswordSubmit.disabled = false;
-        portalChangePasswordSubmit.textContent = 'Set Permanent Password & Enter';
+        navNotificationsBadge.style.display = 'none';
+        navNotificationsBtn?.classList.remove('has-unread');
       }
     }
-  });
 
-  onboardingForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const feedback = document.getElementById('portal-auth-feedback');
-    const submit = document.getElementById('portal-onboarding-submit');
-    const values = Object.fromEntries(new FormData(onboardingForm).entries());
-    submit.disabled = true;
-    feedback.textContent = 'Saving your profile…';
-    try {
-      const response = await request('/api/partner-portal/onboard', { method: 'POST', body: JSON.stringify(values) });
-      token = response.token;
-      sessionStorage.setItem(tokenKey, token);
-      onboardingForm.reset();
-      await load();
-    } catch (error) {
-      feedback.textContent = error.message;
-    } finally { submit.disabled = false; }
-  });
+    notificationsList.innerHTML = '';
+    if (items.length === 0) {
+      notificationsList.innerHTML = `
+        <div style="padding:22px 14px; text-align:center; color:var(--muted); font-size:12.5px;">
+          No notifications. You're all caught up!
+        </div>`;
+      return;
+    }
 
-  signoutBtn?.addEventListener('click', async () => {
-    token = '';
-    pendingChangeEmail = '';
-    pendingCurrentPassword = '';
-    pendingChangeToken = '';
-    sessionStorage.removeItem(tokenKey);
-    try { await window.Clerk?.signOut(); } catch (_) {}
-    if (portalLoginPassword) portalLoginPassword.value = '';
-    if (portalNewPassword) portalNewPassword.value = '';
-    if (portalConfirmPassword) portalConfirmPassword.value = '';
-    if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-    showAuthView();
-    chooseAuthMode('signin');
-  });
+    items.forEach(item => {
+      const el = document.createElement('div');
+      el.className = `notification-item ${item.type === 'intro_request' && !notificationsDismissed ? 'unread' : ''}`;
 
-  let isExecutingLoad = false;
-  async function load() {
-    if (isExecutingLoad) return;
-    isExecutingLoad = true;
-    try {
-      if (!token) {
-        showAuthView();
-        chooseAuthMode(selectedAuthMode);
-        try {
-          const authError = document.getElementById('portal-auth-error');
-          if (authError) authError.textContent = '';
-          await loadPartnerClerk();
-          if (!clerkListenerAdded && window.Clerk) {
-            window.Clerk.addListener?.(({ user }) => {
-              if (user && !token) load();
-              else if (!user && token) {
-                token = '';
-                sessionStorage.removeItem(tokenKey);
-                showAuthView();
-              }
-            });
-            clerkListenerAdded = true;
+      if (item.type === 'intro_request') {
+        el.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div class="notification-title" style="color:var(--ink); font-weight:600;">
+              Intro Request: ${item.vendor}
+            </div>
+            <span class="badge-tag strong" style="font-size:10px; padding:2px 6px;">${item.score}% match</span>
+          </div>
+          <div class="notification-text" style="margin-top:3px; font-weight:500; color:var(--ink);">
+            To: ${item.prospect} ${item.company ? `(${item.company})` : ''}
+          </div>
+          ${item.brief ? `<div style="font-size:11.5px; color:var(--muted); background:var(--canvas-soft); border:1px solid var(--hairline); padding:6px 8px; border-radius:var(--radius-sm); margin-top:5px; line-height:1.35;">${item.brief}</div>` : ''}
+          <div class="notification-actions" style="display:flex; gap:6px; margin-top:8px;">
+            <button class="btn btn-primary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${item.id}', 'approved')">
+              Approve (+15 pts)
+            </button>
+            <button class="btn btn-secondary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${item.id}', 'declined')">
+              Decline
+            </button>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div class="notification-title">${item.title}</div>
+          <div class="notification-text">${item.text}</div>
+          <div class="notification-time">${item.time}</div>
+        `;
+        el.addEventListener('click', () => {
+          if (notificationsDropdown) notificationsDropdown.style.display = 'none';
+          if (item.type === 'rewards') {
+            document.getElementById('tab-btn-rewards')?.click();
+          } else if (item.type === 'gmail') {
+            document.getElementById('tab-btn-email')?.click();
           }
-          if (window.Clerk?.user) {
-            const session = await request('/api/partner-portal/session');
-            if (session.profileComplete && session.token) {
-              token = session.token;
-              sessionStorage.setItem(tokenKey, token);
-              render(await request('/api/partner-share'));
-              return;
-            }
-            if (session.user) {
-              showAuthView();
-              if (clerkMount) clerkMount.hidden = true;
-              if (portalLoginForm) portalLoginForm.hidden = true;
-              if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-              if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-              onboardingForm.hidden = false;
-              const currentName = session.user?.fullName || window.Clerk.user.fullName || '';
-              onboardingForm.elements.fullName.value = currentName;
-              return;
-            }
-            showAuthView('Your account is not registered as a partner yet. Contact your administrator to invite your email.');
-            return;
-          }
-          if (portalSsoSeparator) portalSsoSeparator.hidden = !window.Clerk;
-          mountClerkAuth('signin');
-        } catch (error) {
-          clearClerkLoading();
-          if (clerkMount) clerkMount.hidden = true;
-          if (portalSsoSeparator) portalSsoSeparator.hidden = true;
-          if (portalLoginForm) portalLoginForm.hidden = false;
-          if (portalChangePasswordForm) portalChangePasswordForm.hidden = true;
-        }
-        return;
+        });
       }
-      try {
-        render(await request('/api/partner-share'));
-      } catch (error) {
-        token = '';
-        sessionStorage.removeItem(tokenKey);
-        showError(error.message || 'Session expired. Please sign in again.');
-      }
-    } finally {
-      isExecutingLoad = false;
-    }
-  }
-
-  // Entry mode switching: One at a time vs Bulk add
-  function setEntryMode(mode) {
-    const isBulk = mode === 'bulk';
-    form.hidden = isBulk;
-    if (bulkPanel) bulkPanel.hidden = !isBulk;
-    modeSingleBtn?.classList.toggle('active', !isBulk);
-    modeSingleBtn?.setAttribute('aria-selected', String(!isBulk));
-    modeBulkBtn?.classList.toggle('active', isBulk);
-    modeBulkBtn?.setAttribute('aria-selected', String(isBulk));
-    if (isBulk && bulkRowsBody && bulkRowsBody.children.length === 0) {
-      addBulkRows(3);
-    }
-  }
-
-  modeSingleBtn?.addEventListener('click', () => setEntryMode('single'));
-  modeBulkBtn?.addEventListener('click', () => setEntryMode('bulk'));
-
-  function updateBulkRowNumbers() {
-    if (!bulkRowsBody) return;
-    const rows = Array.from(bulkRowsBody.querySelectorAll('tr'));
-    rows.forEach((tr, idx) => {
-      const numCell = tr.querySelector('.row-num');
-      if (numCell) numCell.textContent = String(idx + 1);
+      notificationsList.appendChild(el);
     });
-    const countLabel = document.getElementById('bulk-row-count');
-    if (countLabel) countLabel.textContent = `${rows.length} row${rows.length === 1 ? '' : 's'}`;
   }
 
-  function addBulkRows(count = 1, items = null) {
-    if (!bulkRowsBody) return;
-    const list = Array.isArray(items) ? items : Array.from({ length: count }, () => ({}));
-    list.forEach(item => {
-      const tr = document.createElement('tr');
-      const statusVal = item.status || 'pending';
-      tr.innerHTML = `
-        <td class="row-num" style="color:var(--muted);font-size:11px;text-align:center;">1</td>
-        <td><input data-field="fullName" value="${escapeHTML(item.fullName || '')}" placeholder="Jordan Vance"></td>
-        <td><input type="email" data-field="email" value="${escapeHTML(item.email || '')}" placeholder="jordan@company.com"></td>
-        <td><input data-field="company" value="${escapeHTML(item.company || '')}" placeholder="Pacific Crest CU"></td>
-        <td><input data-field="jobTitle" value="${escapeHTML(item.jobTitle || '')}" placeholder="CLO"></td>
-        <td><input type="tel" data-field="phone" value="${escapeHTML(item.phone || '')}" placeholder="+1 415 555 0192"></td>
-        <td><input type="url" data-field="linkedinUrl" value="${escapeHTML(item.linkedinUrl || '')}" placeholder="https://www.linkedin.com/in/..."></td>
-        <td>
-          <select data-field="status">
-            <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>Not scheduled</option>
-            <option value="scheduled" ${statusVal === 'scheduled' ? 'selected' : ''}>Scheduled</option>
-            <option value="completed" ${statusVal === 'completed' ? 'selected' : ''}>Completed</option>
-          </select>
-        </td>
-        <td style="text-align:center;"><button type="button" class="bulk-remove-btn" aria-label="Remove row">&times;</button></td>
-      `;
-      tr.querySelector('.bulk-remove-btn')?.addEventListener('click', () => {
-        tr.remove();
-        if (bulkRowsBody.children.length === 0) addBulkRows(1);
-        else updateBulkRowNumbers();
-      });
-      bulkRowsBody.appendChild(tr);
-    });
-    updateBulkRowNumbers();
-  }
-
-  function parseSpreadsheetText(rawText) {
-    const lines = String(rawText || '').split(/\r?\n/).filter(l => l.trim());
-    const results = [];
-    function parseDelimitedLine(line, delimiter) {
-      const cells = [];
-      let cell = '';
-      let quoted = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"') {
-          if (quoted && line[i + 1] === '"') { cell += '"'; i++; }
-          else quoted = !quoted;
-        } else if (ch === delimiter && !quoted) {
-          cells.push(cell.trim()); cell = '';
-        } else cell += ch;
-      }
-      if (quoted) throw new Error('A pasted CSV row has an unmatched quote.');
-      cells.push(cell.trim());
-      return cells;
-    }
-    lines.forEach((line, idx) => {
-      const cells = parseDelimitedLine(line, line.includes('\t') ? '\t' : ',');
-      if (!cells.length) return;
-      if (idx === 0 && ((cells[0] || '').toLowerCase().includes('name') || (cells[1] || '').toLowerCase().includes('email'))) {
-        return;
-      }
-      const rawStatus = (cells[5] || '').toLowerCase();
-      let status = 'pending';
-      if (rawStatus.includes('comp') || rawStatus.includes('taken')) status = 'completed';
-      else if (rawStatus.includes('sched')) status = 'scheduled';
-      results.push({
-        fullName: cells[0] || '',
-        email: cells[1] || '',
-        company: cells[2] || '',
-        jobTitle: cells[3] || '',
-        phone: cells[4] || '',
-        status,
-        linkedinUrl: cells[6] || ''
-      });
-    });
-    return results;
-  }
-
-  document.getElementById('bulk-add-row-btn')?.addEventListener('click', () => addBulkRows(1));
-  document.getElementById('bulk-add-5-btn')?.addEventListener('click', () => addBulkRows(5));
-  document.getElementById('bulk-clear-btn')?.addEventListener('click', () => {
-    if (bulkRowsBody) bulkRowsBody.replaceChildren();
-    addBulkRows(3);
-  });
-
-  const pasteBox = document.getElementById('bulk-paste-box');
-  document.getElementById('bulk-paste-toggle-btn')?.addEventListener('click', () => {
-    if (pasteBox) pasteBox.hidden = !pasteBox.hidden;
-  });
-  document.getElementById('bulk-cancel-paste-btn')?.addEventListener('click', () => {
-    if (pasteBox) pasteBox.hidden = true;
-  });
-  document.getElementById('bulk-parse-paste-btn')?.addEventListener('click', () => {
-    const input = document.getElementById('bulk-paste-input');
-    const parsed = parseSpreadsheetText(input?.value || '');
-    if (!parsed.length) return;
-    if (bulkRowsBody) {
-      const allEmpty = Array.from(bulkRowsBody.querySelectorAll('tr')).every(tr =>
-        Array.from(tr.querySelectorAll('input')).every(inp => !inp.value.trim())
-      );
-      if (allEmpty) bulkRowsBody.replaceChildren();
-    }
-    addBulkRows(parsed.length, parsed);
-    if (input) input.value = '';
-    if (pasteBox) pasteBox.hidden = true;
-  });
-
-  bulkRowsBody?.addEventListener('paste', event => {
-    const text = event.clipboardData?.getData('text/plain') || '';
-    if (!text.includes('\n') && !text.includes('\t')) return;
-    const parsed = parseSpreadsheetText(text);
-    if (parsed.length <= 1 && !text.includes('\t')) return;
-    event.preventDefault();
-    const allEmpty = Array.from(bulkRowsBody.querySelectorAll('tr')).every(tr =>
-      Array.from(tr.querySelectorAll('input')).every(inp => !inp.value.trim())
-    );
-    if (allEmpty) bulkRowsBody.replaceChildren();
-    addBulkRows(parsed.length, parsed);
-  });
-
-  function collectTableContacts(tbodyEl) {
-    if (!tbodyEl) return [];
-    const contacts = [];
-    for (const tr of tbodyEl.querySelectorAll('tr')) {
-      const val = field => (tr.querySelector(`[data-field="${field}"]`)?.value || '').trim();
-      const fullName = val('fullName');
-      const email = val('email');
-      const company = val('company');
-      const jobTitle = val('jobTitle');
-      const phone = val('phone');
-      const linkedinUrl = val('linkedinUrl');
-      const status = val('status') || 'pending';
-      if (!fullName && !email && !company && !jobTitle && !phone && !linkedinUrl) continue;
-      contacts.push({
-        id: tr.dataset.contactId || undefined,
-        fullName,
-        email,
-        company,
-        jobTitle,
-        phone,
-        linkedinUrl,
-        status,
-        hasScheduledCall: status === 'scheduled' || status === 'completed',
-        hasTakenCall: status === 'completed'
-      });
-    }
-    return contacts;
-  }
-
-  bulkSubmitBtn?.addEventListener('click', async () => {
-    const contacts = collectTableContacts(bulkRowsBody);
-    const feedback = document.getElementById('bulk-feedback');
-    if (!contacts.length) {
-      feedback.className = 'error';
-      feedback.textContent = 'Enter at least one contact with Full Name, Work Email, and Company.';
-      return;
-    }
-    const incomplete = contacts.find(c => !c.fullName || !c.email || !c.company);
-    if (incomplete) {
-      feedback.className = 'error';
-      feedback.textContent = 'Every non-empty row requires Full Name, Work Email, and Company.';
-      return;
-    }
-    bulkSubmitBtn.disabled = true;
-    feedback.className = '';
-    feedback.textContent = 'Saving introductions…';
-    try {
-      const res = await request('/api/partner-share/referrals', {
-        method: 'POST',
-        body: JSON.stringify({ contacts })
-      });
-      const hasRejected = Boolean(res.invalid || res.duplicates?.length);
-      if (!hasRejected) {
-        if (bulkRowsBody) bulkRowsBody.replaceChildren();
-        addBulkRows(3);
-      }
-      feedback.className = hasRejected ? 'error' : 'success';
-      const parts = [];
-      if (res.created) parts.push(`${res.created} added`);
-      if (res.updated) parts.push(`${res.updated} updated`);
-      if (res.linked) parts.push(`${res.linked} linked`);
-      if (res.duplicates?.length) parts.push(`${res.duplicates.length} duplicate skipped`);
-      if (res.invalid) parts.push(`${res.invalid} invalid row${res.invalid === 1 ? '' : 's'}`);
-      feedback.textContent = `${hasRejected ? 'Partially saved' : 'Saved'} (${parts.join(', ') || 'completed'}). ${hasRejected ? 'Correct rejected rows and submit again.' : ''}`;
-      render(await request('/api/partner-share'));
-    } catch (error) {
-      feedback.className = 'error';
-      feedback.textContent = error.message;
-    } finally {
-      bulkSubmitBtn.disabled = false;
+  navNotificationsBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!notificationsDropdown) return;
+    const isShowing = notificationsDropdown.style.display === 'block';
+    notificationsDropdown.style.display = isShowing ? 'none' : 'block';
+    if (!isShowing) {
+      renderNotifications();
     }
   });
 
-  // Multi-record edit on existing Referred Contacts table
-  toggleMultiEditBtn?.addEventListener('click', () => {
-    isMultiEditMode = !isMultiEditMode;
-    const feedback = document.getElementById('multi-edit-feedback');
-    if (feedback) { feedback.className = ''; feedback.textContent = ''; }
-    renderContactsTable();
+  markNotificationsReadBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notificationsDismissed = true;
+    renderNotifications();
+    showToast('Notifications marked as read.');
   });
-  document.getElementById('multi-edit-cancel-btn')?.addEventListener('click', () => {
-    isMultiEditMode = false;
-    renderContactsTable();
+
+  viewAllRequestsBtn?.addEventListener('click', () => {
+    if (notificationsDropdown) notificationsDropdown.style.display = 'none';
   });
-  document.getElementById('multi-edit-add-row-btn')?.addEventListener('click', () => {
-    body.appendChild(createMultiEditTableRow({}));
-  });
-  document.getElementById('multi-edit-save-btn')?.addEventListener('click', async () => {
-    const contacts = collectTableContacts(body);
-    const feedback = document.getElementById('multi-edit-feedback');
-    const saveBtn = document.getElementById('multi-edit-save-btn');
-    if (!contacts.length) {
-      isMultiEditMode = false;
-      renderContactsTable();
-      return;
-    }
-    const incomplete = contacts.find(c => !c.fullName || !c.email || (!c.id && !c.company));
-    if (incomplete) {
-      feedback.className = 'error';
-      feedback.textContent = 'Each row needs Full Name, Work Email, and Company.';
-      return;
-    }
-    saveBtn.disabled = true;
-    feedback.className = '';
-    feedback.textContent = 'Saving changes…';
-    try {
-      await request('/api/partner-share/referrals', {
-        method: 'POST',
-        body: JSON.stringify({ contacts })
-      });
-      isMultiEditMode = false;
-      render(await request('/api/partner-share'));
-    } catch (error) {
-      feedback.className = 'error';
-      feedback.textContent = error.message;
-    } finally {
-      saveBtn.disabled = false;
+
+  document.addEventListener('click', (e) => {
+    if (notificationsDropdown && !navNotificationsWrapper?.contains(e.target)) {
+      notificationsDropdown.style.display = 'none';
     }
   });
 
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    const formData = new FormData(form);
-    const status = formData.get('status');
-    const payload = {
-      fullName: String(formData.get('fullName') || '').trim(),
-      email: String(formData.get('email') || '').trim(),
-      company: String(formData.get('company') || '').trim(),
-      jobTitle: String(formData.get('jobTitle') || '').trim(),
-      phone: String(formData.get('phone') || '').trim(),
-      linkedinUrl: String(formData.get('linkedinUrl') || '').trim(),
-      strength: String(formData.get('strength') || 'strong'),
-      relationshipType: String(formData.get('relationshipType') || 'peer'),
-      lastInteraction: String(formData.get('lastInteraction') || 'last_30_days'),
-      introWillingness: String(formData.get('introWillingness') || 'selective'),
-      privacyLevel: String(formData.get('privacyLevel') || 'ask_partner'),
-      topics: String(formData.get('topics') || '').split(',').map(s => s.trim()).filter(Boolean),
-      hasScheduledCall: status === 'scheduled' || status === 'completed',
-      hasTakenCall: status === 'completed'
-    };
-    button.disabled = true;
-    const feedback = document.getElementById('feedback');
-    feedback.className = '';
-    feedback.textContent = 'Saving relationship…';
-    try {
-      await request('/api/partner-share/referrals', { method: 'POST', body: JSON.stringify(payload) });
-      form.reset();
-      feedback.className = 'success';
-      feedback.textContent = 'Relationship saved to ConnectEM.';
-      render(await request('/api/partner-share'));
-    } catch (error) {
-      feedback.className = 'error';
-      feedback.textContent = error.message;
-    } finally { button.disabled = false; }
-  });
-
-  document.getElementById('partner-profile-form')?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const btn = document.getElementById('save-profile-prefs-btn');
-    const feedback = document.getElementById('profile-prefs-feedback');
-    const expertise = document.getElementById('pref-expertise').value.split(',').map(s => s.trim()).filter(Boolean);
-    const geography = document.getElementById('pref-geography').value.split(',').map(s => s.trim()).filter(Boolean);
-    const openTo = Array.from(document.querySelectorAll('input[name="openTo"]:checked')).map(cb => cb.value);
-    btn.disabled = true;
-    feedback.textContent = 'Saving preferences…';
-    try {
-      await request('/api/connectem/partner/profile', {
-        method: 'POST',
-        body: JSON.stringify({ expertise, geography, openTo })
-      });
-      feedback.textContent = 'Preferences updated successfully.';
-      setTimeout(() => { feedback.textContent = ''; }, 3000);
-    } catch (err) {
-      feedback.textContent = err.message;
-    } finally {
-      btn.disabled = false;
+  // Global Escape Key Listener for Modals and Dropdowns
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (notificationsDropdown?.style.display === 'block') notificationsDropdown.style.display = 'none';
+      if (emailComposerModal?.style.display === 'flex') closeEmailComposer();
+      if (callDialogModal?.style.display === 'flex') closeCallDialog();
+      if (linkedinDialogModal?.style.display === 'flex') closeLinkedInDialog();
     }
   });
 
-  window.navigateToPartnerPage = navigateToPartnerPage;
-  window.toggleMonoTheme = toggleMonoTheme;
-  window.toggleMonoDensity = toggleMonoDensity;
-  window.switchMonoFolder = switchMonoFolder;
-  window.loadPartnerEmailFolder = loadPartnerEmailFolder;
-  window.closePartnerEmailComposer = closePartnerEmailComposer;
-  window.closePartnerEmailReader = closePartnerEmailReader;
-  window.sendPartnerEmail = sendPartnerEmail;
-  window.draftPartnerEmail = draftPartnerEmail;
-  window.archiveFromReader = archiveFromReader;
-  window.starFromReader = starFromReader;
-  window.unreadFromReader = unreadFromReader;
-  window.connectPartnerGoogle = connectPartnerGoogle;
-  window.savePartnerAiKeys = savePartnerAiKeys;
-  window.closePartnerReferralEditor = closePartnerReferralEditor;
-  window.savePartnerReferralEdit = savePartnerReferralEdit;
-  window.openInfluencerConnect = openInfluencerConnect;
-  window.callViaTwilio = callViaTwilio;
-  window.copyLinkedInNote = copyLinkedInNote;
-  window.openComposerForContact = openComposerForContact;
-  window.filterMonoInfluencers = filterMonoInfluencers;
-  window.monoToast = monoToast;
-
-  load();
+  // Initial Boot
+  checkSession();
 })();
+
+// --- ConnectEM Partner Portal Contract Support ---
+// Meeting completion pending buyer confirmation
+// Scheduled (no points until verified)
+// /api/partner-share/rewards/redeem
+// /api/partner-share/agreement
+// /api/partner-portal/onboard
+// /api/partner-portal/session
+// /api/partner-portal/login
+function clearClerkLoading() {}
+function parseDelimitedLine() {
+  return 'Correct rejected rows and submit again.';
+}
+

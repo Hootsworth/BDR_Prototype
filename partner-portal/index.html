@@ -2,533 +2,1037 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="ConnectEM Partner Workspace — Manage relationships, review warm introduction requests, and track verified impact.">
-  <title>Partner Workspace · ConnectEM</title>
-  <script>
-    (function() {
-      var savedTheme = localStorage.getItem('gtm_theme') || 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    })();
-  </script>
-  <link rel="stylesheet" href="/partner-portal/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ConnectEM Partner Portal — Manage contacts, review introduction requests, and track rewards.">
+  <title>Partner Portal · ConnectEM</title>
+  <link rel="stylesheet" href="/style.css">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <script src="/app-config.js"></script>
-  <script src="/config.js"></script>
-  <script src="/src/clerk-api.js"></script>
-  <script defer src="/partner-portal.js"></script>
-  <style>
-    .cl-footerAction, .cl-footerActionText, .cl-footerActionLink, .cl-footer {
-      display: none !important;
-    }
-    #clerk-auth-mount .cl-rootBox {
-      width: 100%;
-    }
-    #clerk-auth-mount .cl-card {
-      box-shadow: none !important;
-      background: transparent !important;
-      border: none !important;
-      padding: 0 !important;
-      width: 100% !important;
-    }
-  </style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="brand-wrapper"><span class="brand-symbol">C</span><span class="brand-title">ConnectEM</span><span class="brand-badge">Partner Network</span></div>
-    <div class="header-right">
-      <span class="balance-pill" id="partner-header-pill">Verified Partner Workspace</span>
-      <button id="portal-theme-toggle-btn" class="btn btn-secondary" type="button" aria-label="Toggle monochrome theme" onclick="var d=document.documentElement;var t=d.getAttribute('data-theme')==='dark'?'light':'dark';d.setAttribute('data-theme',t);localStorage.setItem('gtm_theme',t);">Theme</button>
-      <button id="portal-signout-btn" class="btn btn-secondary" type="button" hidden>Sign out</button>
+  <!-- Top Navigation -->
+  <header class="top-nav">
+    <a href="/go" class="brand-wrapper" id="brand-link">
+      <span class="brand-symbol">C</span>
+      <span class="brand-title">ConnectEM</span>
+      <span class="brand-tag">Partner</span>
+    </a>
+    <div class="nav-actions">
+      <div id="session-indicator" class="session-indicator" style="display: none; align-items: center; gap: 6px;">
+        <span id="session-partner-name" class="code-text">Bob Miller</span>
+        <span id="session-demo-badge" class="badge" style="display:none; font-size:11px; padding:2px 7px; border-radius:12px; background:#f4f4f5; color:#52525b; border:1px solid #e4e4e7; font-weight:500;">Demo</span>
+      </div>
+      <div id="nav-notifications-wrapper" class="notifications-wrapper" style="position:relative; display:none;">
+        <button id="nav-notifications-btn" class="nav-notifications-btn icon-only" type="button" aria-label="Notifications" title="Notifications">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span id="nav-notifications-badge" class="notifications-badge" style="display:none;">0</span>
+        </button>
+
+        <!-- Notifications Dropdown -->
+        <div id="notifications-dropdown" class="notifications-dropdown" style="display:none;" role="menu">
+          <div class="notifications-dropdown-header">
+            <strong style="font-size:12.5px; color:var(--ink);">Notifications</strong>
+            <button id="mark-notifications-read-btn" type="button" style="font-size:11.5px; color:var(--muted); background:none; border:none; cursor:pointer;">Clear All</button>
+          </div>
+          <div id="notifications-list" class="notifications-list">
+            <!-- Dynamic notification items with instant review actions -->
+          </div>
+          <div class="notifications-dropdown-footer">
+            <span style="font-size:11.5px; color:var(--muted);">Respond directly to introduction requests above</span>
+            <button id="view-all-requests-btn" type="button" style="display:none;"></button>
+          </div>
+        </div>
+      </div>
+      <button id="auth-signout-btn" class="btn btn-secondary btn-sm" type="button" style="display: none;">Sign Out</button>
     </div>
   </header>
 
   <main class="app-container">
-    <section id="portal-auth-section" class="portal-auth-section">
-      <div class="auth-card">
-        <h1>Partner Workspace</h1>
-        <p>Sign in with your registered partner credentials to access your workspace. Partner accounts are provisioned by your ConnectEM administrator.</p>
-        <p id="portal-auth-error" role="alert" class="error"></p>
-        <form id="portal-login-form" class="portal-login-form">
-          <label>Partner Email
-            <input id="portal-login-email" name="email" type="email" required autocomplete="email" placeholder="partner@company.com">
-          </label>
-          <label>Password
-            <input id="portal-login-password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••">
-          </label>
-          <button id="portal-login-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Sign In to Workspace</button>
-        </form>
-        <form id="portal-change-password-form" class="portal-login-form" hidden>
-          <div class="auth-notice" style="margin-bottom: 12px; font-size: 13px; line-height: 1.4; color: var(--color-text-secondary); background: var(--color-bg-secondary, #f4f4f5); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--color-border, #e4e4e7);">
-            <strong style="display:block; margin-bottom: 2px; color: var(--color-text-primary, #09090b);">Temporary Password Detected</strong>
-            Please set a new permanent password to complete your account setup and access your workspace.
+    <!-- AUTH / ONBOARDING VIEW -->
+    <section id="auth-section" class="auth-panel">
+      <div class="auth-layout">
+        <aside class="auth-story">
+          <span class="auth-kicker">CONNECTEM · PARTNER NETWORK</span>
+          <h1 id="auth-story-title">Good relationships move business forward.</h1>
+          <p id="auth-story-copy">Your workspace brings your trusted contacts, introduction requests, and earned rewards together in one place.</p>
+          <ul class="auth-benefits">
+            <li><span aria-hidden="true">01</span><div><strong>Your network, organized</strong><small>Keep track of the people you know and the context behind each relationship.</small></div></li>
+            <li><span aria-hidden="true">02</span><div><strong>Introductions with care</strong><small>Review requests and stay in control of every introduction.</small></div></li>
+            <li><span aria-hidden="true">03</span><div><strong>Recognition that adds up</strong><small>See verified milestones and choose rewards from the marketplace.</small></div></li>
+          </ul>
+          <p class="auth-story-footnote">Private by design. You choose how your professional profile appears.</p>
+        </aside>
+
+        <div class="card auth-card">
+          <div class="auth-header">
+            <span id="auth-mode-label" class="auth-mode-label">PARTNER ACCESS</span>
+            <h2 id="auth-form-title" class="display-lg">Welcome back</h2>
+            <p id="auth-form-copy">Sign in with the email address registered to your partner account.</p>
           </div>
-          <label>New Permanent Password
-            <input id="portal-new-password" name="newPassword" type="password" required autocomplete="new-password" placeholder="••••••••" minlength="8">
-          </label>
-          <label>Confirm Permanent Password
-            <input id="portal-confirm-password" name="confirmPassword" type="password" required autocomplete="new-password" placeholder="••••••••" minlength="8">
-          </label>
-          <p id="portal-change-password-error" role="alert" class="error" style="margin: 6px 0; font-size: 13px; color: #dc2626;" hidden></p>
-          <button id="portal-change-password-submit" class="btn btn-primary" type="submit" style="width: 100%; min-height: 40px; margin-top: 4px;">Set Permanent Password &amp; Enter</button>
-        </form>
-        <div id="portal-sso-separator" class="portal-auth-separator" hidden>
-          <hr>
-          <span>or SSO</span>
-          <hr>
+
+          <div id="login-view" class="auth-view">
+            <div class="demo-box">
+              <div class="demo-box-text"><strong>Just exploring?</strong><br><span>Open the workspace with the demo partner profile.</span></div>
+              <button id="quick-demo-login-btn" class="btn btn-secondary btn-sm" type="button">Try demo</button>
+            </div>
+            <form id="login-form" class="form-group auth-form">
+              <div class="form-group">
+                <label for="login-email">Partner email</label>
+                <input id="login-email" name="email" type="email" required placeholder="you@company.com" autocomplete="email">
+              </div>
+              <div class="form-group"><label for="login-password">Password</label><input id="login-password" name="password" type="password" required autocomplete="current-password" placeholder="Your password"></div>
+              <div>
+                <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; font-weight:normal; cursor:pointer;">
+                  <input type="checkbox" id="login-gmail-perm" checked style="width:auto; margin-top:2px;">
+                  <span>Grant in-app Gmail outreach permission (Admin CC: <span class="code-text">nextbdr@gmail.com</span>)</span>
+                </label>
+              </div>
+              <p class="auth-form-note">Use the email and password associated with your ConnectEM partner profile.</p>
+              <button id="login-submit-btn" class="btn btn-primary" type="submit">Sign In</button>
+            </form>
+            <div class="auth-switch"><span>New to ConnectEM?</span><a href="/signup" id="auth-signup-link">Create a partner account</a></div>
+          </div>
+
+          <div id="signup-view" class="auth-view" hidden>
+            <div class="demo-box" style="margin-bottom: 1.25rem;">
+              <div class="demo-box-text"><strong>Just exploring?</strong><br><span>Open the workspace with the demo partner profile.</span></div>
+              <button id="quick-demo-signup-btn" class="btn btn-secondary btn-sm quick-demo-btn" type="button">Try demo</button>
+            </div>
+            <form id="onboarding-form" class="form-group auth-form">
+              <div class="auth-form-grid">
+                <div class="form-group"><label for="onboard-fullname">Full name</label><input id="onboard-fullname" name="fullName" type="text" required placeholder="Jane Doe" autocomplete="name"></div>
+                <div class="form-group"><label for="onboard-email">Work email</label><input id="onboard-email" name="email" type="email" required placeholder="jane@company.com" autocomplete="email"></div>
+                <div class="form-group"><label for="onboard-company">Company</label><input id="onboard-company" name="company" type="text" required placeholder="Acme Advisory" autocomplete="organization"></div>
+                <div class="form-group"><label for="onboard-title">Job title</label><input id="onboard-title" name="jobTitle" type="text" required placeholder="Managing Director" autocomplete="organization-title"></div>
+                <div class="form-group"><label for="onboard-password">Create password</label><input id="onboard-password" name="password" type="password" required minlength="8" placeholder="At least 8 characters" autocomplete="new-password"></div>
+                <div class="form-group"><label for="onboard-password-confirm">Confirm password</label><input id="onboard-password-confirm" name="passwordConfirm" type="password" required minlength="8" placeholder="Enter it again" autocomplete="new-password"></div>
+              </div>
+              <div class="form-group"><label for="onboard-privacy">Profile visibility</label><select id="onboard-privacy" name="privacyTier"><option value="ask_partner" selected>Ask me before sharing</option><option value="discoverable">Show me in the partner directory</option><option value="anonymous">Show my role and company only</option><option value="private">Keep my profile private</option></select><small class="auth-field-hint">You can change this later in Settings.</small></div>
+              <div>
+                <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; font-weight:normal; cursor:pointer;">
+                  <input type="checkbox" id="onboard-gmail-perm" checked style="width:auto; margin-top:2px;">
+                  <span>Grant in-app Gmail outreach permission (Admin CC: <span class="code-text">nextbdr@gmail.com</span>)</span>
+                </label>
+              </div>
+              <button id="onboard-submit-btn" class="btn btn-primary" type="submit">Create partner account</button>
+              <p class="auth-form-note">After creating your profile, you can connect LinkedIn and choose which contacts to add.</p>
+            </form>
+            <div class="auth-switch"><span>Already have an account?</span><a href="/login" id="auth-login-link">Sign in</a></div>
+          </div>
+          <p id="auth-error" class="auth-error" role="alert" aria-live="polite" hidden></p>
         </div>
-        <div id="clerk-auth-mount" aria-label="Sign in with Clerk" hidden></div>
-        <div id="clerk-signup-mount" aria-label="Create account with Clerk" hidden></div>
-        <div id="portal-auth-feedback" role="status" aria-live="polite"></div>
-        <form id="portal-onboarding-form" hidden>
-          <h2>Complete your Partner Profile</h2>
-          <label>Full name<input name="fullName" required autocomplete="name"></label>
-          <label>Company<input name="company" required autocomplete="organization"></label>
-          <label>Job title<input name="jobTitle" autocomplete="organization-title"></label>
-          <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
-          <label>LinkedIn profile<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…"></label>
-          <button id="portal-onboarding-submit" class="btn btn-primary" type="submit">Save Profile</button>
-        </form>
       </div>
     </section>
 
-    <section id="portal-workspace-content" hidden>
+    <!-- ONBOARDING SEQUENCE (Separate Screens: Step 1 Connect -> Step 2 Contacts -> Step 3 Done) -->
+    <section id="onboarding-sequence-section" class="onboarding-container" style="display: none;">
+      <!-- Stepper Header -->
+      <div class="onboarding-stepper">
+        <div id="step-nav-1" class="step-indicator active">
+          <span class="step-num">1</span>
+          <span>Connect</span>
+        </div>
+        <div style="color:var(--hairline-strong);">—</div>
+        <div id="step-nav-2" class="step-indicator">
+          <span class="step-num">2</span>
+          <span>Contacts</span>
+        </div>
+        <div style="color:var(--hairline-strong);">—</div>
+        <div id="step-nav-3" class="step-indicator">
+          <span class="step-num">3</span>
+          <span>Done</span>
+        </div>
+      </div>
+
+      <!-- SCREEN 1: CONNECT LINKEDIN -->
+      <div id="onboarding-screen-linkedin" class="card" style="padding: var(--space-xl);">
+        <div style="text-align: center; max-width: 540px; margin: 0 auto;">
+          <div class="linkedin-badge-icon">in</div>
+          <h1 class="display-lg" style="margin-bottom: 8px;">Connect LinkedIn</h1>
+          <p style="color: var(--muted); font-size: 15px; margin-bottom: var(--space-xl);">
+            Connect your LinkedIn profile to find professional connections. Your contacts stay strictly private under your chosen privacy settings.
+          </p>
+
+          <form id="linkedin-connect-form" class="form-group" style="gap: 16px; text-align: left;">
+            <div>
+              <label for="linkedin-profile-url">LinkedIn Profile URL</label>
+              <input id="linkedin-profile-url" name="linkedinUrl" type="url" required
+                value="https://linkedin.com/in/bob-miller-advisory"
+                placeholder="https://www.linkedin.com/in/your-profile">
+            </div>
+
+            <div style="background:var(--canvas-soft); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:12px; font-size:12.5px; color:var(--body);">
+              <strong style="color:var(--ink);">LinkedIn API:</strong>
+              Connect with your LinkedIn account to import your contacts directly into your directory.
+            </div>
+
+            <button id="linkedin-connect-btn" class="btn btn-primary" type="submit" style="width: 100%; height: 44px; margin-top: 8px;">
+              Continue
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- SCREEN 2: REVIEW CONTACTS & 1-CLICK ADD -->
+      <div id="onboarding-screen-connections" class="card" style="display: none; padding: var(--space-xl);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-base); flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h1 class="display-md">Select Contacts</h1>
+            <p style="color: var(--muted); font-size: 14px; margin-top: 4px;">
+              Found <strong id="discovered-connections-total" style="color:var(--ink);">0</strong> connections. Select contacts to add to your account.
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button id="one-click-import-btn" class="btn btn-primary" type="button">
+              Add Contacts (<span id="btn-selected-count">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--hairline);">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; font-weight: 500;">
+            <input type="checkbox" id="connections-select-all" class="connection-checkbox" checked>
+            <span>Select all</span>
+          </label>
+          <span class="caption-mono" id="selection-status-badge" style="color: var(--primary);">All Selected</span>
+        </div>
+
+        <!-- Connection Cards List -->
+        <div id="connections-items-list" class="connections-list">
+          <!-- Dynamically populated connection cards -->
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: var(--space-lg); padding-top: var(--space-base); border-top: 1px solid var(--hairline);">
+          <button id="back-to-linkedin-btn" class="btn btn-secondary btn-sm" type="button">
+            Back
+          </button>
+          <button id="import-bottom-cta-btn" class="btn btn-primary" type="button">
+            Add Contacts
+          </button>
+        </div>
+      </div>
+
+      <!-- SCREEN 3: ONBOARDING COMPLETE -->
+      <div id="onboarding-screen-complete" class="card" style="display: none; padding: var(--space-xxl); text-align: center;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: #e8f5e9; color: var(--semantic-success); display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: var(--space-base);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h1 class="display-lg" style="margin-bottom: 8px;">Setup Complete</h1>
+        <p style="color: var(--muted); font-size: 15px; max-width: 520px; margin: 0 auto var(--space-xl);">
+          Added <strong id="complete-imported-count" style="color:var(--ink);">6</strong> contacts to your account. You earned <strong style="color:var(--primary);">+30 Credits</strong> for setting up your contacts.
+        </p>
+
+        <button id="enter-workspace-btn" class="btn btn-primary" type="button" style="padding: 12px 28px; height: 44px; font-size: 15px;">
+          Go to Dashboard &rarr;
+        </button>
+      </div>
+    </section>
+
+    <!-- WORKSPACE VIEW -->
+    <section id="workspace-section" style="display: none;">
+      <!-- Hero Header -->
       <header class="workspace-hero">
-        <div><h1>Welcome, <span id="partner-name">Partner</span></h1><p id="partner-company">Your trusted partner relationship network</p></div>
-        <div class="partner-calendly-bar"><a id="partner-calendly-open-link" class="btn btn-secondary btn-sm" href="https://calendly.com/company-gtm/intro-call" target="_blank" rel="noopener noreferrer">Open Briefing Calendar</a><button id="partner-calendly-copy-btn" class="btn btn-secondary btn-sm" type="button">Copy booking link</button></div>
+        <div>
+          <h1 class="display-lg">Welcome, <span id="partner-display-name">Bob Miller</span></h1>
+          <p class="hero-subtitle" id="partner-display-company">Miller Advisory</p>
+        </div>
       </header>
-      <nav class="partner-workspace-nav" aria-label="Partner workspace pages">
-        <button id="partner-nav-contacts" class="partner-nav-btn active" type="button" onclick="navigateToPartnerPage('contacts')">
-          <svg style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-          Network &amp; Schedule
+
+      <!-- Workspace Navigation Tabs (4 Core Sections: Contacts, Outreach, Rewards, Settings) -->
+      <nav class="workspace-tabs" role="tablist" aria-label="Portal Sections">
+        <button id="tab-btn-contacts" class="tab-btn active" role="tab" aria-selected="true" data-tab="contacts">
+          Contacts
         </button>
-        <button id="partner-nav-email" class="partner-nav-btn" type="button" onclick="navigateToPartnerPage('email')">
-          <svg style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-          Influencers &amp; Connect
+        <button id="tab-btn-email" class="tab-btn" role="tab" aria-selected="false" data-tab="email">
+          Outreach
         </button>
-        <button id="partner-nav-settings" class="partner-nav-btn" type="button" onclick="navigateToPartnerPage('settings')">
-          <svg style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <button id="tab-btn-rewards" class="tab-btn" role="tab" aria-selected="false" data-tab="rewards">
+          Rewards
+        </button>
+        <button id="tab-btn-settings" class="tab-btn" role="tab" aria-selected="false" data-tab="settings">
           Settings
         </button>
       </nav>
-      <p id="page-error" role="alert" hidden></p>
 
-      <!-- PAGE 1: NETWORK & RELATIONSHIPS -->
-      <div id="partner-page-contacts" class="partner-portal-page">
-      
-      <!-- ConnectEM Quality Metrics & Trust Score -->
-      <section class="stats-strip" aria-label="Partner introduction totals">
-        <article class="stat-item"><span>Network Contacts</span><strong id="total-count">0</strong></article>
-        <article class="stat-item"><span>Double Opt-Ins</span><strong id="scheduled-count">0</strong></article>
-        <article class="stat-item"><span>Completed Briefings</span><strong id="completed-count">0</strong></article>
-        <article class="stat-item"><span>Partner Trust Score</span><strong id="partner-credits" style="color:var(--accent);">96 · High Trust</strong></article>
-      </section>
-
-      <!-- SECTION: PENDING VENDOR INTRO REQUESTS (DOUBLE OPT-IN FLOW) -->
-      <section id="partner-requests-section" class="portal-section">
-        <div class="section-heading">
+      <!-- TAB 1: CONTACTS -->
+      <div id="tab-content-contacts" class="tab-pane">
+        <div class="screen-heading">
+          <div><h2>Contacts</h2><p>Your relationship directory.</p></div>
+        </div>
+        <!-- LinkedIn Sync Banner -->
+        <div class="sync-callout-bar">
           <div>
-            <h2>Pending Introduction Requests</h2>
-            <p>Review vendor introduction requests and selectively check interest with your contacts. Declining never impacts your Trust Score.</p>
+            <strong style="color:var(--ink);">Sync Contacts</strong>
+            <p style="font-size:12.5px; color:var(--muted); margin-top:2px;">
+              Import your LinkedIn connections into your contacts directory.
+            </p>
           </div>
-          <span class="portal-badge ok" id="pending-requests-badge">0 pending</span>
+          <button id="launch-linkedin-sync-btn" class="btn btn-primary btn-sm" type="button">
+            Sync LinkedIn
+          </button>
         </div>
-        
-        <div id="partner-requests-container" style="display:grid; gap:16px;">
-          <p class="empty">No pending introduction requests right now. When vendors request warm introductions to your network, they will appear here for your review.</p>
-        </div>
-      </section>
 
-      <!-- SECTION: CONTACTS & RELATIONSHIP CLASSIFICATION -->
-      <section id="introduction-section" class="portal-section">
-        <div class="section-heading"><div><h2>My Network &amp; Relationships</h2><p id="visible-count">0 contacts</p></div></div>
-        <section class="schedule-email-panel" aria-labelledby="partner-schedule-title">
-          <h3 id="partner-schedule-title">Schedule a call</h3>
-          <p>Send the invitation from ConnectEM. Your administrator is copied, and the meeting is added to the Admin Schedule after AI checks the details.</p>
-          <form id="partner-schedule-form" class="form-grid">
-            <label>Contact<select id="partner-schedule-contact" name="contactId" required><option value="">Choose a referred contact</option></select></label>
-            <label>Call date and time<input name="datetime" type="datetime-local" required></label>
-            <label>Subject<input name="subject" required value="ConnectEM partner introduction"></label>
-            <label style="grid-column:1/-1">Invitation message<textarea name="body" rows="4" required placeholder="Add the purpose and any details for the call."></textarea></label>
-            <button id="partner-schedule-send" class="btn btn-primary" type="submit">Send invitation &amp; add to Schedule</button>
-          </form>
-          <p id="partner-schedule-feedback" role="status" aria-live="polite"></p>
-        </section>
-        <div class="workspace-nav-tabs" role="tablist">
-          <button id="mode-single-btn" class="workspace-tab-btn active" type="button" role="tab" aria-selected="true">Add Contact</button>
-          <button id="mode-bulk-btn" class="workspace-tab-btn" type="button" role="tab" aria-selected="false">Import List</button>
-          <button id="toggle-multi-edit-btn" class="workspace-tab-btn" type="button">Edit Relationships</button>
-        </div>
-        
-        <!-- SINGLE CONTACT FORM WITH RELATIONSHIP CLASSIFICATION & PRIVACY -->
-        <form id="referral-form" class="form-grid">
-          <label>Full name *<input name="fullName" required autocomplete="name"></label>
-          <label>Work email *<input name="email" type="email" required autocomplete="email"></label>
-          <label>Organization / Company *<input name="company" required autocomplete="organization"></label>
-          <label>Job title *<input name="jobTitle" autocomplete="organization-title" required></label>
-          <label>Phone<input name="phone" type="tel" autocomplete="tel"></label>
-          <label>LinkedIn profile<input name="linkedinUrl" type="url" placeholder="https://www.linkedin.com/in/…"></label>
-          
-          <!-- ConnectEM Relationship Classifiers -->
-          <label>Relationship Strength<select name="strength"><option value="strong" selected>Strong (frequent contact / high trust)</option><option value="medium">Medium (former colleague / periodic contact)</option><option value="weak">Weak (light acquaintance)</option></select></label>
-          <label>Relationship Type<select name="relationshipType"><option value="former_colleague" selected>Former Colleague</option><option value="customer">Client / Customer</option><option value="peer">Industry Peer</option><option value="advisor">Advisor / Board</option><option value="friend">Personal Friend</option></select></label>
-          <label>Last Interaction<select name="lastInteraction"><option value="last_30_days" selected>Last 30 days</option><option value="1_to_3_months">1–3 months ago</option><option value="3_to_6_months">3–6 months ago</option><option value="6_to_12_months">6–12 months ago</option><option value="over_1_year">Over 1 year ago</option></select></label>
-          <label>Introduction Willingness<select name="introWillingness"><option value="selective" selected>Selective (require brief review)</option><option value="open">Open (active advocate)</option><option value="private">Private (do not introduce)</option></select></label>
-          <label>Privacy Level (You control visibility)<select name="privacyLevel"><option value="ask_partner" selected>Ask Partner (Default · approval required)</option><option value="discoverable">Discoverable (visible with warm path)</option><option value="anonymous">Anonymous (role/company only)</option><option value="private">Private (hidden from vendors)</option></select></label>
-          <label>Focus Areas / Topics<input name="topics" placeholder="AI/Data, Core Modernization, NCUA Compliance" value="AI &amp; Data Governance, NCUA Compliance"></label>
-          
-          <input type="hidden" name="status" value="pending">
-          <button id="submit-button" class="btn btn-primary" type="submit" style="grid-column:1 / -1; margin-top:8px;">Save Relationship to ConnectEM</button>
-        </form>
-        <p id="feedback" role="status" aria-live="polite"></p>
-        
-        <div id="multi-edit-bar" class="multi-edit-bar" hidden>
-          <button id="multi-edit-add-row-btn" class="btn btn-secondary btn-sm" type="button">+ Add row</button>
-          <button id="multi-edit-save-btn" class="btn btn-primary btn-sm" type="button">Save edits</button>
-          <button id="multi-edit-cancel-btn" class="btn btn-subtle btn-sm" type="button">Cancel</button>
-          <p id="multi-edit-feedback" class="multi-edit-feedback" role="status"></p>
-        </div>
-        
-        <div id="bulk-referral-panel" class="bulk-referral-panel" hidden>
-          <div class="bulk-paste-section">
-            <label for="bulk-paste-input" style="font-size:12.5px; font-weight:600;">Paste rows from a spreadsheet</label>
-            <textarea id="bulk-paste-input" rows="4" placeholder="Name, email, company, title, phone, LinkedIn"></textarea>
-            <div class="bulk-paste-actions">
-              <button id="bulk-paste-toggle-btn" class="btn btn-secondary btn-sm" type="button">Paste contacts</button>
-              <button id="bulk-parse-paste-btn" class="btn btn-primary btn-sm" type="button">Parse rows</button>
-              <button id="bulk-cancel-paste-btn" class="btn btn-subtle btn-sm" type="button">Cancel paste</button>
+        <!-- Contacts Table Card -->
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-base); flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 class="title-md">All Contacts</h2>
+              <p style="font-size:13px; color:var(--muted);"><span id="table-contacts-count">2</span> contacts</p>
             </div>
-            <textarea id="bulk-paste-box" rows="4" hidden></textarea>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <div class="search-box-wrapper">
+                <svg class="search-box-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input id="contacts-search-input" type="search" placeholder="Search contacts..." autocomplete="off">
+              </div>
+              <button id="open-add-contact-modal-btn" class="btn btn-primary btn-sm" type="button">
+                + Add Contact
+              </button>
+            </div>
           </div>
-          <div class="bulk-header-status">
-            <span id="bulk-row-count" class="bulk-row-count">0 rows</span>
-            <p id="bulk-feedback" role="status" aria-live="polite"></p>
-          </div>
+
           <div class="table-wrap">
-            <table>
+            <table id="contacts-table">
               <thead>
                 <tr>
-                  <th style="width:40px; text-align:center;">#</th>
-                  <th>Full Name</th>
-                  <th>Email</th>
+                  <th>Name &amp; Title</th>
                   <th>Company</th>
-                  <th>Job Title</th>
-                  <th>Phone</th>
-                  <th>LinkedIn</th>
-                  <th>Status</th>
-                  <th style="width:40px;"></th>
+                  <th>Strength</th>
+                  <th>Notes &amp; Phone</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
-              <tbody id="bulk-rows-body"></tbody>
+              <tbody id="contacts-tbody">
+                <!-- Dynamically rendered rows -->
+              </tbody>
             </table>
           </div>
-          <div class="bulk-actions-bar">
-            <div class="bulk-actions-left">
-              <button id="bulk-add-row-btn" class="btn btn-secondary btn-sm" type="button">+ Add row</button>
-              <button id="bulk-add-5-btn" class="btn btn-secondary btn-sm" type="button">+ Add 5 rows</button>
-              <button id="bulk-clear-btn" class="btn btn-subtle btn-sm" type="button">Clear rows</button>
-            </div>
-            <button id="bulk-submit-button" class="btn btn-primary" type="button">Import Relationships</button>
-          </div>
         </div>
-        
-        <div class="table-wrap"><table><thead><tr><th>Contact &amp; Role</th><th>Organization</th><th>Relationship &amp; Privacy</th><th>Status &amp; Actions</th></tr></thead><tbody id="contacts-body"></tbody></table></div>
-      </section>
-
-      <!-- SECTION: PARTNER PROFILE & OPEN-TO PREFERENCES -->
-      <section class="portal-section">
-        <div class="section-heading"><h2 style="margin:0 0 6px; font-size:18px;">Partner Expertise &amp; Engagement Preferences</h2><p style="margin:0; font-size:13px; color:var(--muted);">Define your industry focus and what types of engagements you are open to.</p></div>
-        <form id="partner-profile-form" class="form-grid" style="margin-top:16px;">
-          <label>Core Expertise Tags<input id="pref-expertise" value="Credit Union Core Systems, AI &amp; Data Governance, NCUA Compliance" placeholder="e.g. Lending Automation, Cybersecurity, Core Banking"></label>
-          <label>Target Geographies<input id="pref-geography" value="North America, United States" placeholder="e.g. US East, Midwest, Nationwide"></label>
-          <label style="grid-column:1 / -1;">What I am open to (select all that apply):
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px;">
-              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="warm_intros" checked style="width:auto; min-height:auto;"> Warm executive introductions</label>
-              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="advisory_calls" checked style="width:auto; min-height:auto;"> Paid advisory calls</label>
-              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="consulting" checked style="width:auto; min-height:auto;"> Consulting projects</label>
-              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="board_roles" checked style="width:auto; min-height:auto;"> Board &amp; advisor roles</label>
-              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="vendor_feedback" checked style="width:auto; min-height:auto;"> Vendor product feedback</label>
-              <label style="display:flex; flex-direction:row; align-items:center; gap:8px; font-size:13px; font-weight:normal;"><input type="checkbox" name="openTo" value="recruiting" style="width:auto; min-height:auto;"> Executive recruiting</label>
-            </div>
-          </label>
-          <div style="grid-column:1 / -1; display:flex; align-items:center; gap:12px; margin-top:8px;">
-            <button id="save-profile-prefs-btn" class="btn btn-secondary" type="submit">Update Preferences</button>
-            <span id="profile-prefs-feedback" style="font-size:12px; color:var(--accent);"></span>
-          </div>
-        </form>
-      </section>
-
-      <!-- SECTION: PARTNER AGREEMENT & ENTERPRISE ATTRIBUTION -->
-      <section class="portal-section partner-agreement-bar">
-        <div>
-          <h2>Partner Agreement</h2>
-          <p id="partner-agreement-desc">Your ConnectEM Master Partner Agreement establishes your non-circumvention terms and commercial referral rates.</p>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <span id="partner-agreement-badge" class="portal-badge ok">Signed &amp; Active</span>
-          <button id="partner-sign-agreement-btn" class="btn btn-secondary" type="button">Review Partner Agreement</button>
-        </div>
-      </section>
-
-      <!-- SECTION: COMMERCIAL ATTRIBUTION & PIPELINE INFLUENCE -->
-      <section class="portal-section">
-        <div class="section-heading">
-          <h2>Commercial Attribution &amp; Revenue Metrics</h2>
-          <p>ConnectEM measures real outcomes from request to revenue. No point systems or flat lead bounties.</p>
-        </div>
-        <div class="stats-strip" style="margin:16px 0 20px; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
-          <article class="stat-item"><span>Influenced Pipeline</span><strong id="attr-pipeline" style="color:var(--ink);">$185,000</strong></article>
-          <article class="stat-item"><span>Closed Revenue</span><strong id="attr-revenue" style="color:var(--ok);">$45,000</strong></article>
-          <article class="stat-item"><span>Referral Terms</span><strong style="font-size:15px; color:var(--accent);">15% Year 1 ACV</strong></article>
-          <article class="stat-item"><span>Advisory Status</span><strong style="font-size:15px; color:var(--ok);">Active Advisor</strong></article>
-        </div>
-        <p style="font-size:12.5px; color:var(--muted); margin:0;">
-          Commercial payouts and referral commissions are settled monthly pursuant to your signed ConnectEM Partner Referral Agreement. Direct wire details are managed by your administrator.
-        </p>
-      </section>
       </div>
 
-      <!-- PAGE 2: FULLSCREEN INFLUENCER OUTREACH & CONNECT -->
-      <div id="partner-page-email" class="partner-portal-page mono-fullscreen" hidden>
-        <div class="mono-app" id="mono-email-app">
-          <!-- TOPBAR -->
-          <header class="mono-topbar">
-            <button class="mono-back-btn" type="button" onclick="navigateToPartnerPage('contacts')" title="Back to Network & Schedule">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-              <span>Back</span>
-            </button>
-            <div class="mono-brand">
-              <div class="mono-logo">C</div>
-              <span class="mono-brand-name">Connect<span style="font-weight:400">EM</span> <span style="font-weight:300;opacity:0.6;">Reach</span></span>
-            </div>
-            <div class="mono-search">
-              <span class="mono-search-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </span>
-              <input id="partner-email-search" type="search" placeholder="Search added influencers (by name, company, title)..." aria-label="Search influencers" oninput="filterMonoInfluencers(this.value)">
-            </div>
-            <div class="mono-top-actions">
-              <button class="mono-icon-btn" id="monoThemeBtn" type="button" onclick="toggleMonoTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-              </button>
-              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh influencer list" aria-label="Refresh">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              </button>
-              <button class="mono-icon-btn" type="button" onclick="navigateToPartnerPage('settings')" title="Partner Settings" aria-label="Settings">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              </button>
-              <div class="mono-avatar" id="partner-avatar-display" title="Partner account">P</div>
-            </div>
-          </header>
+      <!-- Hidden container preserved for intro request data -->
+      <div id="intro-requests-list" style="display: none;" aria-hidden="true"></div>
 
-          <!-- SIDEBAR -->
-          <aside class="mono-sidebar">
-            <button class="mono-compose-btn" id="partner-compose-btn" type="button" onclick="navigateToPartnerPage('contacts')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Add Influencer</span>
-            </button>
-            <div class="mono-nav-label">Influencer Directory</div>
-            <button class="mono-nav-item active" type="button" data-folder="ALL" onclick="switchMonoFolder('ALL', this)">
-              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-              <span class="mono-nav-text">All Added</span>
-              <span class="mono-count" id="partner-inbox-count"></span>
-            </button>
-            <button class="mono-nav-item" type="button" data-folder="STRONG" onclick="switchMonoFolder('STRONG', this)">
-              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
-              <span class="mono-nav-text">Strong Ties</span>
-              <span class="mono-count" id="partner-draft-count"></span>
-            </button>
-            <button class="mono-nav-item" type="button" data-folder="MEDIUM" onclick="switchMonoFolder('MEDIUM', this)">
-              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg></span>
-              <span class="mono-nav-text">Medium Ties</span>
-            </button>
-            <button class="mono-nav-item" type="button" data-folder="SCHEDULED" onclick="switchMonoFolder('SCHEDULED', this)">
-              <span class="mono-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-              <span class="mono-nav-text">Scheduled</span>
-            </button>
-
-            <div class="mono-sidebar-bottom">
-              <div class="mono-nav-label">Outreach &amp; Compliance</div>
-              <div class="mono-routing-card">
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:4px;">Sender Identity</div>
-                <div id="partner-inbox-registered-email" style="font-size:11.5px;font-weight:600;word-break:break-all;color:var(--text);">your registered email</div>
-                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin:10px 0 4px;">Admin Automatic CC</div>
-                <div id="partner-inbox-admin-cc" style="font-size:11.5px;font-family:var(--font-mono);color:var(--muted);word-break:break-all;">admin@connectem.ai</div>
-                <div id="partner-inbox-google-status" style="margin-top:10px;font-size:10.5px;color:var(--muted);">Checking Google connection…</div>
-                <div id="partner-inbox-twilio-status" style="margin-top:6px;font-size:10.5px;color:var(--muted);">Checking Twilio status…</div>
-              </div>
-            </div>
-          </aside>
-
-          <!-- MAIN INFLUENCER REACH AREA -->
-          <main class="mono-main">
-            <div class="mono-heading">
-              <div>
-                <div class="mono-eyebrow" id="mono-page-eyebrow">YOUR ADDED NETWORK &amp; OUTREACH</div>
-                <h1 id="mono-page-title">Influencer Outreach &amp; Connect</h1>
-                <p id="mono-page-subtitle">Direct executive outreach. Click any person below to connect via LinkedIn, verified email (CC'ing admin), or phone.</p>
-              </div>
-              <div class="mono-heading-actions">
-                <button class="mono-pill" id="monoDensityBtn" type="button" onclick="toggleMonoDensity()">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                  <span>Comfortable</span>
-                </button>
-                <button class="mono-pill" type="button" onclick="navigateToPartnerPage('settings')">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                  <span>Settings</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="mono-toolbar">
-              <input type="checkbox" class="mono-check" id="monoSelectAll" style="display:none;" aria-label="Select all">
-              <button class="mono-icon-btn" type="button" onclick="loadPartnerEmailFolder()" title="Refresh">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              </button>
-              <div class="mono-divider"></div>
-              <span id="partner-email-status" class="mono-status-label" role="status" aria-live="polite"></span>
-              <div class="mono-spacer"></div>
-              <span class="mono-toolbar-label" id="partner-email-total-count">0 influencers</span>
-            </div>
-
-            <div class="mono-influencer-grid" id="partner-email-list">
-              <!-- Dynamically populated influencer cards -->
-            </div>
-
-            <div class="mono-footer">
-              <span>ConnectEM Executive Influencer Relations · Certified Governance</span>
-              <div class="mono-pagination">
-                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                </button>
-                <button class="mono-icon-btn" type="button" onclick="monoToast('Showing all added influencers')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-              </div>
-            </div>
-          </main>
+      <!-- TAB 2: OUTREACH -->
+      <div id="tab-content-email" class="tab-pane" style="display: none;">
+        <div class="screen-heading">
+          <div><h2>Outreach</h2><p>Choose a contact and record your next touchpoint.</p></div>
         </div>
-
-        <!-- READER / CONNECT OVERLAY MODAL -->
-        <div class="mono-overlay" id="partner-reader-overlay" role="dialog" aria-modal="true" aria-label="Connect with influencer">
-          <div class="mono-modal">
-            <div class="mono-modal-head">
-              <span id="partner-reader-modal-title">Connect with Influencer</span>
-              <button class="mono-icon-btn" type="button" onclick="closePartnerEmailReader()" aria-label="Close">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+        <!-- In-App Outreach Status Bar with Mandatory Admin CC -->
+        <div class="admin-cc-notice">
+          <div>
+            <strong style="color:var(--ink);">In-App Outreach</strong> ·
+            <span id="outreach-gmail-status" style="color:var(--muted);">Checking Gmail permission…</span>
+            <div style="font-size:11.5px; color:var(--muted); margin-top:2px;">
+              All in-app outreach emails are delivered internally and automatically copied to administrator (<strong class="code-text" style="color:var(--ink);">nextbdr@gmail.com</strong>).
             </div>
-            <div class="mono-reader" id="partner-reader-content">
-              <article id="partner-email-message" class="partner-email-message">
-                <!-- Connect channels and actions rendered here -->
-                <div id="partner-twilio-call-status" hidden></div>
-              </article>
-            </div>
-            <div class="mono-modal-foot" id="partner-reader-foot">
-              <button class="mono-pill" type="button" id="monoReaderReplyBtn" onclick="closePartnerEmailReader()">Close</button>
-              <button class="mono-pill" type="button" id="monoReaderArchiveBtn" style="display:none;" onclick="archiveFromReader()">Archive</button>
-              <button class="mono-pill" type="button" id="monoReaderStarBtn" style="display:none;" onclick="starFromReader()">Star</button>
-              <button class="mono-pill" type="button" id="monoReaderUnreadBtn" style="display:none;" onclick="unreadFromReader()">Mark unread</button>
-            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="grant-gmail-perm-btn" class="btn btn-secondary btn-sm" type="button">
+              Grant Gmail Permission
+            </button>
+            <span class="admin-cc-badge" title="Enforced Admin CC">CC: nextbdr@gmail.com</span>
           </div>
         </div>
 
-        <!-- COMPOSE OVERLAY MODAL -->
-        <div class="mono-overlay" id="partner-email-compose" role="dialog" aria-modal="true" aria-label="Compose message">
-          <div class="mono-modal">
-            <div class="mono-modal-head">
-              <span id="partner-compose-title">New message</span>
-              <button class="mono-icon-btn" type="button" onclick="closePartnerEmailComposer()" aria-label="Close">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <!-- Outreach Split Screen: Left Vertical Contacts List & Right Full Action Workspace -->
+        <div class="outreach-split-layout">
+          <!-- LEFT SIDE PANEL: Vertically stacked contact names -->
+          <div class="outreach-sidebar">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h2 class="title-md">Contacts</h2>
+              <span id="outreach-contacts-total" class="badge-tag strong" style="font-size:11px;">0</span>
+            </div>
+            <div>
+              <input id="outreach-search-input" type="search" placeholder="Filter contacts..." style="height:34px; font-size:13px;">
+            </div>
+            <div id="outreach-contacts-list" class="outreach-contacts-list">
+              <!-- Dynamically populated vertical items -->
+            </div>
+          </div>
+
+          <!-- RIGHT FULL PANEL: Inline outreach ways on screen (No popup!) -->
+          <div id="outreach-main-panel" class="outreach-main-panel">
+            <!-- Selected Contact Header -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--hairline); flex-wrap:wrap; gap:12px;">
+              <div>
+                <h1 id="outreach-selected-name" class="display-md" style="margin-bottom:2px;">Select a contact</h1>
+                <p id="outreach-selected-sub" style="font-size:13.5px; color:var(--muted);">
+                  Choose a contact from the list on the left to begin outreach.
+                </p>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="outreach-selected-strength" class="badge-tag strong">STRONG</span>
+              </div>
+            </div>
+
+            <!-- Ways to Outreach Navigation -->
+            <div class="outreach-channel-nav" role="tablist">
+              <button id="channel-tab-email" class="channel-tab-btn active" type="button" data-channel="email">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:4px;"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Email Outreach
+              </button>
+              <button id="channel-tab-call" class="channel-tab-btn" type="button" data-channel="call">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px; margin-right:4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Phone Call
+              </button>
+              <button id="channel-tab-linkedin" class="channel-tab-btn" type="button" data-channel="linkedin">
+                in LinkedIn
               </button>
             </div>
-            <form onsubmit="event.preventDefault(); sendPartnerEmail();">
-              <div class="mono-modal-body">
-                <input class="mono-field" id="partner-compose-to" type="email" placeholder="To" required>
-                <input class="mono-field" id="partner-compose-subject" placeholder="Subject" required>
-                <textarea class="mono-field mono-textarea" id="partner-compose-body" placeholder="Write something thoughtful…" required></textarea>
-                <div class="mono-sender-notice">
-                  Sending from: <strong id="partner-compose-from-display">your registered email</strong> · Admin CC (<span id="partner-compose-admin-display" style="font-family:var(--font-mono);">admin</span>) is included automatically.
+
+            <!-- CHANNEL 1: IN-APP EMAIL (Inline, part of screen) -->
+            <div id="channel-content-email" class="channel-content-pane">
+              <!-- Metadata Strip with Mandatory Admin CC -->
+              <div style="background:var(--canvas-soft); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:10px 14px; margin-bottom:14px; font-size:13px; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span style="color:var(--muted); width:50px;">From:</span>
+                  <span id="composer-from-email" class="code-text" style="flex:1; color:var(--ink); font-size:12.5px;">you@example.com</span>
+                  <span id="composer-gmail-badge" class="badge-tag strong" style="font-size:11px;">Gmail Connected</span>
+                </div>
+                <div style="display:flex; align-items:center;">
+                  <span style="color:var(--muted); width:50px;">To:</span>
+                  <span id="composer-to-recipient" style="flex:1; color:var(--ink); font-weight:500;">Recipient</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:4px; border-top:1px dashed var(--hairline-strong);">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:var(--muted); width:50px;">CC:</span>
+                    <span class="admin-cc-badge">nextbdr@gmail.com</span>
+                  </div>
+                  <span style="font-size:11.5px; color:var(--muted);">Mandatory Admin Compliance CC</span>
                 </div>
               </div>
-              <div class="mono-modal-foot">
-                <div style="display:flex;gap:8px;align-items:center;">
-                  <button class="mono-pill" type="button" onclick="draftPartnerEmail()">Save draft</button>
-                  <button class="mono-pill" type="button" onclick="draftPartnerEmail(true)" style="display:inline-flex;align-items:center;gap:6px;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                    <span>Draft with AI</span>
+
+              <!-- AI Assistant Card (Clean, Simple) -->
+              <div class="ai-assistant-card">
+                <div class="ai-assistant-header">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="ai-assistant-badge">AI Assistant</span>
+                    <span style="font-size:12px; color:var(--muted);">Context-aware email drafter</span>
+                  </div>
+                <span id="outreach-ai-model" style="font-size:11px; font-family:var(--font-mono); color:var(--muted-soft);">Assigned model</span>
+                </div>
+                <div class="outreach-ai-fields">
+                  <div class="form-group" style="gap:4px;">
+                    <label for="ai-draft-purpose" style="font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Prompt / Topic</label>
+                    <input id="ai-draft-purpose" type="text" placeholder="e.g. executive advisory intro, cybersecurity briefing">
+                  </div>
+                  <div class="form-group" style="gap:4px;">
+                    <label for="ai-draft-tone" style="font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Tone</label>
+                    <select id="ai-draft-tone">
+                      <option value="warm" selected>Warm &amp; Professional</option>
+                      <option value="direct">Direct &amp; Crisp</option>
+                      <option value="executive">Executive Advisory</option>
+                      <option value="casual">Casual &amp; Friendly</option>
+                    </select>
+                  </div>
+                </div>
+                <button id="ai-generate-draft-btn" class="btn btn-secondary btn-sm" type="button" style="width:100%; justify-content:center;">
+                  Draft with AI Assistant
+                </button>
+              </div>
+
+              <!-- Inline Email Form -->
+              <form id="email-composer-form" class="outreach-form">
+                <input type="hidden" id="composer-prospect-id" value="">
+                <div class="form-group">
+                  <label for="composer-subject">Subject *</label>
+                  <input id="composer-subject" type="text" required placeholder="Quick note regarding executive briefing...">
+                </div>
+                <div class="form-group">
+                  <label for="composer-body">Body *</label>
+                  <textarea id="composer-body" rows="6" required placeholder="Write your personalized outreach note..."></textarea>
+                </div>
+                <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+                  <button id="composer-send-btn" class="btn btn-primary btn-sm" type="submit" style="min-height:38px; padding:8px 18px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                    Send Email (CC nextbdr@gmail.com)
                   </button>
                 </div>
-                <button class="mono-send-btn" type="submit" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-                  <span>Send</span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
+              </form>
+            </div>
+
+            <!-- CHANNEL 2: PHONE / CALL (Inline, part of screen) -->
+            <div id="channel-content-call" class="channel-content-pane" style="display:none;">
+              <!-- Twilio Telephony Pane (Shown if enabled) -->
+              <div id="twilio-live-dialer-pane" style="display:none; background:var(--canvas-soft); border:1px solid var(--hairline-strong); border-radius:var(--radius-md); padding:16px; margin-bottom:14px; text-align:center;">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); font-weight:600; margin-bottom:4px;">
+                  Twilio Telephony Active
+                </div>
+                <div id="twilio-dialing-target" style="font-size:16px; font-weight:600; color:var(--ink); font-family:var(--font-mono); margin-bottom:8px;">
+                  +1 (555) 000-0000
+                </div>
+                <div style="display:flex; justify-content:center; gap:10px;">
+                  <button id="twilio-start-call-btn" class="btn btn-primary btn-sm" type="button">Start Twilio Call</button>
+                  <button id="twilio-end-call-btn" class="btn btn-secondary btn-sm" type="button" style="display:none; background:#fee2e2; color:#b91c1c; border-color:#fca5a5;">End Call</button>
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
 
-        <!-- TOAST NOTIFICATION -->
-        <div class="mono-toast" id="partner-mono-toast"></div>
-      </div>
+              <!-- Twilio Disabled Notice -->
+              <div id="twilio-disabled-notice" style="background:var(--canvas-soft); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:14px; font-size:12.5px;">
+                <strong style="color:var(--ink);">Telephony Note:</strong> Twilio connector is unconfigured at admin. Record the call outcome manually below.
+              </div>
 
-      <!-- PAGE 3: SETTINGS (SEPARATE PAGE) -->
-      <div id="partner-page-settings" class="partner-portal-page" hidden>
-        <section id="partner-settings-section" class="portal-section">
-          <div class="section-heading">
-            <div>
-              <h2>Partner Settings &amp; Configuration</h2>
-              <p>Manage your mailbox connection, view registered partner credentials, and configure private AI provider keys.</p>
+              <!-- Call Outcome Form -->
+              <form id="call-logger-form">
+                <input type="hidden" id="call-logger-prospect-id" value="">
+                <div class="form-group">
+                  <label>Call Outcome *</label>
+                  <div class="call-outcome-options">
+                    <label class="outcome-pill-label">
+                      <input type="radio" name="callOutcome" value="connected" checked>
+                      <span>Connected</span>
+                    </label>
+                    <label class="outcome-pill-label">
+                      <input type="radio" name="callOutcome" value="left_voicemail">
+                      <span>Left Voicemail</span>
+                    </label>
+                    <label class="outcome-pill-label">
+                      <input type="radio" name="callOutcome" value="busy">
+                      <span>Busy / No Answer</span>
+                    </label>
+                    <label class="outcome-pill-label">
+                      <input type="radio" name="callOutcome" value="scheduled">
+                      <span>Meeting Scheduled</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:14px;">
+                  <label for="call-logger-notes">Call Notes</label>
+                  <textarea id="call-logger-notes" rows="3" placeholder="Discussed advisory priorities, will follow up next Tuesday..."></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end;">
+                  <button id="save-call-log-btn" class="btn btn-primary btn-sm" type="submit">
+                    Mark as Called
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- CHANNEL 3: LINKEDIN OUTREACH (Inline, part of screen) -->
+            <div id="channel-content-linkedin" class="channel-content-pane" style="display:none;">
+              <div style="background:var(--canvas-soft); border:1px solid var(--hairline); border-radius:var(--radius-md); padding:14px; margin-bottom:14px;">
+                <div style="font-size:13.5px; font-weight:600; color:var(--ink); margin-bottom:2px;" id="linkedin-dialog-target-name">Contact Name</div>
+                <div style="font-size:12.5px; color:var(--muted);" id="linkedin-dialog-target-headline">Executive Role · Company</div>
+                <div style="margin-top:10px;">
+                  <a id="linkedin-dialog-profile-link" class="btn btn-secondary btn-sm" href="#" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:6px;">
+                    <span>Open LinkedIn Profile ↗</span>
+                  </a>
+                </div>
+              </div>
+
+              <form id="linkedin-logger-form">
+                <input type="hidden" id="linkedin-logger-prospect-id" value="">
+                <div class="form-group" style="margin-bottom:14px;">
+                  <label for="linkedin-logger-notes">Outreach Notes / InMail Message</label>
+                  <textarea id="linkedin-logger-notes" rows="4" placeholder="Sent InMail requesting intro to their strategic risk team..."></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end;">
+                  <button id="save-linkedin-log-btn" class="btn btn-primary btn-sm" type="submit">
+                    Log LinkedIn Outreach
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
-          <div class="partner-settings-card">
-            <h3>Registered Account</h3>
-            <p style="font-size:13px;line-height:1.5;">Signed-up Email: <strong id="partner-settings-registered-email"></strong> · <span class="portal-badge ok">Active Partner Account</span></p>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">Outgoing inbox emails are delivered from this address and copied to the administrator (<span id="partner-settings-admin-cc" style="font-family:var(--font-mono);"></span>).</p>
-            <hr style="border:0;border-top:1px solid var(--border,#e2e2e8);margin:8px 0 14px;">
-            <h3>Google Workspace Connection</h3><p id="partner-google-status" role="status">Checking Google connection…</p>
-            <p style="font-size:12px;color:var(--muted);">Connect your Google account to sync your mailbox, read replies, and create Google Calendar events.</p>
-            <button id="partner-google-connect" class="btn btn-primary" type="button" onclick="connectPartnerGoogle()">Connect / reconnect Google</button>
-            <hr style="border:0;border-top:1px solid var(--border,#e2e2e8);margin:14px 0;">
-            <h3>AI Provider Keys</h3><p id="partner-ai-key-status" role="status" aria-live="polite">Loading key status…</p>
-            <label>Gemini API key<input id="partner-key-gemini" type="password" autocomplete="new-password" placeholder="Saved key is not displayed"></label>
-            <label>OpenAI API key<input id="partner-key-openai" type="password" autocomplete="new-password" placeholder="Saved key is not displayed"></label>
-            <label>Meta Model API key<input id="partner-key-meta" type="password" autocomplete="new-password" placeholder="Saved key is not displayed"></label>
-            <p style="font-size:11.5px;color:var(--muted);">Private AI keys are encrypted with AES/Fernet on the server and isolated to your partner workspace.</p>
-            <button class="btn btn-primary" type="button" onclick="savePartnerAiKeys()">Save AI keys</button>
+        </div>
+      </div>
+
+      <!-- TAB 4: REWARDS -->
+      <div id="tab-content-rewards" class="tab-pane" style="display: none;">
+        <div class="screen-heading">
+          <div><h2>Credits &amp; rewards</h2><p>Earn credits through trusted introductions and use them in the marketplace.</p></div>
+        </div>
+        <div class="rewards-overview">
+          <section class="rewards-wallet">
+            <span class="rewards-eyebrow">AVAILABLE CREDITS</span>
+            <strong id="rewards-points-balance">120 credits</strong>
+            <p>Credits stay in your balance until a request is reviewed.</p>
+          </section>
+          <section class="rewards-summary-card">
+            <span class="rewards-eyebrow">VERIFIED REVENUE GENERATED</span>
+            <strong id="rewards-revenue-amount">$450,000</strong>
+            <p>Tracked separately from your credits.</p>
+          </section>
+        </div>
+
+        <section class="credit-milestones" aria-labelledby="credit-milestones-title">
+          <div class="rewards-section-heading">
+            <div><h3 id="credit-milestones-title">Earn credits</h3><p>Credits are awarded when milestones are verified.</p></div>
+          </div>
+          <div class="milestone-list" id="credit-milestones-list"></div>
+        </section>
+
+        <div class="rewards-marketplace-layout">
+          <section class="rewards-marketplace" aria-labelledby="rewards-marketplace-title">
+            <div class="rewards-section-heading">
+              <div><h3 id="rewards-marketplace-title">Marketplace</h3><p>Choose the rewards you would like Murali to review.</p></div>
+            </div>
+            <div class="reward-category-filters" role="group" aria-label="Filter rewards">
+              <button class="reward-filter active" type="button" data-reward-category="all">All rewards</button>
+              <button class="reward-filter" type="button" data-reward-category="cash">Cash</button>
+              <button class="reward-filter" type="button" data-reward-category="impact">Giving</button>
+              <button class="reward-filter" type="button" data-reward-category="experiences">Experiences</button>
+              <button class="reward-filter" type="button" data-reward-category="services">Services</button>
+              <button class="reward-filter" type="button" data-reward-category="visibility">Visibility</button>
+            </div>
+            <div id="rewards-catalog-grid" class="rewards-catalog-grid"></div>
+          </section>
+
+          <form id="rewards-redeem-form" class="rewards-cart">
+            <div class="rewards-cart-header">
+              <div><span class="rewards-eyebrow">YOUR SELECTION</span><h3>Reward cart <span id="rewards-cart-count">0</span></h3></div>
+            </div>
+            <div id="rewards-cart-items" class="rewards-cart-items">
+              <p class="rewards-cart-empty">Your cart is empty. Add a reward to start a request.</p>
+            </div>
+            <div class="rewards-cart-fields">
+              <label for="rewards-credits-to-apply">Credits to apply <span>(optional)</span></label>
+              <input id="rewards-credits-to-apply" type="number" min="0" value="0" inputmode="numeric">
+              <p class="rewards-field-hint">Murali will confirm the credit amount during review.</p>
+              <label for="rewards-request-details">Request details</label>
+              <textarea id="rewards-request-details" rows="3" placeholder="For example, your nonprofit name or preferred event." style="resize: none;"></textarea>
+            </div>
+            <button id="redeem-submit-btn" class="btn btn-primary" type="submit" disabled>Submit redemption request</button>
+            <p class="rewards-cart-note">A request notification is queued for Murali at nextbdr@gmail.com. Credits remain in your balance until reviewed.</p>
+          </form>
+        </div>
+
+        <section class="rewards-history-section">
+          <div class="rewards-section-heading"><div><h3>Your requests</h3><p>Track redemption requests sent for review.</p></div></div>
+          <div id="rewards-requests-list" class="rewards-requests-list"></div>
+        </section>
+
+        <section class="rewards-history-section">
+          <div class="rewards-section-heading"><div><h3>Credits earned</h3><p>A record of verified milestones across your network.</p></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Milestone</th><th>Credits</th><th>Revenue</th><th>Details</th><th>Date</th></tr></thead>
+              <tbody id="attribution-ledger-tbody"></tbody>
+            </table>
           </div>
         </section>
       </div>
 
-      <dialog id="partner-referral-edit-dialog" class="partner-compose-dialog">
-        <form onsubmit="event.preventDefault(); savePartnerReferralEdit();">
-          <header><h3>Edit contact</h3><button class="btn btn-subtle" type="button" onclick="closePartnerReferralEditor()">Close</button></header>
-          <input id="partner-referral-edit-id" type="hidden">
-          <label>Full name<input id="partner-referral-edit-name" required></label>
-          <label>Email<input id="partner-referral-edit-email" type="email" required></label>
-          <label>Company<input id="partner-referral-edit-company" required></label>
-          <label>Job title<input id="partner-referral-edit-title"></label>
-          <label>Phone<input id="partner-referral-edit-phone"></label>
-          <label>LinkedIn URL<input id="partner-referral-edit-linkedin" type="url"></label>
-          <label>Relationship strength<select id="partner-referral-edit-strength"><option value="strong">Strong</option><option value="medium">Medium</option><option value="weak">Weak</option></select></label>
-          <label>Privacy<select id="partner-referral-edit-privacy"><option value="ask_partner">Ask partner</option><option value="discoverable">Discoverable</option><option value="anonymous">Anonymous</option><option value="private">Private</option></select></label>
-          <div class="partner-compose-actions"><button class="btn btn-primary" type="submit">Save contact</button></div>
-          <p id="partner-referral-edit-feedback" role="status" aria-live="polite"></p>
-        </form>
-      </dialog>
+      <!-- TAB 5: SETTINGS -->
+      <div id="tab-content-settings" class="tab-pane" style="display: none;">
+        <div class="screen-heading">
+          <div><h2>Settings</h2><p>Manage your profile and workspace preferences.</p></div>
+        </div>
+        <nav class="settings-tabs" role="tablist" aria-label="Settings sections">
+          <button id="settings-tab-profile" class="settings-tab active" role="tab" aria-selected="true" aria-controls="settings-panel-profile" type="button" data-settings-panel="profile">Profile</button>
+          <button id="settings-tab-ai" class="settings-tab" role="tab" aria-selected="false" aria-controls="settings-panel-ai" type="button" data-settings-panel="ai">AI usage</button>
+          <button id="settings-tab-connections" class="settings-tab" role="tab" aria-selected="false" aria-controls="settings-panel-connections settings-panel-connections-booking" type="button" data-settings-panel="connections">Connections</button>
+          <button id="settings-tab-notifications" class="settings-tab" role="tab" aria-selected="false" aria-controls="settings-panel-notifications" type="button" data-settings-panel="notifications">Notifications</button>
+          <button id="settings-tab-privacy" class="settings-tab" role="tab" aria-selected="false" aria-controls="settings-panel-privacy" type="button" data-settings-panel="privacy">Privacy &amp; account</button>
+        </nav>
 
-      <!-- Hidden legacy contract anchors for backwards compatibility -->
-      <div id="partner-legacy-controls" hidden style="display:none !important;" data-label="partner reward status" aria-label="partner reward status">
-        <span id="partner-reward-balance">0</span>
-        <form id="partner-reward-redemption-form">
-          <input id="partner-reward-points" type="number" value="0">
-          <select id="partner-reward-type"><option value="ach">ACH</option></select>
-          <textarea id="partner-reward-details"></textarea>
-          <span id="partner-reward-feedback"></span>
-        </form>
-        <div id="partner-reward-redemptions"></div>
+        <div id="settings-panel-ai" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-ai">
+        <!-- AI Usage & Mandatory Limits Card -->
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <h2 class="title-md">AI Usage &amp; Mandatory Limits</h2>
+                <span class="badge-tag strong" style="font-size:11px;">Enforced</span>
+              </div>
+              <p style="font-size:13px; color:var(--muted); margin-top:2px;">
+                Mandatory usage limits to manage backend AI model allocation and cost safety.
+              </p>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:11.5px; color:var(--muted); display:block;">Your assigned model</span>
+              <strong id="settings-ai-model" style="font-size:13px; color:var(--ink); font-family:var(--font-mono);">Assigned at random</strong>
+            </div>
+          </div>
+
+          <div style="background:var(--canvas-soft); border:1px solid var(--hairline-strong); border-radius:var(--radius-md); padding:16px; margin-bottom:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+              <strong style="font-size:13px; color:var(--ink);">Weekly Generation Quota</strong>
+              <span style="font-size:13px;">
+                <strong id="settings-ai-used" style="color:var(--ink);">0</strong> /
+                <span id="settings-ai-limit">20</span> drafts this week
+                (<strong id="settings-ai-remaining" style="color:var(--primary);">20 remaining</strong>)
+              </span>
+            </div>
+            <div class="quota-progress-container">
+              <div id="settings-ai-progress" class="quota-progress-bar" style="width: 0%;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-top:6px;">
+              <span>20 drafts per week</span>
+              <span id="settings-ai-reset">Resets Monday at 00:00 UTC</span>
+            </div>
+          </div>
+
+          <p style="font-size:12px; color:var(--muted); margin:0 0 16px;">Need more drafts? Paid extensions are planned.</p>
+
+          <form id="ai-settings-form" class="form-grid">
+            <input id="settings-custom-ai-limit" type="number" min="5" max="50" value="20" style="display:none;" aria-hidden="true">
+            <div class="form-group">
+              <label for="settings-default-ai-tone">Default Outreach Tone</label>
+              <select id="settings-default-ai-tone" name="defaultAiTone">
+                <option value="warm" selected>Warm &amp; Professional</option>
+                <option value="direct">Direct &amp; Crisp</option>
+                <option value="executive">Executive Advisory</option>
+                <option value="casual">Casual &amp; Friendly</option>
+              </select>
+            </div>
+            <div class="form-group full-width modal-actions" style="margin-top:2px;">
+              <button id="save-ai-settings-btn" class="btn btn-primary btn-sm" type="submit">Update AI Settings</button>
+            </div>
+          </form>
+        </div>
+        </div>
+
+        <!-- API Integrations & Backend Credentials Card -->
+        <div id="settings-panel-connections" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-connections">
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+            <div>
+              <h2 class="title-md">API Integrations &amp; Connectors</h2>
+              <p style="font-size:13px; color:var(--muted); margin-top:2px;">
+                API keys and environment credentials configured in the secure backend environment.
+              </p>
+            </div>
+            <span class="badge-tag strong" style="font-size:11px;">Backend Secured</span>
+          </div>
+
+          <div class="integrations-grid">
+            <!-- LinkedIn Integration -->
+            <div class="integration-card">
+              <div class="integration-card-header">
+                <strong style="font-size:13px; color:var(--ink);">LinkedIn Professional Network</strong>
+                <span class="badge-tag strong" id="integration-linkedin-badge">Active</span>
+              </div>
+              <p style="font-size:12px; color:var(--muted);">
+                Used for executive contact discovery, syncing connections, and outreach logging.
+              </p>
+              <div style="font-size:11.5px; font-family:var(--font-mono); color:var(--muted-soft);">
+                API Key: <span style="color:var(--ink);">LINKEDIN_API_KEY (Backend Configured)</span>
+              </div>
+            </div>
+
+            <!-- Gmail Integration -->
+            <div class="integration-card">
+              <div class="integration-card-header">
+                <strong style="font-size:13px; color:var(--ink);">Gmail Internal Dispatch</strong>
+                <span class="badge-tag strong" id="integration-gmail-badge">Active</span>
+              </div>
+              <p style="font-size:12px; color:var(--muted);">
+                Internal email dispatch with enforced administrator compliance copy.
+              </p>
+              <div style="font-size:11.5px; font-family:var(--font-mono); color:var(--muted-soft);">
+                Admin CC Enforced: <span style="color:var(--ink);">nextbdr@gmail.com</span>
+              </div>
+            </div>
+
+            <!-- Twilio Telephony -->
+            <div class="integration-card">
+              <div class="integration-card-header">
+                <strong style="font-size:13px; color:var(--ink);">Twilio Telephony Connector</strong>
+                <span class="badge-tag" id="integration-twilio-badge">Disabled</span>
+              </div>
+              <p style="font-size:12px; color:var(--muted);">
+                Voice gateway for in-app calling. If unconfigured, falls back to manual call outcome logging.
+              </p>
+              <div style="font-size:11.5px; font-family:var(--font-mono); color:var(--muted-soft);">
+                SID / Token: <span style="color:var(--ink);">TWILIO_ACCOUNT_SID (Backend)</span>
+              </div>
+            </div>
+
+            <!-- Per-partner AI assignment -->
+            <div class="integration-card">
+              <div class="integration-card-header">
+                <strong style="font-size:13px; color:var(--ink);">Assigned AI Model</strong>
+                <span class="badge-tag strong">Assigned</span>
+              </div>
+              <p style="font-size:12px; color:var(--muted);">
+                Your model assignment is used for personalized email drafts.
+              </p>
+              <div style="font-size:11.5px; font-family:var(--font-mono); color:var(--muted-soft);">
+                Model: <span id="settings-ai-integration-model" style="color:var(--ink);">Assigned automatically</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        </div>
+
+        <!-- Profile & Directory Information Card -->
+        <div id="settings-panel-profile" class="settings-panel active" role="tabpanel" aria-labelledby="settings-tab-profile">
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <h2 class="title-md" style="margin-bottom: 6px;">Profile &amp; Directory Information</h2>
+          <p style="font-size:13px; color:var(--muted); margin-bottom: 18px;">
+            Update your professional advisory identity displayed in network searches and introduction briefs.
+          </p>
+
+          <form id="profile-settings-form" class="form-grid">
+            <div class="form-group">
+              <label for="settings-fullname">Full Name *</label>
+              <input id="settings-fullname" name="fullName" type="text" required placeholder="Bob Miller">
+            </div>
+            <div class="form-group">
+              <label for="settings-email">Email (Account ID)</label>
+              <input id="settings-email" name="email" type="email" disabled style="background:var(--canvas-soft); color:var(--muted);">
+            </div>
+            <div class="form-group">
+              <label for="settings-company">Organization / Firm *</label>
+              <input id="settings-company" name="company" type="text" required placeholder="Miller Advisory &amp; Ventures">
+            </div>
+            <div class="form-group">
+              <label for="settings-jobtitle">Job Title *</label>
+              <input id="settings-jobtitle" name="jobTitle" type="text" required placeholder="Managing Partner">
+            </div>
+            <div class="form-group">
+              <label for="settings-phone">Business Phone</label>
+              <input id="settings-phone" name="phone" type="tel" placeholder="+1 (555) 019-2834">
+            </div>
+            <div class="form-group">
+              <label for="settings-linkedin-url">LinkedIn Profile URL</label>
+              <input id="settings-linkedin-url" name="linkedinProfileUrl" type="url" placeholder="https://linkedin.com/in/your-profile">
+            </div>
+            <div class="form-group full-width">
+              <label for="settings-expertise">Expertise Focus (Comma separated)</label>
+              <input id="settings-expertise" name="expertise" type="text" placeholder="Fintech, Credit Unions, IT Infrastructure, Core Banking">
+            </div>
+            <div class="form-group full-width modal-actions">
+              <button id="save-profile-btn" class="btn btn-primary btn-sm" type="submit">Save Profile</button>
+            </div>
+          </form>
+        </div>
+
+        </div>
+
+        <!-- Calendar & Direct Booking Card -->
+        <div id="settings-panel-connections-booking" class="settings-panel-child">
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <h2 class="title-md" style="margin-bottom: 6px;">Calendar &amp; Direct Booking</h2>
+          <p style="font-size:13px; color:var(--muted); margin-bottom: 16px;">
+            Set your public briefing link (Calendly, Cal.com) shared with vendors when accepting an introduction brief.
+          </p>
+
+          <form id="booking-settings-form" class="form-grid">
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label for="settings-booking-url">Briefing Booking URL</label>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <input id="settings-booking-url" name="bookingUrl" type="url" required style="flex:1; min-width:240px;" placeholder="https://calendly.com/miller-advisory/briefing">
+                <button id="save-booking-btn" class="btn btn-primary btn-sm" type="submit">Save Link</button>
+                <a id="partner-calendly-btn" class="btn btn-secondary btn-sm" href="https://calendly.com" target="_blank" rel="noopener noreferrer">Test Link ↗</a>
+                <button id="copy-booking-btn" class="btn btn-tertiary btn-sm" type="button">Copy Link</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        </div>
+
+        <!-- Notification Preferences Card -->
+        </div>
+        <div id="settings-panel-notifications" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-notifications">
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <h2 class="title-md" style="margin-bottom: 6px;">Notification Preferences</h2>
+          <p style="font-size:13px; color:var(--muted); margin-bottom: 16px;">
+            Configure how and when you receive alerts from ConnectEM.
+          </p>
+
+          <form id="notifications-settings-form">
+            <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:20px;">
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="notif-pref-requests" name="emailOnNewRequest" checked style="width:auto; margin-top:2px;">
+                <div>
+                  <strong style="color:var(--ink);">Introduction Requests</strong>
+                  <p style="font-size:12px; color:var(--muted);">Email me immediately when an organization submits a warm introduction brief.</p>
+                </div>
+              </label>
+
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="notif-pref-optin" name="emailOnOptIn" checked style="width:auto; margin-top:2px;">
+                <div>
+                  <strong style="color:var(--ink);">Contact Opt-In Confirmations</strong>
+                  <p style="font-size:12px; color:var(--muted);">Email me when a contact accepts or books a discovery call.</p>
+                </div>
+              </label>
+
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="notif-pref-compliance" name="emailOnComplianceCc" checked style="width:auto; margin-top:2px;">
+                <div>
+                  <strong style="color:var(--ink);">Compliance Receipts</strong>
+                  <p style="font-size:12px; color:var(--muted);">Receive CC receipts for all emails sent internally via the app (Admin CC: nextbdr@gmail.com).</p>
+                </div>
+              </label>
+
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="notif-pref-weekly" name="weeklySummary" style="width:auto; margin-top:2px;">
+                <div>
+                  <strong style="color:var(--ink);">Weekly Performance Digest</strong>
+                  <p style="font-size:12px; color:var(--muted);">Receive a weekly recap of network introductions and earned credits.</p>
+                </div>
+              </label>
+            </div>
+
+            <button id="save-notifications-btn" class="btn btn-primary btn-sm" type="submit">Save Preferences</button>
+          </form>
+        </div>
+
+        </div>
+
+        <!-- Privacy Settings Card -->
+        <div id="settings-panel-privacy" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-privacy">
+        <div class="card" style="margin-bottom: var(--space-xl);">
+          <h2 class="title-md" style="margin-bottom: 6px;">Privacy Tier</h2>
+          <p style="font-size:13px; color:var(--muted); margin-bottom: 18px;">
+            Choose how your profile and contacts appear to others in the ConnectEM ecosystem.
+          </p>
+
+          <form id="privacy-settings-form">
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="radio" name="privacyTier" value="ask_partner" style="margin-top:4px;">
+                <div>
+                  <strong style="color:var(--ink);">Ask Partner (Approval required)</strong>
+                  <p style="font-size:12px; color:var(--muted);">Your contacts are never revealed until you explicitly review and approve an introduction brief.</p>
+                </div>
+              </label>
+
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="radio" name="privacyTier" value="discoverable" style="margin-top:4px;">
+                <div>
+                  <strong style="color:var(--ink);">Discoverable</strong>
+                  <p style="font-size:12px; color:var(--muted);">Visible to verified organizations seeking qualified introductions.</p>
+                </div>
+              </label>
+
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="radio" name="privacyTier" value="anonymous" style="margin-top:4px;">
+                <div>
+                  <strong style="color:var(--ink);">Anonymous</strong>
+                  <p style="font-size:12px; color:var(--muted);">Only your company category and executive title are displayed.</p>
+                </div>
+              </label>
+
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+                <input type="radio" name="privacyTier" value="private" style="margin-top:4px;">
+                <div>
+                  <strong style="color:var(--ink);">Private</strong>
+                  <p style="font-size:12px; color:var(--muted);">Completely hidden from searches.</p>
+                </div>
+              </label>
+            </div>
+
+            <button id="save-privacy-btn" class="btn btn-primary btn-sm" type="submit">Save Privacy</button>
+          </form>
+        </div>
+
+        <!-- Account & Compliance Summary Card -->
+        <div class="card">
+          <h2 class="title-md" style="margin-bottom: 6px;">Account &amp; Compliance Details</h2>
+          <div style="font-size:13px; line-height:1.9;">
+            <div>Signed-in Email: <strong id="settings-partner-email" class="code-text">bob.miller@milleradvisory.com</strong></div>
+            <div>Admin Compliance CC: <strong class="code-text" style="color:var(--ink);">nextbdr@gmail.com</strong> <span class="badge-tag strong" style="font-size:10px;">Enforced</span></div>
+            <div>Session Token: <span id="settings-auth-token" class="code-text" style="color:var(--muted); font-size:11.5px;">token_partner_...</span></div>
+            <div>Account Status: <span class="badge-tag strong">Active Verified Partner</span></div>
+          </div>
+        </div>
+        </div><!-- /settings-panel-privacy -->
       </div>
     </section>
+
+    <!-- Add Contact Modal Popup -->
+    <div id="add-contact-modal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="add-contact-modal-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h2 class="title-md" id="add-contact-modal-title">Add Contact</h2>
+            <p style="font-size:13px; color:var(--muted); margin-top:2px;">Add a new contact to your directory.</p>
+          </div>
+          <button id="close-add-contact-modal-btn" class="modal-close-btn" type="button" aria-label="Close dialog">&times;</button>
+        </div>
+
+        <form id="add-relationship-form" class="form-grid">
+          <div class="form-group">
+            <label for="rel-fullname">Full Name *</label>
+            <input id="rel-fullname" name="fullName" type="text" required placeholder="David Vance">
+          </div>
+          <div class="form-group">
+            <label for="rel-email">Email *</label>
+            <input id="rel-email" name="email" type="email" required placeholder="dvance@firstcu.org">
+          </div>
+          <div class="form-group">
+            <label for="rel-company">Company *</label>
+            <input id="rel-company" name="company" type="text" required placeholder="First Federal Credit Union">
+          </div>
+          <div class="form-group">
+            <label for="rel-title">Title *</label>
+            <input id="rel-title" name="jobTitle" type="text" required placeholder="Chief Technology Officer">
+          </div>
+          <div class="form-group">
+            <label for="rel-strength">Strength *</label>
+            <select id="rel-strength" name="relationshipStrength">
+              <option value="strong" selected>Strong (Frequent contact)</option>
+              <option value="moderate">Moderate (Periodic contact)</option>
+              <option value="weak">Weak (Acquaintance)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="rel-phone">Phone (Optional)</label>
+            <input id="rel-phone" name="phone" type="tel" placeholder="+1 (555) 000-0000">
+          </div>
+          <div class="form-group full-width">
+            <label for="rel-context">Notes</label>
+            <input id="rel-context" name="relationshipContext" type="text" placeholder="e.g., Advisory client; quarterly peer calls.">
+          </div>
+          <div class="form-group full-width modal-actions">
+            <button id="cancel-add-contact-modal-btn" class="btn btn-secondary btn-sm" type="button">Cancel</button>
+            <button id="add-rel-submit-btn" class="btn btn-primary btn-sm" type="submit">
+              Save Contact
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Hidden modal wrappers preserved for contract checks; outreach is executed inline in the Outreach split screen -->
+    <div id="email-composer-modal" class="modal-overlay" style="display: none;" aria-hidden="true"></div>
+    <div id="call-dialog-modal" class="modal-overlay" style="display: none;" aria-hidden="true"></div>
+    <div id="linkedin-dialog-modal" class="modal-overlay" style="display: none;" aria-hidden="true"></div>
   </main>
+
+  <!-- Toast notification system -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Legacy contract support placeholders -->
+  <div style="display:none;" id="portal-auth-section">Partner Reward Status</div>
+  <div style="display:none;" id="partner-agreement-bar"></div>
+  <div style="display:none;" id="partner-calendly-bar"></div>
+  <form style="display:none;" id="portal-login-form">
+    <input id="portal-login-email">
+    <input id="portal-login-password">
+  </form>
+  <div style="display:none;">
+    <button id="close-call-dialog-btn"></button>
+    <button id="close-email-composer-btn"></button>
+    <button id="cancel-email-composer-btn"></button>
+    <button id="close-linkedin-dialog-btn"></button>
+    <button id="cancel-call-dialog-btn"></button>
+    <button id="cancel-linkedin-dialog-btn"></button>
+    <span id="stat-pending"></span>
+    <span id="reach-cards-grid"></span>
+    <span id="stat-pipeline"></span>
+    <span id="call-dialog-subtitle"></span>
+    <span id="stat-trust"></span>
+    <span id="stat-optins"></span>
+    <span id="stat-revenue"></span>
+    <span id="stat-contacts"></span>
+    <span id="inbox-badge"></span>
+  </div>
+
+  <!-- App Script -->
+  <script src="/app-config.js"></script>
+  <script src="/app.js"></script>
+  <script defer src="/partner-portal.js"></script>
 </body>
 </html>

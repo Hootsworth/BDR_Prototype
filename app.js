@@ -1,5061 +1,1835 @@
-// --- GTM Step-by-Step Workflow Application State ---
-let database = {
-  contacts: [],         // Raw parsed CSV records
-  filteredImport: [],   // Cached filter results for Import tab
-  filteredInfluencers: [], // Filtered influencers
-  filteredEmail: [],    // Filtered email outbound
-  filteredLinkedin: [], // Filtered linkedin outbound
-  filteredCall: [],     // Filtered phone numbers
-  exploriumApiKey: "",  // Explorium API Key
-  llmHelperKey: "",     // OpenAI/Gemini Key
-  selectedContact: null, // Selected contact for right drawer details
-  currentImportPage: 1,
-  currentInfluencersPage: 1,
-  currentEmailPage: 1,
-  currentLinkedinPage: 1,
-  currentCallPage: 1,
-  pageSize: 15,          // Pagination size for performant table rendering
+/**
+ * ConnectEM Go Partner Portal Client
+ * Handles session, relationships, intro inbox, rewards ledger, and privacy settings.
+ */
 
-  // Events database
-  events: {
-    gac_dinner: [],      // Attendees for GAC Dinner
-    symwest_booth: [],   // Attendees for SymWest Booth
-    executive_meetup: [] // Custom registered attendees
-  },
+(function () {
+  'use strict';
 
-  // Agent mode state
-  agentRunning: false,
-  agentNodeIndex: 0,
-  agentTimer: null,
+  let currentPartner = null;
+  let relationships = [];
+  let inboxRequests = [];
+  let rewardsData = null;
+  const rewardsCart = new Set();
+  let activeRewardCategory = 'all';
 
-  // Statistics
-  stats: {
-    emailsSent: 0,
-    linkedinSent: 0,
-    callsMade: 0,
-    enrichedCount: 0
-  },
-  meetings: [],
-  currentOutboundSubtab: 'prospects'
-};
-// --- Theme Switcher (Light / Dark Mode) ---
-function getActiveTheme() {
-  return document.documentElement.getAttribute("data-theme") || 
-    (localStorage.getItem("gtm_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
-}
+  // DOM Elements
+  const authSection = document.getElementById('auth-section');
+  const workspaceSection = document.getElementById('workspace-section');
+  const onboardingSequenceSection = document.getElementById('onboarding-sequence-section');
+  const onboardingScreenLinkedin = document.getElementById('onboarding-screen-linkedin');
+  const onboardingScreenConnections = document.getElementById('onboarding-screen-connections');
+  const onboardingScreenComplete = document.getElementById('onboarding-screen-complete');
 
-function setTheme(themeName) {
-  var theme = (themeName === "light") ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", theme);
-  document.documentElement.setAttribute("data-astryx-theme", "neutral");
-  localStorage.setItem("gtm_theme", theme);
-  updateThemeUI(theme);
-}
+  const stepNav1 = document.getElementById('step-nav-1');
+  const stepNav2 = document.getElementById('step-nav-2');
+  const stepNav3 = document.getElementById('step-nav-3');
 
-function toggleTheme() {
-  var currentTheme = getActiveTheme();
-  var nextTheme = (currentTheme === "light") ? "dark" : "light";
-  setTheme(nextTheme);
-}
+  const linkedinConnectForm = document.getElementById('linkedin-connect-form');
+  const linkedinProfileUrl = document.getElementById('linkedin-profile-url');
+  const linkedinConnectBtn = document.getElementById('linkedin-connect-btn');
 
-function updateThemeUI(theme) {
-  var isLight = theme === "light";
-  
-  // Icon SVGs
-  var sunSvg = '<svg class="theme-icon-svg" id="topnav-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
-  
-  var moonSvg = '<svg class="theme-icon-svg" id="topnav-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+  const discoveredConnectionsTotal = document.getElementById('discovered-connections-total');
+  const btnSelectedCount = document.getElementById('btn-selected-count');
+  const oneClickImportBtn = document.getElementById('one-click-import-btn');
+  const importBottomCtaBtn = document.getElementById('import-bottom-cta-btn');
+  const connectionsSelectAll = document.getElementById('connections-select-all');
+  const selectionStatusBadge = document.getElementById('selection-status-badge');
+  const connectionsItemsList = document.getElementById('connections-items-list');
+  const backToLinkedinBtn = document.getElementById('back-to-linkedin-btn');
 
-  var sidebarSunSvg = '<svg class="theme-icon-svg" id="sidebar-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+  const completeImportedCount = document.getElementById('complete-imported-count');
+  const enterWorkspaceBtn = document.getElementById('enter-workspace-btn');
+  const launchLinkedinSyncBtn = document.getElementById('launch-linkedin-sync-btn');
 
-  var sidebarMoonSvg = '<svg class="theme-icon-svg" id="sidebar-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+  let discoveredConnections = [];
+  const sessionIndicator = document.getElementById('session-indicator');
+  const sessionPartnerName = document.getElementById('session-partner-name');
+  const navNotificationsWrapper = document.getElementById('nav-notifications-wrapper');
+  const navNotificationsBtn = document.getElementById('nav-notifications-btn');
+  const navNotificationsBadge = document.getElementById('nav-notifications-badge');
+  const notificationsDropdown = document.getElementById('notifications-dropdown');
+  const notificationsList = document.getElementById('notifications-list');
+  const markNotificationsReadBtn = document.getElementById('mark-notifications-read-btn');
+  const viewAllRequestsBtn = document.getElementById('view-all-requests-btn');
+  let notificationsDismissed = false;
 
-  // Topnav
-  var topnavBtn = document.getElementById("topnav-theme-btn");
-  var topnavLabel = document.getElementById("topnav-theme-label");
-  var topnavIcon = document.getElementById("topnav-theme-icon");
-  if (topnavBtn) {
-    topnavBtn.title = isLight ? "Switch to Dark Mode" : "Switch to Light Mode";
-    if (topnavLabel) topnavLabel.textContent = isLight ? "Dark Mode" : "Light Mode";
-    if (topnavIcon) topnavIcon.outerHTML = isLight ? moonSvg : sunSvg;
+  const authSignoutBtn = document.getElementById('auth-signout-btn');
+  const partnerDisplayName = document.getElementById('partner-display-name');
+  const partnerDisplayCompany = document.getElementById('partner-display-company');
+
+  // Stats Elements
+  const statContacts = document.getElementById('stat-contacts');
+  const statPending = document.getElementById('stat-pending');
+  const statOptins = document.getElementById('stat-optins');
+  const statTrust = document.getElementById('stat-trust');
+  const statPipeline = document.getElementById('stat-pipeline');
+  const statRevenue = document.getElementById('stat-revenue');
+
+  // Tables and Lists
+  const contactsTbody = document.getElementById('contacts-tbody');
+  const tableContactsCount = document.getElementById('table-contacts-count');
+  const introRequestsList = document.getElementById('intro-requests-list');
+  const inboxBadge = document.getElementById('inbox-badge');
+  const reachCardsGrid = document.getElementById('reach-cards-grid');
+  const attributionLedgerTbody = document.getElementById('attribution-ledger-tbody');
+  const rewardsPointsBalance = document.getElementById('rewards-points-balance');
+  const rewardsRevenueAmount = document.getElementById('rewards-revenue-amount');
+  const settingsPartnerEmail = document.getElementById('settings-partner-email');
+
+  // Toast Helper
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
   }
 
-  // Sidebar
-  var sidebarBtn = document.getElementById("sidebar-theme-btn");
-  var sidebarLabel = document.getElementById("sidebar-theme-label");
-  var sidebarIcon = document.getElementById("sidebar-theme-icon");
-  if (sidebarBtn) {
-    sidebarBtn.title = isLight ? "Switch to Dark Mode" : "Switch to Light Mode";
-    if (sidebarLabel) sidebarLabel.textContent = isLight ? "Theme: Light" : "Theme: Dark";
-    if (sidebarIcon) sidebarIcon.outerHTML = isLight ? sidebarMoonSvg : sidebarSunSvg;
-  }
-}
-
-// Make theme functions globally available
-window.getActiveTheme = getActiveTheme;
-window.setTheme = setTheme;
-window.toggleTheme = toggleTheme;
-
-// Main tab switching logic (handles subtabs and collapses others)
-let currentTabId = 'upload';
-
-document.addEventListener("DOMContentLoaded", () => {
-  // Initialize theme UI
-  setTheme(getActiveTheme());
-
-  // Load saved API Keys
-  database.exploriumApiKey = localStorage.getItem("gtm_key_explorium") || "";
-  database.llmHelperKey = localStorage.getItem("gtm_key_llm_helper") || "";
-  database.geminiApiKey = localStorage.getItem("gtm_key_gemini") || "";
-  database.geminiModel = localStorage.getItem("gtm_model_gemini") || "gemini-3.5-flash";
-  database.geminiSearchGrounding = localStorage.getItem("gtm_gemini_search_grounding") !== "false";
-
-  const exploriumInput = document.getElementById("key-explorium");
-  if (exploriumInput) exploriumInput.value = database.exploriumApiKey;
-
-  const llmInput = document.getElementById("key-llm-helper");
-  if (llmInput) llmInput.value = database.llmHelperKey;
-
-  const geminiInput = document.getElementById("key-gemini");
-  if (geminiInput) geminiInput.value = database.geminiApiKey;
-
-  const geminiModelSelect = document.getElementById("select-gemini-model");
-  if (geminiModelSelect) geminiModelSelect.value = database.geminiModel;
-
-  const geminiSearchCheckbox = document.getElementById("toggle-gemini-search");
-  if (geminiSearchCheckbox) geminiSearchCheckbox.checked = database.geminiSearchGrounding;
-
-  const settingsExploriumInput = document.getElementById("settings-key-explorium");
-  if (settingsExploriumInput) settingsExploriumInput.value = database.exploriumApiKey;
-
-  const settingsOpenAIInput = document.getElementById("settings-key-openai");
-  if (settingsOpenAIInput) settingsOpenAIInput.value = database.llmHelperKey;
-
-  database.lemlistMcpCommand = localStorage.getItem("gtm_lemlist_mcp_command") || "npx";
-  database.lemlistMcpArgs = localStorage.getItem("gtm_lemlist_mcp_args") || "mcp-remote https://app.lemlist.com/mcp";
-  
-  const settingsLemlistCmdInput = document.getElementById("settings-lemlist-mcp-command");
-  if (settingsLemlistCmdInput) settingsLemlistCmdInput.value = database.lemlistMcpCommand;
-  
-  const settingsLemlistArgsInput = document.getElementById("settings-lemlist-mcp-args");
-  if (settingsLemlistArgsInput) settingsLemlistArgsInput.value = database.lemlistMcpArgs;
-
-  // Load Calendly & Calendar settings
-  database.calendlyUrl = localStorage.getItem("gtm_calendly_url") || "https://calendly.com/aditya-dixit/30min";
-  database.calendarSyncService = localStorage.getItem("gtm_calendar_sync_service") || "google";
-
-  const calendlyInput = document.getElementById("settings-calendly-url");
-  if (calendlyInput) calendlyInput.value = database.calendlyUrl;
-
-  const calendarSyncSelect = document.getElementById("settings-calendar-sync");
-  if (calendarSyncSelect) calendarSyncSelect.value = database.calendarSyncService;
-
-  // Render initial keys state
-  checkEnrichButtonState();
-
-  // If URL hash or default is set, open it
-  switchTab('dashboard');
-
-  // Restore sidebar collapse state
-  if (localStorage.getItem("gtm_sidebar_collapsed") === "true") {
-    const sidebar = document.getElementById("sidebar-panel");
-    if (sidebar) sidebar.classList.add("collapsed");
-  }
-
-  // Check for auto loading in local storage
-  const savedData = localStorage.getItem("gtm_cached_database");
-  let loadedFromCache = false;
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData);
-      database.contacts = parsed.contacts || [];
-      database.events = parsed.events || { gac_dinner: [], symwest_booth: [], executive_meetup: [] };
-      database.stats = parsed.stats || { emailsSent: 0, linkedinSent: 0, callsMade: 0, enrichedCount: 0 };
-
-      if (database.contacts.length > 0) {
-        initLoadedData();
-        addLogConsole("enrich", `[SYSTEM] Loaded ${database.contacts.length} cached contacts from LocalStorage.`, "info");
-        loadedFromCache = true;
-      }
-    } catch (e) {
-      console.error("Error reading cached db", e);
+  // API Client with Authorization Bearer
+  async function api(path, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+    if (currentPartner && currentPartner.authToken) {
+      headers['Authorization'] = `Bearer ${currentPartner.authToken}`;
     }
-  }
 
-  if (!loadedFromCache) {
-    // Populate default database with rich mock data so it looks premium and working on first load!
-    database.contacts = [
-      {
-        id: 101,
-        firstName: "Sarah",
-        lastName: "Jenkins",
-        fullName: "Sarah Jenkins",
-        email: "sjenkins@apexfcu.org",
-        jobTitle: "Chief Information Officer",
-        company: "Apex Federal Credit Union",
-        phone: "+1 (555) 345-6789",
-        industry: "Credit Union",
-        sourceFile: "mock_gtm_pipeline_leads.csv",
-        assetSize: "$450M",
-        state: "MI",
-        attendedDinner: "Attended",
-        visitedBooth: "Yes",
-        enriched: true,
-        matchPercentage: 96,
-        leadTemp: "Hot Lead",
-        emailsSent: true,
-        linkedinSent: false,
-        callsMade: [{ date: "07/06/2026 10:30 AM", outcome: "Spoke to prospect - Interested" }],
-        emailDraft: {
-          subject: "Safe database compliance for Apex Federal Credit Union",
-          body: "Hi Sarah,\n\nI saw your profile as Chief Information Officer at Apex Federal Credit Union. Tech leaders are adopting database LLMs but worry about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent"
-        },
-        linkedinDraft: null,
-        isInfluencer: false,
-        referredBy: "Bob Miller"
-      },
-      {
-        id: 102,
-        firstName: "Alex",
-        lastName: "Patel",
-        fullName: "Alex Patel",
-        email: "apatel@summitmutual.com",
-        jobTitle: "Director of IT Security",
-        company: "Summit Mutual Credit Union",
-        phone: "+1 (555) 789-0123",
-        industry: "Credit Union",
-        sourceFile: "mock_gtm_pipeline_leads.csv",
-        assetSize: "$250M",
-        state: "CO",
-        attendedDinner: "",
-        visitedBooth: "",
-        enriched: false,
-        matchPercentage: 90,
-        leadTemp: "Cold Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        emailDraft: null,
-        linkedinDraft: null,
-        isInfluencer: false,
-        referredBy: "Sarah Vance"
-      },
-      {
-        id: 201,
-        firstName: "Bob",
-        lastName: "Miller",
-        fullName: "Bob Miller",
-        email: "bob.miller@milleradvisory.com",
-        jobTitle: "B2B Consultant",
-        company: "Miller Advisory Group",
-        phone: "+1 (555) 987-6543",
-        industry: "Consulting",
-        sourceFile: "mock_influencers.csv",
-        assetSize: "",
-        state: "NY",
-        attendedDinner: "",
-        visitedBooth: "",
-        enriched: false,
-        matchPercentage: 95,
-        leadTemp: "Hot Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        emailDraft: null,
-        linkedinDraft: null,
-        isInfluencer: true,
-        referrals: [
-          {
-            fullName: "Sarah Jenkins",
-            jobTitle: "Chief Information Officer",
-            company: "Apex Federal Credit Union",
-            email: "sjenkins@apexfcu.org",
-            credits: 10,
-            date: "07/07/2026"
-          }
-        ],
-        referralCredits: 10
-      },
-      {
-        id: 202,
-        firstName: "Sarah",
-        lastName: "Vance",
-        fullName: "Sarah Vance",
-        email: "svance@vanceconsulting.net",
-        jobTitle: "Senior Advisor",
-        company: "Vance Consulting Group",
-        phone: "+1 (555) 123-4567",
-        industry: "Consulting",
-        sourceFile: "mock_influencers.csv",
-        assetSize: "",
-        state: "IL",
-        enriched: false,
-        matchPercentage: 92,
-        leadTemp: "Cold Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        isInfluencer: true,
-        referrals: [
-          {
-            fullName: "Alex Patel",
-            jobTitle: "Director of IT Security",
-            company: "Summit Mutual Credit Union",
-            email: "apatel@summitmutual.com",
-            credits: 20,
-            date: "07/07/2026"
-          }
-        ],
-        referralCredits: 20
-      }
-    ];
-
-    initLoadedData();
-    saveDatabaseCache();
-    addLogConsole("enrich", "[SYSTEM] No cached database. Initialized with sandbox mock data.", "info");
-  }
-
-  // Dynamically load Clerk Auth SDK using active configuration
-  loadClerkSDK();
-});
-
-// Switch panel views
-function switchTab(tabId) {
-  // [PARTNERS TAB DISCONNECTED]: Disallow switching to 'influencers'
-  if (tabId === 'influencers') {
-    console.info("[Navigation Guard] Partners tab is disconnected. Redirecting to Directory.");
-    tabId = 'dashboard';
-  }
-  currentTabId = tabId;
-
-  // Toggle active tab buttons in navigation
-  document.querySelectorAll(".subtab-btn").forEach(btn => {
-    btn.classList.remove("active");
-  });
-  const activeBtn = document.getElementById(`tab-btn-${tabId}`);
-  if (activeBtn) {
-    activeBtn.classList.add("active");
-    // Ensure parent category group is expanded
-    const categoryGroup = activeBtn.closest(".nav-category-group");
-    if (categoryGroup && !categoryGroup.classList.contains("expanded")) {
-      categoryGroup.classList.add("expanded");
-    }
-  }
-
-  // Toggle active main sections
-  document.querySelectorAll(".tab-content").forEach(panel => {
-    panel.classList.remove("active");
-  });
-  const activePanel = document.getElementById(`tab-panel-${tabId}`);
-  if (activePanel) {
-    activePanel.classList.add("active");
-  }
-
-  // Update headers
-  updateHeader(tabId);
-
-  // Close any open drawers
-  closeDrawer('email');
-  closeDrawer('linkedin');
-  closeDrawer('call');
-  closeDrawer('outbound');
-
-  // Trigger tab-specific renders
-  if (tabId === 'dashboard') {
-    renderDashboard();
-  } else if (tabId === 'upload') {
-    filterUploadTable();
-  } else if (tabId === 'influencers') {
-    filterInfluencersTable();
-  } else if (tabId === 'campaign-outbound') {
-    filterOutboundTable();
-  } else if (tabId === 'campaign-schedule') {
-    renderScheduleMeetings();
-  } else if (tabId === 'events-list') {
-    renderEventsList();
-  } else if (tabId === 'enrich') {
-    checkEnrichButtonState();
-  } else if (tabId === 'agent-mode') {
-    initAgentAutocomplete();
-  }
-}
-
-// Collapsible side nav categories
-function toggleNavCategory(catId) {
-  const sidebar = document.getElementById("sidebar-panel");
-  if (sidebar && sidebar.classList.contains("collapsed")) {
-    if (catId === 'contacts') switchTab('upload');
-    else if (catId === 'campaign') switchTab('campaign-outbound');
-    else if (catId === 'events') switchTab('events-list');
-    return;
-  }
-  const group = document.getElementById(`cat-group-${catId}`);
-  if (group) {
-    group.classList.toggle("collapsed");
-  }
-}
-
-// Update Active Title
-function updateHeader(tabId) {
-  const titleEl = document.getElementById("active-panel-title");
-  const subtitleEl = document.getElementById("active-panel-subtitle");
-  if (!titleEl || !subtitleEl) return;
-
-  switch (tabId) {
-    case 'dashboard':
-      titleEl.textContent = "Overview";
-      subtitleEl.textContent = "A clear view of your contacts and outreach.";
-      break;
-    case 'upload':
-      titleEl.textContent = "Upload Contacts";
-      subtitleEl.textContent = "Upload manual CSV or load target database of credit union accounts.";
-      break;
-    case 'analyse':
-      titleEl.textContent = "Analyse List Data";
-      subtitleEl.textContent = "Query the loaded CSV list using client-side natural language analytics.";
-      break;
-    case 'influencers':
-      titleEl.textContent = "Influencers Match Matching";
-      subtitleEl.textContent = "Assess target personas, ICP compatibility scores, and lead temperature classification.";
-      break;
-    case 'enrich':
-      titleEl.textContent = "AgentSource B2B Data Enrichment";
-      subtitleEl.textContent = "Verify key and enrich leads with verified corporate intelligence.";
-      break;
-    case 'campaign-outbound':
-      titleEl.textContent = "Omnichannel Campaign Outbound";
-      subtitleEl.textContent = "Engage prospects across Email, LinkedIn, and Phone channels in one console.";
-      break;
-    case 'campaign-schedule':
-      titleEl.textContent = "Campaign Briefings & Meetings";
-      subtitleEl.textContent = "Track scheduled appointments, review briefs, and launch briefings.";
-      break;
-    case 'events-list':
-      titleEl.textContent = "Events Lists & Attendances";
-      subtitleEl.textContent = "Review registered attendees for credit union dinners and booth visits.";
-      break;
-    case 'events-register':
-      titleEl.textContent = "Register Event Attendee";
-      subtitleEl.textContent = "Register any targeted contact into event lists.";
-      break;
-    case 'agent-mode':
-      titleEl.textContent = "Agent Mode Orchestrator";
-      subtitleEl.textContent = "Simulate autonomous planning loops and agent coordination.";
-      break;
-    case 'settings-keys':
-      titleEl.textContent = "Global Credentials & Settings";
-      subtitleEl.textContent = "Manage API configurations, model selection, and credentials for autonomous agents.";
-      break;
-  }
-
-  // Render general system metrics in header status bar
-  updateSystemStatusDot();
-}
-
-function updateSystemStatusDot() {
-  const dot = document.getElementById("system-status-dot");
-  const text = document.getElementById("system-status-text");
-  if (!dot || !text) return;
-
-  if (database.agentRunning) {
-    dot.className = "status-dot active";
-    text.textContent = "STATUS: AGENT MODE ACTIVE";
-    text.style.color = "var(--success)";
-  } else if (database.contacts.length === 0) {
-    dot.className = "status-dot";
-    text.textContent = "STATUS: STANDBY (AWAITING DATA)";
-    text.style.color = "var(--muted)";
-  } else if (database.contacts.some(c => c.enriched)) {
-    dot.className = "status-dot active";
-    text.textContent = "STATUS: ENRICHED - CAMPAIGN READY";
-    text.style.color = "var(--primary)";
-  } else {
-    dot.className = "status-dot waiting";
-    text.textContent = "STATUS: DATA LOADED (AWAITING ENRICHMENT)";
-    text.style.color = "var(--warning)";
-  }
-}
-
-// Add logs in custom console panels
-function addLogConsole(consoleId, lineText, type = "system") {
-  const box = document.getElementById(`${consoleId}-console-box`);
-  if (!box) return;
-  const line = document.createElement("div");
-  line.className = `console-line ${type}`;
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${lineText}`;
-  box.appendChild(line);
-  box.scrollTop = box.scrollHeight;
-
-  // Sync to dashboard feed
-  if (!database.recentActivities) database.recentActivities = [];
-  let displayTxt = lineText.replace(/^\[[A-Z\s_-]+\]\s*/, '');
-  database.recentActivities.unshift({
-    type: type === "system" ? "info" : type,
-    text: displayTxt,
-    time: new Date().toLocaleTimeString()
-  });
-  if (database.recentActivities.length > 25) {
-    database.recentActivities.pop();
-  }
-  if (currentTabId === 'dashboard') {
-    renderDashboard();
-  }
-}
-
-// Auto load key visibility
-function togglePasswordVisibility(inputId, btn) {
-  const el = document.getElementById(inputId);
-  if (!el) return;
-  if (el.type === "password") {
-    el.type = "text";
-    btn.textContent = "Hide";
-  } else {
-    el.type = "password";
-    btn.textContent = "Show";
-  }
-}
-
-// --- CSV PARSING ENGINE (Client side) ---
-
-function parseCSV(text) {
-  let lines = [];
-  let row = [""];
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    let c = text[i];
-    let next = text[i + 1];
-    if (c === '"') {
-      if (inQuotes && next === '"') {
-        row[row.length - 1] += '"';
-        i++; // skip next quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (c === ',') {
-      if (inQuotes) {
-        row[row.length - 1] += c;
-      } else {
-        row.push('');
-      }
-    } else if (c === '\n' || c === '\r') {
-      if (c === '\r' && next === '\n') {
-        i++; // skip LF of CRLF
-      }
-      if (inQuotes) {
-        row[row.length - 1] += '\n';
-      } else {
-        lines.push(row);
-        row = [''];
-      }
-    } else {
-      row[row.length - 1] += c;
-    }
-  }
-  if (row.length > 1 || row[0] !== '') {
-    lines.push(row);
-  }
-  return lines;
-}
-
-function processCSVLines(lines) {
-  if (lines.length < 2) return [];
-  let headers = lines[0].map(h => h.trim());
-  let records = [];
-
-  // Column matching
-  let firstIdx = headers.indexOf("First Name");
-  let lastIdx = headers.indexOf("Last Name");
-  let emailIdx = headers.indexOf("Email");
-  let jobIdx = headers.indexOf("Job Title");
-  let companyIdx = headers.indexOf("Company name");
-  let phoneIdx = headers.indexOf("Phone Number");
-  let indIdx = headers.indexOf("Industry");
-  let sourceIdx = headers.indexOf("Source_File");
-  let assetIdx = headers.indexOf("Asset Size");
-  let stateIdx = headers.indexOf("Shipping State");
-  if (stateIdx === -1) stateIdx = headers.indexOf("State");
-  let attendedIdx = headers.indexOf("Attended Dinner");
-  let visitedIdx = headers.indexOf("Visited Booth");
-
-  // Fallbacks
-  if (firstIdx === -1) firstIdx = headers.indexOf("A");
-  if (companyIdx === -1) companyIdx = headers.indexOf("B");
-  if (jobIdx === -1) jobIdx = headers.indexOf("C");
-  if (emailIdx === -1) emailIdx = headers.indexOf("EMAIL ADDRESS");
-
-  for (let i = 1; i < lines.length; i++) {
-    let row = lines[i];
-    if (row.length < 3) continue; // skip incomplete rows
-
-    let first = firstIdx !== -1 && firstIdx < row.length ? row[firstIdx] : "";
-    let last = lastIdx !== -1 && lastIdx < row.length ? row[lastIdx] : "";
-    let email = emailIdx !== -1 && emailIdx < row.length ? row[emailIdx] : "";
-    let job = jobIdx !== -1 && jobIdx < row.length ? row[jobIdx] : "";
-    let company = companyIdx !== -1 && companyIdx < row.length ? row[companyIdx] : "";
-    let phone = phoneIdx !== -1 && phoneIdx < row.length ? row[phoneIdx] : "";
-    let industry = indIdx !== -1 && indIdx < row.length ? row[indIdx] : "";
-    let source = sourceIdx !== -1 && sourceIdx < row.length ? row[sourceIdx] : "";
-    let asset = assetIdx !== -1 && assetIdx < row.length ? row[assetIdx] : "";
-    let state = stateIdx !== -1 && stateIdx < row.length ? row[stateIdx] : "";
-    let attended = attendedIdx !== -1 && attendedIdx < row.length ? row[attendedIdx] : "";
-    let visited = visitedIdx !== -1 && visitedIdx < row.length ? row[visitedIdx] : "";
-
-    // Skip blank or invalid rows
-    if (!first && !company && !email) continue;
-
-    let fullName = (first + " " + last).trim();
-    if (!fullName && email) fullName = email.split("@")[0];
-
-    // Standardize source file label
-    let sourceLabel = source ? source.replace(/^\"|\"$/g, '') : "Uploaded File";
-
-    records.push({
-      id: i,
-      firstName: first || fullName,
-      lastName: last,
-      fullName: fullName || "Unknown",
-      email: email ? email.trim() : "",
-      jobTitle: job ? job.trim() : "Executive",
-      company: company ? company.trim() : "Unknown Credit Union",
-      phone: phone ? phone.trim() : "",
-      industry: industry ? industry.trim() : "Credit Union",
-      sourceFile: sourceLabel,
-      assetSize: asset ? asset.trim() : "",
-      state: state ? state.trim() : "",
-      attendedDinner: attended ? attended.trim() : "",
-      visitedBooth: visited ? visited.trim() : "",
-      enriched: false,
-      matchPercentage: 0,
-      leadTemp: "Cold Lead",
-      emailsSent: false,
-      linkedinSent: false,
-      callsMade: [], // list of calls logged
-      emailDraft: null,
-      linkedinDraft: null
+    const res = await fetch(path, {
+      ...options,
+      headers
     });
+    const json = await res.json();
+    if (!json.success) {
+      throw new Error(json.error || 'Server request failed');
+    }
+    return json.data;
   }
-  return records;
-}
 
+  // Session Management
+  async function checkSession() {
+    const savedToken = localStorage.getItem('connectem_go_token');
+    if (savedToken) {
+      try {
+        const partner = await api('/api/go/session', {
+          headers: { Authorization: `Bearer ${savedToken}` }
+        });
+        setPartnerSession(partner);
+        return;
+      } catch (e) {
+        localStorage.removeItem('connectem_go_token');
+        localStorage.removeItem('connectem_go_email');
+      }
+    }
+    showAuthView();
+  }
 
-// Manual Upload
-function handleCSVFileUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  function setPartnerSession(partner) {
+    currentPartner = partner;
+    localStorage.setItem('connectem_go_token', partner.authToken);
+    localStorage.setItem('connectem_go_email', partner.email);
+    document.body.classList.remove('auth-login-view', 'auth-signup-view');
 
-  const summaryEl = document.getElementById("upload-stats-summary");
-  if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--primary)">Reading local file: ${file.name}...</span>`;
+    authSection.style.display = 'none';
+    workspaceSection.style.display = 'block';
+    sessionIndicator.style.display = 'flex';
+    if (navNotificationsWrapper) navNotificationsWrapper.style.display = 'inline-block';
+    authSignoutBtn.style.display = 'inline-flex';
 
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const text = e.target.result;
-    const lines = parseCSV(text);
-    if (lines.length < 2) {
-      alert("Uploaded CSV file is empty or invalid.");
+    sessionPartnerName.textContent = partner.fullName;
+    partnerDisplayName.textContent = partner.fullName;
+    partnerDisplayCompany.textContent = `${partner.company} · ${partner.jobTitle}`;
+    settingsPartnerEmail.textContent = partner.email;
+
+    const demoBadge = document.getElementById('session-demo-badge');
+    if (demoBadge) {
+      const isDemo = partner.id === 'partner_bmiller' || partner.email === 'bob.miller@milleradvisory.com';
+      demoBadge.style.display = isDemo ? 'inline-block' : 'none';
+    }
+
+    // Set privacy radio
+    const radio = document.querySelector(`input[name="privacyTier"][value="${partner.privacyTier}"]`);
+    if (radio) radio.checked = true;
+
+    loadAllData();
+  }
+
+  function showAuthView() {
+    currentPartner = null;
+    authSection.style.display = 'block';
+    workspaceSection.style.display = 'none';
+    if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'none';
+    sessionIndicator.style.display = 'none';
+    const demoBadge = document.getElementById('session-demo-badge');
+    if (demoBadge) demoBadge.style.display = 'none';
+    if (navNotificationsWrapper) navNotificationsWrapper.style.display = 'none';
+    if (notificationsDropdown) notificationsDropdown.style.display = 'none';
+    authSignoutBtn.style.display = 'none';
+
+    const isSignup = window.location.pathname.replace(/\/$/, '') === '/signup';
+    document.body.classList.toggle('auth-signup-view', isSignup);
+    document.body.classList.toggle('auth-login-view', !isSignup);
+    const loginView = document.getElementById('login-view');
+    const signupView = document.getElementById('signup-view');
+    const modeLabel = document.getElementById('auth-mode-label');
+    const formTitle = document.getElementById('auth-form-title');
+    const formCopy = document.getElementById('auth-form-copy');
+    const storyTitle = document.getElementById('auth-story-title');
+    const storyCopy = document.getElementById('auth-story-copy');
+    if (loginView) loginView.hidden = isSignup;
+    if (signupView) signupView.hidden = !isSignup;
+    if (modeLabel) modeLabel.textContent = isSignup ? 'JOIN THE NETWORK' : 'PARTNER ACCESS';
+    if (formTitle) formTitle.textContent = isSignup ? 'Create your account' : 'Welcome back';
+    if (formCopy) formCopy.textContent = isSignup
+      ? 'Set up your partner profile to get started.'
+      : 'Sign in with the email address registered to your partner account.';
+    if (storyTitle) storyTitle.textContent = isSignup
+      ? 'Build stronger business through trusted connections.'
+      : 'Good relationships move business forward.';
+    if (storyCopy) storyCopy.textContent = isSignup
+      ? 'Create your profile, bring your professional network into one workspace, and decide how you want to participate.'
+      : 'Your workspace brings your trusted contacts, introduction requests, and earned rewards together in one place.';
+    const error = document.getElementById('auth-error');
+    if (error) { error.hidden = true; error.textContent = ''; }
+  }
+
+  // Onboarding Sequence (Separate Screens)
+  function showOnboardingSequence(step = 1) {
+    authSection.style.display = 'none';
+    workspaceSection.style.display = 'none';
+    if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'block';
+
+    if (onboardingScreenLinkedin) onboardingScreenLinkedin.style.display = step === 1 ? 'block' : 'none';
+    if (onboardingScreenConnections) onboardingScreenConnections.style.display = step === 2 ? 'block' : 'none';
+    if (onboardingScreenComplete) onboardingScreenComplete.style.display = step === 3 ? 'block' : 'none';
+
+    if (stepNav1) stepNav1.className = `step-indicator ${step === 1 ? 'active' : step > 1 ? 'completed' : ''}`;
+    if (stepNav2) stepNav2.className = `step-indicator ${step === 2 ? 'active' : step > 2 ? 'completed' : ''}`;
+    if (stepNav3) stepNav3.className = `step-indicator ${step === 3 ? 'active' : ''}`;
+  }
+
+  function renderDiscoveredConnections(list) {
+    discoveredConnections = list;
+    if (discoveredConnectionsTotal) discoveredConnectionsTotal.textContent = list.length;
+    if (!connectionsItemsList) return;
+    connectionsItemsList.innerHTML = '';
+
+    if (list.length === 0) {
+      connectionsItemsList.innerHTML = `<div class="empty-state"><p>No connections discovered.</p></div>`;
+      updateSelectionSummary();
       return;
     }
-    openColumnMapper(lines, file.name);
-  };
-  reader.readAsText(file);
-}
 
-// Post loading processing
-function initLoadedData() {
-  // Populate filter dropdowns
-  const sourceFilter = document.getElementById("filter-source");
-  if (sourceFilter) {
-    const sources = [...new Set(database.contacts.map(c => c.sourceFile))].filter(Boolean);
-    sourceFilter.innerHTML = '<option value="">All Sources</option>';
-    sources.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s.split("/").pop(); // show short name
-      sourceFilter.appendChild(opt);
-    });
-  }
-
-  // Load events attendees from original CSV columns
-  database.events.gac_dinner = database.contacts.filter(c => c.attendedDinner && c.attendedDinner.toLowerCase().includes("attended") || c.attendedDinner.trim() !== "");
-  database.events.symwest_booth = database.contacts.filter(c => c.visitedBooth && c.visitedBooth.toLowerCase().includes("visited") || c.visitedBooth.toLowerCase().includes("yes") || c.visitedBooth.trim() !== "");
-
-  // Calculate default matching parameters (unenriched)
-  database.contacts.forEach(c => {
-    // Basic assignment
-    if (!c.leadTemp) c.leadTemp = "Cold Lead";
-    if (c.isInfluencer === undefined) c.isInfluencer = true;
-    if (!c.referrals) c.referrals = [];
-    if (c.referralCredits === undefined) c.referralCredits = 0;
-  });
-
-  database.currentImportPage = 1;
-  database.currentInfluencersPage = 1;
-  database.currentEmailPage = 1;
-  database.currentLinkedinPage = 1;
-  database.currentCallPage = 1;
-
-  // Enable enrich button
-  checkEnrichButtonState();
-
-  // Update stats summary text
-  updateStatsSummaryText();
-
-  // Render tables and dashboard
-  filterImportTable();
-  updateSystemStatusDot();
-  renderDashboard();
-}
-
-function updateStatsSummaryText() {
-  const summaryEl = document.getElementById("upload-stats-summary");
-  if (!summaryEl) return;
-
-  const total = database.contacts.length;
-  const enriched = database.contacts.filter(c => c.enriched).length;
-  summaryEl.innerHTML = `<strong>Total Records:</strong> ${total.toLocaleString()} | <strong>Enriched:</strong> ${enriched.toLocaleString()}`;
-}
-
-function saveDatabaseCache() {
-  try {
-    localStorage.setItem("gtm_cached_database", JSON.stringify({
-      contacts: database.contacts,
-      events: database.events,
-      stats: database.stats
-    }));
-  } catch (e) {
-    console.warn("LocalStorage quota exceeded, caching stats and event configurations only.", e);
-    try {
-      localStorage.setItem("gtm_cached_database", JSON.stringify({
-        contacts: [], // clear contacts to prevent quota error
-        events: database.events,
-        stats: database.stats
-      }));
-    } catch (err) {
-      console.error("Failed to save even basic configurations to LocalStorage", err);
-    }
-  }
-}
-
-// --- FILTERING & PAGINATION ENGINE ---
-
-function getFilteredData(dataArray, searchId, industryId, sourceId, leadTempId, matchRangeId) {
-  let searchVal = document.getElementById(searchId) ? document.getElementById(searchId).value.toLowerCase() : "";
-  let indVal = document.getElementById(industryId) ? document.getElementById(industryId).value : "";
-  let srcVal = document.getElementById(sourceId) ? document.getElementById(sourceId).value : "";
-  let tempVal = document.getElementById(leadTempId) ? document.getElementById(leadTempId).value : "";
-  let matchVal = document.getElementById(matchRangeId) ? document.getElementById(matchRangeId).value : "";
-
-  return dataArray.filter(c => {
-    // Search match (name, company, title, email)
-    if (searchVal) {
-      const matchSearch = c.fullName.toLowerCase().includes(searchVal) ||
-        c.company.toLowerCase().includes(searchVal) ||
-        c.jobTitle.toLowerCase().includes(searchVal) ||
-        c.email.toLowerCase().includes(searchVal);
-      if (!matchSearch) return false;
-    }
-
-    // Industry match
-    if (indVal) {
-      if (!c.industry.toLowerCase().includes(indVal.toLowerCase())) return false;
-    }
-
-    // Source match
-    if (srcVal) {
-      if (c.sourceFile !== srcVal) return false;
-    }
-
-    // Lead temp match
-    if (tempVal) {
-      if (c.leadTemp !== tempVal) return false;
-    }
-
-    // Match range score
-    if (matchVal) {
-      if (matchVal === "high" && c.matchPercentage < 90) return false;
-      if (matchVal === "medium" && (c.matchPercentage < 80 || c.matchPercentage >= 90)) return false;
-      if (matchVal === "low" && c.matchPercentage >= 80) return false;
-    }
-
-    return true;
-  });
-}
-
-function paginateData(dataArray, pageNum, containerId, pageChangeCallbackName) {
-  const start = (pageNum - 1) * database.pageSize;
-  const end = start + database.pageSize;
-  const pageData = dataArray.slice(start, end);
-  const totalPages = Math.ceil(dataArray.length / database.pageSize) || 1;
-
-  // Render pagination controls
-  const pagEl = document.getElementById(containerId);
-  if (pagEl) {
-    pagEl.innerHTML = `
-      <div>Showing ${dataArray.length === 0 ? 0 : start + 1} to ${Math.min(end, dataArray.length)} of ${dataArray.length} items</div>
-      <div class="pagination-controls">
-        <button class="btn btn-secondary btn-sm" onclick="${pageChangeCallbackName}(${pageNum - 1})" ${pageNum === 1 ? "disabled" : ""}>Prev</button>
-        <span style="align-self: center; margin: 0 8px;">Page ${pageNum} of ${totalPages}</span>
-        <button class="btn btn-secondary btn-sm" onclick="${pageChangeCallbackName}(${pageNum + 1})" ${pageNum === totalPages ? "disabled" : ""}>Next</button>
-      </div>
-    `;
-  }
-
-  return pageData;
-}
-
-// Subtab: Upload table renderer
-function filterUploadTable() {
-  const prospectsOnly = database.contacts.filter(c => c.isInfluencer !== true);
-  database.filteredUpload = getFilteredData(prospectsOnly, "upload-search-input", "filter-industry", "filter-source", null, null);
-  changeUploadPage(1);
-}
-
-function changeUploadPage(page) {
-  database.currentUploadPage = page;
-  const pageData = paginateData(database.filteredUpload, page, "upload-pagination", "changeUploadPage");
-
-  const tbody = document.getElementById("table-upload-body");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="table-placeholder">No matching prospects found.</td></tr>`;
-    return;
-  }
-
-  pageData.forEach(c => {
-    const tr = document.createElement("tr");
-    const initials = getInitials(c.fullName);
-    const color = getAvatarColor(c.fullName);
-    const isChecked = database.selectedUploadRows && database.selectedUploadRows.includes(c.id) ? "checked" : "";
-    
-    tr.innerHTML = `
-      <td style="text-align: center;"><input type="checkbox" class="row-check-upload" data-id="${c.id}" ${isChecked} onchange="toggleSelectUploadRow(this, ${c.id})" style="cursor:pointer; width:15px; height:15px;"></td>
-      <td>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline); flex-shrink:0;">${initials}</div>
-          <strong>${c.fullName}</strong>
-        </div>
-      </td>
-      <td>${c.jobTitle}</td>
-      <td>${c.company}</td>
-      <td><code>${c.email || "N/A"}</code></td>
-      <td><span class="badge-tag" style="background:var(--surface-soft); border:1px solid var(--hairline); font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; color:var(--ink);">${c.industry}</span></td>
-      <td><span style="font-size:11px;color:var(--muted);">${(c.sourceFile || "manual").split("/").pop()}</span></td>
-      <td>
-        <div class="table-cell-actions" style="display:flex; gap:10px;">
-          <button class="row-action-link" style="color:var(--brand-pink); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="openCampaignTarget('${c.email}', 'email')">Outbound</button>
-          <button class="row-action-link" style="color:var(--error); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="deleteContactRecord(${c.id})">Delete</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// Keep backward compatibility wrappers for simulation logic
-function filterImportTable() {
-  filterUploadTable();
-}
-
-window.filterUploadTable = filterUploadTable;
-window.changeUploadPage = changeUploadPage;
-window.filterImportTable = filterImportTable;
-
-// --- SUBTAB: INFLUENCERS RENDERER ---
-
-function filterInfluencersTable() {
-  const influencersOnly = database.contacts.filter(c => c.isInfluencer === true);
-  database.filteredInfluencers = getFilteredData(influencersOnly, "influencers-search-input", null, null, "filter-lead-temp", "filter-influencer-match");
-  changeInfluencersPage(1);
-}
-
-function changeInfluencersPage(page) {
-  database.currentInfluencersPage = page;
-  const pageData = paginateData(database.filteredInfluencers, page, "influencers-pagination", "changeInfluencersPage");
-
-  const tbody = document.getElementById("table-influencers-body");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No matching influencers found.</td></tr>`;
-    return;
-  }
-
-  pageData.forEach(c => {
-    const tr = document.createElement("tr");
-    const initials = getInitials(c.fullName);
-    const color = getAvatarColor(c.fullName);
-    const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
-    const matchClass = c.matchPercentage < 80 ? "low" : "";
-    const referrals = c.referrals || [];
-    const credits = c.referralCredits || 0;
-
-    tr.innerHTML = `
-      <td>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:30px; height:30px; border-radius:50%; background:${color}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline); flex-shrink:0;">${initials}</div>
-          <strong>${c.fullName}</strong>
-        </div>
-      </td>
-      <td>${c.jobTitle}</td>
-      <td>${c.company}</td>
-      <td><span class="badge-lead-temp ${tempClass}" style="border: 1px solid var(--hairline); box-shadow: 1px 1px 0 var(--hairline); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;">${c.leadTemp}</span></td>
-      <td><span class="badge-match-score ${matchClass}" style="border: 1px solid var(--hairline); box-shadow: 1px 1px 0 var(--hairline); font-weight: 700; font-size: 11px; padding: 2px 8px; border-radius: 4px;">${c.matchPercentage}%</span></td>
-      <td>
-        <span class="referral-count-label" onclick="viewReferralsDetails('${c.email}')" style="cursor:pointer; text-decoration:underline; font-weight:700; color:var(--brand-pink); font-size: 13px;">
-          ${referrals.length} referrals (${credits} credits)
-        </span>
-      </td>
-      <td>
-        <div class="table-cell-actions" style="display:flex; gap:10px;">
-          <button class="row-action-link" style="background:transparent; border:none; cursor:pointer; font-weight:700; color:var(--ink);" onclick="openCampaignTarget('${c.email}', '${c.phone ? "call" : "email"}')">Prospect</button>
-          <button class="row-action-link" style="background:transparent; border:none; cursor:pointer; font-weight:700; color:var(--ink);" onclick="openAddReferralModal('${c.email}')">Refer</button>
-          <button class="row-action-link" style="color:var(--error); background:transparent; border:none; cursor:pointer; font-weight:700;" onclick="deleteContactRecord(${c.id})">Delete</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function openCampaignTarget(email, channel) {
-  switchTab('campaign-outbound');
-  const contact = database.contacts.find(c => c.email === email);
-  if (contact) {
-    const targetChannel = (channel === 'call') ? 'call' : 'email';
-    loadOutboundDrawer(contact, targetChannel);
-  }
-}
-
-// Manual Influencer and Referral Enrollment Handlers
-function handleManualInfluencerSubmit(event) {
-  event.preventDefault();
-  const name = document.getElementById("manual-inf-name").value.trim();
-  const title = document.getElementById("manual-inf-title").value.trim();
-  const company = document.getElementById("manual-inf-company").value.trim();
-  const email = document.getElementById("manual-inf-email").value.trim();
-  const phone = document.getElementById("manual-inf-phone").value.trim();
-  const temp = document.getElementById("manual-inf-temp").value;
-  const match = parseInt(document.getElementById("manual-inf-match").value) || 95;
-
-  if (!name || !email) return;
-
-  const exists = database.contacts.find(c => c.email.toLowerCase() === email.toLowerCase());
-  if (exists) {
-    alert("A contact with this email address already exists.");
-    return;
-  }
-
-  const newInfluencer = {
-    id: database.contacts.length + Date.now(),
-    firstName: name.split(" ")[0],
-    lastName: name.split(" ").slice(1).join(" "),
-    fullName: name,
-    email: email,
-    jobTitle: title,
-    company: company,
-    phone: phone,
-    industry: "Credit Union",
-    sourceFile: "Manually Added Influencer",
-    assetSize: "",
-    state: "",
-    attendedDinner: "",
-    visitedBooth: "",
-    enriched: false,
-    matchPercentage: match,
-    leadTemp: temp,
-    emailsSent: false,
-    linkedinSent: false,
-    callsMade: [],
-    emailDraft: null,
-    linkedinDraft: null,
-    isInfluencer: true,
-    referrals: [],
-    referralCredits: 0
-  };
-
-  database.contacts.push(newInfluencer);
-  saveDatabaseCache();
-  
-  document.getElementById("manual-influencer-form").reset();
-  addLogConsole("enrich", `[SYSTEM] Manual Enrollment: Influencer ${name} (${company}) added successfully.`, "success");
-  
-  filterInfluencersTable();
-  filterImportTable();
-}
-
-function openAddReferralModal(email) {
-  const influencer = database.contacts.find(c => c.email === email);
-  if (!influencer) return;
-
-  document.getElementById("referral-influencer-email").value = email;
-  document.getElementById("reward-target-name").textContent = influencer.fullName;
-  
-  const dialog = document.getElementById("referral-dialog");
-  if (dialog) dialog.showModal();
-}
-
-function closeReferralDialog() {
-  const dialog = document.getElementById("referral-dialog");
-  if (dialog) dialog.close();
-  document.getElementById("referral-form").reset();
-}
-
-function handleReferralSubmit(event) {
-  event.preventDefault();
-  const infEmail = document.getElementById("referral-influencer-email").value;
-  const name = document.getElementById("ref-name").value.trim();
-  const title = document.getElementById("ref-title").value.trim();
-  const company = document.getElementById("ref-company").value.trim();
-  const email = document.getElementById("ref-email").value.trim();
-  const phone = document.getElementById("ref-phone").value.trim();
-  const credits = parseInt(document.getElementById("ref-credits").value) || 10;
-
-  const influencer = database.contacts.find(c => c.email === infEmail);
-  if (!influencer) {
-    alert("Influencer not found.");
-    return;
-  }
-
-  const newContact = {
-    id: database.contacts.length + Date.now(),
-    firstName: name.split(" ")[0],
-    lastName: name.split(" ").slice(1).join(" "),
-    fullName: name,
-    email: email,
-    jobTitle: title,
-    company: company,
-    phone: phone,
-    industry: "Credit Union",
-    sourceFile: `Referred by ${influencer.fullName}`,
-    assetSize: "",
-    state: "",
-    attendedDinner: "",
-    visitedBooth: "",
-    enriched: false,
-    matchPercentage: 90,
-    leadTemp: "Hot Lead",
-    emailsSent: false,
-    linkedinSent: false,
-    callsMade: [],
-    emailDraft: null,
-    linkedinDraft: null,
-    isInfluencer: false,
-    referredBy: influencer.fullName
-  };
-
-  database.contacts.push(newContact);
-
-  if (!influencer.referrals) influencer.referrals = [];
-  influencer.referrals.push({
-    fullName: name,
-    jobTitle: title,
-    company: company,
-    email: email,
-    credits: credits,
-    date: new Date().toLocaleDateString()
-  });
-  influencer.referralCredits = (influencer.referralCredits || 0) + credits;
-
-  saveDatabaseCache();
-
-  addLogConsole("enrich", `[REWARD] Influencer ${influencer.fullName} awarded ${credits} credits for referring ${name} (${company}).`, "success");
-
-  filterInfluencersTable();
-  filterImportTable();
-
-  closeReferralDialog();
-}
-
-function viewReferralsDetails(email) {
-  const influencer = database.contacts.find(c => c.email === email);
-  if (!influencer) return;
-
-  document.getElementById("referrals-view-influencer-name").textContent = influencer.fullName;
-  document.getElementById("referrals-view-total-credits").textContent = influencer.referralCredits || 0;
-
-  const tbody = document.getElementById("referrals-view-table-body");
-  tbody.innerHTML = "";
-
-  const referrals = influencer.referrals || [];
-  if (referrals.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-placeholder">No referrals registered yet.</td></tr>`;
-  } else {
-    referrals.forEach(r => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><strong>${r.fullName}</strong></td>
-        <td>${r.jobTitle}</td>
-        <td>${r.company}</td>
-        <td>${r.email}</td>
-        <td style="font-weight:600; color:var(--success); text-align:right;">+${r.credits} credits</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  const dialog = document.getElementById("referrals-view-dialog");
-  if (dialog) dialog.showModal();
-}
-
-function closeReferralsViewDialog() {
-  const dialog = document.getElementById("referrals-view-dialog");
-  if (dialog) dialog.close();
-}
-
-function closeDrawer(drawerId) {
-  const drawer = document.getElementById(`${drawerId}-drawer`);
-  if (drawer) {
-    drawer.style.transform = "translateX(100%)";
-    drawer.style.opacity = "0";
-  }
-}
-window.closeDrawer = closeDrawer;
-
-// Bind to window context
-window.handleManualInfluencerSubmit = handleManualInfluencerSubmit;
-window.openAddReferralModal = openAddReferralModal;
-window.closeReferralDialog = closeReferralDialog;
-window.handleReferralSubmit = handleReferralSubmit;
-window.viewReferralsDetails = viewReferralsDetails;
-window.closeReferralsViewDialog = closeReferralsViewDialog;
-window.sendAnalyseChatMessage = sendAnalyseChatMessage;
-
-
-// --- SUBTAB: ANALYSE CHATBOT ENGINE ---
-
-function sendSuggestedQuery(text) {
-  const input = document.getElementById("analyse-chat-input");
-  if (input) {
-    input.value = text;
-    sendAnalyseChatMessage();
-  }
-}
-
-async function sendAnalyseChatMessage() {
-  const input = document.getElementById("analyse-chat-input");
-  if (!input || !input.value.trim()) return;
-
-  const query = input.value.trim();
-  input.value = "";
-
-  appendAnalyseMessage("user", query);
-
-  // Show loading
-  const loadingId = appendAnalyseMessage("bot", "Analyzing data, please hold...", true);
-
-  // Run analytic query
-  setTimeout(async () => {
-    const answer = await processAnalyseQuery(query);
-    removeAnalyseLoading(loadingId, answer);
-  }, 600);
-}
-
-function appendAnalyseMessage(sender, text, isLoading = false) {
-  const container = document.getElementById("analyse-chat-messages");
-  if (!container) return "";
-
-  const wrapper = document.createElement("div");
-  wrapper.className = `chat-message-row ${sender}`;
-  wrapper.style = "display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;";
-  if (sender === "user") {
-    wrapper.style.justifyContent = "flex-end";
-    wrapper.style.flexDirection = "row-reverse";
-  }
-
-  const avatar = document.createElement("div");
-  avatar.className = "chat-avatar";
-  avatar.style = "width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; background: rgba(255,255,255,0.08); color: var(--on-dark); box-shadow: 1.5px 1.5px 0 rgba(0,0,0,0.15);";
-  
-  if (sender === "user") {
-    const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "Demo User";
-    avatar.innerText = getInitials(userFullName);
-    avatar.style.background = "var(--primary)";
-    avatar.style.color = "#ffffff";
-    avatar.style.borderColor = "var(--primary-active)";
-  } else {
-    avatar.innerText = "";
-  }
-
-  const bubble = document.createElement("div");
-  const msgId = "msg-" + Math.random().toString(36).slice(2, 9);
-  bubble.id = msgId;
-  bubble.className = `chat-bubble ${sender}`;
-  bubble.innerHTML = text;
-
-  wrapper.appendChild(avatar);
-  wrapper.appendChild(bubble);
-
-  container.appendChild(wrapper);
-  container.scrollTop = container.scrollHeight;
-  return msgId;
-}
-
-function removeAnalyseLoading(msgId, finalText) {
-  const el = document.getElementById(msgId);
-  if (el) {
-    el.innerHTML = finalText;
-    const container = document.getElementById("analyse-chat-messages");
-    if (container) container.scrollTop = container.scrollHeight;
-  }
-}
-
-// Fast analytics search engine
-async function processAnalyseQuery(query) {
-  if (database.contacts.length === 0) {
-    return "The database is empty. Please go to the <strong>Upload</strong> tab and load your list database first.";
-  }
-
-  const q = query.toLowerCase();
-
-  // 1. Total records count
-  if (q.includes("how many total") || q.includes("total contacts") || q.includes("how many contacts") || q.includes("how many rows")) {
-    return `There are exactly <strong>${database.contacts.length.toLocaleString()}</strong> contacts loaded in the active GTM pipeline database.`;
-  }
-
-  // 2. CIO/CTO/IT roles filter
-  if (q.includes("cio") || q.includes("cto") || q.includes("it director") || q.includes("project manager") || q.includes("vp of tech") || q.includes("job title")) {
-    const cios = database.contacts.filter(c => {
-      const j = c.jobTitle.toLowerCase();
-      return j.includes("cio") || j.includes("cto") || j.includes("technology") || j.includes("it") || j.includes("data") || j.includes("analytics") || j.includes("project management") || j.includes("president") || j.includes("ceo");
-    });
-    return `Found <strong>${cios.length.toLocaleString()}</strong> contacts matching technology leadership roles (President, CEO, CIO, CTO, VP of IT/Technology, VP of Data/Analytics, or VP of Project Management) in the CSV.`;
-  }
-
-  // 3. Industry breakdown
-  if (q.includes("industry") || q.includes("industries") || q.includes("breakdown of industry")) {
-    const counts = {};
-    database.contacts.forEach(c => {
-      const ind = c.industry || "Unknown";
-      counts[ind] = (counts[ind] || 0) + 1;
-    });
-    let result = "<strong>Target Industry Distribution:</strong><br><br>";
-    Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5).forEach(k => {
-      result += `- <strong>${k}:</strong> ${counts[k].toLocaleString()} contacts (${((counts[k] / database.contacts.length) * 100).toFixed(1)}%)<br>`;
-    });
-    return result;
-  }
-
-  // 4. Asset sizes
-  if (q.includes("asset size") || q.includes("average asset") || q.includes("assets")) {
-    const assets = database.contacts.map(c => {
-      if (!c.assetSize) return null;
-      // Extract numeric value (e.g. $1,240,500 or 123456)
-      const num = parseFloat(c.assetSize.replace(/[^0-9.]/g, ""));
-      return isNaN(num) ? null : num;
-    }).filter(Boolean);
-
-    if (assets.length === 0) {
-      return "The loaded CSV does not contain standard numeric Asset Size records for evaluation.";
-    }
-
-    const avg = assets.reduce((sum, val) => sum + val, 0) / assets.length;
-    const maxVal = Math.max(...assets);
-
-    return `Calculated asset size parameters for target organizations:<br><br>` +
-      `- <strong>Reporting contacts:</strong> ${assets.length.toLocaleString()} companies<br>` +
-      `- <strong>Average asset size:</strong> $${Math.round(avg).toLocaleString()}<br>` +
-      `- <strong>Max asset organization:</strong> $${maxVal.toLocaleString()}`;
-  }
-
-  // 5. States density
-  if (q.includes("states") || q.includes("state") || q.includes("michigan")) {
-    const states = {};
-    database.contacts.forEach(c => {
-      if (c.state && c.state.trim() !== "N/A" && c.state.trim() !== "") {
-        const s = c.state.trim().toUpperCase();
-        states[s] = (states[s] || 0) + 1;
-      }
-    });
-
-    const sortedStates = Object.keys(states).sort((a, b) => states[b] - states[a]);
-    if (sortedStates.length === 0) {
-      return "No geographical state properties found in the current sheet columns.";
-    }
-
-    let result = "<strong>Top Targeted States Density:</strong><br><br>";
-    sortedStates.slice(0, 6).forEach(k => {
-      result += `- <strong>${k}:</strong> ${states[k].toLocaleString()} contacts<br>`;
-    });
-    return result;
-  }
-
-  // 6. Attended dinners / Visited booth
-  if (q.includes("attended") || q.includes("dinner") || q.includes("booth") || q.includes("visited")) {
-    return `<strong>Campaign Event Attendees Analysis:</strong><br><br>` +
-      `- <strong>GAC 2023 Dinner Attendees:</strong> ${database.events.gac_dinner.length} contacts mapped.<br>` +
-      `- <strong>SymWest 2026 Booth Visitors:</strong> ${database.events.symwest_booth.length} contacts mapped.`;
-  }
-
-  // 7. General fallback: Ask LLM helper if configured
-  if (database.llmHelperKey) {
-    try {
-      const summary = {
-        totalRecords: database.contacts.length,
-        topIndustries: Object.entries(database.contacts.reduce((acc, c) => ({ ...acc, [c.industry]: (acc[c.industry] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).slice(0, 3),
-        topJobTitles: Object.entries(database.contacts.reduce((acc, c) => ({ ...acc, [c.jobTitle]: (acc[c.jobTitle] || 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).slice(0, 5),
-        sampleStates: Object.keys(database.contacts.reduce((acc, c) => ({ ...acc, [c.state]: 1 }), {})).slice(0, 8).filter(Boolean)
-      };
-
-      const prompt = `You are a helpful B2B data analyst. You are answering a question about a GTM prospect list.
-The list has:
-- Total contacts: ${summary.totalRecords}
-- Top industries: ${JSON.stringify(summary.topIndustries)}
-- Top job titles: ${JSON.stringify(summary.topJobTitles)}
-- Targeted states include: ${JSON.stringify(summary.sampleStates)}
-
-Question: ${query}
-
-Write a natural, helpful, and concise response in markdown table/bullet form directly answering the query based on this metadata.`;
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${database.llmHelperKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You are a helpful GTM campaign assistant." },
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        return json.choices[0].message.content.replace(/\n/g, "<br>");
-      } else {
-        const error = await response.text();
-        console.error(error);
-        return `[LLM Error] API request returned status ${response.status}. Falling back to default list diagnostics.`;
-      }
-    } catch (err) {
-      console.error(err);
-      return `Failed to invoke the LLM integration for custom querying. Check your network or API key configs.`;
-    }
-  }
-
-  return `I recognize the query, but I need an LLM API key for non-standard queries. Based on local processing, we have loaded <strong>${database.contacts.length.toLocaleString()}</strong> contacts. Try querying role keywords like "CIO" or stats like "asset size".`;
-}
-
-// --- SUBTAB: DATA ENRICHMENT ---
-
-function saveExploriumKey() {
-  const val = document.getElementById("key-explorium").value.trim();
-  database.exploriumApiKey = val;
-  localStorage.setItem("gtm_key_explorium", val);
-
-  const settingsInput = document.getElementById("settings-key-explorium");
-  if (settingsInput) settingsInput.value = val;
-
-  checkEnrichButtonState();
-  addLogConsole("enrich", `[SYSTEM] Explorium / AgentSource credential updated.`, "system");
-}
-
-function saveLLMHelperKey() {
-  const val = document.getElementById("key-llm-helper").value.trim();
-  database.llmHelperKey = val;
-  localStorage.setItem("gtm_key_llm_helper", val);
-
-  const settingsInput = document.getElementById("settings-key-openai");
-  if (settingsInput) settingsInput.value = val;
-
-  addLogConsole("enrich", `[SYSTEM] LLM helper credential updated.`, "system");
-}
-
-function saveGeminiKey() {
-  const val = document.getElementById("key-gemini").value.trim();
-  database.geminiApiKey = val;
-  localStorage.setItem("gtm_key_gemini", val);
-  addLogConsole("enrich", `[SYSTEM] Gemini API credential updated.`, "system");
-}
-
-function saveGeminiModel() {
-  const val = document.getElementById("select-gemini-model").value;
-  database.geminiModel = val;
-  localStorage.setItem("gtm_model_gemini", val);
-  addLogConsole("enrich", `[SYSTEM] Gemini model changed to ${val}.`, "system");
-}
-
-function saveGeminiSearchGrounding() {
-  const checked = document.getElementById("toggle-gemini-search").checked;
-  database.geminiSearchGrounding = checked;
-  localStorage.setItem("gtm_gemini_search_grounding", checked ? "true" : "false");
-  addLogConsole("enrich", `[SYSTEM] Gemini Search Grounding ${checked ? 'enabled' : 'disabled'}.`, "system");
-}
-
-function syncExploriumKeyFromSettings() {
-  const val = document.getElementById("settings-key-explorium").value.trim();
-  database.exploriumApiKey = val;
-  localStorage.setItem("gtm_key_explorium", val);
-
-  const originalInput = document.getElementById("key-explorium");
-  if (originalInput) originalInput.value = val;
-
-  checkEnrichButtonState();
-  addLogConsole("enrich", `[SYSTEM] Explorium credential updated from Settings.`, "system");
-}
-
-function syncOpenAIKeyFromSettings() {
-  const val = document.getElementById("settings-key-openai").value.trim();
-  database.llmHelperKey = val;
-  localStorage.setItem("gtm_key_llm_helper", val);
-
-  const originalInput = document.getElementById("key-llm-helper");
-  if (originalInput) originalInput.value = val;
-
-  addLogConsole("enrich", `[SYSTEM] LLM helper credential updated from Settings.`, "system");
-}
-
-function saveLemlistMcpConfig() {
-  const cmd = document.getElementById("settings-lemlist-mcp-command").value.trim();
-  const args = document.getElementById("settings-lemlist-mcp-args").value.trim();
-  database.lemlistMcpCommand = cmd;
-  database.lemlistMcpArgs = args;
-  localStorage.setItem("gtm_lemlist_mcp_command", cmd);
-  localStorage.setItem("gtm_lemlist_mcp_args", args);
-  addLogConsole("enrich", `[SYSTEM] Lemlist MCP config updated in Settings.`, "system");
-}
-
-function checkEnrichButtonState() {
-  const btn = document.getElementById("btn-run-enrich");
-  if (!btn) return;
-  // Enable if contacts exist AND explorium key is not empty
-  if (database.contacts.length > 0 && database.exploriumApiKey !== "") {
-    btn.disabled = false;
-  } else {
-    btn.disabled = true;
-  }
-}
-
-function getApiBaseUrl() {
-  if (window.location.hostname.includes("github.io")) {
-    return "https://api.explorium.ai";
-  }
-  return "/api/proxy";
-}
-
-// Run live B2B Enrichment via Explorium / AgentSource API
-async function runDataEnrichment() {
-  if (database.contacts.length === 0 || database.exploriumApiKey === "") return;
-
-  const btn = document.getElementById("btn-run-enrich");
-  const progressContainer = document.getElementById("enrich-progress-container");
-  const fill = document.getElementById("enrich-progress-fill");
-  const label = document.getElementById("enrich-progress-label");
-  const consoleBox = document.getElementById("enrich-console-box");
-
-  if (!btn || !progressContainer || !fill || !label || !consoleBox) return;
-
-  btn.disabled = true;
-  progressContainer.style.display = "block";
-  consoleBox.innerHTML = "";
-
-  addLogConsole("enrich", "[SYSTEM] Initiating live Explorium enrichment pipeline...", "system");
-  if (window.location.hostname.includes("github.io")) {
-    addLogConsole("enrich", "[WARNING] Running on GitHub Pages. Direct API requests will be fired to api.explorium.ai. If the browser halts due to a CORS restriction, please run locally using 'python3 server.py' or deploy to Vercel.", "warning");
-  }
-  fill.style.width = "10%";
-  label.textContent = "Matching 10%";
-
-  // Select a batch of exactly 10 contacts to enrich to conserve user credits
-  const contactsToEnrich = database.contacts.filter(c => !c.enriched).slice(0, 10);
-  if (contactsToEnrich.length === 0) {
-    addLogConsole("enrich", "[SYSTEM] All contacts are already enriched!", "success");
-    fill.style.width = "100%";
-    label.textContent = "100% Complete";
-    btn.disabled = false;
-    return;
-  }
-
-  addLogConsole("enrich", `[SYSTEM] Selected first ${contactsToEnrich.length} unenriched contacts for live processing.`, "info");
-
-  const apiBase = getApiBaseUrl();
-
-  // Phase 1: Match prospects
-  addLogConsole("enrich", `[API] POST /v1/prospects/match - Sending payload for matching...`, "info");
-
-  const prospectsToMatch = contactsToEnrich.map(c => ({
-    email: c.email || "",
-    full_name: c.fullName || "",
-    company_name: c.company || ""
-  }));
-
-  let matchData = null;
-  try {
-    const response = await fetch(`${apiBase}/v1/prospects/match`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api_key": database.exploriumApiKey
-      },
-      body: JSON.stringify({
-        prospects_to_match: prospectsToMatch
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Match API error (${response.status}): ${errText}`);
-    }
-
-    matchData = await response.json();
-    addLogConsole("enrich", `[API] /v1/prospects/match completed successfully. Matched ${matchData.total_matches || 0} prospects.`, "success");
-  } catch (err) {
-    console.error(err);
-    addLogConsole("enrich", `[API ERROR] Match API request failed: ${err.message}`, "error");
-    addLogConsole("enrich", `[ABORT] Explorium match requests failed. Target contacts were NOT marked as enriched.`, "error");
-
-    // Reset loader state
-    progressContainer.style.display = "none";
-    btn.disabled = false;
-    alert(`Enrichment aborted: Match API call failed.\n${err.message}`);
-    return;
-  }
-
-  fill.style.width = "50%";
-  label.textContent = "Enriching 50%";
-
-  // Phase 2: Bulk enrich
-  let enrichData = null;
-  if (matchData && matchData.matched_prospects) {
-    // Map prospect_ids back
-    matchData.matched_prospects.forEach((matched, index) => {
-      if (matched && matched.prospect_id) {
-        contactsToEnrich[index].prospectId = matched.prospect_id;
-      }
-    });
-
-    const prospectIds = matchData.matched_prospects
-      .map(p => p.prospect_id)
-      .filter(id => id && id !== "");
-
-    if (prospectIds.length > 0) {
-      addLogConsole("enrich", `[API] POST /v1/prospects/contacts_information/bulk_enrich - Retrieving details for ${prospectIds.length} IDs...`, "info");
-      try {
-        const response = await fetch(`${apiBase}/v1/prospects/contacts_information/bulk_enrich`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "api_key": database.exploriumApiKey
-          },
-          body: JSON.stringify({
-            prospect_ids: prospectIds
-          })
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`Enrich API error (${response.status}): ${errText}`);
-        }
-
-        enrichData = await response.json();
-        addLogConsole("enrich", `[API] /v1/prospects/contacts_information/bulk_enrich complete. API credits successfully consumed.`, "success");
-      } catch (err) {
-        console.error(err);
-        addLogConsole("enrich", `[API ERROR] Bulk enrich request failed: ${err.message}`, "error");
-        addLogConsole("enrich", `[ABORT] Bulk enrichment details request failed. Target contacts were NOT marked as enriched.`, "error");
-
-        // Reset loader state
-        progressContainer.style.display = "none";
-        btn.disabled = false;
-        alert(`Enrichment aborted: Bulk enrich details failed.\n${err.message}`);
-        return;
-      }
-    } else {
-      addLogConsole("enrich", `[SYSTEM] No prospect matches were found by the API.`, "info");
-    }
-  }
-
-  fill.style.width = "90%";
-  label.textContent = "Applying 90%";
-
-  // Phase 3: Update local database
-  // Match results back to local records
-  const enrichedRecords = enrichData ? (Array.isArray(enrichData) ? enrichData : (enrichData.results || enrichData.records || [])) : [];
-
-  contactsToEnrich.forEach((c) => {
-    c.enriched = true;
-    database.stats.enrichedCount++;
-
-    // Try to find the matched record in the API response
-    const apiRecord = enrichedRecords.find(r => r.prospect_id === c.prospectId);
-
-    if (apiRecord) {
-      if (apiRecord.emails && apiRecord.emails.length > 0) {
-        c.email = apiRecord.emails[0];
-      }
-      if (apiRecord.phone_numbers && apiRecord.phone_numbers.length > 0) {
-        c.phone = apiRecord.phone_numbers[0];
-      } else if (apiRecord.mobile_phone) {
-        c.phone = apiRecord.mobile_phone;
-      }
-    }
-
-    // High fidelity B2B fallbacks if API data is missing/failed, to guarantee clean data
-    if (!c.phone) {
-      c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-    const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-    c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
-
-    // Match score based on job title
-    const title = c.jobTitle.toLowerCase();
-    let score = 70;
-    if (title.includes("cio") || title.includes("cto") || title.includes("chief information") || title.includes("chief technology")) {
-      score = Math.floor(Math.random() * 5) + 95;
-    } else if (title.includes("president") || title.includes("ceo") || title.includes("chief executive")) {
-      score = Math.floor(Math.random() * 5) + 94;
-    } else if (title.includes("vp") || title.includes("vice president") || title.includes("director")) {
-      score = Math.floor(Math.random() * 10) + 85;
-    } else if (title.includes("manager") || title.includes("cfo") || title.includes("analyst")) {
-      score = Math.floor(Math.random() * 10) + 75;
-    } else {
-      score = Math.floor(Math.random() * 10) + 65;
-    }
-    c.matchPercentage = score;
-
-    if (score >= 88) {
-      c.leadTemp = "Hot Lead";
-    } else {
-      c.leadTemp = "Cold Lead";
-    }
-  });
-
-  saveDatabaseCache();
-
-  fill.style.width = "100%";
-  label.textContent = "100% Complete";
-
-  addLogConsole("enrich", `[SYSTEM] Enrichment complete! Processed ${contactsToEnrich.length} contacts. Database cached.`, "success");
-
-  setTimeout(() => {
-    progressContainer.style.display = "none";
-    btn.disabled = false;
-
-    // Reload all dependent views
-    updateSystemStatusDot();
-    updateStatsSummaryText();
-    filterInfluencersTable();
-  }, 2000);
-}
-
-function enrichDataRecords() {
-  database.contacts.forEach((c, idx) => {
-    c.enriched = true;
-
-    // 1. Generate phone if blank
-    if (!c.phone) {
-      c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-    }
-
-    // 2. Generate simulated LinkedIn URL
-    const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-    c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
-
-    // 3. Compute match score based on Job Title seniority
-    const title = c.jobTitle.toLowerCase();
-    let score = 70;
-    if (title.includes("cio") || title.includes("cto") || title.includes("chief information") || title.includes("chief technology")) {
-      score = Math.floor(Math.random() * 5) + 95; // 95-99%
-    } else if (title.includes("president") || title.includes("ceo") || title.includes("chief executive")) {
-      score = Math.floor(Math.random() * 5) + 94; // 94-98%
-    } else if (title.includes("vp") || title.includes("vice president") || title.includes("director")) {
-      score = Math.floor(Math.random() * 10) + 85; // 85-94%
-    } else if (title.includes("manager") || title.includes("cfo") || title.includes("analyst")) {
-      score = Math.floor(Math.random() * 10) + 75; // 75-84%
-    } else {
-      score = Math.floor(Math.random() * 10) + 65; // 65-74%
-    }
-    c.matchPercentage = score;
-
-    // 4. Set lead temperature status
-    // vp or chief roles are Hot leads, managers/others cold leads
-    if (score >= 88) {
-      c.leadTemp = "Hot Lead";
-    } else {
-      c.leadTemp = "Cold Lead";
-    }
-  });
-
-  database.stats.enrichedCount = database.contacts.length;
-}
-
-// --- SUBTAB: OUTBOUND CAMPAIGN (OMNICHANNEL) ---
-
-function switchOutboundSubtab(subtab) {
-  database.currentOutboundSubtab = subtab;
-  
-  const btnProspects = document.getElementById("outbound-subtab-prospects");
-  const btnInfluencers = document.getElementById("outbound-subtab-influencers");
-  
-  if (btnProspects && btnInfluencers) {
-    if (subtab === 'prospects') {
-      btnProspects.classList.add("active");
-      btnInfluencers.classList.remove("active");
-    } else {
-      btnProspects.classList.remove("active");
-      btnInfluencers.classList.add("active");
-    }
-  }
-  
-  filterOutboundTable();
-}
-
-function filterOutboundTable() {
-  const isInfluencer = (database.currentOutboundSubtab === 'influencers');
-  const targetList = database.contacts.filter(c => c.isInfluencer === isInfluencer);
-  database.filteredOutbound = getFilteredData(targetList, "outbound-search-input", null, null, null, null);
-  changeOutboundPage(1);
-}
-
-function changeOutboundPage(page) {
-  database.currentOutboundPage = page;
-  const pageData = paginateData(database.filteredOutbound, page, "outbound-pagination", "changeOutboundPage");
-
-  const tbody = document.getElementById("table-campaign-outbound-body");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (pageData.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="table-placeholder">No contacts available.</td></tr>`;
-    return;
-  }
-
-  pageData.forEach(c => {
-    const tr = document.createElement("tr");
-    tr.style.cursor = "pointer";
-    tr.onclick = (e) => {
-      if (e.target.tagName !== 'BUTTON') loadOutboundDrawer(c);
-    };
-
-    const tempClass = c.leadTemp === "Hot Lead" ? "hot" : "cold";
-    const emailStatus = c.emailsSent 
-      ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
-      : (c.emailDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
-    const linkedinStatus = c.linkedinSent 
-      ? `<span style="color:var(--success);font-weight:600;">Sent</span>` 
-      : (c.linkedinDraft ? `<span style="color:var(--brand-peach);font-weight:500;">Drafted</span>` : `<span style="color:var(--muted)">Pending</span>`);
-    
-    let callStatus = "None";
-    if (c.callsMade && c.callsMade.length > 0) {
-      callStatus = `<span style="color:var(--success);font-weight:500;">${c.callsMade.length} calls</span>`;
-    }
-
-    const actionText = c.isInfluencer ? "Influencer" : "Prospect";
-
-    tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
-      <td>${c.company || "N/A"}</td>
-      <td><span class="badge-lead-temp ${tempClass}">${c.leadTemp || "Warm"}</span></td>
-      <td>${emailStatus}</td>
-      <td>${linkedinStatus}</td>
-      <td>${callStatus}</td>
-      <td>
-        <div class="table-cell-actions">
-          <button class="row-action-link" onclick="loadOutboundDrawer(window.database.contacts.find(con => con.id === ${c.id}))">${actionText}</button>
-          <button class="row-action-link" style="color:var(--error);" onclick="deleteContactRecord(${c.id})">Delete</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function loadOutboundDrawer(contact, initialChannel = 'email') {
-  database.selectedContact = contact;
-  const drawer = document.getElementById("outbound-drawer");
-  const body = document.getElementById("outbound-drawer-body");
-
-  if (!drawer || !body) return;
-
-  drawer.style.transform = "translateX(0)";
-  drawer.style.opacity = "1";
-
-  // Pre-generate drafts if not set
-  if (!contact.emailDraft) {
-    if (contact.isInfluencer) {
-      contact.emailDraft = {
-        subject: `Briefing partnership / Referral check-in`,
-        body: `Hi ${contact.firstName},\n\nI was looking through some of your industry contacts in credit unions. We're launching secure LLM query gateways.\n\nWho in credit union IT leadership should we talk to? For every introduction, we credit your account with BDR partner benefits.\n\nBest,\nSDR Campaign Agent`
-      };
-    } else {
-      contact.emailDraft = {
-        subject: `Safe database compliance for ${contact.company}`,
-        body: `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many credit union tech leaders we speak to are evaluating LLMs for operations, but are worried about data compliance.\n\nWe provide query validation guardrails built for credit unions.\n\nWould you be open to a quick brief next Tuesday?\n\nBest,\nSDR Campaign Agent`
-      };
-    }
-  }
-
-  if (!contact.linkedinDraft) {
-    if (contact.isInfluencer) {
-      contact.linkedinDraft = `Hi ${contact.firstName}, connecting with tech advisors regarding credit union database security. Would love to partner on referrals.`;
-    } else {
-      contact.linkedinDraft = `Hi ${contact.firstName}, noticed your technology development focus at ${contact.company}. We are helping credit unions secure database LLM interfaces. Connect?`;
-    }
-  }
-
-  body.innerHTML = `
-    <div class="drawer-meta-section">
-      <div class="meta-row"><span class="meta-label">Recipient:</span><span class="meta-value">${contact.fullName} (${contact.isInfluencer ? "Influencer" : "Prospect"})</span></div>
-      <div class="meta-row"><span class="meta-label">Job Title:</span><span class="meta-value">${contact.jobTitle || "N/A"}</span></div>
-      <div class="meta-row"><span class="meta-label">Company:</span><span class="meta-value">${contact.company || "N/A"}</span></div>
-      <div class="meta-row"><span class="meta-label">Lifecycle Stage:</span><span class="meta-value">${contact.leadTemp || "Warm Lead"}</span></div>
-      <div class="meta-row"><span class="meta-label">Phone:</span><span class="meta-value">${contact.phone || "N/A"}</span></div>
-      <div class="meta-row"><span class="meta-label">Email:</span><span class="meta-value">${contact.email || "N/A"}</span></div>
-      ${contact.isInfluencer ? `<div class="meta-row"><span class="meta-label">Credits Awarded:</span><span class="meta-value" style="color:var(--brand-teal); font-weight:600;">${contact.referralCredits || 0} Credits</span></div>` : ""}
-    </div>
-
-    <div class="drawer-tab-strip">
-      <button class="drawer-tab-btn" id="btn-outbound-channel-email" onclick="switchDrawerChannel('email')">Email</button>
-      <button class="drawer-tab-btn" id="btn-outbound-channel-linkedin" onclick="switchDrawerChannel('linkedin')">LinkedIn</button>
-      <button class="drawer-tab-btn" id="btn-outbound-channel-call" onclick="switchDrawerChannel('call')">Phone Call</button>
-      <button class="drawer-tab-btn" id="btn-outbound-channel-calendar" onclick="switchDrawerChannel('calendar')">Calendar</button>
-    </div>
-
-    <div id="outbound-channel-container"></div>
-    <div id="outbound-timeline-container"></div>
-  `;
-
-  switchDrawerChannel(initialChannel);
-  
-  const timeline = document.getElementById("outbound-timeline-container");
-  if (timeline) timeline.innerHTML = renderContactTimeline(contact);
-}
-
-function switchDrawerChannel(channel) {
-  const container = document.getElementById("outbound-channel-container");
-  if (!container) return;
-
-  document.querySelectorAll(".drawer-tab-btn").forEach(btn => btn.classList.remove("active"));
-  const activeBtn = document.getElementById(`btn-outbound-channel-${channel}`);
-  if (activeBtn) activeBtn.classList.add("active");
-
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  if (channel !== 'call' && callTimer) {
-    hangupOutboundCall();
-  }
-
-  if (channel === 'email') {
-    container.innerHTML = `
-      <div class="form-group">
-        <label>Email Subject</label>
-        <input type="text" class="input-control" id="email-draft-subject" value="${contact.emailDraft.subject}">
-      </div>
-
-      <div class="form-group" style="margin-top:12px;">
-        <label>Email Body</label>
-        <textarea class="input-control" id="email-draft-body" style="height: 220px; font-size:13px; font-family:var(--font-body);">${contact.emailDraft.body}</textarea>
-      </div>
-
-      <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-        <button class="btn btn-primary" onclick="sendOutboundEmail()" style="width:100%;">Send Campaign Email</button>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <button class="btn btn-secondary" onclick="insertCalendlyLink('email-draft-body')" style="font-size:13px; height:44px;">Insert Calendly</button>
-          <button class="btn btn-secondary" onclick="generateLLMEmailDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
-        </div>
-      </div>
-    `;
-  } else if (channel === 'linkedin') {
-    container.innerHTML = `
-      <div class="form-group">
-        <label>LinkedIn handle: <span style="font-size:12px;color:var(--primary); font-weight:normal;">${contact.linkedinUrl || "linkedin.com/in/" + contact.firstName.toLowerCase()}</span></label>
-      </div>
-
-      <div class="form-group" style="margin-top:12px;">
-        <label>Connection Invitation Note (Max 300 chars)</label>
-        <textarea class="input-control" id="linkedin-draft-text" style="height: 120px; font-size:13px;" maxlength="300">${contact.linkedinDraft}</textarea>
-      </div>
-
-      <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
-        <button class="btn btn-primary" onclick="sendOutboundLinkedin()" style="width:100%;">Send Invite Note</button>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <button class="btn btn-secondary" onclick="insertCalendlyLink('linkedin-draft-text')" style="font-size:13px; height:44px;">Insert Calendly</button>
-          <button class="btn btn-secondary" onclick="generateLLMLinkedinDraft()" style="font-size:13px; height:44px;">AI Re-draft</button>
-        </div>
-      </div>
-    `;
-  } else if (channel === 'call') {
-    container.innerHTML = `
-      <div id="call-drawer-body" style="display:flex; flex-direction:column; gap:12px;"></div>
-    `;
-    renderDialerInterface("idle");
-  } else if (channel === 'calendar') {
-    const existingMeet = database.meetings ? database.meetings.find(m => m.contactEmail === contact.email) : null;
-    if (existingMeet) {
-      container.innerHTML = `
-        <div class="calendar-booking-dossier" style="background:var(--surface-soft); border:1.5px solid var(--primary); border-radius:var(--radius-md); padding:16px; margin-bottom:12px;">
-          <h4 style="margin:0 0 8px 0; color:var(--brand-pink); font-size:14.5px;">Scheduled Meeting</h4>
-          <div style="font-size:13px; line-height:1.6; color:var(--body);">
-            <strong>Time:</strong> ${existingMeet.timeString}<br>
-            <strong>Platform:</strong> ${existingMeet.platform}<br>
-            <strong>Link:</strong> <a href="${existingMeet.meetingUrl}" target="_blank" style="color:var(--brand-teal); font-weight:600; text-decoration:underline;">Join ${existingMeet.platform}</a><br>
-            <div style="margin-top:8px; border-top:1px solid var(--hairline); padding-top:6px;">
-              <strong>Briefing Summary:</strong><br>
-              <p style="margin:4px 0 0 0; color:var(--ink);">${existingMeet.notes || "No notes logged."}</p>
-            </div>
-            <div style="margin-top:12px;">
-              <button class="btn btn-secondary btn-sm" onclick="exportICSFile('${contact.email}')" style="width:100%; border-color:var(--brand-teal); color:var(--brand-teal);">Download .ICS Invite File</button>
-            </div>
+    list.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'connection-card selected';
+      card.id = `conn-card-${item.id}`;
+
+      const initials = (item.firstName?.[0] || '') + (item.lastName?.[0] || 'E');
+
+      card.innerHTML = `
+        <div class="connection-meta">
+          <input type="checkbox" class="connection-checkbox" data-id="${item.id}" checked>
+          <div class="connection-avatar">${initials}</div>
+          <div>
+            <div style="font-weight:600; color:var(--ink);">${item.fullName}</div>
+            <div style="font-size:13px; color:var(--muted);">${item.jobTitle} · <strong style="color:var(--ink); font-weight:500;">${item.company}</strong></div>
+            <div style="font-size:12px; color:var(--body); margin-top:2px;">${item.relationshipContext}</div>
           </div>
         </div>
+        <span class="badge-tag ${item.relationshipStrength || 'strong'}">${(item.relationshipStrength || 'strong').toUpperCase()}</span>
       `;
-    } else {
-      container.innerHTML = `
-        <div class="form-group">
-          <label>Schedule Outbound Meeting</label>
-          <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
-            <div>
-              <label style="font-size:11.5px; color:var(--muted); font-weight:500;">Select Platform</label>
-              <select class="select-control" id="booking-platform" style="width:100%;">
-                <option value="Google Meet">Google Meet</option>
-                <option value="Microsoft Teams">Microsoft Teams</option>
-              </select>
-            </div>
-            <div>
-              <label style="font-size:11.5px; color:var(--muted); font-weight:500;">Date & Time</label>
-              <input type="datetime-local" class="input-control" id="booking-datetime" style="width:100%;">
-            </div>
-            <div>
-              <label style="font-size:11.5px; color:var(--muted); font-weight:500;">Briefing dossier / Prep notes</label>
-              <textarea class="input-control" id="booking-notes" style="width:100%; height:80px; font-size:13px;" placeholder="Identify tech setups or referred partners..."></textarea>
-            </div>
-            <button class="btn btn-primary" onclick="saveManualMeeting()" style="margin-top:8px; width:100%;">Book &amp; Sync Calendar</button>
-          </div>
-        </div>
-      `;
-    }
-  }
-}
 
-function triggerMockInfluencerResponse(influencer, channel) {
-  const choices = [
-    {
-      type: "add_prospect",
-      message: `Hi! I'd highly recommend contacting Marcus Vance, VP of IT Operations at Alliance Bank Group (mvance@alliancebank.com). I've let him know you will reach out.`,
-      prospect: {
-        id: Date.now(),
-        firstName: "Marcus",
-        lastName: "Vance",
-        fullName: "Marcus Vance",
-        email: "mvance@alliancebank.com",
-        jobTitle: "VP of IT Operations",
-        company: "Alliance Bank Group",
-        phone: "+1 (555) 543-2109",
-        industry: "Banking",
-        sourceFile: "mock_influencers_referral.csv",
-        assetSize: "$1.2B",
-        state: "IL",
-        enriched: true,
-        matchPercentage: 92,
-        leadTemp: "Hot Lead",
-        emailsSent: false,
-        linkedinSent: false,
-        callsMade: [],
-        referredBy: influencer.fullName,
-        isInfluencer: false
-      },
-      credits: 10,
-      consoleMsg: `[INCOMING] Influencer ${influencer.fullName} referred Marcus Vance (Alliance Bank Group) via ${channel}.`
-    },
-    {
-      type: "add_meeting",
-      message: `Hey, great chatting. I've set up a Google Meet call with Arthur Dent, IT Director at Galaxy Insurance Services (adent@galaxyinsurance.com). Here is the meet link: https://meet.google.com/abc-defg-hij. Let's schedule it for next Wednesday at 11:00 AM.`,
-      meeting: {
-        id: "meet-" + Date.now(),
-        contactName: "Arthur Dent",
-        contactTitle: "IT Director",
-        contactCompany: "Galaxy Insurance Services",
-        contactEmail: "adent@galaxyinsurance.com",
-        contactPhone: "+1 (555) 150-7890",
-        platform: "Google Meet",
-        meetingUrl: "https://meet.google.com/abc-defg-hij",
-        timeString: "Next Wednesday at 11:00 AM (EST)",
-        influencerName: influencer.fullName,
-        influencerCredits: 20,
-        notes: `Briefed by partner ${influencer.fullName}. Main focus is general tech auditing and secure pipelines.`
-      },
-      credits: 20,
-      consoleMsg: `[INCOMING] Influencer ${influencer.fullName} scheduled Google Meet with Arthur Dent via ${channel}.`
-    }
-  ];
-
-  const pick = choices[Math.floor(Math.random() * choices.length)];
-
-  setTimeout(() => {
-    if (!influencer.referrals) {
-      influencer.referrals = [];
-    }
-    
-    const refName = pick.type === "add_prospect" ? pick.prospect.fullName : pick.meeting.contactName;
-    const isDuplicate = influencer.referrals.some(r => r.fullName === refName);
-    if (!isDuplicate) {
-      influencer.referrals.push({
-        fullName: refName,
-        jobTitle: pick.type === "add_prospect" ? pick.prospect.jobTitle : pick.meeting.contactTitle,
-        company: pick.type === "add_prospect" ? pick.prospect.company : pick.meeting.contactCompany,
-        email: pick.type === "add_prospect" ? pick.prospect.email : pick.meeting.contactEmail,
-        credits: pick.credits,
-        date: new Date().toLocaleDateString()
-      });
-      influencer.referralCredits = (influencer.referralCredits || 0) + pick.credits;
-    }
-
-    if (pick.type === "add_prospect") {
-      const exists = database.contacts.some(c => c.email === pick.prospect.email);
-      if (!exists) {
-        database.contacts.push(pick.prospect);
-      }
-    } else if (pick.type === "add_meeting") {
-      if (!database.meetings) {
-        database.meetings = [];
-      }
-      const exists = database.meetings.some(m => m.contactEmail === pick.meeting.contactEmail);
-      if (!exists) {
-        database.meetings.push(pick.meeting);
-      }
-    }
-
-    saveDatabaseCache();
-
-    addLogConsole("enrich", pick.consoleMsg, "success");
-    addLogConsole("enrich", `[REPLY] "${pick.message}"`, "info");
-
-    filterOutboundTable();
-    loadOutboundDrawer(influencer, channel);
-  }, 3000);
-}
-
-function sendOutboundEmail() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  const subject = document.getElementById("email-draft-subject").value;
-  const body = document.getElementById("email-draft-body").value;
-
-  contact.emailDraft = { subject, body };
-  contact.emailsSent = true;
-  database.stats.emailsSent++;
-
-  saveDatabaseCache();
-  addLogConsole("enrich", `[OUTBOUND] Released email campaign to ${contact.email}`, "success");
-
-  filterOutboundTable();
-  loadOutboundDrawer(contact, 'email');
-
-  if (contact.isInfluencer) {
-    triggerMockInfluencerResponse(contact, 'email');
-  }
-}
-
-function animateTextWordByWord(element, text, duration = 30) {
-  element.value = "";
-  // Split by whitespace but preserve it
-  const tokens = text.split(/(\s+)/);
-  let i = 0;
-
-  element.classList.add("animating-text");
-
-  function addNext() {
-    if (i < tokens.length) {
-      element.value += tokens[i];
-      i++;
-      element.scrollTop = element.scrollHeight;
-      setTimeout(addNext, duration);
-    } else {
-      element.classList.remove("animating-text");
-    }
-  }
-
-  addNext();
-}
-
-async function generateLLMEmailDraft() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  const btn = event.target;
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Drafting...";
-
-  const textarea = document.getElementById("email-draft-body");
-  if (textarea) {
-    textarea.classList.add("redrafting");
-  }
-
-  let finalBody = "";
-  let finalSubject = "";
-
-  // Call OpenAI if key is present
-  if (database.llmHelperKey) {
-    try {
-      const prompt = `Draft a short, highly personalized B2B cold email from SDR Campaign Agent to ${contact.fullName}, working as ${contact.jobTitle} at ${contact.company}.
-Our value proposition: Secure query validation guardrails for credit unions adopting database LLMs.
-Include subject line and email body in simple text format. Keep it under 4 sentences, polite, and direct.`;
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${database.llmHelperKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        const text = json.choices[0].message.content;
-
-        finalSubject = `Outbound briefing: ${contact.company}`;
-        finalBody = text;
-
-        if (text.toLowerCase().includes("subject:")) {
-          const parts = text.split(/subject:/i);
-          const subParts = parts[1].split("\n");
-          finalSubject = subParts[0].trim();
-          finalBody = subParts.slice(1).join("\n").trim();
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  // Fallback re-draft templates
-  if (!finalBody) {
-    // Artificial delay to show the rainbow blur animation
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    const reDrafts = [
-      `Hi ${contact.firstName},\n\nI was reviewing technology setups at ${contact.company} and noticed your background in project development.\n\nWith LLMs rolling out rapidly in finance, query auditor walls are vital to prevent data loss.\n\nWould you want to see our security layout sheet?\n\nBest,\nSDR Campaign Agent`,
-      `Hi ${contact.firstName},\n\nHope this finds you well. Given your role as ${contact.jobTitle} at ${contact.company}, I wanted to reach out regarding data pipelines.\n\nWe specialize in wrapping validation gateways around credit union SQL infrastructure.\n\nCan we set up a brief chat next week?\n\nBest,\nSDR Campaign Agent`
-    ];
-    finalBody = reDrafts[Math.floor(Math.random() * reDrafts.length)];
-    finalSubject = `Safe database compliance for ${contact.company}`;
-  }
-
-  btn.disabled = false;
-  btn.textContent = originalText;
-
-  contact.emailDraft = { subject: finalSubject, body: finalBody };
-
-  if (textarea) {
-    textarea.classList.remove("redrafting");
-    animateTextWordByWord(textarea, finalBody);
-  }
-
-  const subjectInput = document.getElementById("email-draft-subject");
-  if (subjectInput) {
-    subjectInput.value = finalSubject;
-  }
-}
-
-function sendOutboundLinkedin() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  const note = document.getElementById("linkedin-draft-text").value;
-  contact.linkedinDraft = note;
-  contact.linkedinSent = true;
-  database.stats.linkedinSent++;
-
-  saveDatabaseCache();
-  addLogConsole("enrich", `[LINKEDIN] Dispatched connection request with note to ${contact.fullName}`, "success");
-
-  filterOutboundTable();
-  loadOutboundDrawer(contact, 'linkedin');
-
-  if (contact.isInfluencer) {
-    triggerMockInfluencerResponse(contact, 'linkedin');
-  }
-}
-
-async function generateLLMLinkedinDraft() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  const btn = event.target;
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "Drafting...";
-
-  const textarea = document.getElementById("linkedin-draft-text");
-  if (textarea) {
-    textarea.classList.add("redrafting");
-  }
-
-  let finalNote = "";
-
-  if (database.llmHelperKey) {
-    try {
-      const prompt = `Draft a short, highly personalized LinkedIn connection note (under 300 characters) to ${contact.fullName}, working as ${contact.jobTitle} at ${contact.company}. Mention secure LLM query guardrails for credit unions. Keep it conversational.`;
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${database.llmHelperKey}`
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "user", content: prompt }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const json = await response.json();
-        finalNote = json.choices[0].message.content.slice(0, 300);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  if (!finalNote) {
-    // Artificial delay to show the rainbow blur animation
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    const reDrafts = [
-      `Hi ${contact.firstName}, saw your tech role at ${contact.company}. We're helping credit unions secure database LLM interfaces. Connect?`,
-      `Hi ${contact.firstName}, noticed your background at ${contact.company}. We construct secure gateways for financial LLM setups. Love to connect.`
-    ];
-    finalNote = reDrafts[Math.floor(Math.random() * reDrafts.length)];
-  }
-
-  btn.disabled = false;
-  btn.textContent = originalText;
-
-  contact.linkedinDraft = finalNote;
-
-  if (textarea) {
-    textarea.classList.remove("redrafting");
-    animateTextWordByWord(textarea, finalNote);
-  }
-}
-
-// Backward compatibility table and drawer loaders for other integrations
-function filterEmailTable() { filterOutboundTable(); }
-function filterLinkedinTable() { filterOutboundTable(); }
-function filterCallTable() { filterOutboundTable(); }
-
-function loadEmailDrawer(contact) { loadOutboundDrawer(contact, 'email'); }
-function loadLinkedinDrawer(contact) { loadOutboundDrawer(contact, 'linkedin'); }
-function loadCallDrawer(contact) { loadOutboundDrawer(contact, 'call'); }
-
-window.filterEmailTable = filterEmailTable;
-window.filterLinkedinTable = filterLinkedinTable;
-window.filterCallTable = filterCallTable;
-window.loadEmailDrawer = loadEmailDrawer;
-window.loadLinkedinDrawer = loadLinkedinDrawer;
-window.loadCallDrawer = loadCallDrawer;
-
-window.filterOutboundTable = filterOutboundTable;
-window.changeOutboundPage = changeOutboundPage;
-window.loadOutboundDrawer = loadOutboundDrawer;
-window.switchDrawerChannel = switchDrawerChannel;
-window.sendOutboundEmail = sendOutboundEmail;
-window.sendOutboundLinkedin = sendOutboundLinkedin;
-window.generateLLMEmailDraft = generateLLMEmailDraft;
-window.generateLLMLinkedinDraft = generateLLMLinkedinDraft;
-window.switchOutboundSubtab = switchOutboundSubtab;
-window.triggerMockInfluencerResponse = triggerMockInfluencerResponse;
-
-// --- CAMPAIGN SCHEDULE & BRIEFINGS RENDERING ---
-
-function initMockMeetings() {
-  if (!database.meetings) {
-    database.meetings = [];
-  }
-  if (database.meetings.length === 0 && database.contacts && database.contacts.length > 0) {
-    const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-    if (prospects.length >= 2) {
-      const influencer1 = database.contacts.find(c => c.isInfluencer === true) || { fullName: "John Doe", referralCredits: 10 };
-      const influencer2 = database.contacts.find(c => c.isInfluencer === true && c.fullName !== influencer1.fullName) || { fullName: "Jane Smith", referralCredits: 20 };
-      
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(10, 0, 0, 0);
-
-      const july10 = new Date(2026, 6, 10, 14, 0, 0);
-
-      database.meetings = [
-        {
-          id: "meet-1",
-          contactName: prospects[0].fullName,
-          contactTitle: prospects[0].jobTitle,
-          contactCompany: prospects[0].company,
-          contactEmail: prospects[0].email,
-          contactPhone: prospects[0].phone || "+1 (555) 345-6789",
-          platform: "Google Meet",
-          meetingUrl: "https://meet.google.com/abc-defg-hij",
-          timeString: tomorrow.toLocaleDateString() + " at 10:00 AM (EST)",
-          influencerName: influencer1.fullName,
-          influencerCredits: 10,
-          notes: `Interested in secure BDR query validation guardrails for ${prospects[0].company}. Main concern is preventing database prompt injection in user queries. Referred by ${influencer1.fullName}.`,
-          datetimeRaw: tomorrow.toISOString()
-        },
-        {
-          id: "meet-2",
-          contactName: prospects[1].fullName,
-          contactTitle: prospects[1].jobTitle,
-          contactCompany: prospects[1].company,
-          contactEmail: prospects[1].email,
-          contactPhone: prospects[1].phone || "+1 (555) 789-0123",
-          platform: "Microsoft Teams",
-          meetingUrl: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_xyz",
-          timeString: "07/10/2026 at 02:00 PM (EST)",
-          influencerName: influencer2.fullName,
-          influencerCredits: 20,
-          notes: `Seeking to integrate Apollo and Lemlist pipelines with secure checkpointers. Main pain point: duplicate contacts management. Referred by ${influencer2.fullName}.`,
-          datetimeRaw: july10.toISOString()
-        }
-      ];
-    }
-  }
-}
-
-let currentCalDate = new Date(2026, 6, 1);
-
-function renderCalendar() {
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const grid = document.getElementById("calendar-days-grid");
-  const monthYearLabel = document.getElementById("calendar-month-year");
-  if (!grid || !monthYearLabel) return;
-
-  const year = currentCalDate.getFullYear();
-  const month = currentCalDate.getMonth();
-  monthYearLabel.textContent = `${monthNames[month]} ${year}`;
-
-  grid.innerHTML = "";
-
-  const firstDayIndex = new Date(year, month, 1).getDay();
-  const totalDays = new Date(year, month + 1, 0).getDate();
-
-  // Add empty spaces for padding
-  for (let i = 0; i < firstDayIndex; i++) {
-    const emptyCell = document.createElement("div");
-    emptyCell.style.height = "55px";
-    emptyCell.style.border = "1px solid var(--hairline-soft)";
-    emptyCell.style.borderRadius = "6px";
-    emptyCell.style.background = "var(--surface-soft)";
-    emptyCell.style.opacity = "0.5";
-    grid.appendChild(emptyCell);
-  }
-
-  // Add actual days
-  for (let day = 1; day <= totalDays; day++) {
-    const cell = document.createElement("div");
-    cell.style.height = "55px";
-    cell.style.border = "1.5px solid var(--primary)";
-    cell.style.borderRadius = "6px";
-    cell.style.padding = "4px";
-    cell.style.display = "flex";
-    cell.style.flexDirection = "column";
-    cell.style.justifyContent = "space-between";
-    cell.style.cursor = "pointer";
-    cell.style.background = "var(--canvas)";
-    cell.style.position = "relative";
-    cell.style.transition = "background-color 0.15s ease";
-
-    const dayLabel = document.createElement("span");
-    dayLabel.textContent = day;
-    dayLabel.style.fontSize = "12px";
-    dayLabel.style.fontWeight = "600";
-    dayLabel.style.color = "var(--ink)";
-    cell.appendChild(dayLabel);
-
-    const cellDateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const dayMeetings = (database.meetings || []).filter(m => {
-      if (m.datetimeRaw) {
-        const mDate = new Date(m.datetimeRaw);
-        return mDate.getFullYear() === year && mDate.getMonth() === month && mDate.getDate() === day;
-      }
-      return false;
-    });
-
-    if (dayMeetings.length > 0) {
-      const dot = document.createElement("div");
-      dot.style.width = "8px";
-      dot.style.height = "8px";
-      dot.style.borderRadius = "50%";
-      dot.style.background = "var(--brand-pink)";
-      dot.style.position = "absolute";
-      dot.style.bottom = "8px";
-      dot.style.right = "8px";
-      cell.appendChild(dot);
-      
-      cell.style.borderColor = "var(--brand-pink)";
-      cell.style.background = "var(--surface-soft)";
-    }
-
-    cell.onclick = () => {
-      document.querySelectorAll("#calendar-days-grid > div").forEach(c => {
-        c.style.background = "var(--canvas)";
-      });
-      cell.style.background = "var(--surface-card)";
-      selectCalendarDate(year, month, day, dayMeetings);
-    };
-
-    grid.appendChild(cell);
-  }
-}
-
-function changeCalendarMonth(offset) {
-  currentCalDate.setMonth(currentCalDate.getMonth() + offset);
-  renderCalendar();
-}
-
-function selectCalendarDate(year, month, day, meetings) {
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const title = document.getElementById("selected-date-title");
-  const subtitle = document.getElementById("selected-date-subtitle");
-  const list = document.getElementById("selected-date-meetings-list");
-  if (!title || !subtitle || !list) return;
-
-  title.textContent = `${monthNames[month]} ${day}, ${year}`;
-  subtitle.textContent = `${meetings.length} meeting(s) scheduled for this date.`;
-  list.innerHTML = "";
-
-  if (meetings.length === 0) {
-    list.innerHTML = `<div class="table-placeholder" style="border: none; padding: 40px 10px;">No briefings scheduled for this date.</div>`;
-    return;
-  }
-
-  meetings.forEach((meet, idx) => {
-    const card = document.createElement("div");
-    card.className = "meeting-card";
-    const badgeClass = meet.platform === "Google Meet" ? "google-meet" : "teams";
-
-    card.innerHTML = `
-      <div class="meeting-card-header">
-        <div class="meeting-card-meta">
-          <h4>${meet.contactName}</h4>
-          <div class="title-company">${meet.contactTitle} at ${meet.contactCompany}</div>
-          <div class="time-string">Date: ${meet.timeString}</div>
-        </div>
-        <div class="meeting-card-side">
-          <span class="meeting-badge ${badgeClass}">${meet.platform}</span>
-        </div>
-      </div>
-      <div class="meeting-card-details">
-        <div class="meeting-info-row">
-          <span>Phone:</span>
-          <strong>${meet.contactPhone}</strong>
-        </div>
-        <div class="meeting-info-row">
-          <span>Email:</span>
-          <strong><code>${meet.contactEmail}</code></strong>
-        </div>
-        <div class="meeting-info-row">
-          <span>Referring Partner:</span>
-          <span style="font-weight:600; color:var(--brand-teal);">${meet.influencerName} (${meet.influencerCredits} credits)</span>
-        </div>
-        <div style="margin-top: 12px; display:flex; gap: 6px;">
-          <a class="btn btn-primary btn-sm" href="${meet.meetingUrl}" target="_blank" style="flex:1.2; text-align:center; height:30px; padding:0; display:flex; align-items:center; justify-content:center; font-size:12px;">Join Meeting</a>
-          <button class="btn btn-secondary btn-sm" onclick="openBriefingConsole('${meet.id}')" style="height:30px; padding:0 10px; font-size:12px; font-weight:700;">Briefing Room</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportICSFile('${meet.contactEmail}')" style="height:30px; padding:0 8px; font-size:12px;">Invite</button>
-        </div>
-      </div>
-    `;
-    list.appendChild(card);
-  });
-}
-
-function renderScheduleMeetings() {
-  initMockMeetings();
-  renderCalendar();
-  
-  const title = document.getElementById("selected-date-title");
-  const subtitle = document.getElementById("selected-date-subtitle");
-  const list = document.getElementById("selected-date-meetings-list");
-  if (title && subtitle && list) {
-    title.textContent = "No Date Selected";
-    subtitle.textContent = "Select a highlighted date to view briefings.";
-    list.innerHTML = `<div class="table-placeholder" style="border: none; padding: 40px 10px;">Select a date on the calendar grid to inspect briefing details.</div>`;
-  }
-}
-
-function toggleMeetingNotes(idx) {
-  const el = document.getElementById(`meeting-prep-notes-${idx}`);
-  if (el) el.classList.toggle("open");
-}
-
-window.toggleMeetingNotes = toggleMeetingNotes;
-window.renderScheduleMeetings = renderScheduleMeetings;
-
-// Interactive calling simulation
-let callTimer = null;
-let callingAudioContext = null;
-let callingOscillator = null;
-
-function renderDialerInterface(state, durationText = "00:00") {
-  const contact = database.selectedContact;
-  const body = document.getElementById("call-drawer-body");
-  if (!body || !contact) return;
-
-  const phone = contact.phone || "+1 (555) 000-0000";
-
-  let screenClass = "dialer-status";
-  if (state === "dialing" || state === "ringing") screenClass = "dialer-status ringing";
-  if (state === "connected") screenClass = "dialer-status active";
-
-  let controlsHtml = "";
-  if (state === "idle") {
-    controlsHtml = `<button class="dial-btn call" onclick="startOutboundCall()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;"><path d="M6.62 10.79a15.15 15.15 0 0 0 6.57 6.57l2.2-2.2a.994.994 0 0 1 .9-.27c1.12.37 2.33.57 3.57.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.28.9l-2.2 2.2z"/></svg></button>`;
-  } else {
-    controlsHtml = `<button class="dial-btn hangup" onclick="hangupOutboundCall()"><svg viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px;"><path d="M12 9c-2.2 0-4.3.3-6.2 1v3c0 .6.5 1.1 1.1 1.1 1.5 0 2.9-.3 4.1-.7v-2.4c0-.3.2-.5.5-.5h1c.3 0 .5.2.5.5v2.4c1.2.4 2.6.7 4.1.7.6 0 1.1-.5 1.1-1.1v-3c-1.9-.7-4-1-6.2-1z"/></svg></button>`;
-  }
-
-  body.innerHTML = `
-    <div class="drawer-meta-section">
-      <div class="meta-row"><span class="meta-label">Recipient:</span><span class="meta-value">${contact.fullName}</span></div>
-      <div class="meta-row"><span class="meta-label">Company:</span><span class="meta-value">${contact.company}</span></div>
-      <div class="meta-row"><span class="meta-label">Title:</span><span class="meta-value">${contact.jobTitle}</span></div>
-    </div>
-
-    <div class="dialer-wrap">
-      <div class="dialer-screen">
-        <div class="dialer-number">${phone}</div>
-        <div class="${screenClass}" id="call-screen-status">${state.toUpperCase()} ${state === "connected" ? durationText : ""}</div>
-      </div>
-
-      <div class="dialer-grid">
-        <button class="dial-key">1<span></span></button><button class="dial-key">2<span>ABC</span></button><button class="dial-key">3<span>DEF</span></button>
-        <button class="dial-key">4<span>GHI</span></button><button class="dial-key">5<span>JKL</span></button><button class="dial-key">6<span>MNO</span></button>
-        <button class="dial-key">7<span>PQRS</span></button><button class="dial-key">8<span>TUV</span></button><button class="dial-key">9<span>WXYZ</span></button>
-        <button class="dial-key">*<span></span></button><button class="dial-key">0<span>+</span></button><button class="dial-key">#<span></span></button>
-      </div>
-
-      <div class="dial-actions">
-        ${controlsHtml}
-      </div>
-    </div>
-
-    <div class="call-outcome-logger" id="outcome-logger-area" style="display: ${state === "connected" || contact.callsMade.length > 0 ? "block" : "none"}">
-      <label style="font-weight:600;margin-bottom:8px;display:block;">Call Logs History</label>
-      <div style="max-height:80px;overflow-y:auto;font-size:12px;color:var(--muted);margin-bottom:12px;" id="call-logs-history">
-        ${contact.callsMade.map(h => `- [${h.date}] ${h.outcome}`).join("<br>")}
-      </div>
-      
-      <div id="outcome-buttons-div" style="display: ${state === "connected" ? "flex" : "none"}; flex-direction:column; gap:8px;">
-        <button class="btn btn-secondary btn-sm" onclick="logCallOutcome('Spoke to prospect - Interested')">Spoke to prospect - Interested</button>
-        <button class="btn btn-secondary btn-sm" onclick="logCallOutcome('Left voicemail')">Left voicemail</button>
-        <button class="btn btn-secondary btn-sm" onclick="logCallOutcome('No answer')">No answer</button>
-      </div>
-    </div>
-  `;
-}
-
-function startOutboundCall() {
-  renderDialerInterface("ringing");
-  playBeepSound(400, 1.5); // Ring tone beep sound
-
-  // Simulating Ringing -> Connected
-  setTimeout(() => {
-    const status = document.getElementById("call-screen-status");
-    if (status && status.textContent.includes("RINGING")) {
-      renderDialerInterface("connected", "00:00");
-      playBeepSound(600, 0.2); // Connected chirp
-
-      let durationSec = 0;
-      callTimer = setInterval(() => {
-        durationSec++;
-        const minutes = Math.floor(durationSec / 60).toString().padStart(2, "0");
-        const seconds = (durationSec % 60).toString().padStart(2, "0");
-        const timerText = `${minutes}:${seconds}`;
-        const statusEl = document.getElementById("call-screen-status");
-        if (statusEl) statusEl.textContent = `CONNECTED ${timerText}`;
-      }, 1000);
-    }
-  }, 2000);
-}
-
-function hangupOutboundCall() {
-  if (callTimer) {
-    clearInterval(callTimer);
-    callTimer = null;
-  }
-  stopBeepSound();
-  renderDialerInterface("idle");
-}
-
-function logCallOutcome(outcome) {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  contact.callsMade.push({
-    date: new Date().toLocaleDateString() + " " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    outcome: outcome
-  });
-
-  // If interested, upgrade lead temperature
-  if (outcome.includes("Interested")) {
-    contact.leadTemp = "Hot Lead";
-  }
-
-  database.stats.callsMade++;
-  saveDatabaseCache();
-  addLogConsole("enrich", `[CALL LOGGED] ${contact.fullName} - Outcome: ${outcome}`, "info");
-
-  hangupOutboundCall();
-  filterOutboundTable();
-  loadOutboundDrawer(contact, 'call');
-  
-  if (contact.isInfluencer) {
-    triggerMockInfluencerResponse(contact, 'call');
-  }
-}
-
-// Web Audio API Ringtone Generator
-function playBeepSound(frequency, duration) {
-  try {
-    callingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    callingOscillator = callingAudioContext.createOscillator();
-    callingOscillator.type = "sine";
-    callingOscillator.frequency.value = frequency;
-
-    const gainNode = callingAudioContext.createGain();
-    gainNode.gain.setValueAtTime(0.15, callingAudioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, callingAudioContext.currentTime + duration);
-
-    callingOscillator.connect(gainNode);
-    gainNode.connect(callingAudioContext.destination);
-
-    callingOscillator.start();
-    callingOscillator.stop(callingAudioContext.currentTime + duration);
-  } catch (e) {
-    console.warn("AudioContext block", e);
-  }
-}
-
-function stopBeepSound() {
-  try {
-    if (callingOscillator) {
-      callingOscillator.stop();
-      callingOscillator = null;
-    }
-    if (callingAudioContext) {
-      callingAudioContext.close();
-      callingAudioContext = null;
-    }
-  } catch (e) { }
-}
-
-// --- EVENTS MANAGEMENT ---
-
-function renderEventsList() {
-  const eventSelect = document.getElementById("select-event-view");
-  if (!eventSelect) return;
-
-  const eventKey = eventSelect.value;
-  const list = database.events[eventKey] || [];
-
-  const titleEl = document.getElementById("events-list-title");
-  const countEl = document.getElementById("events-list-count");
-  const tbody = document.getElementById("table-events-attendees-body");
-
-  if (eventKey === "gac_dinner") {
-    titleEl.textContent = "GAC 2023 Dinner Attendance";
-  } else if (eventKey === "symwest_booth") {
-    titleEl.textContent = "SymWest 2026 Booth Visitors";
-  } else {
-    titleEl.textContent = "Credit Union Executive Meetup (Enriched)";
-  }
-
-  countEl.textContent = `${list.length} attendees`;
-
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="table-placeholder">No attendees registered for this campaign event.</td></tr>`;
-    return;
-  }
-
-  list.forEach(c => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><strong>${c.fullName}</strong></td>
-      <td>${c.jobTitle}</td>
-      <td>${c.company}</td>
-      <td><code>${c.email || "N/A"}</code></td>
-      <td><span class="badge-match-score">Attended</span></td>
-      <td style="font-size:12px;color:var(--muted);">${c.eventNotes || "Default attendance list"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// Event Autocomplete search
-function handleRegContactSearch(text) {
-  const dropdown = document.getElementById("reg-contact-autocomplete");
-  const hiddenInput = document.getElementById("event-reg-contact-id");
-  if (!dropdown || !hiddenInput) return;
-
-  dropdown.innerHTML = "";
-  hiddenInput.value = "";
-
-  if (!text.trim() || database.contacts.length === 0) {
-    dropdown.style.display = "none";
-    return;
-  }
-
-  const matches = database.contacts.filter(c =>
-    c.fullName.toLowerCase().includes(text.toLowerCase()) ||
-    c.company.toLowerCase().includes(text.toLowerCase())
-  ).slice(0, 5);
-
-  if (matches.length === 0) {
-    dropdown.style.display = "none";
-    return;
-  }
-
-  dropdown.style.display = "block";
-  matches.forEach(c => {
-    const div = document.createElement("div");
-    div.className = "autocomplete-item";
-    div.textContent = `${c.fullName} (${c.company})`;
-    div.onclick = () => {
-      document.getElementById("event-reg-contact-search").value = c.fullName;
-      hiddenInput.value = c.id;
-      dropdown.style.display = "none";
-    };
-    dropdown.appendChild(div);
-  });
-}
-
-function handleEventRegistration(e) {
-  e.preventDefault();
-
-  const searchEl = document.getElementById("event-reg-contact-search");
-  const contactId = document.getElementById("event-reg-contact-id").value;
-  const eventSelect = document.getElementById("select-reg-event");
-  const statusSelect = document.getElementById("input-reg-status");
-  const notesText = document.getElementById("input-reg-notes");
-
-  if (!contactId || !eventSelect) {
-    alert("Please select a valid contact using the search dropdown list.");
-    return;
-  }
-
-  const contact = database.contacts.find(c => c.id === parseInt(contactId));
-  if (!contact) return;
-
-  // Append Event Properties
-  const eventKey = eventSelect.value;
-  const newReg = {
-    ...contact,
-    eventStatus: statusSelect.value,
-    eventNotes: notesText.value || "Registered via Event Console Form"
-  };
-
-  // Push to events arrays
-  if (!database.events[eventKey]) database.events[eventKey] = [];
-
-  // Prevent duplicate
-  if (!database.events[eventKey].some(c => c.id === contact.id)) {
-    database.events[eventKey].push(newReg);
-  }
-
-  // Save and switch back
-  saveDatabaseCache();
-
-  // Clear form
-  searchEl.value = "";
-  document.getElementById("event-reg-contact-id").value = "";
-  notesText.value = "";
-
-  addLogConsole("enrich", `[EVENT REGISTRATION] Registered ${contact.fullName} for ${eventKey}`, "success");
-
-  // Go back to view
-  document.getElementById("select-event-view").value = eventKey;
-  switchTab("events-list");
-}
-
-// --- INTERACTIVE AGENT CHAT & BROWSER SIMULATOR ENGINE ---
-
-function toggleAgentMode() {
-  switchTab("agent-mode");
-}
-
-// Typing autocomplete detector for @ mentions
-function initAgentAutocomplete() {
-  const input = document.getElementById("agent-chat-input");
-  if (input) {
-    input.removeEventListener("input", handleAgentChatInput);
-    input.addEventListener("input", handleAgentChatInput);
-  }
-}
-
-if (document.readyState === "complete" || document.readyState === "interactive") {
-  initAgentAutocomplete();
-} else {
-  document.addEventListener("DOMContentLoaded", initAgentAutocomplete);
-}
-
-function handleAgentChatInput(e) {
-  const input = e.target;
-  const list = document.getElementById("agent-autocomplete-list");
-  if (!list) return;
-
-  const val = input.value;
-  const atIndex = val.lastIndexOf("@");
-
-  if (atIndex === -1) {
-    list.style.display = "none";
-    return;
-  }
-
-  // Extract query after @
-  const query = val.slice(atIndex + 1).toLowerCase().trim();
-  list.innerHTML = "";
-
-  let matches = [];
-  if (database.contacts.length > 0) {
-    if (query === "") {
-      // Show first 5 contacts as default suggestions
-      matches = database.contacts.slice(0, 5);
-    } else {
-      // Match query
-      matches = database.contacts.filter(c =>
-        c.fullName.toLowerCase().includes(query) ||
-        c.company.toLowerCase().includes(query)
-      ).slice(0, 5);
-    }
-  }
-
-  if (matches.length === 0) {
-    list.style.display = "none";
-    return;
-  }
-
-  matches.forEach(c => {
-    const item = document.createElement("div");
-    item.className = "autocomplete-suggestion-item";
-    item.innerHTML = `
-      <strong>${c.fullName}</strong>
-      <span class="suggestion-meta">${c.jobTitle} at ${c.company}</span>
-    `;
-    item.onclick = () => {
-      selectAgentAutocomplete(c.fullName);
-    };
-    list.appendChild(item);
-  });
-
-  list.style.display = "flex";
-}
-
-function selectAgentAutocomplete(name) {
-  const input = document.getElementById("agent-chat-input");
-  const list = document.getElementById("agent-autocomplete-list");
-  if (!input || !list) return;
-
-  const val = input.value;
-  const atIndex = val.lastIndexOf("@");
-
-  input.value = val.slice(0, atIndex) + "@" + name + " ";
-  list.style.display = "none";
-  input.focus();
-}
-
-function handleAgentChatKeyDown(event) {
-  if (event.key === "Enter") {
-    // If autocomplete is visible, we don't submit yet
-    const list = document.getElementById("agent-autocomplete-list");
-    if (list && list.style.display === "flex") return;
-
-    sendAgentChatMessage();
-  }
-}
-
-function sendAgentChatMessage() {
-  const input = document.getElementById("agent-chat-input");
-  const history = document.getElementById("agent-chat-history");
-  if (!input || !history) return;
-
-  const text = input.value.trim();
-  if (text === "") return;
-
-  // Append user bubble
-  const userFullName = (window.Clerk && window.Clerk.user && window.Clerk.user.fullName) || "Demo User";
-  const userInitials = getInitials(userFullName);
-  const userAvatarColor = getAvatarColor(userFullName);
-
-  const userDiv = document.createElement("div");
-  userDiv.className = "agent-chat-msg user-msg";
-  userDiv.innerHTML = `
-    <div class="avatar" style="background:${userAvatarColor}; color:#fff; font-size:11px; font-weight:700; border:1px solid var(--hairline); box-shadow:1.5px 1.5px 0 var(--hairline);">${userInitials}</div>
-    <div class="msg-bubble">${text}</div>
-  `;
-  history.appendChild(userDiv);
-  input.value = "";
-  history.scrollTop = history.scrollHeight;
-
-  // Parse for @ mentioned contact (robust parser)
-  let targetContact = null;
-  let customQuery = text;
-  if (database.contacts.length > 0) {
-    for (const contact of database.contacts) {
-      const mentionStr = `@${contact.fullName.toLowerCase()}`;
-      if (text.toLowerCase().includes(mentionStr)) {
-        targetContact = contact;
-        customQuery = text.replace(new RegExp(`@${contact.fullName}`, "i"), "").trim();
-        break;
-      }
-    }
-  }
-
-  const lowerText = text.toLowerCase();
-
-  // Command 1: "enrich"
-  if (lowerText.includes("enrich") || lowerText.includes("start enrichment") || lowerText.includes("start the enrichment")) {
-    if (targetContact) {
-      appendAgentLog(` Command detected: <strong>Enriching ${targetContact.fullName}</strong>...`);
-      setTimeout(() => {
-        targetContact.enriched = true;
-        targetContact.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-        const cleanComp = targetContact.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-        targetContact.linkedinUrl = `linkedin.com/in/${targetContact.firstName.toLowerCase()}-${targetContact.lastName.toLowerCase()}-${cleanComp}`;
-        targetContact.matchPercentage = 96;
-        targetContact.leadTemp = "Hot Lead";
-        saveDatabaseCache();
-        appendAgentLog(` <strong>Enrichment Complete for ${targetContact.fullName}!</strong> Calculated ICP match rating: 96%. Phone: ${targetContact.phone}.`);
-        if (typeof filterEnrichTable === "function") filterEnrichTable();
-        if (typeof filterEmailTable === "function") filterEmailTable();
-      }, 800);
-    } else {
-      appendAgentLog(` Command detected: <strong>Executing Outbound Lead Enrichment Pipeline</strong>...`);
-      setTimeout(() => {
-        enrichDataRecords();
-        saveDatabaseCache();
-        appendAgentLog(` <strong>Enrichment Complete!</strong> Enriched phone numbers, computed match rating seniority percentages, and assigned lead temperature statuses for all imported records.`);
-        if (typeof filterEnrichTable === "function") filterEnrichTable();
-        if (typeof filterEmailTable === "function") filterEmailTable();
-      }, 800);
-    }
-    return;
-  }
-
-  // Command 2: "sync lemlist"
-  if (lowerText.includes("lemlist") || lowerText.includes("sync") || lowerText.includes("push campaigns")) {
-    if (targetContact) {
-      appendAgentLog(` Command detected: <strong>Syncing ${targetContact.fullName} to Lemlist sequence</strong>...`);
-      setTimeout(() => {
-        targetContact.emailsSent = true;
-        database.stats.emailsSent++;
-        saveDatabaseCache();
-        appendAgentLog(` <strong>Lemlist Sync Complete!</strong> Enrolled <strong>${targetContact.fullName}</strong> into sequence queue (review guardrail active).`);
-        if (typeof filterEmailTable === "function") filterEmailTable();
-      }, 800);
-    } else {
-      appendAgentLog(` Command detected: <strong>Syncing Enrolled Outbound Campaigns to Lemlist API</strong>...`);
-      setTimeout(() => {
-        let syncCount = 0;
-        database.contacts.forEach(c => {
-          if (!c.emailsSent) {
-            c.emailsSent = true;
-            syncCount++;
-          }
-        });
-        if (syncCount > 0) {
-          database.stats.emailsSent += syncCount;
-          saveDatabaseCache();
-          appendAgentLog(` <strong>Lemlist Campaign Sync Complete!</strong> Enrolled <strong>${syncCount}</strong> prospects into outbound email queue (review guardrails active).`);
-          if (typeof filterEmailTable === "function") filterEmailTable();
+      card.querySelector('input.connection-checkbox')?.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          card.classList.add('selected');
         } else {
-          appendAgentLog(` All prospects are already synced to Lemlist campaigns!`);
+          card.classList.remove('selected');
         }
-      }, 800);
-    }
-    return;
+        updateSelectionSummary();
+      });
+
+      connectionsItemsList.appendChild(card);
+    });
+
+    updateSelectionSummary();
   }
 
-  if (!targetContact) {
-    const atMatch = text.match(/@([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/);
-    if (atMatch) {
-      const parsedName = atMatch[1].trim().toLowerCase();
-      targetContact = database.contacts.find(c => c.fullName.toLowerCase().includes(parsedName));
-      if (targetContact) {
-        customQuery = text.replace(atMatch[0], "").trim();
-      }
-    }
-  }
+  function updateSelectionSummary() {
+    if (!connectionsItemsList) return;
+    const checkedBoxes = connectionsItemsList.querySelectorAll('input.connection-checkbox:checked');
+    const totalBoxes = connectionsItemsList.querySelectorAll('input.connection-checkbox');
+    const selectedCount = checkedBoxes.length;
 
-  if (targetContact) {
-  startAgentResearchSequence(targetContact, customQuery);
-} else {
-  // If Gemini key is not configured, show placeholder reply
-  if (!database.geminiApiKey) {
-    setTimeout(() => {
-      const botDiv = document.createElement("div");
-      botDiv.className = "agent-chat-msg agent-msg";
-      botDiv.innerHTML = `
-          <div class="avatar"></div>
-          <div class="msg-bubble">
-            I am ready. Type <strong>@</strong> followed by a contact's name to launch my web search, or configure a <strong>Gemini API Key</strong> in the Settings tab to let me answer general queries!
-          </div>
-        `;
-      history.appendChild(botDiv);
-      history.scrollTop = history.scrollHeight;
-    }, 500);
-    return;
-  }
+    if (btnSelectedCount) btnSelectedCount.textContent = selectedCount;
+    if (connectionsSelectAll) connectionsSelectAll.checked = selectedCount > 0 && selectedCount === totalBoxes.length;
 
-  // Call Gemini API for general query!
-  database.agentRunning = true;
-  const browserUrl = document.getElementById("agent-browser-url-input");
-  if (browserUrl) browserUrl.value = "Status: Answering general query...";
-
-  setTimeout(() => {
-    appendAgentLog(` Processing query: "<em>${text}</em>"...`);
-  }, 100);
-
-  const model = database.geminiModel || "gemini-3.5-flash";
-  const apiKey = database.geminiApiKey;
-  const enableSearch = database.geminiSearchGrounding !== false;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const systemInstruction = `You are a helpful B2B GTM and Outbound Sales Assistant. Answer the user's query clearly and concisely. Format your response in clean HTML tags (such as <strong>, <em>, <br>, <ul>, <li>). Do NOT use markdown like ** or *. Use clean headers (e.g. <h3>) instead.`;
-
-  const requestBody = {
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: `${systemInstruction}\n\nUser Question: ${text}` }]
-      }
-    ]
-  };
-
-  if (enableSearch) {
-    requestBody.tools = [
-      {
-        googleSearch: {}
-      }
-    ];
-  }
-
-  fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(requestBody)
-  })
-    .then(res => {
-      if (!res.ok) throw new Error(`API Error (${res.status})`);
-      return res.json();
-    })
-    .then(resJson => {
-      database.agentRunning = false;
-      if (browserUrl) browserUrl.value = "https://google.com";
-
-      const candidate = resJson.candidates && resJson.candidates[0];
-      if (candidate) {
-        let ansText = candidate.content.parts[0].text;
-        ansText = ansText
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-          .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-          .replace(/## (.*?)\n/g, '<h2>$1</h2>')
-          .replace(/\n/g, '<br>');
-
-        appendAgentLog(` Response:<br><br>${ansText}`);
+    if (selectionStatusBadge) {
+      if (selectedCount === 0) {
+        selectionStatusBadge.textContent = 'None Selected';
+        selectionStatusBadge.style.color = 'var(--muted)';
+      } else if (selectedCount === totalBoxes.length) {
+        selectionStatusBadge.textContent = 'All Selected';
+        selectionStatusBadge.style.color = 'var(--primary)';
       } else {
-        appendAgentLog(` Sorry, I couldn't generate an answer.`);
+        selectionStatusBadge.textContent = `${selectedCount} Selected`;
+        selectionStatusBadge.style.color = 'var(--ink)';
       }
-    })
-    .catch(err => {
-      database.agentRunning = false;
-      if (browserUrl) browserUrl.value = "https://google.com";
-      appendAgentLog(` Failed to answer general query: <em>${err.message}</em>`);
+    }
+  }
+
+  // Outreach State
+  let twilioEnabled = false;
+  let gmailConnected = false;
+  let activeOutreachProspectId = null;
+  let emailAiAssisted = false;
+  const outreachContactsList = document.getElementById('outreach-contacts-list');
+  const outreachContactsTotal = document.getElementById('outreach-contacts-total');
+  const outreachSearchInput = document.getElementById('outreach-search-input');
+
+  function switchOutreachChannel(channel) {
+    const validChannels = ['email', 'call', 'linkedin'];
+    const active = validChannels.includes(channel) ? channel : 'email';
+
+    validChannels.forEach(ch => {
+      const tabBtn = document.getElementById(`channel-tab-${ch}`);
+      const pane = document.getElementById(`channel-content-${ch}`);
+      const isCurrent = ch === active;
+      if (tabBtn) {
+        tabBtn.classList.toggle('active', isCurrent);
+        tabBtn.setAttribute('aria-selected', String(isCurrent));
+      }
+      if (pane) {
+        pane.style.display = isCurrent ? 'block' : 'none';
+      }
     });
   }
-}
 
+  function selectOutreachContact(contactOrId) {
+    const contact = typeof contactOrId === 'string'
+      ? relationships.find(c => c.id === contactOrId)
+      : contactOrId;
+    if (!contact) return;
+    activeOutreachProspectId = contact.id;
 
-function sendAgentDirective() {
-  const input = document.getElementById("agent-directives");
-  if (!input) return;
-  const text = input.value.trim();
-  if (text === "") return;
-
-  const chatInput = document.getElementById("agent-chat-input");
-  if (chatInput) {
-    chatInput.value = text;
-    sendAgentChatMessage();
-    input.value = "";
-  }
-}
-
-function updateBrowserStep(stepId, status) {
-  const el = document.getElementById(stepId);
-  if (!el) return;
-  el.classList.remove("running", "completed");
-  if (status === "running") el.classList.add("running");
-  if (status === "completed") el.classList.add("completed");
-}
-
-// Autonomous Web Scraping & Firecrawl simulator with real Gemini grounding and visual steps tracking
-async function startAgentResearchSequence(contact, customUserQuestion = "") {
-  const history = document.getElementById("agent-chat-history");
-  const browserUrl = document.getElementById("agent-browser-url-input");
-  const browserViewport = document.getElementById("agent-browser-viewport");
-
-  if (!history || !browserUrl || !browserViewport) return;
-
-  // Check if Gemini API key is configured
-  if (!database.geminiApiKey) {
-    appendAgentLog(` <strong>Error: Gemini API key is not configured!</strong><br>
-    Please configure your Gemini API Key in the Settings tab to activate the autonomous B2B research agent.<br><br>
-    <button class="btn btn-primary btn-sm" onclick="switchTab('settings-keys')">Configure API Credentials</button>`);
-    return;
-  }
-
-  // Set running state
-  database.agentRunning = true;
-
-  // Update floating loader title, subtitle and checklist targets
-  const floatingLoader = document.getElementById("agent-floating-loader");
-  const loaderTitle = document.getElementById("agent-loader-title");
-  const loaderSubtitle = document.getElementById("agent-loader-subtitle");
-  const readingTitle = document.getElementById("agent-reading-title");
-
-  if (floatingLoader) floatingLoader.classList.add("active");
-  if (loaderTitle) loaderTitle.textContent = "Agentic Research In Progress";
-  if (loaderSubtitle) loaderSubtitle.textContent = "Planning research path...";
-  if (readingTitle) readingTitle.textContent = "Standing by";
-
-  updateBrowserStep("target-step-1", "running");
-  updateBrowserStep("target-step-2", "");
-  updateBrowserStep("target-step-3", "");
-  updateBrowserStep("target-step-4", "");
-
-  const queryToRun = customUserQuestion ? customUserQuestion.trim() : `Find out everything you can about ${contact.fullName} who is ${contact.jobTitle} at ${contact.company}. Focus on their professional background, key public details, and corporate profile.`;
-
-  appendAgentLog(` Planning web-grounded research cycle for <strong>${contact.fullName}</strong> (${contact.jobTitle} at <em>${contact.company}</em>).`);
-
-  // Update browser status & start loading animation in browser viewport
-  browserUrl.value = "Connecting to Gemini API (with Search Grounding)...";
-  browserViewport.innerHTML = `
-    <div class="browser-empty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--muted); gap:12px; padding: 20px;">
-      <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px;">Agent Executing Dorking Query...</div>
-      <div style="font-size:11px; opacity:0.8; text-align:center;">Retrieving live Google Search index metadata.</div>
-    </div>
-  `;
-
-  try {
-    const model = database.geminiModel || "gemini-3.5-flash";
-    const apiKey = database.geminiApiKey;
-    const enableSearch = database.geminiSearchGrounding !== false;
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-    // Build context
-    const systemInstruction = `You are an expert BDR Research Agent. Your task is to research the target contact from our local B2B database:
-Full Name: ${contact.fullName}
-First Name: ${contact.firstName}
-Last Name: ${contact.lastName}
-Job Title: ${contact.jobTitle}
-Company: ${contact.company}
-Industry: ${contact.industry}
-Lead Temp: ${contact.leadTemp}
-Match Score: ${contact.matchPercentage}%
-State/Location: ${contact.state || "Unknown"}
-
-Analyze the web search results and write a structured sales research dossier. Format your response in clean HTML tags (such as <strong>, <em>, <br>, <ul>, <li>). Do NOT use markdown formatting like ** or * or # or - since this will be rendered directly in an HTML container. Use clean headers (e.g. <h3>) instead.
-Provide:
-1. Executive Background (Who they are, past experience).
-2. Outbound Hook Angles (3 distinct personalized angles for outreach based on their company, role, or latest news).
-3. Recommended Outbound Subject Line.
-`;
-
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: `${systemInstruction}\n\nUser Question/Instruction: ${queryToRun}` }]
-        }
-      ]
-    };
-
-    if (enableSearch) {
-      requestBody.tools = [
-        {
-          googleSearch: {} // Grounding
-        }
-      ];
-    }
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
+    document.querySelectorAll('.outreach-contact-item').forEach(item => {
+      const selected = item.dataset.contactId === contact.id;
+      item.classList.toggle('active', selected);
+      item.setAttribute('aria-pressed', String(selected));
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Gemini API Error (${response.status}): ${errText}`);
+    const name = document.getElementById('outreach-selected-name');
+    const sub = document.getElementById('outreach-selected-sub');
+    const strength = document.getElementById('outreach-selected-strength');
+    if (name) name.textContent = contact.fullName;
+    if (sub) sub.textContent = [contact.jobTitle, contact.company, contact.email].filter(Boolean).join(' · ');
+    if (strength) {
+      const value = contact.relationshipStrength || 'strong';
+      strength.className = `badge-tag ${value}`;
+      strength.textContent = value.toUpperCase();
     }
 
-    const resJson = await response.json();
-    const candidate = resJson.candidates && resJson.candidates[0];
-    if (!candidate) {
-      throw new Error("No response candidates returned from Gemini API.");
+    // Populate Email channel
+    const compProspectId = document.getElementById('composer-prospect-id');
+    const compFromEmail = document.getElementById('composer-from-email');
+    const compToRecipient = document.getElementById('composer-to-recipient');
+    const aiDraftPurposeInput = document.getElementById('ai-draft-purpose');
+    const compSubject = document.getElementById('composer-subject');
+    const compBody = document.getElementById('composer-body');
+
+    if (compProspectId) compProspectId.value = contact.id;
+    if (compFromEmail) compFromEmail.textContent = currentPartner?.gmailEmail || currentPartner?.email || 'you@example.com';
+    if (compToRecipient) compToRecipient.textContent = `${contact.fullName} <${contact.email}>`;
+    if (aiDraftPurposeInput) aiDraftPurposeInput.value = `Executive briefing & advisory intro for ${contact.company}`;
+    if (compSubject && (!compSubject.value || compSubject.value.startsWith('ConnectEM: Introduction') || compSubject.value.startsWith('Quick note'))) {
+      compSubject.value = `ConnectEM: Introduction & Executive Briefing (${contact.company})`;
+    }
+    if (compBody && (!compBody.value || compBody.value.startsWith('Hi '))) {
+      compBody.value = `Hi ${contact.fullName},\n\nHope this finds you well. I am reaching out to share a strategic advisory briefing tailored for ${contact.company}.\n\nLet's coordinate a brief introductory discussion this week.\n\nBest regards,\n${currentPartner?.fullName || 'Bob Miller'}`;
     }
 
-    let finalReportHtml = candidate.content.parts[0].text;
-    // Replace any leftover markdown styles just in case
-    finalReportHtml = finalReportHtml
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/### (.*?)\n/g, '<h3>$1</h3>')
-      .replace(/## (.*?)\n/g, '<h2>$1</h2>')
-      .replace(/\n/g, '<br>');
-
-    const groundingMetadata = candidate.groundingMetadata;
-    const queries = (groundingMetadata && groundingMetadata.webSearchQueries) || [];
-    const chunks = (groundingMetadata && groundingMetadata.groundingChunks) || [];
-
-    let step = 0;
-
-    // Define helper to simulate browser pages
-    const runSimulationStep = () => {
-      if (step >= Math.max(queries.length, chunks.length, 1)) {
-        // Queries/Crawl simulation done. Move to Enrichment (Step 4)
-        runEnrichmentStep();
-        return;
-      }
-
-      // If we are performing searches
-      if (queries[step]) {
-        const query = queries[step];
-        browserUrl.value = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        updateBrowserStep("target-step-1", "running");
-        if (loaderSubtitle) loaderSubtitle.textContent = "Google Dorking search index matching...";
-        if (readingTitle) readingTitle.textContent = query;
-
-        // Render a search result page
-        let resultsHtml = "";
-        chunks.slice(0, 3).forEach((c, i) => {
-          resultsHtml += `
-            <div class="google-result-item" style="margin-bottom:12px; text-align:left;">
-              <div class="result-url" style="font-size:11px; color:#5f6368; word-break:break-all;">${c.web.uri}</div>
-              <a href="#" onclick="return false;" id="sim-link-${i}" style="color: #1a0dab; font-size:13px; font-weight: 500; text-decoration: none; display:block; margin:2px 0;">${c.web.title}</a>
-              <div class="result-snippet" style="font-size:11px; color:#4d5156; line-height:1.4;">Grounding resource compiled by search agent for ${contact.fullName}.</div>
-            </div>
-          `;
-        });
-
-        browserViewport.innerHTML = `
-          <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
-          <div class="google-search-mock" style="padding:15px; background:#ffffff; height:100%; overflow-y:auto; font-family:sans-serif;">
-            <div class="google-logo-sm" style="font-size:16px; font-weight:bold; margin-bottom:12px; color:#4285F4;">
-              <span style="color:#4285F4;">G</span><span style="color:#EA4335;">o</span><span style="color:#FBBC05;">o</span><span style="color:#4285F4;">g</span><span style="color:#34A853;">l</span><span style="color:#EA4335;">e</span>
-            </div>
-            ${resultsHtml || `<div style="font-size:12px; color:var(--muted)">No instant results returned. Indexing...</div>`}
-          </div>
-        `;
-
-        appendAgentLog(` <em>[CRAWLER]</em> Scanning search index for query: <em>${query}</em>`);
-
-        // Animate pointer to first result and click
-        setTimeout(() => {
-          const cursorEl = document.getElementById("agent-browser-cursor");
-          if (cursorEl) {
-            cursorEl.style.left = "40px";
-            cursorEl.style.top = "70px";
-          }
-        }, 800);
-
-        setTimeout(() => {
-          const link = document.getElementById("sim-link-0");
-          if (link) link.style.color = "#551a8b"; // Purple click state
-          const cursorEl = document.getElementById("agent-browser-cursor");
-          if (cursorEl) cursorEl.classList.add("hand"); // Hand shape
-        }, 1600);
-
-        // Move to crawl the website of the chunk in the next micro-step
-        setTimeout(() => {
-          updateBrowserStep("target-step-1", "completed");
-          if (chunks[step]) {
-            const chunk = chunks[step];
-            const urlStr = chunk.web.uri;
-            const titleStr = chunk.web.title;
-            browserUrl.value = urlStr;
-
-            // Set running status based on URL type
-            if (urlStr.includes("linkedin.com")) {
-              updateBrowserStep("target-step-2", "running");
-              if (loaderSubtitle) loaderSubtitle.textContent = "Scraping profiles via Firecrawl...";
-              if (readingTitle) readingTitle.textContent = "linkedin.com/in/" + contact.firstName.toLowerCase();
-              appendAgentLog(` <em>[FIRECRAWL]</em> Crawling LinkedIn profile node...`);
-
-              const initials = contact.fullName.split(" ").map(n => n[0]).join("");
-              browserViewport.innerHTML = `
-                <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 40px; top: 70px;"></div>
-                <div class="linkedin-profile-mock" style="font-family:sans-serif; text-align:left; background:#f3f6f8; height:100%; overflow-y:auto;">
-                  <div class="linkedin-header-card" style="background:#ffffff; border-bottom:1px solid #e0e0e0; padding-bottom:12px;">
-                    <div class="linkedin-banner" style="height:45px; background:linear-gradient(90deg, #a0b2c6, #cbd5e1);"></div>
-                    <div class="linkedin-avatar-row" style="display:flex; justify-content:space-between; padding: 0 12px; margin-top:-20px;">
-                      <div class="linkedin-avatar-mock" style="width:40px; height:40px; background:#0077b5; border-radius:50%; border:2.5px solid #ffffff; display:flex; align-items:center; justify-content:center; color:#ffffff; font-weight:bold; font-size:13px;">${initials}</div>
-                      <button style="background:#0077b5; color:#ffffff; border:none; padding:4px 8px; border-radius:12px; font-size:10px; font-weight:bold; height:22px; cursor:pointer; align-self:flex-end;">Connect</button>
-                    </div>
-                    <div class="linkedin-info-row" style="padding:8px 12px;">
-                      <div class="linkedin-name" style="font-weight:bold; font-size:13px; color:#191919;">${contact.fullName}</div>
-                      <div style="font-size:10.5px; color:#5e5e5e; margin-top:2px;">${contact.jobTitle} at ${contact.company}</div>
-                      <div style="font-size:9.5px; color:#8c8c8c; margin-top:2px;">Greater Detroit Area • Contact info</div>
-                    </div>
-                  </div>
-                  <div style="background:#ffffff; margin-top:8px; padding:12px; text-align:left;">
-                    <div style="font-size:11px; font-weight:bold; color:#191919; margin-bottom:6px;">Reference Information</div>
-                    <div style="font-size:10.5px; color:#5e5e5e; line-height:1.4;">${titleStr}</div>
-                  </div>
-                </div>
-              `;
-
-              setTimeout(() => {
-                updateBrowserStep("target-step-2", "completed");
-              }, 1800);
-            } else {
-              updateBrowserStep("target-step-3", "running");
-              if (loaderSubtitle) loaderSubtitle.textContent = "Crawling company value statements...";
-              if (readingTitle) readingTitle.textContent = contact.company + " Homepage";
-              appendAgentLog(` <em>[CRAWLER]</em> Crawling corporate page assets: <em>${urlStr}</em>`);
-
-              // Corporate page or blog
-              browserViewport.innerHTML = `
-                <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 40px; top: 70px;"></div>
-                <div style="font-family:sans-serif; text-align:left; background:#f8f9fa; height:100%; overflow-y:auto;">
-                  <div style="background:#1b263b; color:#ffffff; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="font-weight:bold; font-size:11px;">${contact.company.toUpperCase()}</div>
-                    <div style="font-size:9px; opacity:0.8;">CRAWLER ONLINE</div>
-                  </div>
-                  <div style="padding:15px; background:#ffffff;">
-                    <h2 style="font-size:13px; margin:0 0 8px 0; color:#1b263b;">${titleStr}</h2>
-                    <p style="font-size:10.5px; color:#4a4a4a; line-height:1.45;">
-                      Scraping company index portals. Targeting data-protection triggers, CRM alignments, and campaign tags. Value propositions captured from public anchors.
-                    </p>
-                  </div>
-                  <div style="padding:12px; margin-top:8px; background:#e9ecef; font-size:9.5px; color:#6c757d; word-break:break-all;">
-                    Source: ${urlStr}
-                  </div>
-                </div>
-              `;
-
-              setTimeout(() => {
-                updateBrowserStep("target-step-3", "completed");
-              }, 1800);
-            }
-
-            step++;
-            setTimeout(runSimulationStep, 2000);
-          } else {
-            step++;
-            runSimulationStep();
-          }
-        }, 2200);
-
-      } else {
-        step++;
-        runSimulationStep();
-      }
-    };
-
-    // Automated Enrichment Step
-    const runEnrichmentStep = () => {
-      browserUrl.value = "https://console.gtm/enrich/";
-      updateBrowserStep("target-step-3", "completed");
-      updateBrowserStep("target-step-4", "running");
-      if (loaderSubtitle) loaderSubtitle.textContent = "Running Lead Scoring & Profiling...";
-      if (readingTitle) readingTitle.textContent = "Enrichment API Node";
-
-      // Calculate enriched metrics
-      contact.enriched = true;
-      if (!contact.phone) {
-        contact.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-      }
-      const cleanComp = contact.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-      contact.linkedinUrl = `linkedin.com/in/${contact.firstName.toLowerCase()}-${contact.lastName.toLowerCase()}-${cleanComp}`;
-
-      const title = contact.jobTitle.toLowerCase();
-      let score = 70;
-      if (title.includes("cio") || title.includes("cto") || title.includes("chief information") || title.includes("chief technology")) {
-        score = Math.floor(Math.random() * 5) + 95;
-      } else if (title.includes("president") || title.includes("ceo") || title.includes("chief executive")) {
-        score = Math.floor(Math.random() * 5) + 94;
-      } else if (title.includes("vp") || title.includes("vice president") || title.includes("director")) {
-        score = Math.floor(Math.random() * 10) + 85;
-      } else {
-        score = Math.floor(Math.random() * 10) + 75;
-      }
-      contact.matchPercentage = score;
-      contact.leadTemp = score >= 88 ? "Hot Lead" : "Cold Lead";
-      database.stats.enrichedCount = Math.max(database.stats.enrichedCount, database.contacts.filter(c => c.enriched).length);
-
-      browserViewport.innerHTML = `
-        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
-        <div style="font-family:sans-serif; text-align:left; background:#fbfbfa; height:100%; overflow-y:auto; padding:20px; color:#111111;">
-          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #e5e5e3; padding-bottom:10px; margin-bottom:15px;">
-            <span style="font-size:12px; font-weight:bold; color:#767676; text-transform:uppercase; letter-spacing:0.5px;">B2B Data Enrichment Platform</span>
-            <span class="target-badge" style="background:#d1fae5; color:#065f46; font-size:10px; font-weight:bold; padding:2px 8px; border-radius:10px;">AgentSource Verified</span>
-          </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; font-size:12px; margin-bottom:15px;">
-            <div>
-              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Prospect Name</div>
-              <div style="font-weight:600; margin-top:2px;">${contact.fullName}</div>
-            </div>
-            <div>
-              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Company Name</div>
-              <div style="font-weight:600; margin-top:2px;">${contact.company}</div>
-            </div>
-            <div>
-              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Validated Email</div>
-              <div style="font-weight:600; font-family:monospace; margin-top:2px;">${contact.email || "N/A"}</div>
-            </div>
-            <div>
-              <div style="color:#767676; font-size:10px; text-transform:uppercase;">Validated Phone</div>
-              <div style="font-weight:600; font-family:monospace; margin-top:2px;">${contact.phone || "N/A"}</div>
-            </div>
-          </div>
-          <div style="border-top:1.5px solid #e5e5e3; padding-top:12px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <div style="color:#767676; font-size:10px; text-transform:uppercase;">ICP Seniority Score</div>
-              <div style="font-size:18px; font-weight:bold; margin-top:2px; color:#ef4444;">${contact.matchPercentage}% Match</div>
-            </div>
-            <span class="target-badge" style="background:#fee2e2; color:#ef4444; font-weight:bold; padding:4px 10px; border-radius:12px; font-size:11px;">${contact.leadTemp}</span>
-          </div>
-        </div>
-      `;
-
-      appendAgentLog(` <em>[ENRICH]</em> Retrieved verified credentials and match rating: <strong>${contact.matchPercentage}% score</strong>.`);
-
-      setTimeout(() => {
-        const cursorEl = document.getElementById("agent-browser-cursor");
-        if (cursorEl) {
-          cursorEl.style.left = "40px";
-          cursorEl.style.top = "60px";
-        }
-      }, 500);
-
-      setTimeout(runEmailComposerStep, 2000);
-    };
-
-    // Automated Email Composer Step
-    const runEmailComposerStep = () => {
-      browserUrl.value = "https://console.gtm/campaign-email/";
-      updateBrowserStep("target-step-4", "completed");
-      updateBrowserStep("target-step-5", "running");
-      if (loaderSubtitle) loaderSubtitle.textContent = "Synthesizing Outbound Campaign Copy...";
-      if (readingTitle) readingTitle.textContent = "Email Copywriter";
-
-      // Parse subject line and body from the Gemini dossier response if available
-      let subjectLine = `Compliance validation for ${contact.company}`;
-      let bodyText = `Hi ${contact.firstName},\n\nI saw your profile as ${contact.jobTitle} at ${contact.company}. Many CU tech leaders are integrating database automation or evaluating LLM query platforms but are worried about security guardrails.\n\nWe provide query validator rules specifically built for credit union databases.\n\nWould you be open to a brief chat next Tuesday?\n\nBest,\nSDR Campaign Agent`;
-
-      const subjectMatch = finalReportHtml.match(/Subject Line:\s*([^\n<]+)/i) || finalReportHtml.match(/Subject:\s*([^\n<]+)/i);
-      if (subjectMatch) {
-        subjectLine = subjectMatch[1].replace(/["]+/g, "").trim();
-      }
-
-      contact.emailDraft = { subject: subjectLine, body: bodyText };
-
-      browserViewport.innerHTML = `
-        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
-        <div style="font-family:sans-serif; text-align:left; background:#ffffff; height:100%; overflow-y:auto; display:flex; flex-direction:column;">
-          <div style="background:#f8f9fa; border-bottom:1px solid #e5e5e3; padding:10px 15px; font-size:12px;">
-            <div style="margin-bottom:6px;"><span style="color:#767676; width:50px; display:inline-block;">From:</span> <strong>sdr-agent@mycompany.com</strong></div>
-            <div style="margin-bottom:6px;"><span style="color:#767676; width:50px; display:inline-block;">To:</span> <strong>${contact.email || "prospect@company.com"}</strong></div>
-            <div><span style="color:#767676; width:50px; display:inline-block;">Subject:</span> <strong>${subjectLine}</strong></div>
-          </div>
-          <div style="padding:15px; font-size:12.5px; line-height:1.5; color:#333333; white-space:pre-wrap; flex:1;">
-            ${bodyText}
-          </div>
-        </div>
-      `;
-
-      appendAgentLog(` <em>[COPYWRITER]</em> Drafted hyper-personalized campaign email for <strong>${contact.fullName}</strong>.`);
-
-      setTimeout(() => {
-        const cursorEl = document.getElementById("agent-browser-cursor");
-        if (cursorEl) {
-          cursorEl.style.left = "60px";
-          cursorEl.style.top = "80px";
-        }
-      }, 500);
-
-      setTimeout(runLinkedInComposerStep, 2000);
-    };
-
-    // Automated LinkedIn Invite Composer Step
-    const runLinkedInComposerStep = () => {
-      browserUrl.value = "https://console.gtm/campaign-linkedin/";
-      updateBrowserStep("target-step-5", "completed");
-      updateBrowserStep("target-step-6", "running");
-      if (loaderSubtitle) loaderSubtitle.textContent = "Compiling LinkedIn Connection Message...";
-      if (readingTitle) readingTitle.textContent = "LinkedIn Outreach Composer";
-
-      const inviteMsg = `Hi ${contact.firstName}, I saw your role as ${contact.jobTitle} at ${contact.company}. I'd love to share how we secure database operations for CU platforms. Let's connect!`;
-      contact.linkedinMessage = inviteMsg;
-
-      browserViewport.innerHTML = `
-        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
-        <div style="font-family:sans-serif; text-align:left; background:#f3f6f8; height:100%; padding:15px; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-          <div style="background:#ffffff; border:1px solid #e0e0e0; border-radius:8px; width:95%; max-width:320px; box-shadow:0 2px 8px rgba(0,0,0,0.08); overflow:hidden;">
-            <div style="padding:12px; border-bottom:1px solid #e0e0e0; display:flex; align-items:center; justify-content:space-between; background:#ffffff;">
-              <span style="font-size:12.5px; font-weight:bold; color:#191919;">Invite ${contact.firstName} to connect</span>
-              <span style="font-size:14px; color:#5e5e5e; cursor:pointer;">&times;</span>
-            </div>
-            <div style="padding:12px;">
-              <p style="font-size:11px; color:#5e5e5e; margin:0 0 10px 0;">Personalize your connection invite with a tailored hook.</p>
-              <div style="border:1px solid #0077b5; border-radius:4px; padding:8px; min-height:80px; font-size:11.5px; color:#191919; background:#f3f6f8; line-height:1.4;">
-                ${inviteMsg}
-              </div>
-            </div>
-            <div style="padding:10px 12px; background:#f3f6f8; text-align:right; border-top:1px solid #e0e0e0;">
-              <button style="border:1px solid #0077b5; color:#0077b5; background:transparent; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:bold; margin-right:8px; cursor:pointer;">Cancel</button>
-              <button id="sim-btn-linkedin-send" style="background:#0077b5; color:#ffffff; border:none; padding:4px 12px; border-radius:12px; font-size:11px; font-weight:bold; cursor:pointer;">Send Invitation</button>
-            </div>
-          </div>
-        </div>
-      `;
-
-      appendAgentLog(` <em>[OUTREACH]</em> Drafted connection message: "<em>${inviteMsg}</em>".`);
-
-      setTimeout(() => {
-        const cursorEl = document.getElementById("agent-browser-cursor");
-        if (cursorEl) {
-          cursorEl.style.left = "240px";
-          cursorEl.style.top = "210px";
-        }
-      }, 500);
-
-      setTimeout(() => {
-        const btn = document.getElementById("sim-btn-linkedin-send");
-        if (btn) btn.style.opacity = "0.7";
-        const cursorEl = document.getElementById("agent-browser-cursor");
-        if (cursorEl) cursorEl.classList.add("hand");
-      }, 1300);
-
-      setTimeout(runLemlistSyncStep, 2000);
-    };
-
-    // Automated Lemlist Sync Step (with active Sandbox Guardrails)
-    const runLemlistSyncStep = () => {
-      browserUrl.value = "https://app.lemlist.com/mcp";
-      updateBrowserStep("target-step-6", "completed");
-      updateBrowserStep("target-step-7", "running");
-      if (loaderSubtitle) loaderSubtitle.textContent = "Syncing sequence queue via Lemlist MCP...";
-      if (readingTitle) readingTitle.textContent = "Lemlist MCP Client";
-
-      const templateName = contact.leadTemp === "Hot Lead" ? "fintech_cto_llm" : "general_gtm";
-      const subjectLine = contact.emailDraft ? contact.emailDraft.subject : `Outbound Campaign`;
-
-      // Update local CRM state
-      contact.emailsSent = true;
-      database.stats.emailsSent++;
-      saveDatabaseCache();
-
-      browserViewport.innerHTML = `
-        <div class="browser-cursor" id="agent-browser-cursor" style="position: absolute; width: 24px; height: 24px; background-image: url('./cursors/arrow_2x.png'); background-size: contain; background-repeat: no-repeat; z-index: 100; pointer-events: none; transition: all 0.8s ease-in-out; left: 100px; top: 120px;"></div>
-        <div style="font-family:monospace; text-align:left; background:#1e1e1e; color:#a6accd; height:100%; padding:15px; font-size:11px; overflow-y:auto; line-height:1.45;">
-          <div style="color:#c792ea; margin-bottom:8px;">&gt; ${database.lemlistMcpCommand || 'npx'} ${database.lemlistMcpArgs || 'mcp-remote https://app.lemlist.com/mcp'}</div>
-          <div style="color:#c3e88d;">[INFO] Initializing Lemlist MCP connection...</div>
-          <div style="color:#c3e88d;">[INFO] Sending JSON-RPC handshake 'initialize' request...</div>
-          <div style="color:#82aaff;">[SUCCESS] MCP connection established with Lemlist Server.</div>
-          <div style="color:#c3e88d;">[INFO] Fetching tools list...</div>
-          <div style="color:#82aaff;">[SUCCESS] Mapped tools: 'lemlist_add_contact_to_campaign', 'lemlist_create_draft'</div>
-          <div style="color:#c3e88d;">[INFO] Invoking MCP tool: 'lemlist_add_contact_to_campaign'</div>
-          <div style="color:#82aaff; margin-left:10px;">Method: 'tools/call'</div>
-          <div style="color:#82aaff; margin-left:10px;">Arguments: { email: "${contact.email || 'N/A'}", campaign: "${templateName}" }</div>
-          <div style="color:#ffcb6b; margin-top:8px;">[GUARDRAIL ACTIVE] MCP Sync placed sequence in 'DRAFT_REVIEW' state.</div>
-          <div style="color:#ffcb6b;">[GUARDRAIL ACTIVE] Direct email sending is disabled in Sandbox.</div>
-          <div style="color:#c3e88d; font-weight:bold; margin-top:10px;">[SUCCESS] Lemlist MCP Sync complete. Response 200 OK.</div>
-        </div>
-      `;
-
-      appendAgentLog(` <em>[LEMLIST MCP]</em> Enrolled campaign to sequence via Lemlist MCP tool <strong>'lemlist_add_contact_to_campaign'</strong>.`);
-
-      setTimeout(() => {
-        // Complete the entire sequence!
-        database.agentRunning = false;
-        browserUrl.value = "https://google.com";
-        browserViewport.innerHTML = `
-          <div class="browser-empty" id="agent-browser-empty">Browser viewport appears here when the agent navigates</div>
-        `;
-
-        updateBrowserStep("target-step-7", "completed");
-        if (floatingLoader) floatingLoader.classList.remove("active");
-
-        appendAgentLog(` <strong>Outbound Research Dossier:</strong><br><br>${finalReportHtml}`);
-        const chatInputEl = document.getElementById("agent-chat-input");
-        if (chatInputEl) chatInputEl.focus();
-      }, 2000);
-    };
-
-    // Run first step
-    setTimeout(runSimulationStep, 1500);
-
-  } catch (err) {
-    console.error(err);
-    database.agentRunning = false;
-    browserUrl.value = "Google Search Grounding Failed";
-    updateBrowserStep("target-step-1", "disabled");
-    updateBrowserStep("target-step-2", "disabled");
-    updateBrowserStep("target-step-3", "disabled");
-    updateBrowserStep("target-step-4", "disabled");
-    if (floatingLoader) floatingLoader.classList.remove("active");
-
-    appendAgentLog(` <strong>Execution Failed!</strong><br>
-    Unable to query Gemini API. Reason: <em>${err.message}</em><br><br>
-    Please ensure your API Key is valid and that you have a stable network connection.`);
-  }
-}
-
-function appendAgentLog(message) {
-  const history = document.getElementById("agent-chat-history");
-  if (!history) return;
-
-  const msgDiv = document.createElement("div");
-  msgDiv.className = "agent-chat-msg agent-msg";
-  msgDiv.innerHTML = `
-    <div class="avatar"></div>
-    <div class="msg-bubble">
-      ${message}
-    </div>
-  `;
-  history.appendChild(msgDiv);
-  history.scrollTop = history.scrollHeight;
-}
-
-// --- CLERK AUTHENTICATION HANDLERS ---
-
-function loadClerkSDK() {
-  const pubKey = (window.ClerkConfig && window.ClerkConfig.publishableKey) || "pk_test_placeholder_app_3FqQEx4A7KVzwjvvEh3hdo6Q5l5";
-
-  const script = document.createElement("script");
-  script.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
-  script.async = true;
-  script.crossOrigin = "anonymous";
-  script.setAttribute("data-clerk-publishable-key", pubKey);
-
-  script.onload = () => {
-    initClerkAuth(pubKey);
-  };
-
-  document.head.appendChild(script);
-}
-
-async function initClerkAuth(publishableKey) {
-  if (!window.Clerk) {
-    console.error("Clerk JS SDK script not resolved yet.");
-    // Hide loader if Clerk fails to load script
-    const loader = document.getElementById("app-loading-screen");
-    if (loader) loader.remove();
-    return;
-  }
-
-  try {
-    await window.Clerk.load({
-      publishableKey: publishableKey
-    });
-
-    // Listen to auth state transitions
-    window.Clerk.addListener(({ user }) => {
-      updateClerkUIState();
-    });
-
-    updateClerkUIState();
-
-    // Fade out and remove loading overlay
-    const loader = document.getElementById("app-loading-screen");
-    if (loader) {
-      loader.classList.add("fade-out");
-      setTimeout(() => {
-        loader.style.display = "none";
-      }, 400);
-    }
-  } catch (err) {
-    console.error("Error loading Clerk:", err);
-    // Ensure loader is removed on error
-    const loader = document.getElementById("app-loading-screen");
-    if (loader) loader.remove();
-  }
-}
-
-function updateClerkUIState() {
-  const authGate = document.getElementById("clerk-auth-gate");
-  const mainApp = document.getElementById("app-layout-main");
-  const signInBtn = document.getElementById("btn-clerk-signin");
-  const userProfileWrap = document.getElementById("clerk-user-profile");
-  const nameEl = document.getElementById("clerk-user-name");
-  const emailEl = document.getElementById("clerk-user-email");
-
-  const userBtnContainer = document.getElementById("clerk-user-button");
-  const signinContainer = document.getElementById("clerk-signin-mount");
-
-  if (window.Clerk && window.Clerk.user) {
-    // User is signed in: show app, hide login gate
-    if (authGate) authGate.style.display = "none";
-    if (mainApp) mainApp.style.display = "flex";
-
-    if (signInBtn) signInBtn.style.display = "none";
-    if (userProfileWrap) userProfileWrap.style.display = "flex";
-
-    if (nameEl) nameEl.textContent = window.Clerk.user.fullName || window.Clerk.user.username || "Authenticated User";
-    if (emailEl) emailEl.textContent = window.Clerk.user.primaryEmailAddress ? window.Clerk.user.primaryEmailAddress.emailAddress : "user@clerk.com";
-
-    // Unmount signin widget if it was mounted
-    if (signinContainer && signinContainer.dataset.mounted === "true") {
-      try {
-        window.Clerk.unmountSignIn(signinContainer);
-      } catch (e) {
-        console.warn("Error unmounting sign-in:", e);
-      }
-      signinContainer.dataset.mounted = "false";
-      signinContainer.innerHTML = "";
-    }
-
-    // Mount user button inside sidebar (only once)
-    if (userBtnContainer && userBtnContainer.dataset.mounted !== "true") {
-      userBtnContainer.innerHTML = "";
-      try {
-        window.Clerk.mountUserButton(userBtnContainer);
-        userBtnContainer.dataset.mounted = "true";
-      } catch (e) {
-        console.error("Error mounting user button:", e);
-      }
-    }
-  } else {
-    // User is signed out: hide app, show login gate
-    if (mainApp) mainApp.style.display = "none";
-    if (authGate) authGate.style.display = "flex";
-
-    if (signInBtn) signInBtn.style.display = "block";
-    if (userProfileWrap) userProfileWrap.style.display = "none";
-
-    // Unmount user button if it was mounted
-    if (userBtnContainer && userBtnContainer.dataset.mounted === "true") {
-      try {
-        window.Clerk.unmountUserButton(userBtnContainer);
-      } catch (e) {
-        console.warn("Error unmounting user button:", e);
-      }
-      userBtnContainer.dataset.mounted = "false";
-      userBtnContainer.innerHTML = "";
-    }
-
-    // Mount the Clerk Sign-In Widget inside the Auth Gate Card (only once)
-    if (signinContainer && signinContainer.dataset.mounted !== "true") {
-      signinContainer.innerHTML = "";
-      try {
-        window.Clerk.mountSignIn(signinContainer, {
-          appearance: {
-            variables: {
-              colorPrimary: "#0a0a0a",
-              colorText: "#0a0a0a",
-              colorBackground: "#fffaf0",
-              borderRadius: "12px"
-            }
-          }
-        });
-        signinContainer.dataset.mounted = "true";
-      } catch (e) {
-        console.error("Error mounting sign-in widget:", e);
-      }
-    }
-  }
-}
-
-function triggerClerkSignIn() {
-  if (window.Clerk) {
-    window.Clerk.openSignIn({
-      afterSignInUrl: window.location.href,
-      afterSignUpUrl: window.location.href
-    });
-  }
-}
-
-// --- PLATFORM INTEGRATION SANDBOX SIMULATOR ---
-
-function openSandbox(appType = 'apollo') {
-  const modal = document.getElementById("sandbox-modal");
-  if (modal) {
-    modal.style.display = "flex";
-    modal.setAttribute("aria-hidden", "false");
-    switchSandboxTab(appType);
-  }
-}
-
-function closeSandbox() {
-  const modal = document.getElementById("sandbox-modal");
-  if (modal) {
-    modal.style.display = "none";
-    modal.setAttribute("aria-hidden", "true");
-  }
-}
-
-function switchSandboxTab(tabId) {
-  document.querySelectorAll(".sandbox-menu-btn").forEach(btn => {
-    btn.classList.remove("active");
-  });
-  const activeBtn = document.getElementById(`sb-menu-${tabId}`);
-  if (activeBtn) activeBtn.classList.add("active");
-
-  const viewport = document.getElementById("sandbox-viewport");
-  if (!viewport) return;
-
-  viewport.innerHTML = "";
-
-  if (tabId === 'apollo') {
-    renderApolloSandbox(viewport);
-  } else if (tabId === 'outlook') {
-    renderOutlookSandbox(viewport);
-  } else if (tabId === 'linkedin') {
-    renderLinkedinSandbox(viewport);
-  } else if (tabId === 'lemlist') {
-    renderLemlistSandbox(viewport);
-  } else if (tabId === 'zerobounce') {
-    renderZerobounceSandbox(viewport);
-  }
-}
-
-function renderApolloSandbox(viewport) {
-  let rows = "";
-  database.contacts.forEach((c, i) => {
-    const badgeClass = c.enriched ? "badge-success" : "badge-secondary";
-    const badgeText = c.enriched ? "Enriched" : "Unenriched";
-    rows += `
-      <tr style="border-bottom:1px solid var(--hairline); text-align:left;">
-        <td style="padding:10px; font-weight:600;">${c.fullName}</td>
-        <td style="padding:10px;">${c.company}</td>
-        <td style="padding:10px; font-family:monospace;">${c.email || "N/A"}</td>
-        <td style="padding:10px;"><span class="badge ${badgeClass}" style="padding:2px 8px; border-radius:10px; font-size:11px;">${badgeText}</span></td>
-        <td style="padding:10px; font-weight:bold; color:var(--brand-coral);">${c.matchPercentage}%</td>
-        <td style="padding:10px;">
-          <button class="btn btn-secondary btn-sm" onclick="triggerApolloEnrich(${i})">Enrich</button>
-        </td>
-      </tr>
-    `;
-  });
-
-  viewport.innerHTML = `
-    <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> Apollo.io Prospect Board</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">View leads parsed from the Apollo.io scraper. Enriched leads include verified cell numbers and seniority scores.</p>
-      <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
-        <thead>
-          <tr style="background:var(--surface-soft); text-align:left; border-bottom:1.5px solid var(--hairline);">
-            <th style="padding:10px;">Name</th>
-            <th style="padding:10px;">Company</th>
-            <th style="padding:10px;">Email</th>
-            <th style="padding:10px;">Enrich State</th>
-            <th style="padding:10px;">ICP Match</th>
-            <th style="padding:10px;">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:var(--muted);">No contacts loaded. Go to "Import Contacts" tab first.</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-window.triggerApolloEnrich = function (idx) {
-  const c = database.contacts[idx];
-  if (!c) return;
-  c.enriched = true;
-  c.phone = `+1 (555) ${Math.floor(200 + Math.random() * 700)}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const cleanComp = c.company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10);
-  c.linkedinUrl = `linkedin.com/in/${c.firstName.toLowerCase()}-${c.lastName.toLowerCase()}-${cleanComp}`;
-  c.matchPercentage = 95;
-  c.leadTemp = "Hot Lead";
-  saveDatabaseCache();
-  addLogConsole("enrich", `[APOLLO] Enriched lead manually: ${c.fullName}`, "success");
-  switchSandboxTab('apollo');
-  // Refresh main tables if visible
-  if (typeof filterEnrichTable === "function") filterEnrichTable();
-  if (typeof filterEmailTable === "function") filterEmailTable();
-};
-
-function renderOutlookSandbox(viewport) {
-  const sentLeads = database.contacts.filter(c => c.emailsSent);
-  let listHtml = "";
-  sentLeads.forEach(c => {
-    listHtml += `
-      <div style="border:1.5px solid var(--hairline); border-radius: var(--radius-md); background:var(--surface-soft); padding:14px; margin-bottom:12px; text-align:left;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px;">
-          <div>To: <strong>${c.fullName}</strong> (${c.email})</div>
-          <div style="color:var(--success); font-weight:600;">Status: Outbound Delivered</div>
-        </div>
-        <div style="font-size:13px; font-weight:bold; margin-bottom:6px;">Subject: ${c.emailDraft ? c.emailDraft.subject : 'Safe compliance for ' + c.company}</div>
-        <div style="font-size:12px; color:#4a4a4a; white-space:pre-wrap; background:#ffffff; padding:10px; border-radius:4px; border:1px solid var(--hairline); max-height:120px; overflow-y:auto;">${c.emailDraft ? c.emailDraft.body : 'N/A'}</div>
-      </div>
-    `;
-  });
-
-  viewport.innerHTML = `
-    <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> Outlook Campaign Outbox</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Tracks direct SDR email outbound campaigns dispatched through your integrated Outlook account. Total Sent: <strong>${sentLeads.length}</strong></p>
-      ${listHtml || '<div style="padding:40px; text-align:center; color:var(--muted); border:1.5px dashed var(--hairline); border-radius:8px;">No emails sent yet. Select a lead in "Campaign Email" tab and click Send.</div>'}
-    </div>
-  `;
-}
-
-function renderLinkedinSandbox(viewport) {
-  let contactsList = "";
-  database.contacts.forEach((c, idx) => {
-    contactsList += `
-      <button class="sandbox-menu-btn" style="padding:8px; font-size:11.5px; border-bottom:1px solid var(--hairline);" onclick="showLinkedinSandboxProfile(${idx})">
-         ${c.fullName}
-      </button>
-    `;
-  });
-
-  viewport.innerHTML = `
-    <div style="text-align:left; display:flex; gap:16px; height:100%;">
-      <div style="width:160px; border-right:1px solid var(--hairline); display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
-        <div style="font-size:11px; font-weight:bold; color:var(--muted); margin-bottom:6px; text-transform:uppercase;">Select Lead</div>
-        <div style="overflow-y:auto; flex:1;">
-          ${contactsList || '<div style="font-size:11px; color:var(--muted);">No leads.</div>'}
-        </div>
-      </div>
-      <div id="linkedin-sb-profile-view" style="flex:1; display:flex; align-items:center; justify-content:center; border:1px dashed var(--hairline); border-radius:8px; padding:20px; color:var(--muted); font-size:12px;">
-        Select a contact from the left list to inspect their live mock LinkedIn profile.
-      </div>
-    </div>
-  `;
-
-  if (database.contacts.length > 0) {
-    showLinkedinSandboxProfile(0);
-  }
-}
-
-window.showLinkedinSandboxProfile = function (idx) {
-  const c = database.contacts[idx];
-  const el = document.getElementById("linkedin-sb-profile-view");
-  if (!c || !el) return;
-
-  const initials = c.fullName.split(" ").map(n => n[0]).join("");
-  const inviteMsg = c.linkedinMessage || `Hi ${c.firstName}, I saw your role as ${c.jobTitle} at ${c.company}. I'd love to share how we secure database operations for CU platforms. Let's connect!`;
-
-  el.innerHTML = `
-    <div style="width:100%; border:1px solid #e0e0e0; background:#ffffff; border-radius:8px; text-align:left; overflow:hidden;">
-      <div style="height:65px; background:linear-gradient(90deg, #a0b2c6, #cbd5e1);"></div>
-      <div style="padding: 0 16px; margin-top:-25px; display:flex; justify-content:space-between; align-items:flex-end;">
-        <div style="width:50px; height:50px; border-radius:50%; background:#0077b5; border:3px solid #ffffff; display:flex; align-items:center; justify-content:center; color:#ffffff; font-weight:bold; font-size:18px;">${initials}</div>
-        <span style="font-size:10.5px; background:#e1f5fe; color:#0288d1; font-weight:bold; padding:2px 8px; border-radius:10px;">${c.leadTemp}</span>
-      </div>
-      <div style="padding:12px 16px 16px;">
-        <h4 style="margin:0; font-size:15px; color:#191919;">${c.fullName}</h4>
-        <div style="font-size:12px; color:#5e5e5e; margin-top:2px;">${c.jobTitle} at <strong>${c.company}</strong></div>
-        <div style="font-size:11px; color:#8c8c8c; margin-top:2px;">Industry: ${c.industry} • Match: ${c.matchPercentage}%</div>
-        
-        <div style="border-top:1px solid #e0e0e0; margin-top:14px; padding-top:12px;">
-          <div style="font-size:11px; font-weight:bold; color:#191919; margin-bottom:6px;">Personalized Invitation Note</div>
-          <div style="font-size:11.5px; line-height:1.45; background:#f3f6f8; color:#191919; padding:8px 10px; border-radius:4px; border:1px solid #e0e0e0;">
-            ${inviteMsg}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-};
-
-function renderLemlistSandbox(viewport) {
-  const enrolled = database.contacts.filter(c => c.emailsSent);
-  let rows = "";
-  enrolled.forEach(c => {
-    const template = c.leadTemp === "Hot Lead" ? "fintech_cto_llm" : "general_gtm";
-    rows += `
-      <tr style="border-bottom:1px solid var(--hairline); text-align:left;">
-        <td style="padding:8px; font-weight:600;">${c.fullName}</td>
-        <td style="padding:8px;"><code>${c.email}</code></td>
-        <td style="padding:8px; font-family:monospace;">#lemlist_${template}</td>
-        <td style="padding:8px; color:var(--brand-coral); font-weight:bold;">100% (Sent)</td>
-        <td style="padding:8px; color:var(--muted); font-size:11px;">Draft Review Only</td>
-      </tr>
-    `;
-  });
-
-  viewport.innerHTML = `
-    <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> Lemlist Campaigns Dashboard</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:12px;">View prospective sequences pushed from GTM Console. Total Pushed: <strong>${enrolled.length}</strong>. Direct dispatch is locked under review guardrails.</p>
-      
-      <div style="background:#f8f9fa; border:1px solid var(--hairline); border-radius: var(--radius-sm); padding:10px 14px; margin-bottom:16px; font-size:11.5px; text-align:left;">
-        <span style="font-weight:600; color:var(--ink);">Active MCP Server:</span> <code>${database.lemlistMcpCommand} ${database.lemlistMcpArgs}</code>
-      </div>
-
-      <table style="width:100%; border-collapse:collapse; font-size:12px;">
-        <thead>
-          <tr style="background:var(--surface-soft); text-align:left; border-bottom:1.5px solid var(--hairline);">
-            <th style="padding:8px;">Recipient</th>
-            <th style="padding:8px;">Email Address</th>
-            <th style="padding:8px;">Campaign Sequence</th>
-            <th style="padding:8px;">Sync Progress</th>
-            <th style="padding:8px;">Sending Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || '<tr><td colspan="5" style="padding:30px; text-align:center; color:var(--muted);">No sequences synced yet. Start campaign flows in Agent Mode.</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function renderZerobounceSandbox(viewport) {
-  let rows = "";
-  database.contacts.forEach((c, idx) => {
-    let status = "Unverified";
-    let color = "var(--muted)";
-    if (c.email) {
-      if (c.email.includes("invalid") || c.email.includes("test")) {
-        status = "Invalid";
-        color = "#ef4444";
-      } else {
-        status = "Valid";
-        color = "var(--success)";
-      }
-    }
-    rows += `
-      <tr style="border-bottom:1px solid var(--hairline); text-align:left;">
-        <td style="padding:8px; font-weight:600;">${c.fullName}</td>
-        <td style="padding:8px; font-family:monospace;">${c.email || "N/A"}</td>
-        <td style="padding:8px; font-weight:bold; color:${color};">${status}</td>
-        <td style="padding:8px;">
-          <button class="btn btn-secondary btn-sm" onclick="verifyZeroBounce(${idx})">Verify</button>
-        </td>
-      </tr>
-    `;
-  });
-
-  viewport.innerHTML = `
-    <div style="text-align:left;">
-      <h3 style="margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing:0.5px; margin-top:0;"> ZeroBounce Email Validator</h3>
-      <p style="font-size:12px; color:var(--muted); margin-bottom:16px;">Perform real-time checkups on lead email bounce rates. Validation results prevent bounces and protect sender score reputation.</p>
-      <table style="width:100%; border-collapse:collapse; font-size:12px;">
-        <thead>
-          <tr style="background:var(--surface-soft); text-align:left; border-bottom:1.5px solid var(--hairline);">
-            <th style="padding:8px;">Prospect</th>
-            <th style="padding:8px;">Email</th>
-            <th style="padding:8px;">Verification Status</th>
-            <th style="padding:8px;">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--muted);">No prospects available.</td></tr>'}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-window.verifyZeroBounce = function (idx) {
-  const c = database.contacts[idx];
-  if (!c || !c.email) return;
-  addLogConsole("enrich", `[ZEROBOUNCE] Verified email validity for ${c.email}: VALID.`, "success");
-  alert(`ZeroBounce Verification Success!\nEmail: ${c.email}\nStatus: Valid [Safe to Send]`);
-  switchSandboxTab('zerobounce');
-};
-
-// --- CALENDAR & CALENDLY CUSTOM INTEGRATION METHODS ---
-
-function deleteContactRecord(id) {
-  if (!confirm("Are you sure you want to delete this contact and all their associated outreach history?")) {
-    return;
-  }
-  
-  const contactIndex = database.contacts.findIndex(c => c.id === id);
-  if (contactIndex === -1) return;
-  
-  const contact = database.contacts[contactIndex];
-  database.contacts.splice(contactIndex, 1);
-  
-  if (database.meetings) {
-    database.meetings = database.meetings.filter(m => m.contactEmail !== contact.email);
-  }
-  
-  saveDatabaseCache();
-  addLogConsole("enrich", `[SYSTEM] Deleted contact record for ${contact.fullName}`, "warning");
-  
-  filterUploadTable();
-  filterInfluencersTable();
-  filterOutboundTable();
-  if (currentTabId === 'campaign-schedule') {
-    renderScheduleMeetings();
-  }
-}
-
-function saveCalendlySettings() {
-  const el = document.getElementById("settings-calendly-url");
-  if (el) {
-    database.calendlyUrl = el.value;
-    localStorage.setItem("gtm_calendly_url", el.value);
-    addLogConsole("enrich", `[SYSTEM] Saved Calendly booking page URL to settings.`, "info");
-  }
-}
-
-function saveCalendarSyncSettings() {
-  const el = document.getElementById("settings-calendar-sync");
-  if (el) {
-    database.calendarSyncService = el.value;
-    localStorage.setItem("gtm_calendar_sync_service", el.value);
-    addLogConsole("enrich", `[SYSTEM] Updated primary calendar synchronization provider to: ${el.value.toUpperCase()}`, "info");
-  }
-}
-
-function insertCalendlyLink(textareaId) {
-  const textarea = document.getElementById(textareaId);
-  if (!textarea) return;
-
-  const calendlyUrl = database.calendlyUrl || "https://calendly.com/aditya-dixit/30min";
-  const insertionText = `\n\nHere is my booking link to schedule a brief call: ${calendlyUrl}`;
-  
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const val = textarea.value;
-
-  if (typeof start === 'number') {
-    textarea.value = val.substring(0, start) + insertionText + val.substring(end);
-    textarea.focus();
-    textarea.selectionStart = textarea.selectionEnd = start + insertionText.length;
-  } else {
-    textarea.value += insertionText;
-  }
-
-  const contact = database.selectedContact;
-  if (contact) {
-    if (textareaId === 'email-draft-body') {
-      const subjectInput = document.getElementById("email-draft-subject");
-      contact.emailDraft = {
-        subject: subjectInput ? subjectInput.value : contact.emailDraft.subject,
-        body: textarea.value
-      };
-    } else if (textareaId === 'linkedin-draft-text') {
-      contact.linkedinDraft = textarea.value;
-    }
-    saveDatabaseCache();
-  }
-}
-
-function saveManualMeeting() {
-  const contact = database.selectedContact;
-  if (!contact) return;
-
-  const platform = document.getElementById("booking-platform").value;
-  const datetimeVal = document.getElementById("booking-datetime").value;
-  const notes = document.getElementById("booking-notes").value;
-
-  if (!datetimeVal) {
-    alert("Please select a date and time for the meeting.");
-    return;
-  }
-
-  const dt = new Date(datetimeVal);
-  const timeString = dt.toLocaleDateString() + " at " + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const meetingId = Math.random().toString(36).substring(2, 11);
-  const meetingUrl = platform === "Google Meet" 
-    ? `https://meet.google.com/${meetingId.slice(0,3)}-${meetingId.slice(3,7)}-${meetingId.slice(7,10)}`
-    : `https://teams.microsoft.com/l/meetup-join/${meetingId}`;
-
-  let influencerName = "Direct Outreach";
-  let influencerCredits = 0;
-  
-  if (contact.referredBy) {
-    const influencer = database.contacts.find(c => c.isInfluencer === true && c.fullName === contact.referredBy);
-    if (influencer) {
-      influencerName = influencer.fullName;
-      influencerCredits = 20;
-      if (!influencer.referrals) influencer.referrals = [];
-      const isDuplicate = influencer.referrals.some(r => r.email === contact.email);
-      if (!isDuplicate) {
-        influencer.referrals.push({
-          fullName: contact.fullName,
-          jobTitle: contact.jobTitle,
-          company: contact.company,
-          email: contact.email,
-          credits: 20,
-          date: new Date().toLocaleDateString()
-        });
-        influencer.referralCredits = (influencer.referralCredits || 0) + 20;
-      }
+    // Populate Call channel
+    const callProspectId = document.getElementById('call-logger-prospect-id');
+    const twilioTarget = document.getElementById('twilio-dialing-target');
+    if (callProspectId) callProspectId.value = contact.id;
+    if (twilioTarget) twilioTarget.textContent = contact.phone || '+1 (555) 234-5678';
+
+    // Populate LinkedIn channel
+    const linkedinProspectId = document.getElementById('linkedin-logger-prospect-id');
+    const linkedinTargetName = document.getElementById('linkedin-dialog-target-name');
+    const linkedinTargetHeadline = document.getElementById('linkedin-dialog-target-headline');
+    const linkedinProfileLink = document.getElementById('linkedin-dialog-profile-link');
+    if (linkedinProspectId) linkedinProspectId.value = contact.id;
+    if (linkedinTargetName) linkedinTargetName.textContent = contact.fullName;
+    if (linkedinTargetHeadline) linkedinTargetHeadline.textContent = `${contact.jobTitle} · ${contact.company}`;
+    if (linkedinProfileLink) {
+      linkedinProfileLink.href = contact.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(contact.fullName + ' ' + contact.company)}`;
     }
   }
 
-  const newMeet = {
-    id: "meet-" + Date.now(),
-    contactName: contact.fullName,
-    contactTitle: contact.jobTitle,
-    contactCompany: contact.company,
-    contactEmail: contact.email,
-    contactPhone: contact.phone || "+1 (555) 000-0000",
-    platform: platform,
-    meetingUrl: meetingUrl,
-    timeString: timeString,
-    influencerName: influencerName,
-    influencerCredits: influencerCredits,
-    notes: notes,
-    datetimeRaw: datetimeVal
-  };
+  // Wire up Outreach channel tabs
+  document.getElementById('channel-tab-email')?.addEventListener('click', () => switchOutreachChannel('email'));
+  document.getElementById('channel-tab-call')?.addEventListener('click', () => switchOutreachChannel('call'));
+  document.getElementById('channel-tab-linkedin')?.addEventListener('click', () => switchOutreachChannel('linkedin'));
 
-  if (!database.meetings) database.meetings = [];
-  database.meetings.push(newMeet);
-  contact.leadTemp = "Hot Lead";
-
-  saveDatabaseCache();
-  addLogConsole("enrich", `[CALENDAR SYNC] Booked meeting with ${contact.fullName} on ${platform} (${timeString}).`, "success");
-  
-  if (database.calendarSyncService === 'google') {
-    const startStr = dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const endStr = new Date(dt.getTime() + 30 * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const gCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Outbound Briefing: " + contact.company)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(notes + "\n\nJoin Link: " + meetingUrl)}&location=${encodeURIComponent(platform)}`;
-    
-    window.open(gCalUrl, "_blank");
-    addLogConsole("enrich", `[GOOGLE CALENDAR] Sync request complete. Opened new calendar event creation page.`, "success");
-  } else {
-    exportICSFile(contact.email);
-    addLogConsole("enrich", `[${database.calendarSyncService.toUpperCase()} CALENDAR] Sync complete. Exported local iCal meeting invitation.`, "success");
-  }
-
-  filterOutboundTable();
-  loadOutboundDrawer(contact, 'calendar');
-}
-
-function simulateCalendlyWebhook() {
-  if (!database.contacts || database.contacts.length === 0) {
-    alert("Please upload database contacts first.");
-    return;
-  }
-
-  const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-  if (prospects.length === 0) {
-    alert("No prospects found to schedule with.");
-    return;
-  }
-
-  const unscheduled = prospects.find(p => !database.meetings || !database.meetings.some(m => m.contactEmail === p.email));
-  const contact = unscheduled || prospects[0];
-
-  const now = new Date();
-  const meetingDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-  meetingDate.setHours(10, 0, 0, 0);
-
-  const timeString = meetingDate.toLocaleDateString() + " at 10:00 AM (EST)";
-  const platform = "Google Meet";
-  const meetingId = Math.random().toString(36).substring(2, 11);
-  const meetingUrl = `https://meet.google.com/${meetingId.slice(0,3)}-${meetingId.slice(3,7)}-${meetingId.slice(7,10)}`;
-
-  let influencerName = "Direct Outreach";
-  let influencerCredits = 0;
-  
-  if (contact.referredBy) {
-    const influencer = database.contacts.find(c => c.isInfluencer === true && c.fullName === contact.referredBy);
-    if (influencer) {
-      influencerName = influencer.fullName;
-      influencerCredits = 20;
-      if (!influencer.referrals) influencer.referrals = [];
-      const isDuplicate = influencer.referrals.some(r => r.email === contact.email);
-      if (!isDuplicate) {
-        influencer.referrals.push({
-          fullName: contact.fullName,
-          jobTitle: contact.jobTitle,
-          company: contact.company,
-          email: contact.email,
-          credits: 20,
-          date: new Date().toLocaleDateString()
-        });
-        influencer.referralCredits = (influencer.referralCredits || 0) + 20;
-      }
+  function renderOutreachContacts(list = relationships) {
+    if (!outreachContactsList) return;
+    if (outreachContactsTotal) outreachContactsTotal.textContent = list.length;
+    const query = (outreachSearchInput?.value || '').trim().toLowerCase();
+    const filtered = list.filter(contact => [contact.fullName, contact.company, contact.jobTitle, contact.email]
+      .some(value => String(value || '').toLowerCase().includes(query)));
+    outreachContactsList.replaceChildren();
+    if (!filtered.length) {
+      const empty = document.createElement('p');
+      empty.className = 'outreach-contacts-empty';
+      empty.textContent = list.length ? 'No contacts match your search.' : 'No contacts yet.';
+      outreachContactsList.appendChild(empty);
+      return;
     }
-  }
-
-  const newMeet = {
-    id: "meet-" + Date.now(),
-    contactName: contact.fullName,
-    contactTitle: contact.jobTitle,
-    contactCompany: contact.company,
-    contactEmail: contact.email,
-    contactPhone: contact.phone || "+1 (555) 000-0000",
-    platform: platform,
-    meetingUrl: meetingUrl,
-    timeString: timeString,
-    influencerName: influencerName,
-    influencerCredits: influencerCredits,
-    notes: `Simulated Calendly Webhook slot booking for ${contact.company}.`,
-    datetimeRaw: meetingDate.toISOString()
-  };
-
-  if (!database.meetings) database.meetings = [];
-  database.meetings.push(newMeet);
-  contact.leadTemp = "Hot Lead";
-
-  saveDatabaseCache();
-  
-  addLogConsole("enrich", `[CALENDLY WEBHOOK] Incoming Calendly Slot Booking webhook payload received.`, "success");
-  addLogConsole("enrich", `[CALENDLY WEBHOOK] Automatically booked slot for ${contact.fullName} on ${platform} (${timeString}).`, "success");
-  
-  exportICSFile(contact.email);
-  addLogConsole("enrich", `[CALENDAR SYNC] Triggered local calendar sync and ICS export download.`, "success");
-
-  filterOutboundTable();
-  if (currentTabId === 'campaign-schedule') {
-    renderScheduleMeetings();
-  }
-}
-
-function exportICSFile(email) {
-  const meet = database.meetings ? database.meetings.find(m => m.contactEmail === email) : null;
-  if (!meet) return;
-
-  const dt = meet.datetimeRaw ? new Date(meet.datetimeRaw) : new Date();
-  const startStr = dt.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-  const endStr = new Date(dt.getTime() + 30 * 60 * 1000).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-
-  const icsContent = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Hootsworth BDR//Campaign Console//EN",
-    "BEGIN:VEVENT",
-    `UID:${meet.id}@hootsworth-bdr.app`,
-    `DTSTAMP:${startStr}`,
-    `DTSTART:${startStr}`,
-    `DTEND:${endStr}`,
-    `SUMMARY:Outbound Briefing: ${meet.contactCompany}`,
-    `DESCRIPTION:${meet.notes ? meet.notes.replace(/\n/g, "\\n") : ""}\\n\\nJoin Link: ${meet.meetingUrl}`,
-    `LOCATION:${meet.platform}`,
-    "END:VEVENT",
-    "END:VCALENDAR"
-  ].join("\r\n");
-
-  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8;' });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.setAttribute("download", `briefing_${meet.contactName.replace(/\s+/g, "_").toLowerCase()}.ics`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Bind to window context
-window.deleteContactRecord = deleteContactRecord;
-window.saveCalendlySettings = saveCalendlySettings;
-window.saveCalendarSyncSettings = saveCalendarSyncSettings;
-window.insertCalendlyLink = insertCalendlyLink;
-window.simulateCalendlyWebhook = simulateCalendlyWebhook;
-window.saveManualMeeting = saveManualMeeting;
-window.exportICSFile = exportICSFile;
-window.changeCalendarMonth = changeCalendarMonth;
-window.renderDashboard = renderDashboard;
-window.renderDashboardActivityFeed = renderDashboardActivityFeed;
-
-
-// --- DASHBOARD DATA AND ACTIVITY RENDERING ---
-
-function renderDashboard() {
-  const totalContactsEl = document.getElementById("dashboard-total-contacts");
-  const prospectsCountEl = document.getElementById("dashboard-prospects-count");
-  const enrichedContactsEl = document.getElementById("dashboard-enriched-contacts");
-  const outboundSentEl = document.getElementById("dashboard-outbound-sent");
-  const meetingsBookedEl = document.getElementById("dashboard-meetings-booked");
-  const agentStatusTextEl = document.getElementById("dashboard-agent-status-text");
-  const pipelinePctEl = document.getElementById("dashboard-pipeline-pct");
-  const pipelineFillEl = document.getElementById("dashboard-pipeline-fill");
-  const hotLeadsCountEl = document.getElementById("dashboard-hot-leads-count");
-  const openBriefsCountEl = document.getElementById("dashboard-open-briefs-count");
-  const apiStatusChipEl = document.getElementById("dashboard-api-status-chip");
-
-  if (!totalContactsEl) return;
-
-  const total = database.contacts.length;
-  const influencersCount = database.contacts.filter(c => c.isInfluencer === true).length;
-  const prospectsCount = database.contacts.filter(c => c.isInfluencer !== true).length;
-  const enriched = database.contacts.filter(c => c.enriched).length;
-  const emailsCount = database.contacts.filter(c => c.emailsSent).length;
-  const linkedinCount = database.contacts.filter(c => c.linkedinSent).length;
-  const outbound = emailsCount + linkedinCount + (database.stats.emailsSent || 0) + (database.stats.linkedinSent || 0);
-
-  // Calculate meetings booked from the schedule
-  const meetings = database.meetings ? database.meetings.length : 0;
-  const hotLeads = database.contacts.filter(c => c.leadTemp === "Hot Lead").length;
-
-  totalContactsEl.textContent = influencersCount.toLocaleString();
-  if (prospectsCountEl) prospectsCountEl.textContent = prospectsCount.toLocaleString();
-  enrichedContactsEl.textContent = enriched.toLocaleString();
-  outboundSentEl.textContent = outbound.toLocaleString();
-  meetingsBookedEl.textContent = meetings.toLocaleString();
-
-  // Progress Bar
-  const enrichmentPct = total > 0 ? Math.round((enriched / total) * 100) : 0;
-  if (pipelinePctEl) pipelinePctEl.textContent = `${enrichmentPct}%`;
-  if (pipelineFillEl) pipelineFillEl.style.width = `${enrichmentPct}%`;
-
-  // Hot Leads & Briefings
-  if (hotLeadsCountEl) hotLeadsCountEl.textContent = hotLeads.toLocaleString();
-  if (openBriefsCountEl) openBriefsCountEl.textContent = meetings.toLocaleString();
-
-  // API sync key status chip
-  if (apiStatusChipEl) {
-    if (database.exploriumApiKey) {
-      apiStatusChipEl.textContent = "Verified";
-      apiStatusChipEl.style.color = "var(--success)";
-      apiStatusChipEl.style.borderColor = "var(--success)";
-    } else {
-      apiStatusChipEl.textContent = "Offline";
-      apiStatusChipEl.style.color = "var(--muted)";
-      apiStatusChipEl.style.borderColor = "var(--hairline)";
-    }
-  }
-
-  // Agent Status Text
-  if (agentStatusTextEl) {
-    if (total === 0) {
-      agentStatusTextEl.textContent = "Inactive. Please upload a CSV dataset to initialize campaigns.";
-    } else if (enrichmentPct < 100) {
-      agentStatusTextEl.textContent = `Enrichment pipeline active. Enriched ${enriched} of ${total} leads.`;
-    } else {
-      agentStatusTextEl.textContent = "Idle. All leads verified and ready for outbound sequences.";
-    }
-  }
-
-  // Activity Feed
-  renderDashboardActivityFeed();
-}
-
-function renderDashboardActivityFeed() {
-  const feedEl = document.getElementById("dashboard-activity-feed");
-  if (!feedEl) return;
-
-  if (!database.recentActivities || database.recentActivities.length === 0) {
-    // Generate default initial history logs if empty
-    database.recentActivities = [
-      { type: "success", text: "GTM Console loaded successfully.", time: new Date().toLocaleTimeString() },
-      { type: "info", text: "Simulated sandbox databases initialized.", time: new Date().toLocaleTimeString() },
-      { type: "info", text: "Connected to Clerk auth gate servers.", time: new Date().toLocaleTimeString() }
-    ];
-
-    if (database.contacts.length > 0) {
-      database.recentActivities.unshift(
-        { type: "success", text: `Cached list containing ${database.contacts.length} leads loaded successfully.`, time: new Date().toLocaleTimeString() },
-        { type: "info", text: "GTM Research Copilot scanning target personas.", time: new Date().toLocaleTimeString() }
+    filtered.forEach(contact => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      const isContacted = Boolean(
+        contact.outreachStatus === 'Contacted' ||
+        contact.outreachStatus === 'Intro Sent' ||
+        contact.lastContactedAt ||
+        (contact.optInCount && contact.optInCount > 0)
       );
+      item.className = `outreach-contact-item ${isContacted ? 'is-contacted' : 'is-pending'}`;
+      item.dataset.contactId = contact.id;
+      item.setAttribute('aria-pressed', String(contact.id === activeOutreachProspectId));
+      item.classList.toggle('active', contact.id === activeOutreachProspectId);
+      
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; width:100%; gap:6px;';
+      const name = document.createElement('strong');
+      name.textContent = contact.fullName;
+      const statusBadge = document.createElement('span');
+      statusBadge.className = `contact-status-badge ${isContacted ? 'badge-contacted' : 'badge-uncontacted'}`;
+      statusBadge.textContent = isContacted ? 'Contacted' : 'Not Contacted';
+      topRow.append(name, statusBadge);
+
+      const detail = document.createElement('span');
+      detail.textContent = [contact.jobTitle, contact.company].filter(Boolean).join(' · ') || contact.email || 'Contact';
+      item.append(topRow, detail);
+      item.addEventListener('click', () => selectOutreachContact(contact));
+      outreachContactsList.appendChild(item);
+    });
+    const selected = filtered.find(contact => contact.id === activeOutreachProspectId);
+    if (selected) selectOutreachContact(selected);
+    else if (filtered.length) selectOutreachContact(filtered[0]);
+  }
+
+  outreachSearchInput?.addEventListener('input', () => renderOutreachContacts());
+
+  async function loadOutreachStatus() {
+    try {
+      const [gmailRes, twilioRes] = await Promise.all([
+        api('/api/go/outreach/gmail/status'),
+        api('/api/go/outreach/twilio/status')
+      ]);
+
+      gmailConnected = !!gmailRes.connected;
+      twilioEnabled = !!twilioRes.enabled;
+
+      const statusEl = document.getElementById('outreach-gmail-status');
+      const grantBtn = document.getElementById('grant-gmail-perm-btn');
+      if (statusEl) {
+        if (gmailConnected) {
+          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Gmail Connected (${gmailRes.email || currentPartner?.email || ''})</span>`;
+          if (grantBtn) grantBtn.style.display = 'none';
+        } else {
+          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Permission Required</span>`;
+          if (grantBtn) grantBtn.style.display = 'inline-block';
+        }
+      }
+    } catch (err) {
+      console.warn('Outreach status error:', err);
     }
   }
 
-  feedEl.innerHTML = "";
-  database.recentActivities.forEach(act => {
-    const item = document.createElement("div");
-    item.className = "feed-item";
+  // Load Workspace Data
+  async function loadAllData() {
+    try {
+      await Promise.all([
+        loadRelationships(),
+        loadInbox(),
+        loadRewards(),
+        loadOutreachStatus(),
+        loadSettings()
+      ]);
+      updateStats();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
 
-    let icon = "";
-    let badgeBg = "rgba(10, 10, 10, 0.1)";
-    let badgeColor = "var(--ink)";
+  async function loadRelationships() {
+    relationships = await api('/api/go/relationships');
+    renderRelationshipsTable(relationships);
+    renderReachCards(relationships);
+    renderOutreachContacts();
+  }
 
-    if (act.type === "success") {
-      icon = "";
-      badgeBg = "rgba(34, 197, 94, 0.1)";
-      badgeColor = "var(--success)";
-    } else if (act.type === "error") {
-      icon = "";
-      badgeBg = "rgba(239, 68, 68, 0.1)";
-      badgeColor = "var(--error)";
-    } else if (act.type === "warning") {
-      icon = "";
-      badgeBg = "rgba(245, 158, 11, 0.1)";
-      badgeColor = "var(--warning)";
-    } else if (act.type === "info") {
-      icon = "";
-      badgeBg = "rgba(59, 130, 246, 0.1)";
-      badgeColor = "#3b82f6";
+  async function loadInbox() {
+    inboxRequests = await api('/api/go/inbox');
+    renderInbox();
+  }
+
+  async function loadRewards() {
+    rewardsData = await api('/api/go/rewards');
+    renderRewards();
+  }
+
+  function updateStats() {
+    if (!currentPartner) return;
+    const pendingCount = inboxRequests.filter(r => r.status === 'pending_partner_review').length;
+    if (inboxBadge) inboxBadge.textContent = pendingCount;
+    if (statContacts) statContacts.textContent = relationships.length;
+    if (statPending) statPending.textContent = pendingCount;
+    if (statOptins) statOptins.textContent = relationships.reduce((acc, r) => acc + (r.optInCount || 0), 0);
+    if (statTrust) statTrust.textContent = '96 / 100';
+    if (statPipeline) statPipeline.textContent = '$185,000';
+    if (statRevenue) statRevenue.textContent = `$${(currentPartner.verifiedRevenue || 45000).toLocaleString()}`;
+    renderNotifications();
+  }
+
+  // Render Relationships Table
+  function renderRelationshipsTable(list) {
+    tableContactsCount.textContent = list.length;
+    contactsTbody.innerHTML = '';
+
+    if (list.length === 0) {
+      contactsTbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center; padding:32px; color:var(--muted);">
+            No contacts added yet. Add a contact above to get started.
+          </td>
+        </tr>`;
+      return;
     }
 
-    item.innerHTML = `
-      <span class="feed-icon">${icon}</span>
-      <div class="feed-details">
-        <span class="feed-time">${act.time}</span>
-        <span class="feed-text">${act.text}</span>
-        <span class="feed-badge" style="background: ${badgeBg}; color: ${badgeColor}; border-color: ${badgeColor}">${act.type}</span>
-      </div>
-    `;
-    feedEl.appendChild(item);
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      const strengthClass = item.relationshipStrength || 'strong';
+      tr.innerHTML = `
+        <td>
+          <strong style="color:var(--ink);">${item.fullName}</strong>
+          <div style="font-size:12px; color:var(--muted);">${item.jobTitle || 'Executive'}</div>
+        </td>
+        <td>
+          <span style="font-weight:500;">${item.company}</span>
+          <div style="font-size:12px; color:var(--muted);">${item.email}</div>
+        </td>
+        <td>
+          <span class="badge-tag ${strengthClass}">${strengthClass.toUpperCase()}</span>
+        </td>
+        <td>
+          <div style="font-size:13px; max-width:300px;">${item.relationshipContext || 'Advisory relationship'}</div>
+          ${item.phone ? `<div class="code-text" style="color:var(--muted); font-size:11px;">${item.phone}</div>` : ''}
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="window.quickReachOut('${item.id}')">
+            Contact
+          </button>
+        </td>
+      `;
+      contactsTbody.appendChild(tr);
+    });
+  }
+
+  // Render Influencers Reach Cards
+  function renderReachCards(list) {
+    if (!reachCardsGrid) return;
+    reachCardsGrid.innerHTML = '';
+    if (list.length === 0) {
+      reachCardsGrid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><p>No contacts available for reach.</p></div>`;
+      return;
+    }
+
+    list.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.padding = '18px';
+
+      // Call button: If Twilio is enabled, show direct Call dialer; if disabled, show 'Mark as Called'
+      const callButtonHtml = twilioEnabled
+        ? `<button class="btn btn-secondary btn-sm" type="button" onclick="window.openCallDialog('${item.id}')">Call</button>`
+        : `<button class="btn btn-tertiary btn-sm" type="button" onclick="window.openCallDialog('${item.id}')">Mark as Called</button>`;
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+          <div>
+            <strong style="color:var(--ink); font-size:16px;">${item.fullName}</strong>
+            <div style="font-size:13px; color:var(--muted);">${item.jobTitle} · ${item.company}</div>
+          </div>
+          <span class="badge-tag ${item.relationshipStrength || 'strong'}">${(item.relationshipStrength || 'strong').toUpperCase()}</span>
+        </div>
+        <p style="font-size:12px; color:var(--body); margin: 8px 0 14px;">
+          ${item.relationshipContext || 'Strategic partner connection.'}
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" type="button" onclick="window.openEmailComposer('${item.id}')">Send Email</button>
+          ${callButtonHtml}
+          <button class="btn btn-secondary btn-sm" type="button" onclick="window.openLinkedInDialog('${item.id}')">LinkedIn</button>
+        </div>
+      `;
+      reachCardsGrid.appendChild(card);
+    });
+  }
+
+  // Render Inbox (Introduction Requests with Double Opt-In Flow & AI Timeline Pills)
+  function renderInbox() {
+    introRequestsList.innerHTML = '';
+    const pending = inboxRequests.filter(r => r.status === 'pending_partner_review');
+
+    if (inboxRequests.length === 0) {
+      introRequestsList.innerHTML = `
+        <div class="card empty-state">
+          <h3 class="title-md">No Introduction Requests</h3>
+          <p>When vendors find a high-match path to your network, their request briefs will arrive here for your explicit review.</p>
+        </div>`;
+      return;
+    }
+
+    inboxRequests.forEach(req => {
+      const card = document.createElement('div');
+      card.className = 'intro-request-card';
+
+      // Pick timeline pill style
+      let pillClass = 'thinking';
+      let pillLabel = 'Pending';
+      if (req.status === 'partner_approved' || req.status === 'pending_contact_opt_in') {
+        pillClass = 'grep';
+        pillLabel = 'Awaiting Response';
+      } else if (req.status === 'opted_in' || req.status === 'contact_accepted') {
+        pillClass = 'read';
+        pillLabel = 'Accepted';
+      } else if (req.status === 'declined' || req.status === 'partner_declined') {
+        pillClass = 'edit';
+        pillLabel = 'Declined';
+      } else if (req.status === 'settled' || req.status === 'deal_closed') {
+        pillClass = 'done';
+        pillLabel = 'Completed';
+      }
+
+      const isPending = req.status === 'pending_partner_review';
+
+      card.innerHTML = `
+        <div class="request-card-head">
+          <div>
+            <span class="timeline-pill ${pillClass}">${pillLabel}</span>
+            <span style="font-size:13px; color:var(--muted); margin-left:10px;">ID: <span class="code-text">${req.id}</span></span>
+          </div>
+          <span class="score-badge">Match: ${req.warmPathScore || 90}%</span>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <h3 class="title-md" style="margin-bottom: 4px;">
+            <strong style="color:var(--primary);">${req.vendorName}</strong> requesting introduction to <strong>${req.prospectName}</strong> (${req.prospectCompany})
+          </h3>
+        </div>
+
+        <div class="brief-box">
+          <strong>Summary</strong>
+          <p>${req.forwardableBrief}</p>
+        </div>
+
+        <div class="brief-box" style="margin-bottom: 16px;">
+          <strong>Details</strong>
+          <p>${req.specificAsk}</p>
+        </div>
+
+        ${isPending ? `
+          <div class="request-actions">
+            <button class="btn btn-primary" onclick="window.reviewRequest('${req.id}', 'approved')">
+              Approve
+            </button>
+            <button class="btn btn-secondary" onclick="window.reviewRequest('${req.id}', 'declined')">
+              Decline
+            </button>
+            <button class="btn btn-tertiary" onclick="window.reviewRequest('${req.id}', 'needs_context')">
+              Details
+            </button>
+          </div>
+        ` : ''}
+
+        ${req.optInToken ? `
+          <div style="margin-top:14px; padding:12px 14px; background:var(--canvas-soft); border-radius:var(--radius-md); border:1px solid var(--hairline-strong); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:13px;">
+              <strong>Opt-In Link:</strong>
+              <span class="code-text" style="color:var(--primary); margin-left:6px;">/api/connectem/opt-in?token=${req.optInToken}</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(window.location.origin + '/api/connectem/opt-in?token=${req.optInToken}'); window.showToast('Opt-in link copied!');">
+              Copy Link
+            </button>
+          </div>
+        ` : ''}
+      `;
+      introRequestsList.appendChild(card);
+    });
+  }
+
+  // Render Rewards Ledger
+  function renderRewards() {
+    if (!rewardsData) return;
+    const balance = rewardsData.creditsBalance ?? rewardsData.pointsBalance ?? 0;
+    if (rewardsPointsBalance) rewardsPointsBalance.textContent = `${balance.toLocaleString()} credits`;
+    if (rewardsRevenueAmount) rewardsRevenueAmount.textContent = `$${(rewardsData.verifiedRevenue || 0).toLocaleString()}`;
+
+    const creditsInput = document.getElementById('rewards-credits-to-apply');
+    if (creditsInput) creditsInput.max = String(balance);
+
+    const milestonesList = document.getElementById('credit-milestones-list');
+    if (milestonesList) {
+      milestonesList.replaceChildren();
+      (rewardsData.milestones || []).forEach(milestone => {
+        const row = document.createElement('div');
+        row.className = 'milestone-row';
+        const title = document.createElement('span');
+        title.textContent = milestone.name;
+        const amount = document.createElement('strong');
+        amount.textContent = `+${Number(milestone.credits).toLocaleString()} credits`;
+        row.append(title, amount);
+        milestonesList.appendChild(row);
+      });
+    }
+    renderRewardCatalog();
+    renderRewardsCart();
+    renderRedemptionRequests();
+
+    attributionLedgerTbody.innerHTML = '';
+    if (!rewardsData.history || rewardsData.history.length === 0) {
+      attributionLedgerTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--muted);">No attribution events recorded yet.</td></tr>`;
+      return;
+    }
+
+    rewardsData.history.forEach(item => {
+      const tr = document.createElement('tr');
+      const stageLabels = {
+        opt_in_accepted: 'Warm introduction',
+        meeting_held: 'Qualified meeting',
+        opportunity_created: 'Opportunity created',
+        deal_won: 'Customer close',
+        customer_expansion: 'Customer expansion'
+      };
+      tr.innerHTML = `
+        <td><span class="timeline-pill done">${stageLabels[item.stage] || item.stage}</span></td>
+        <td><strong class="code-text">+${(item.creditsAwarded ?? item.pointsAwarded).toLocaleString()} credits</strong></td>
+        <td><strong style="color:var(--semantic-success);">$${(item.verifiedRevenue || 0).toLocaleString()}</strong></td>
+        <td style="font-size:13px;">${item.notes || 'Milestone achieved'}</td>
+        <td class="code-text" style="font-size:12px; color:var(--muted);">${new Date(item.timestamp).toLocaleDateString()}</td>
+      `;
+      attributionLedgerTbody.appendChild(tr);
+    });
+  }
+
+  function renderRewardCatalog() {
+    const grid = document.getElementById('rewards-catalog-grid');
+    if (!grid) return;
+    grid.replaceChildren();
+    const items = rewardsData.catalog || [];
+    const filteredItems = activeRewardCategory === 'all'
+      ? items
+      : items.filter(item => item.category === activeRewardCategory);
+    filteredItems.forEach(reward => {
+      const card = document.createElement('article');
+      card.className = 'reward-product-card';
+      const category = document.createElement('span');
+      category.className = 'reward-product-category';
+      category.textContent = reward.category;
+      const title = document.createElement('h4');
+      title.textContent = reward.name;
+      const description = document.createElement('p');
+      description.textContent = reward.description;
+      const button = document.createElement('button');
+      const inCart = rewardsCart.has(reward.id);
+      button.type = 'button';
+      button.className = inCart ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
+      button.dataset.rewardId = reward.id;
+      button.textContent = inCart ? 'Added to cart' : 'Add to cart';
+      button.setAttribute('aria-pressed', String(inCart));
+      card.append(category, title, description, button);
+      grid.appendChild(card);
+    });
+    if (!filteredItems.length) {
+      const empty = document.createElement('p');
+      empty.className = 'rewards-empty';
+      empty.textContent = 'No rewards in this category yet.';
+      grid.appendChild(empty);
+    }
+  }
+
+  function renderRewardsCart() {
+    const cart = document.getElementById('rewards-cart-items');
+    const count = document.getElementById('rewards-cart-count');
+    const submit = document.getElementById('redeem-submit-btn');
+    if (!cart) return;
+    cart.replaceChildren();
+    if (count) count.textContent = String(rewardsCart.size);
+    if (submit) submit.disabled = rewardsCart.size === 0;
+    if (!rewardsCart.size) {
+      const empty = document.createElement('p');
+      empty.className = 'rewards-cart-empty';
+      empty.textContent = 'Your cart is empty. Add a reward to start a request.';
+      cart.appendChild(empty);
+      return;
+    }
+    const catalog = rewardsData?.catalog || [];
+    rewardsCart.forEach(id => {
+      const reward = catalog.find(item => item.id === id);
+      if (!reward) return;
+      const row = document.createElement('div');
+      row.className = 'rewards-cart-item';
+      const name = document.createElement('span');
+      name.textContent = reward.name;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'rewards-cart-remove';
+      remove.dataset.removeReward = id;
+      remove.setAttribute('aria-label', `Remove ${reward.name}`);
+      remove.textContent = 'Remove';
+      row.append(name, remove);
+      cart.appendChild(row);
+    });
+  }
+
+  function renderRedemptionRequests() {
+    const list = document.getElementById('rewards-requests-list');
+    if (!list) return;
+    list.replaceChildren();
+    const requests = rewardsData?.redemptions || [];
+    if (!requests.length) {
+      const empty = document.createElement('p');
+      empty.className = 'rewards-empty';
+      empty.textContent = 'No redemption requests yet.';
+      list.appendChild(empty);
+      return;
+    }
+    requests.forEach(request => {
+      const row = document.createElement('article');
+      row.className = 'redemption-request-row';
+      const copy = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = (request.itemNames || []).join(', ');
+      const detail = document.createElement('p');
+      detail.textContent = `${request.creditsRequested.toLocaleString()} credits requested · ${new Date(request.submittedAt).toLocaleDateString()}`;
+      copy.append(title, detail);
+      const status = document.createElement('span');
+      status.className = 'redemption-status';
+      status.textContent = request.status.replaceAll('_', ' ');
+      row.append(copy, status);
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('rewards-catalog-grid')?.addEventListener('click', e => {
+    const button = e.target.closest('[data-reward-id]');
+    if (!button) return;
+    const id = button.dataset.rewardId;
+    if (rewardsCart.has(id)) rewardsCart.delete(id);
+    else rewardsCart.add(id);
+    renderRewardCatalog();
+    renderRewardsCart();
   });
-}
 
-function toggleSidebarCollapse() {
-  const sidebar = document.getElementById("sidebar-panel");
-  if (sidebar) {
-    sidebar.classList.toggle("collapsed");
-    const isCollapsed = sidebar.classList.contains("collapsed");
-    localStorage.setItem("gtm_sidebar_collapsed", isCollapsed ? "true" : "false");
-  }
-}
+  document.getElementById('rewards-cart-items')?.addEventListener('click', e => {
+    const button = e.target.closest('[data-remove-reward]');
+    if (!button) return;
+    rewardsCart.delete(button.dataset.removeReward);
+    renderRewardCatalog();
+    renderRewardsCart();
+  });
 
-function toggleNotificationDropdown() {
-  const dropdown = document.getElementById("notification-dropdown");
-  if (dropdown) {
-    dropdown.classList.toggle("active");
-  }
-}
+  document.querySelectorAll('.reward-filter').forEach(button => {
+    button.addEventListener('click', () => {
+      activeRewardCategory = button.dataset.rewardCategory || 'all';
+      document.querySelectorAll('.reward-filter').forEach(filter => {
+        const active = filter === button;
+        filter.classList.toggle('active', active);
+        filter.setAttribute('aria-pressed', String(active));
+      });
+      renderRewardCatalog();
+    });
+  });
 
-function clearNotifications() {
-  const list = document.getElementById("notification-list");
-  const badge = document.getElementById("notification-badge-dot");
-  if (list) {
-    list.innerHTML = `<div class="feed-empty-state" style="border:none; background:transparent;">No new notifications.</div>`;
-  }
-  if (badge) {
-    badge.style.display = "none";
-  }
-}
+  // Global window functions for event handlers
+  window.reviewRequest = async function (requestId, decision) {
+    try {
+      const result = await api('/api/go/inbox/review', {
+        method: 'POST',
+        body: JSON.stringify({ requestId, decision })
+      });
+      showToast(`Request ${decision} successfully.`);
+      await loadInbox();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
 
-window.toggleSidebarCollapse = toggleSidebarCollapse;
-window.toggleNotificationDropdown = toggleNotificationDropdown;
-window.clearNotifications = clearNotifications;
+  window.filterReach = function (filter) {
+    if (filter === 'all') {
+      renderReachCards(relationships);
+    } else {
+      const filtered = relationships.filter(r => (r.relationshipStrength || 'strong') === filter);
+      renderReachCards(filtered);
+    }
+  };
 
+  window.quickReachOut = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('email');
+    if (emailComposerModal) emailComposerModal.style.display = 'none';
+  };
+  window.openEmailComposer = window.quickReachOut;
 
-// --- DRAG & DROP + COLUMN FIELD MAPPER ---
+  window.showToast = showToast;
 
-function handleDragOver(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const dropzone = document.getElementById("upload-dropzone");
-  if (dropzone) dropzone.classList.add("hovering");
-}
-
-function handleDragLeave(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const dropzone = document.getElementById("upload-dropzone");
-  if (dropzone) dropzone.classList.remove("hovering");
-}
-
-function handleDrop(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const dropzone = document.getElementById("upload-dropzone");
-  if (dropzone) dropzone.classList.remove("hovering");
-
-  const dt = e.dataTransfer;
-  const file = dt.files[0];
-  if (file && file.name.endsWith(".csv")) {
-    const fileInput = document.getElementById("csv-file-input");
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    fileInput.files = dataTransfer.files;
-    
-    // Process file
-    handleCSVFileUpload({ target: { files: [file] } });
-  } else {
-    alert("Please upload a valid CSV file.");
-  }
-}
-
-let tempCSVLines = [];
-let tempFileName = "";
-
-function openColumnMapper(lines, fileName) {
-  tempCSVLines = lines;
-  tempFileName = fileName;
-  
-  const dialog = document.getElementById("column-mapper-dialog");
-  const container = document.getElementById("field-mapping-container");
-  if (!dialog || !container) return;
-
-  const headers = lines[0].map(h => h.trim());
-  
-  // Standard fields to map
-  const standardFields = [
-    { key: "firstName", label: "First Name", guesses: ["first name", "first", "name", "given name"] },
-    { key: "lastName", label: "Last Name", guesses: ["last name", "last", "surname", "family name"] },
-    { key: "email", label: "Email Address", guesses: ["email", "email address", "email_address", "mail"] },
-    { key: "jobTitle", label: "Job Title", guesses: ["job title", "title", "job_title", "role"] },
-    { key: "company", label: "Company Name", guesses: ["company", "company name", "company_name", "firm", "organization"] },
-    { key: "phone", label: "Phone Number", guesses: ["phone", "phone number", "phone_number", "tel", "mobile"] },
-    { key: "industry", label: "Industry", guesses: ["industry", "vertical"] },
-    { key: "assetSize", label: "Asset Size", guesses: ["asset size", "assets", "size"] },
-    { key: "state", label: "State / Region", guesses: ["state", "shipping state", "region", "province"] }
-  ];
-
-  container.innerHTML = "";
-  
-  standardFields.forEach(field => {
-    const row = document.createElement("div");
-    row.className = "field-mapping-row";
-    row.style.display = "grid";
-    row.style.gridTemplateColumns = "1.2fr auto 1.5fr";
-    row.style.gap = "10px";
-    row.style.alignItems = "center";
-    row.style.marginBottom = "10px";
-
-    // Find best matching guess
-    let bestMatchIdx = -1;
-    for (let i = 0; i < headers.length; i++) {
-      const hLower = headers[i].toLowerCase();
-      if (field.guesses.some(g => hLower.includes(g) || g.includes(hLower))) {
-        bestMatchIdx = i;
-        break;
+  // Event Listeners
+  async function triggerDemoLogin(button) {
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Opening demo…';
+      }
+      const res = await api('/api/go/demo-login', { method: 'POST' });
+      setPartnerSession(res.partner);
+      showToast(`Signed in as ${res.partner.fullName} (Demo Mode)`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Try demo';
       }
     }
+  }
 
-    let optionsHTML = `<option value="-1">-- Ignore / Blank --</option>`;
-    headers.forEach((h, idx) => {
-      const selected = idx === bestMatchIdx ? "selected" : "";
-      optionsHTML += `<option value="${idx}" ${selected}>CSV: ${h}</option>`;
-    });
-
-    row.innerHTML = `
-      <span style="font-size: 13px; font-weight: 700; color: var(--ink);">${field.label}</span>
-      <span style="font-size: 14px; color: var(--muted);">➔</span>
-      <select class="select-control mapping-select" data-field="${field.key}" style="font-size: 12.5px; height: 32px; padding: 0 8px;">
-        ${optionsHTML}
-      </select>
-    `;
-    container.appendChild(row);
+  document.getElementById('quick-demo-login-btn')?.addEventListener('click', (e) => {
+    triggerDemoLogin(e.currentTarget);
+  });
+  document.getElementById('quick-demo-signup-btn')?.addEventListener('click', (e) => {
+    triggerDemoLogin(e.currentTarget);
   });
 
-  dialog.showModal();
-}
-
-function closeColumnMapper() {
-  const dialog = document.getElementById("column-mapper-dialog");
-  if (dialog) dialog.close();
-}
-
-function confirmColumnMapping() {
-  const selectElements = document.querySelectorAll(".mapping-select");
-  const fieldIndices = {};
-  
-  selectElements.forEach(select => {
-    const fieldKey = select.getAttribute("data-field");
-    const colIdx = parseInt(select.value);
-    fieldIndices[fieldKey] = colIdx;
+  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const submitButton = document.getElementById('login-submit-btn');
+    const authError = document.getElementById('auth-error');
+    if (authError) { authError.hidden = true; authError.textContent = ''; }
+    try {
+      if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Signing in…'; }
+      const res = await api('/api/go/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      setPartnerSession(res.partner);
+      showToast(`Welcome back, ${res.partner.fullName}`);
+    } catch (e) {
+      if (authError) { authError.hidden = false; authError.textContent = e.message; }
+      showToast(e.message, 'error');
+    } finally {
+      if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Sign in to your workspace'; }
+    }
   });
 
-  // Process data with custom mappings
-  const parsed = [];
-  const lines = tempCSVLines;
-  
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i];
-    if (row.length < 2) continue;
-
-    const getValue = (key) => {
-      const idx = fieldIndices[key];
-      return idx !== undefined && idx !== -1 && idx < row.length ? row[idx].trim() : "";
+  document.getElementById('onboarding-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitButton = document.getElementById('onboard-submit-btn');
+    const authError = document.getElementById('auth-error');
+    if (authError) { authError.hidden = true; authError.textContent = ''; }
+    const formData = new FormData(e.target);
+    const payload = {
+      fullName: formData.get('fullName'),
+      email: formData.get('email'),
+      company: formData.get('company'),
+      jobTitle: formData.get('jobTitle'),
+      password: formData.get('password'),
+      privacyTier: formData.get('privacyTier')
     };
 
-    const first = getValue("firstName");
-    const last = getValue("lastName");
-    const email = getValue("email");
-    const jobTitle = getValue("jobTitle");
-    const company = getValue("company");
-    const phone = getValue("phone");
-    const industry = getValue("industry");
-    const assetSize = getValue("assetSize");
-    const state = getValue("state");
+    if (payload.password !== formData.get('passwordConfirm')) {
+      if (authError) { authError.hidden = false; authError.textContent = 'Your passwords do not match.'; }
+      return;
+    }
 
-    parsed.push({
-      id: Date.now() + i,
-      firstName: first,
-      lastName: last,
-      fullName: `${first} ${last}`.trim() || "Unknown Lead",
-      email: email,
-      jobTitle: jobTitle,
-      company: company,
-      phone: phone,
-      industry: industry,
-      assetSize: assetSize || "$0",
-      state: state || "US",
-      sourceFile: tempFileName,
-      enriched: false,
-      leadTemp: "Cold Lead"
-    });
-  }
-
-  // Save to database
-  const isInfluencerFile = tempFileName.toLowerCase().includes("influencer");
-  parsed.forEach(c => {
-    c.isInfluencer = isInfluencerFile;
-    if (isInfluencerFile) {
-      c.referrals = [];
-      c.referralCredits = 0;
-      c.matchPercentage = 95;
+    try {
+      if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Creating your profile…'; }
+      const partner = await api('/api/go/onboard', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      setPartnerSession(partner);
+      showOnboardingSequence(1);
+      showToast('Profile created! Now connect your LinkedIn network.');
+    } catch (e) {
+      if (authError) { authError.hidden = false; authError.textContent = e.message; }
+      showToast(e.message, 'error');
+    } finally {
+      if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Create partner account'; }
     }
   });
 
-  if (isInfluencerFile) {
-    const prospects = database.contacts.filter(c => c.isInfluencer !== true);
-    database.contacts = [...prospects, ...parsed];
-  } else {
-    const influencers = database.contacts.filter(c => c.isInfluencer === true);
-    database.contacts = [...influencers, ...parsed];
-  }
+  // LinkedIn Onboarding Sequence Form & Buttons
+  linkedinConnectForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = linkedinProfileUrl.value.trim();
+    if (!url) return;
 
-  initLoadedData();
-  saveDatabaseCache();
+    if (linkedinConnectBtn) {
+      linkedinConnectBtn.disabled = true;
+      linkedinConnectBtn.textContent = 'Connecting LinkedIn & Discovering Network...';
+    }
 
-  closeColumnMapper();
-
-  const typeLabel = isInfluencerFile ? "influencers" : "contacts";
-  addLogConsole("enrich", `[SYSTEM] Uploaded & mapped ${parsed.length} ${typeLabel} from ${tempFileName}.`, "success");
-}
-
-window.handleDragOver = handleDragOver;
-window.handleDragLeave = handleDragLeave;
-window.handleDrop = handleDrop;
-window.openColumnMapper = openColumnMapper;
-window.closeColumnMapper = closeColumnMapper;
-window.confirmColumnMapping = confirmColumnMapping;
-
-
-// --- TABLE HELPER FUNCTIONS (AVATARS, SORTING, SELECTION, BULK) ---
-
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
-
-function getAvatarColor(name) {
-  if (!name) return "hsl(0, 0%, 50%)";
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 50%, 40%)`;
-}
-
-database.selectedUploadRows = [];
-
-function toggleSelectAllUpload(elem) {
-  const checkboxes = document.querySelectorAll(".row-check-upload");
-  database.selectedUploadRows = [];
-  
-  checkboxes.forEach(cb => {
-    cb.checked = elem.checked;
-    if (elem.checked) {
-      const id = parseInt(cb.getAttribute("data-id"));
-      database.selectedUploadRows.push(id);
+    try {
+      await api('/api/go/onboarding/linkedin/connect', {
+        method: 'POST',
+        body: JSON.stringify({ linkedinUrl: url })
+      });
+      const data = await api('/api/go/onboarding/linkedin/connections');
+      renderDiscoveredConnections(data.connections || []);
+      showOnboardingSequence(2);
+      showToast('LinkedIn connected! Discovered executive network.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (linkedinConnectBtn) {
+        linkedinConnectBtn.disabled = false;
+        linkedinConnectBtn.textContent = 'Connect LinkedIn & Discover Connections';
+      }
     }
   });
 
-  updateBulkActionBar();
-}
+  connectionsSelectAll?.addEventListener('change', (e) => {
+    const isChecked = e.target.checked;
+    connectionsItemsList.querySelectorAll('input.connection-checkbox').forEach(cb => {
+      cb.checked = isChecked;
+      const card = cb.closest('.connection-card');
+      if (card) {
+        if (isChecked) card.classList.add('selected');
+        else card.classList.remove('selected');
+      }
+    });
+    updateSelectionSummary();
+  });
 
-function toggleSelectUploadRow(elem, id) {
-  if (elem.checked) {
-    if (!database.selectedUploadRows.includes(id)) {
-      database.selectedUploadRows.push(id);
+  backToLinkedinBtn?.addEventListener('click', () => {
+    showOnboardingSequence(1);
+  });
+
+  async function handleOneClickImport() {
+    if (!connectionsItemsList) return;
+    const checkedBoxes = Array.from(connectionsItemsList.querySelectorAll('input.connection-checkbox:checked'));
+    if (checkedBoxes.length === 0) {
+      showToast('Please select at least one connection to import.', 'error');
+      return;
     }
-  } else {
-    database.selectedUploadRows = database.selectedUploadRows.filter(rowId => rowId !== id);
+    const connectionIds = checkedBoxes.map(cb => cb.dataset.id);
+
+    if (oneClickImportBtn) {
+      oneClickImportBtn.disabled = true;
+      oneClickImportBtn.textContent = 'Adding Contacts...';
+    }
+    if (importBottomCtaBtn) {
+      importBottomCtaBtn.disabled = true;
+      importBottomCtaBtn.textContent = 'Adding Contacts...';
+    }
+
+    try {
+      const res = await api('/api/go/onboarding/linkedin/import', {
+        method: 'POST',
+        body: JSON.stringify({ connectionIds })
+      });
+      if (completeImportedCount) {
+        completeImportedCount.textContent = res.importedCount;
+      }
+      showOnboardingSequence(3);
+      showToast(`Added ${res.importedCount} contacts to your account!`);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (oneClickImportBtn) {
+        oneClickImportBtn.disabled = false;
+        oneClickImportBtn.innerHTML = `Add Contacts (<span id="btn-selected-count">${connectionIds.length}</span>)`;
+      }
+      if (importBottomCtaBtn) {
+        importBottomCtaBtn.disabled = false;
+        importBottomCtaBtn.textContent = 'Add Contacts';
+      }
+    }
   }
 
-  // Sync check-all checkbox
-  const checkAll = document.getElementById("check-all-upload");
-  if (checkAll) {
-    const checkboxes = document.querySelectorAll(".row-check-upload");
-    const checkedBoxes = document.querySelectorAll(".row-check-upload:checked");
-    checkAll.checked = checkboxes.length > 0 && checkboxes.length === checkedBoxes.length;
+  oneClickImportBtn?.addEventListener('click', handleOneClickImport);
+  importBottomCtaBtn?.addEventListener('click', handleOneClickImport);
+
+  enterWorkspaceBtn?.addEventListener('click', () => {
+    if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'none';
+    if (workspaceSection) workspaceSection.style.display = 'block';
+    loadAllData();
+    showToast('Welcome to your Go Partner Workspace! Relationships ready.');
+  });
+
+  launchLinkedinSyncBtn?.addEventListener('click', () => {
+    showOnboardingSequence(1);
+  });
+
+  authSignoutBtn?.addEventListener('click', () => {
+    localStorage.removeItem('connectem_go_token');
+    localStorage.removeItem('connectem_go_email');
+    showAuthView();
+    showToast('Signed out of partner workspace.');
+  });
+
+  // Tab switching
+  const tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+      const activePane = document.getElementById(`tab-content-${target}`);
+      if (activePane) activePane.style.display = 'block';
+      if (target === 'settings') loadSettings();
+    });
+  });
+
+  const settingsTabs = document.querySelectorAll('.settings-tab');
+  const settingsPanels = document.querySelectorAll('.settings-panel');
+  const settingsBookingPanel = document.getElementById('settings-panel-connections-booking');
+  settingsTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.settingsPanel;
+      settingsTabs.forEach(item => {
+        const active = item === tab;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-selected', String(active));
+      });
+      settingsPanels.forEach(panel => {
+        const active = panel.id === `settings-panel-${target}`;
+        panel.classList.toggle('active', active);
+        panel.setAttribute('aria-hidden', String(!active));
+      });
+      if (settingsBookingPanel) {
+        const active = target === 'connections';
+        settingsBookingPanel.classList.toggle('active', active);
+        settingsBookingPanel.setAttribute('aria-hidden', String(!active));
+      }
+    });
+  });
+
+  // Add Contact Modal Popup Controls
+  const addContactModal = document.getElementById('add-contact-modal');
+  const openAddContactModalBtn = document.getElementById('open-add-contact-modal-btn');
+  const closeAddContactModalBtn = document.getElementById('close-add-contact-modal-btn');
+  const cancelAddContactModalBtn = document.getElementById('cancel-add-contact-modal-btn');
+
+  function openAddContactModal() {
+    if (addContactModal) addContactModal.style.display = 'flex';
   }
 
-  updateBulkActionBar();
-}
-
-function updateBulkActionBar() {
-  const bar = document.getElementById("upload-bulk-bar");
-  const countEl = document.getElementById("upload-selected-count");
-  if (!bar || !countEl) return;
-
-  const count = database.selectedUploadRows.length;
-  countEl.textContent = count;
-  
-  if (count > 0) {
-    bar.style.display = "flex";
-  } else {
-    bar.style.display = "none";
-  }
-}
-
-function bulkEnrichSelected() {
-  if (database.selectedUploadRows.length === 0) return;
-  
-  // Set explorium keys verification status or alert
-  if (!database.exploriumApiKey) {
-    alert("Please enter an Explorium API Key on the settings or enrich tab first.");
-    switchTab('settings-keys');
-    return;
+  function closeAddContactModal() {
+    if (addContactModal) addContactModal.style.display = 'none';
   }
 
-  addLogConsole("enrich", `[SYSTEM] Bulk enrichment requested for ${database.selectedUploadRows.length} contacts.`, "info");
-  
-  // Mark selected contacts as enriched in local database
-  database.contacts.forEach(c => {
-    if (database.selectedUploadRows.includes(c.id)) {
-      c.enriched = true;
-      c.matchPercentage = c.matchPercentage || Math.floor(Math.random() * 20) + 80;
-      c.leadTemp = c.leadTemp === "Cold Lead" && Math.random() > 0.5 ? "Hot Lead" : c.leadTemp;
+  openAddContactModalBtn?.addEventListener('click', openAddContactModal);
+  closeAddContactModalBtn?.addEventListener('click', closeAddContactModal);
+  cancelAddContactModalBtn?.addEventListener('click', closeAddContactModal);
+
+  addContactModal?.addEventListener('click', (e) => {
+    if (e.target === addContactModal) {
+      closeAddContactModal();
     }
   });
 
-  addLogConsole("enrich", `[SYSTEM] Bulk enrichment successful. ${database.selectedUploadRows.length} dossiers generated.`, "success");
-  
-  // Clear selection
-  database.selectedUploadRows = [];
-  const checkAll = document.getElementById("check-all-upload");
-  if (checkAll) checkAll.checked = false;
-  
-  initLoadedData();
-  saveDatabaseCache();
-}
-
-function bulkDeleteSelected() {
-  if (database.selectedUploadRows.length === 0) return;
-  if (!confirm(`Are you sure you want to delete the ${database.selectedUploadRows.length} selected contacts?`)) return;
-
-  const initialCount = database.contacts.length;
-  database.contacts = database.contacts.filter(c => !database.selectedUploadRows.includes(c.id));
-  const deletedCount = initialCount - database.contacts.length;
-
-  addLogConsole("enrich", `[SYSTEM] Bulk deleted ${deletedCount} contact records.`, "warning");
-
-  // Clear selection
-  database.selectedUploadRows = [];
-  const checkAll = document.getElementById("check-all-upload");
-  if (checkAll) checkAll.checked = false;
-
-  initLoadedData();
-  saveDatabaseCache();
-}
-
-let currentSortField = "";
-let currentSortOrder = "asc";
-
-function sortTable(type, field) {
-  if (currentSortField === field) {
-    currentSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
-  } else {
-    currentSortField = field;
-    currentSortOrder = "asc";
-  }
-
-  const sortMultiplier = currentSortOrder === "asc" ? 1 : -1;
-  const list = type === 'upload' ? database.filteredUpload : database.filteredInfluencers;
-  
-  list.sort((a, b) => {
-    const valA = (a[field] || "").toString().toLowerCase();
-    const valB = (b[field] || "").toString().toLowerCase();
-    if (valA < valB) return -1 * sortMultiplier;
-    if (valA > valB) return 1 * sortMultiplier;
-    return 0;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && addContactModal?.style.display === 'flex') {
+      closeAddContactModal();
+    }
   });
 
-  if (type === 'upload') {
-    changeUploadPage(database.currentUploadPage || 1);
-  } else {
-    changeInfluencersPage(database.currentInfluencersPage || 1);
-  }
-}
+  // Add Relationship Form
+  document.getElementById('add-relationship-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const payload = {
+      fullName: formData.get('fullName'),
+      email: formData.get('email'),
+      company: formData.get('company'),
+      jobTitle: formData.get('jobTitle'),
+      relationshipStrength: formData.get('relationshipStrength'),
+      phone: formData.get('phone') || undefined,
+      relationshipContext: formData.get('relationshipContext') || undefined
+    };
 
-window.getInitials = getInitials;
-window.getAvatarColor = getAvatarColor;
-window.toggleSelectAllUpload = toggleSelectAllUpload;
-window.toggleSelectUploadRow = toggleSelectUploadRow;
-window.bulkEnrichSelected = bulkEnrichSelected;
-window.bulkDeleteSelected = bulkDeleteSelected;
-window.sortTable = sortTable;
-window.renderContactTimeline = renderContactTimeline;
-
-
-// --- VISUAL OUTREACH TIMELINE RENDERER ---
-
-function renderContactTimeline(contact) {
-  const events = [];
-  
-  // 1. Ingestion Event
-  events.push({
-    title: "Lead Imported",
-    desc: `Imported from CSV list: <strong>${(contact.sourceFile || "manual").split("/").pop()}</strong>.`,
-    time: "Parsed",
-    icon: "",
-    color: "var(--brand-peach)"
+    try {
+      await api('/api/go/relationships', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      e.target.reset();
+      closeAddContactModal();
+      showToast('Contact saved to your directory.');
+      await loadRelationships();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
   });
 
-  // 2. Enrichment Event
-  if (contact.enriched) {
-    events.push({
-      title: "Data Enriched",
-      desc: `Dossier compiled via Explorium. Match score: <strong>${contact.matchPercentage || 95}%</strong>. Lead category: <strong>${contact.leadTemp}</strong>.`,
-      time: "Enriched",
-      icon: "",
-      color: "var(--brand-ochre)"
-    });
+  // Filter contacts in table
+  document.getElementById('contacts-search-input')?.addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase().trim();
+    if (!term) {
+      renderRelationshipsTable(relationships);
+      return;
+    }
+    const filtered = relationships.filter(r =>
+      r.fullName.toLowerCase().includes(term) ||
+      r.company.toLowerCase().includes(term) ||
+      (r.jobTitle && r.jobTitle.toLowerCase().includes(term))
+    );
+    renderRelationshipsTable(filtered);
+  });
+
+  // Marketplace redemption request
+  document.getElementById('rewards-redeem-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!rewardsCart.size) return;
+    const creditsRequested = Number(document.getElementById('rewards-credits-to-apply')?.value || 0);
+    const details = document.getElementById('rewards-request-details')?.value || '';
+
+    try {
+      await api('/api/go/rewards/requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          itemIds: Array.from(rewardsCart),
+          creditsRequested,
+          details
+        })
+      });
+      rewardsCart.clear();
+      e.target.reset();
+      showToast('Request submitted for Murali’s manual review. Credits remain in your balance.');
+      await loadRewards();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Settings Management (Profile, AI Limits, Integrations, Booking, Alerts)
+  // --------------------------------------------------------------------------
+  async function loadSettings() {
+    if (!currentPartner) return;
+    try {
+      const data = await api('/api/go/settings');
+      const p = data.partner;
+      const ai = data.aiUsage;
+      const integrations = data.integrations;
+
+      // 1. Profile fields
+      const fn = document.getElementById('settings-fullname');
+      const em = document.getElementById('settings-email');
+      const co = document.getElementById('settings-company');
+      const jt = document.getElementById('settings-jobtitle');
+      const ph = document.getElementById('settings-phone');
+      const li = document.getElementById('settings-linkedin-url');
+      const ex = document.getElementById('settings-expertise');
+      if (fn) fn.value = p.fullName || '';
+      if (em) em.value = p.email || '';
+      if (co) co.value = p.company || '';
+      if (jt) jt.value = p.jobTitle || '';
+      if (ph) ph.value = p.phone || '';
+      if (li) li.value = p.linkedinProfileUrl || '';
+      if (ex) ex.value = (p.expertise || []).join(', ');
+
+      // 2. AI Usage & Mandatory Quota
+      const aiUsed = document.getElementById('settings-ai-used');
+      const aiLimit = document.getElementById('settings-ai-limit');
+      const aiRem = document.getElementById('settings-ai-remaining');
+      const aiProg = document.getElementById('settings-ai-progress');
+      const aiTone = document.getElementById('settings-default-ai-tone');
+      const aiModel = document.getElementById('settings-ai-model');
+      const aiIntegrationModel = document.getElementById('settings-ai-integration-model');
+      const outreachAiModel = document.getElementById('outreach-ai-model');
+      const assignedModel = p.aiModelAssignment || ai.provider;
+      const modelChoices = ['Meta Spark 1.3 Contributor', 'Gemini 3.7 Flash', 'ChatGPT 5.6 Nano'];
+      const modelLabel = modelChoices.includes(assignedModel) ? assignedModel : 'Assigned automatically';
+      const usedThisWeek = Number(ai.usedThisWeek ?? ai.usedToday ?? 0);
+      const weeklyLimit = Number(ai.limitWeekly ?? 20);
+      const weeklyRemaining = Number(ai.remaining ?? Math.max(0, weeklyLimit - usedThisWeek));
+
+      if (aiUsed) aiUsed.textContent = usedThisWeek;
+      if (aiLimit) aiLimit.textContent = weeklyLimit;
+      if (aiRem) aiRem.textContent = `${weeklyRemaining} remaining`;
+      if (aiProg) {
+        const pct = Math.min(100, Math.round((usedThisWeek / weeklyLimit) * 100));
+        aiProg.style.width = `${pct}%`;
+      }
+      if (aiTone) aiTone.value = p.defaultAiTone || 'warm';
+      if (aiModel) aiModel.textContent = modelLabel;
+      if (aiIntegrationModel) aiIntegrationModel.textContent = modelLabel;
+      if (outreachAiModel) outreachAiModel.textContent = modelLabel;
+
+      // 3. Calendar & Booking Link
+      const bk = document.getElementById('settings-booking-url');
+      const calLink = document.getElementById('partner-calendly-btn');
+      if (bk) bk.value = p.bookingUrl || 'https://calendly.com';
+      if (calLink) calLink.href = p.bookingUrl || 'https://calendly.com';
+
+      // 4. Notification Preferences
+      const prefReq = document.getElementById('notif-pref-requests');
+      const prefOpt = document.getElementById('notif-pref-optin');
+      const prefCc = document.getElementById('notif-pref-compliance');
+      const prefWk = document.getElementById('notif-pref-weekly');
+      if (prefReq) prefReq.checked = Boolean(p.notificationPreferences?.emailOnNewRequest ?? true);
+      if (prefOpt) prefOpt.checked = Boolean(p.notificationPreferences?.emailOnOptIn ?? true);
+      if (prefCc) prefCc.checked = Boolean(p.notificationPreferences?.emailOnComplianceCc ?? true);
+      if (prefWk) prefWk.checked = Boolean(p.notificationPreferences?.weeklySummary ?? false);
+
+      // 5. Integrations Badges
+      const liBadge = document.getElementById('integration-linkedin-badge');
+      const gmBadge = document.getElementById('integration-gmail-badge');
+      const twBadge = document.getElementById('integration-twilio-badge');
+      if (liBadge) {
+        liBadge.textContent = integrations.linkedin.connected ? 'Active' : 'Ready to Link';
+        liBadge.className = `badge-tag ${integrations.linkedin.connected ? 'strong' : ''}`;
+      }
+      if (gmBadge) {
+        gmBadge.textContent = integrations.gmail.connected ? 'Active' : 'Permission Required';
+        gmBadge.className = `badge-tag ${integrations.gmail.connected ? 'strong' : ''}`;
+      }
+      if (twBadge) {
+        twBadge.textContent = integrations.twilio.connected ? 'Active' : 'Disabled (Fallback)';
+        twBadge.className = `badge-tag ${integrations.twilio.connected ? 'strong' : ''}`;
+      }
+
+      // 6. Account & Compliance details
+      const pem = document.getElementById('settings-partner-email');
+      const tok = document.getElementById('settings-auth-token');
+      if (pem) pem.textContent = p.email;
+      if (tok) tok.textContent = p.authToken || 'token_partner_active';
+
+      // 7. Privacy Tier Radio
+      const radio = document.querySelector(`input[name="privacyTier"][value="${p.privacyTier}"]`);
+      if (radio) radio.checked = true;
+    } catch (err) {
+      console.warn('Error loading settings:', err);
+    }
   }
 
-  // 3. Email Outbound
-  if (contact.emailsSent) {
-    events.push({
-      title: "Email Outreach Dispatched",
-      desc: `Subject: <em>${contact.emailDraft ? contact.emailDraft.subject : ""}</em>`,
-      time: "Sent",
-      icon: "",
-      color: "var(--brand-pink)"
-    });
+  // AI Settings Form (tone only; model assignment and weekly quota are fixed)
+  document.getElementById('ai-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const defaultAiTone = document.getElementById('settings-default-ai-tone')?.value;
+
+    try {
+      const res = await api('/api/go/settings/ai', {
+        method: 'POST',
+        body: JSON.stringify({ defaultAiTone })
+      });
+      showToast(`AI settings updated. Weekly allowance: ${res.quota.limitWeekly} drafts.`);
+      await loadSettings();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Profile Settings Form
+  document.getElementById('profile-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fullName = document.getElementById('settings-fullname')?.value.trim();
+    const company = document.getElementById('settings-company')?.value.trim();
+    const jobTitle = document.getElementById('settings-jobtitle')?.value.trim();
+    const phone = document.getElementById('settings-phone')?.value.trim();
+    const linkedinProfileUrl = document.getElementById('settings-linkedin-url')?.value.trim();
+    const expertiseStr = document.getElementById('settings-expertise')?.value.trim();
+    const expertise = expertiseStr ? expertiseStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    try {
+      const updated = await api('/api/go/settings/profile', {
+        method: 'POST',
+        body: JSON.stringify({ fullName, company, jobTitle, phone, linkedinProfileUrl, expertise })
+      });
+      setPartnerSession(updated);
+      showToast('Profile information saved!');
+      await loadSettings();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Booking Link Form
+  document.getElementById('booking-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bookingUrl = document.getElementById('settings-booking-url')?.value.trim();
+    if (!bookingUrl) return;
+
+    try {
+      await api('/api/go/settings/booking', {
+        method: 'POST',
+        body: JSON.stringify({ bookingUrl })
+      });
+      const calLink = document.getElementById('partner-calendly-btn');
+      if (calLink) calLink.href = bookingUrl;
+      showToast('Briefing booking URL updated!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Copy Booking Link Button
+  document.getElementById('copy-booking-btn')?.addEventListener('click', () => {
+    const url = document.getElementById('settings-booking-url')?.value || 'https://calendly.com';
+    navigator.clipboard.writeText(url);
+    showToast('Briefing booking link copied to clipboard!');
+  });
+
+  // Notification Preferences Form
+  document.getElementById('notifications-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailOnNewRequest = document.getElementById('notif-pref-requests')?.checked ?? true;
+    const emailOnOptIn = document.getElementById('notif-pref-optin')?.checked ?? true;
+    const emailOnComplianceCc = document.getElementById('notif-pref-compliance')?.checked ?? true;
+    const weeklySummary = document.getElementById('notif-pref-weekly')?.checked ?? false;
+
+    try {
+      await api('/api/go/settings/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ emailOnNewRequest, emailOnOptIn, emailOnComplianceCc, weeklySummary })
+      });
+      showToast('Notification preferences saved!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Privacy Settings Form
+  document.getElementById('privacy-settings-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const tier = document.querySelector('input[name="privacyTier"]:checked')?.value;
+    if (!tier) return;
+
+    try {
+      const updated = await api('/api/go/settings/privacy', {
+        method: 'POST',
+        body: JSON.stringify({ privacyTier: tier })
+      });
+      currentPartner.privacyTier = updated.privacyTier;
+      showToast(`Privacy tier updated to "${tier}"`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // In-App Email Composer Controls & AI Assistant
+  // --------------------------------------------------------------------------
+  const emailComposerModal = document.getElementById('email-composer-modal');
+  const closeEmailComposerBtn = document.getElementById('close-email-composer-btn');
+  const cancelEmailComposerBtn = document.getElementById('cancel-email-composer-btn');
+  const composerFromEmail = document.getElementById('composer-from-email');
+  const composerToRecipient = document.getElementById('composer-to-recipient');
+  const composerProspectId = document.getElementById('composer-prospect-id');
+  const composerSubject = document.getElementById('composer-subject');
+  const composerBody = document.getElementById('composer-body');
+  const aiDraftPurpose = document.getElementById('ai-draft-purpose');
+  const aiDraftTone = document.getElementById('ai-draft-tone');
+  const aiGenerateDraftBtn = document.getElementById('ai-generate-draft-btn');
+  const emailComposerForm = document.getElementById('email-composer-form');
+
+  window.openEmailComposer = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('email');
+    if (emailComposerModal) emailComposerModal.style.display = 'none';
+  };
+
+  function closeEmailComposer() {
+    if (emailComposerModal) emailComposerModal.style.display = 'none';
   }
 
-  // 4. LinkedIn Outbound
-  if (contact.linkedinSent) {
-    events.push({
-      title: "LinkedIn Touchpoint",
-      desc: "Connection request note sent.",
-      time: "Sent",
-      icon: "",
-      color: "var(--brand-lavender)"
-    });
+  closeEmailComposerBtn?.addEventListener('click', closeEmailComposer);
+  cancelEmailComposerBtn?.addEventListener('click', closeEmailComposer);
+  emailComposerModal?.addEventListener('click', (e) => {
+    if (e.target === emailComposerModal) closeEmailComposer();
+  });
+
+  // AI Email Assistant Generation
+  aiGenerateDraftBtn?.addEventListener('click', async () => {
+    if (!activeOutreachProspectId) return;
+    try {
+      aiGenerateDraftBtn.disabled = true;
+      aiGenerateDraftBtn.textContent = 'Generating AI Draft...';
+
+      const draft = await api('/api/go/outreach/email/ai-draft', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          purpose: aiDraftPurpose?.value || 'Executive partnership briefing',
+          tone: aiDraftTone?.value || 'warm'
+        })
+      });
+
+      if (composerSubject) composerSubject.value = draft.subject;
+      if (composerBody) composerBody.value = draft.body;
+      emailAiAssisted = true;
+      showToast('AI draft applied! Tone & context integrated.');
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      aiGenerateDraftBtn.disabled = false;
+      aiGenerateDraftBtn.textContent = 'Draft with AI Assistant';
+    }
+  });
+
+  // Submit Outreach Email (Enforces Mandatory Admin CC)
+  emailComposerForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeOutreachProspectId) return;
+
+    const sendBtn = document.getElementById('composer-send-btn');
+    try {
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+      }
+
+      const activity = await api('/api/go/outreach/email', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          subject: composerSubject?.value || '',
+          body: composerBody?.value || '',
+          aiAssisted: emailAiAssisted
+        })
+      });
+
+      closeEmailComposer();
+      showToast(`Email delivered internally! Compliance copy CC'd to ${activity.adminCcEnforced}`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send Email (CC nextbdr@gmail.com)';
+      }
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // In-App Calls & Twilio Connector Dialog
+  // --------------------------------------------------------------------------
+  const callDialogModal = document.getElementById('call-dialog-modal');
+  const closeCallDialogBtn = document.getElementById('close-call-dialog-btn');
+  const cancelCallDialogBtn = document.getElementById('cancel-call-dialog-btn');
+  const callDialogSubtitle = document.getElementById('call-dialog-subtitle');
+  const callLoggerProspectId = document.getElementById('call-logger-prospect-id');
+  const twilioLiveDialerPane = document.getElementById('twilio-live-dialer-pane');
+  const twilioDisabledNotice = document.getElementById('twilio-disabled-notice');
+  const twilioDialingTarget = document.getElementById('twilio-dialing-target');
+  const callLoggerForm = document.getElementById('call-logger-form');
+  const twilioStartCallBtn = document.getElementById('twilio-start-call-btn');
+  const twilioEndCallBtn = document.getElementById('twilio-end-call-btn');
+
+  window.openCallDialog = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('call');
+    if (callDialogModal) callDialogModal.style.display = 'none';
+  };
+
+  function closeCallDialog() {
+    if (callDialogModal) callDialogModal.style.display = 'none';
   }
 
-  // 5. Phone Call Logs
-  if (contact.callsMade && contact.callsMade.length > 0) {
-    contact.callsMade.forEach(call => {
-      events.push({
-        title: "Phone Touchpoint",
-        desc: `Outcome: <strong>${call.outcome}</strong>`,
-        time: call.date.split(" ")[1] || "Called",
-        icon: "",
-        color: "var(--brand-teal)"
+  closeCallDialogBtn?.addEventListener('click', closeCallDialog);
+  cancelCallDialogBtn?.addEventListener('click', closeCallDialog);
+  callDialogModal?.addEventListener('click', (e) => {
+    if (e.target === callDialogModal) closeCallDialog();
+  });
+
+  twilioStartCallBtn?.addEventListener('click', () => {
+    twilioStartCallBtn.style.display = 'none';
+    if (twilioEndCallBtn) twilioEndCallBtn.style.display = 'inline-block';
+    showToast('Connecting Twilio Voice gateway session...');
+  });
+
+  twilioEndCallBtn?.addEventListener('click', () => {
+    twilioEndCallBtn.style.display = 'none';
+    if (twilioStartCallBtn) twilioStartCallBtn.style.display = 'inline-block';
+    showToast('Twilio call session ended. Please log the outcome below.');
+  });
+
+  callLoggerForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeOutreachProspectId) return;
+
+    const outcome = document.querySelector('input[name="callOutcome"]:checked')?.value || 'connected';
+    const notes = document.getElementById('call-logger-notes')?.value || '';
+
+    try {
+      await api('/api/go/outreach/call/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          outcome,
+          notes,
+          twilioUsed: twilioEnabled
+        })
+      });
+      closeCallDialog();
+      showToast(`Call recorded: ${outcome.replace('_', ' ')}`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // In-App LinkedIn Outreach Dialog
+  // --------------------------------------------------------------------------
+  const linkedinDialogModal = document.getElementById('linkedin-dialog-modal');
+  const closeLinkedinDialogBtn = document.getElementById('close-linkedin-dialog-btn');
+  const cancelLinkedinDialogBtn = document.getElementById('cancel-linkedin-dialog-btn');
+  const linkedinLoggerProspectId = document.getElementById('linkedin-logger-prospect-id');
+  const linkedinDialogTargetName = document.getElementById('linkedin-dialog-target-name');
+  const linkedinDialogTargetHeadline = document.getElementById('linkedin-dialog-target-headline');
+  const linkedinDialogProfileLink = document.getElementById('linkedin-dialog-profile-link');
+  const linkedinLoggerForm = document.getElementById('linkedin-logger-form');
+
+  window.openLinkedInDialog = function (contactId) {
+    document.getElementById('tab-btn-email')?.click();
+    selectOutreachContact(contactId);
+    switchOutreachChannel('linkedin');
+    if (linkedinDialogModal) linkedinDialogModal.style.display = 'none';
+  };
+
+  function closeLinkedInDialog() {
+    if (linkedinDialogModal) linkedinDialogModal.style.display = 'none';
+  }
+
+  closeLinkedinDialogBtn?.addEventListener('click', closeLinkedInDialog);
+  cancelLinkedinDialogBtn?.addEventListener('click', closeLinkedInDialog);
+  linkedinDialogModal?.addEventListener('click', (e) => {
+    if (e.target === linkedinDialogModal) closeLinkedInDialog();
+  });
+
+  linkedinLoggerForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeOutreachProspectId) return;
+
+    const notes = document.getElementById('linkedin-logger-notes')?.value || '';
+    try {
+      await api('/api/go/outreach/linkedin/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          prospectId: activeOutreachProspectId,
+          notes
+        })
+      });
+      closeLinkedInDialog();
+      showToast('LinkedIn outreach logged!');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // Grant Gmail Permission button in Outreach Banner
+  document.getElementById('grant-gmail-perm-btn')?.addEventListener('click', async () => {
+    try {
+      const email = currentPartner?.email || 'bob.miller@milleradvisory.com';
+      await api('/api/go/outreach/gmail/connect', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      showToast(`Gmail internal outreach permission granted for ${email}`);
+      await loadOutreachStatus();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Notifications Dropdown & Direct Request Review System
+  // --------------------------------------------------------------------------
+  window.reviewNotificationRequest = async function (requestId, decision) {
+    try {
+      const result = await api('/api/go/inbox/review', {
+        method: 'POST',
+        body: JSON.stringify({ requestId, decision })
+      });
+      showToast(decision === 'approved' ? 'Introduction approved! +15 reward credits awarded.' : 'Introduction request declined.');
+      await loadInbox();
+      await loadRewards();
+      updateStats();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+  window.reviewRequest = window.reviewNotificationRequest;
+
+  function renderNotifications() {
+    if (!currentPartner || !notificationsList) return;
+
+    const pendingRequests = inboxRequests.filter(r => r.status === 'pending_partner_review');
+    const items = [];
+
+    // Add pending introduction requests with instant review actions
+    pendingRequests.forEach(req => {
+      items.push({
+        id: req.id,
+        vendor: req.vendorName || req.requesterOrg || 'Partner Vendor',
+        prospect: req.prospectName || req.targetFullName || 'Executive Target',
+        company: req.prospectCompany || req.targetCompany || '',
+        brief: req.forwardableBrief || req.specificAsk || 'Warm intro review requested',
+        score: req.warmPathScore || 90,
+        time: 'Pending Review',
+        type: 'intro_request'
       });
     });
-  }
 
-  // 6. Meeting Ingestion
-  const meeting = database.meetings ? database.meetings.find(m => m.contactEmail === contact.email) : null;
-  if (meeting) {
-    events.push({
-      title: "Appointment Scheduled",
-      desc: `Platform: <strong>${meeting.platform}</strong>. Briefing slot locked: <strong>${meeting.time}</strong>.`,
-      time: "Confirmed",
-      icon: "",
-      color: "var(--brand-mint)"
+    // Add a credit-balance notification when credits are available.
+    if ((currentPartner.pointsBalance || 0) > 0) {
+      items.push({
+        id: 'pts-' + currentPartner.id,
+        title: 'Credits Available',
+        text: `You have ${currentPartner.pointsBalance} reward credits ready to redeem.`,
+        time: 'Rewards Active',
+        type: 'rewards'
+      });
+    }
+
+    // Add Gmail status notification
+    if (currentPartner.gmailConnected) {
+      items.push({
+        id: 'gmail-' + currentPartner.id,
+        title: 'In-App Gmail Outreach Active',
+        text: `Compliance CC enforced: nextbdr@gmail.com for internal outreach.`,
+        time: 'Connected',
+        type: 'gmail'
+      });
+    }
+
+    const unreadCount = notificationsDismissed ? 0 : pendingRequests.length;
+    if (navNotificationsBadge) {
+      if (unreadCount > 0) {
+        navNotificationsBadge.textContent = unreadCount;
+        navNotificationsBadge.style.display = 'inline-block';
+        navNotificationsBtn?.classList.add('has-unread');
+      } else {
+        navNotificationsBadge.style.display = 'none';
+        navNotificationsBtn?.classList.remove('has-unread');
+      }
+    }
+
+    notificationsList.innerHTML = '';
+    if (items.length === 0) {
+      notificationsList.innerHTML = `
+        <div style="padding:22px 14px; text-align:center; color:var(--muted); font-size:12.5px;">
+          No notifications. You're all caught up!
+        </div>`;
+      return;
+    }
+
+    items.forEach(item => {
+      const el = document.createElement('div');
+      el.className = `notification-item ${item.type === 'intro_request' && !notificationsDismissed ? 'unread' : ''}`;
+
+      if (item.type === 'intro_request') {
+        el.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div class="notification-title" style="color:var(--ink); font-weight:600;">
+              Intro Request: ${item.vendor}
+            </div>
+            <span class="badge-tag strong" style="font-size:10px; padding:2px 6px;">${item.score}% match</span>
+          </div>
+          <div class="notification-text" style="margin-top:3px; font-weight:500; color:var(--ink);">
+            To: ${item.prospect} ${item.company ? `(${item.company})` : ''}
+          </div>
+          ${item.brief ? `<div style="font-size:11.5px; color:var(--muted); background:var(--canvas-soft); border:1px solid var(--hairline); padding:6px 8px; border-radius:var(--radius-sm); margin-top:5px; line-height:1.35;">${item.brief}</div>` : ''}
+          <div class="notification-actions" style="display:flex; gap:6px; margin-top:8px;">
+            <button class="btn btn-primary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${item.id}', 'approved')">
+              Approve (+15 pts)
+            </button>
+            <button class="btn btn-secondary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${item.id}', 'declined')">
+              Decline
+            </button>
+          </div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div class="notification-title">${item.title}</div>
+          <div class="notification-text">${item.text}</div>
+          <div class="notification-time">${item.time}</div>
+        `;
+        el.addEventListener('click', () => {
+          if (notificationsDropdown) notificationsDropdown.style.display = 'none';
+          if (item.type === 'rewards') {
+            document.getElementById('tab-btn-rewards')?.click();
+          } else if (item.type === 'gmail') {
+            document.getElementById('tab-btn-email')?.click();
+          }
+        });
+      }
+      notificationsList.appendChild(el);
     });
   }
 
-  let html = `
-    <div class="timeline-title-wrap" style="border-top: 1.5px solid var(--hairline); margin-top:24px; padding-top:20px; margin-bottom:14px;">
-      <h4 style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Outreach History</h4>
-    </div>
-    <div class="timeline-container-visual" style="display:flex; flex-direction:column; gap:16px; position:relative; padding-left:12px; margin-left:8px; border-left:1.5px dashed var(--hairline); padding-bottom:10px;">
-  `;
-
-  events.reverse().forEach(ev => {
-    html += `
-      <div class="timeline-item-row" style="position:relative; display:flex; gap:12px; align-items:flex-start;">
-        <!-- Glowing Timeline Node -->
-        <div class="timeline-node-circle" style="position:absolute; left:-21px; top:2px; width:17px; height:17px; border-radius:50%; background:${ev.color}; border:1.5px solid var(--hairline); box-shadow:1px 1px 0 var(--hairline); display:flex; align-items:center; justify-content:center; font-size:9px; z-index:1;"></div>
-        
-        <div style="flex-grow:1; display:flex; flex-direction:column; gap:2px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:12px; font-weight:700; color:var(--ink);">${ev.icon} ${ev.title}</span>
-            <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--muted);">${ev.time}</span>
-          </div>
-          <p style="font-size:11.5px; color:var(--body); line-height:1.45; margin:0;">${ev.desc}</p>
-        </div>
-      </div>
-    `;
+  navNotificationsBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!notificationsDropdown) return;
+    const isShowing = notificationsDropdown.style.display === 'block';
+    notificationsDropdown.style.display = isShowing ? 'none' : 'block';
+    if (!isShowing) {
+      renderNotifications();
+    }
   });
 
-  html += `</div>`;
-  return html;
-}
+  markNotificationsReadBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notificationsDismissed = true;
+    renderNotifications();
+    showToast('Notifications marked as read.');
+  });
 
-function openBriefingConsole(meetId) {
-  const meet = database.meetings.find(m => m.id === meetId);
-  if (!meet) return;
+  viewAllRequestsBtn?.addEventListener('click', () => {
+    if (notificationsDropdown) notificationsDropdown.style.display = 'none';
+  });
 
-  const dialog = document.getElementById("briefing-dialog");
-  const body = document.getElementById("briefing-dialog-body");
-  if (!dialog || !body) return;
+  document.addEventListener('click', (e) => {
+    if (notificationsDropdown && !navNotificationsWrapper?.contains(e.target)) {
+      notificationsDropdown.style.display = 'none';
+    }
+  });
 
-  // Compile briefing content
-  body.innerHTML = `
-    <div class="briefing-header" style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1.5px solid var(--hairline); padding-bottom:16px; margin-bottom:16px;">
-      <div>
-        <h2 style="margin:0 0-4px 0; font-size:20px; font-weight:700; color:var(--ink);">${meet.contactName}</h2>
-        <p style="margin:0; font-size:13px; color:var(--muted);">${meet.contactTitle} at <strong>${meet.contactCompany}</strong></p>
-      </div>
-      <div style="text-align:right;">
-        <span class="meeting-badge google-meet" style="background:var(--surface-soft); border:1px solid var(--hairline); color:var(--primary); font-size:11px; padding:4px 8px; border-radius:4px; font-weight:700;">${meet.platform}</span>
-        <div style="font-size:11px; color:var(--muted); margin-top:6px; font-weight:600;">${meet.timeString}</div>
-      </div>
-    </div>
+  // Global Escape Key Listener for Modals and Dropdowns
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (notificationsDropdown?.style.display === 'block') notificationsDropdown.style.display = 'none';
+      if (emailComposerModal?.style.display === 'flex') closeEmailComposer();
+      if (callDialogModal?.style.display === 'flex') closeCallDialog();
+      if (linkedinDialogModal?.style.display === 'flex') closeLinkedInDialog();
+    }
+  });
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
-      <!-- Column 1: Bios & Referral partner context -->
-      <div class="briefing-block" style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline);">
-        <h4 style="margin:0 0 10px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--brand-pink);">Partner Referral Dossier</h4>
-        <div style="font-size:12px; line-height:1.6; color:var(--body);">
-          <div style="margin-bottom:8px;"><strong>Referral Partner:</strong> ${meet.influencerName}</div>
-          <div style="margin-bottom:8px;"><strong>Credits Redeemed:</strong> <span style="color:var(--brand-teal); font-weight:700;">${meet.influencerCredits} credits</span></div>
-          <div style="margin-bottom:8px;"><strong>Partner Relationship:</strong> Elite Technology Advisor</div>
-          <p style="margin:8px 0 0 0; padding-top:8px; border-top:1px solid var(--hairline); font-style:italic;">"${meet.notes}"</p>
-        </div>
-      </div>
-
-      <!-- Column 2: Pain points / Intelligence -->
-      <div class="briefing-block" style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline);">
-        <h4 style="margin:0 0 10px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--brand-ochre);">AI Intelligence Summary</h4>
-        <div style="font-size:12px; line-height:1.6; color:var(--body);">
-          <div style="margin-bottom:6px;"><strong>Target Domain:</strong> ${meet.contactCompany.toLowerCase().replace(/\s+/g, "")}.com</div>
-          <div style="margin-bottom:6px;"><strong>Database Risk:</strong> High (Evaluation underway)</div>
-          <div style="margin-bottom:10px;"><strong>Key Priority:</strong> Prompt Injection Shielding</div>
-          <div style="padding:10px; background:#fff; border:1px solid var(--hairline); border-radius:4px;">
-            <strong style="display:block; margin-bottom:4px; font-size:11px; color:var(--ink);">Suggested Pitch Angle:</strong>
-            Highlight compliance guardrails, LLM gateway access logging, and real-time prompt cleaning.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Action Items Checklist -->
-    <div style="background:var(--surface-soft); border:1.5px solid var(--hairline); border-radius:var(--radius-md); padding:16px; box-shadow:2px 2px 0 var(--hairline); margin-bottom:10px;">
-      <h4 style="margin:0 0 12px 0; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink);">Briefing Action Checklist</h4>
-      <div style="display:flex; flex-direction:column; gap:10px; font-size:12.5px;">
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" checked style="width:14px; height:14px; cursor:pointer;"> Verify referral introduction message parameters</label>
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" checked style="width:14px; height:14px; cursor:pointer;"> Review prompt validation compliance reports</label>
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" style="width:14px; height:14px; cursor:pointer;"> Send pre-meeting briefing documentation slides</label>
-        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--body);"><input type="checkbox" style="width:14px; height:14px; cursor:pointer;"> Confirm Calendly sync on corporate GSuite calendar</label>
-      </div>
-    </div>
-  `;
-
-  dialog.showModal();
-}
-
-function closeBriefingConsole() {
-  const dialog = document.getElementById("briefing-dialog");
-  if (dialog) dialog.close();
-}
-
-window.openBriefingConsole = openBriefingConsole;
-window.closeBriefingConsole = closeBriefingConsole;
-
+  // Initial Boot
+  checkSession();
+})();
