@@ -9,7 +9,10 @@ import {
   loadRealScheduledMeetings,
   persistEventToDatabase,
   persistAttendeeToDatabase,
-  persistMeetingToDatabase
+  persistMeetingToDatabase,
+  persistProspectToDatabase,
+  readDatabaseJson,
+  writeDatabaseJson
 } from '../bridge/database.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -232,8 +235,16 @@ export class AdminService {
 
   constructor(store: ConnectemStore) {
     this.store = store;
+    this.loadRealSettings();
     this.seedDefaultEvents();
     this.seedScheduledMeetings();
+  }
+
+  private loadRealSettings() {
+    const db = readDatabaseJson();
+    if (db && db.settings && typeof db.settings === 'object') {
+      this.settings = { ...this.settings, ...db.settings };
+    }
   }
 
   private seedScheduledMeetings() {
@@ -680,6 +691,7 @@ export class AdminService {
       if (p) {
         p.lastContactedAt = new Date().toISOString();
         p.optInCount = (p.optInCount || 0) + 1;
+        persistProspectToDatabase(p);
       }
     }
     return {
@@ -1112,6 +1124,11 @@ export class AdminService {
       lemlistConfigured: Boolean(updates.lemlistApiKey !== undefined ? updates.lemlistApiKey : this.settings.lemlistApiKey),
       firecrawlConfigured: Boolean(updates.firecrawlApiKey !== undefined ? updates.firecrawlApiKey : this.settings.firecrawlApiKey)
     };
+    const db = readDatabaseJson();
+    if (db) {
+      db.settings = { ...(db.settings || {}), ...this.settings };
+      writeDatabaseJson(db);
+    }
     return { ...this.settings };
   }
 }
