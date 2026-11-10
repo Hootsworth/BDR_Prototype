@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="ConnectEM Partner Portal — Manage contacts, review introduction requests, and track rewards.">
-  <title>Partner Portal · ConnectEM</title>
+  <meta name="description" content="ConnectEM Influencer Portal — Manage contacts, review introduction requests, and track rewards.">
+  <title>Influencer Portal · ConnectEM</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 </head>
@@ -14,7 +14,7 @@
     <a href="/go" class="brand-wrapper" id="brand-link">
       <span class="brand-symbol">C</span>
       <span class="brand-title">ConnectEM</span>
-      <span class="brand-tag">Partner</span>
+      <span class="brand-tag">Influencer</span>
     </a>
     <div class="nav-actions">
       <div id="session-indicator" class="session-indicator" style="display: none; align-items: center; gap: 6px;">
@@ -54,7 +54,7 @@
     <section id="auth-section" class="auth-panel">
       <div class="auth-layout">
         <aside class="auth-story">
-          <span class="auth-kicker">CONNECTEM · PARTNER NETWORK</span>
+          <span class="auth-kicker">CONNECTEM · INFLUENCER NETWORK</span>
           <h1 id="auth-story-title">Good relationships move business forward.</h1>
           <p id="auth-story-copy">Your workspace brings your trusted contacts, introduction requests, and earned rewards together in one place.</p>
           <ul class="auth-benefits">
@@ -67,9 +67,9 @@
 
         <div class="card auth-card">
           <div class="auth-header">
-            <span id="auth-mode-label" class="auth-mode-label">PARTNER ACCESS</span>
+            <span id="auth-mode-label" class="auth-mode-label">INFLUENCER ACCESS</span>
             <h2 id="auth-form-title" class="display-lg">Welcome back</h2>
-            <p id="auth-form-copy">Sign in with the email address registered to your partner account.</p>
+            <p id="auth-form-copy">Sign in with the email address registered to your influencer account.</p>
           </div>
 
           <div id="login-view" class="auth-view">
@@ -93,7 +93,7 @@
 
             <form id="login-form" class="form-group auth-form">
               <div class="form-group">
-                <label for="login-email">Partner email</label>
+                <label for="login-email">Influencer email</label>
                 <input id="login-email" name="email" type="email" required placeholder="you@company.com" autocomplete="email">
               </div>
               <div class="form-group"><label for="login-password">Password</label><input id="login-password" name="password" type="password" required autocomplete="current-password" placeholder="Your password"></div>
@@ -103,10 +103,10 @@
                   <span>Grant in-app Gmail outreach permission (Admin CC: <span class="code-text">nextbdr@gmail.com</span>)</span>
                 </label>
               </div>
-              <p class="auth-form-note">Use the email and password associated with your ConnectEM partner profile.</p>
+              <p class="auth-form-note">Use the email and password associated with your ConnectEM influencer profile.</p>
               <button id="login-submit-btn" class="btn btn-primary" type="submit">Sign In with Email</button>
             </form>
-            <div class="auth-switch"><span>New to ConnectEM?</span><a href="/signup" id="auth-signup-link">Create a partner account</a></div>
+            <div class="auth-switch"><span>New to ConnectEM?</span><a href="/signup" id="auth-signup-link">Create an influencer account</a></div>
           </div>
 
           <div id="signup-view" class="auth-view" hidden>
@@ -137,14 +137,14 @@
                 <div class="form-group"><label for="onboard-password">Create password</label><input id="onboard-password" name="password" type="password" required minlength="8" placeholder="At least 8 characters" autocomplete="new-password"></div>
                 <div class="form-group"><label for="onboard-password-confirm">Confirm password</label><input id="onboard-password-confirm" name="passwordConfirm" type="password" required minlength="8" placeholder="Enter it again" autocomplete="new-password"></div>
               </div>
-              <div class="form-group"><label for="onboard-privacy">Profile visibility</label><select id="onboard-privacy" name="privacyTier"><option value="ask_partner" selected>Ask me before sharing</option><option value="discoverable">Show me in the partner directory</option><option value="anonymous">Show my role and company only</option><option value="private">Keep my profile private</option></select><small class="auth-field-hint">You can change this later in Settings.</small></div>
+              <div class="form-group"><label for="onboard-privacy">Profile visibility</label><select id="onboard-privacy" name="privacyTier"><option value="ask_partner" selected>Ask me before sharing</option><option value="discoverable">Show me in the influencer directory</option><option value="anonymous">Show my role and company only</option><option value="private">Keep my profile private</option></select><small class="auth-field-hint">You can change this later in Settings.</small></div>
               <div>
                 <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; font-weight:normal; cursor:pointer;">
                   <input type="checkbox" id="onboard-gmail-perm" checked style="width:auto; margin-top:2px;">
                   <span>Grant in-app Gmail outreach permission (Admin CC: <span class="code-text">nextbdr@gmail.com</span>)</span>
                 </label>
               </div>
-              <button id="onboard-submit-btn" class="btn btn-primary" type="submit">Create partner account</button>
+              <button id="onboard-submit-btn" class="btn btn-primary" type="submit">Create influencer account</button>
               <p class="auth-form-note">After creating your profile, you can connect LinkedIn and choose which contacts to add.</p>
             </form>
             <div class="auth-switch"><span>Already have an account?</span><a href="/login" id="auth-login-link">Sign in</a></div>
@@ -921,7 +921,7 @@
               <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
                 <input type="radio" name="privacyTier" value="ask_partner" style="margin-top:4px;">
                 <div>
-                  <strong style="color:var(--ink);">Ask Partner (Approval required)</strong>
+                  <strong style="color:var(--ink);">Ask Influencer (Approval required)</strong>
                   <p style="font-size:12px; color:var(--muted);">Your contacts are never revealed until you explicitly review and approve an introduction brief.</p>
                 </div>
               </label>
@@ -962,7 +962,7 @@
             <div>Signed-in Email: <strong id="settings-partner-email" class="code-text">bob.miller@milleradvisory.com</strong></div>
             <div>Admin Compliance CC: <strong class="code-text" style="color:var(--ink);">nextbdr@gmail.com</strong> <span class="badge-tag strong" style="font-size:10px;">Enforced</span></div>
             <div>Session Token: <span id="settings-auth-token" class="code-text" style="color:var(--muted); font-size:11.5px;">token_partner_...</span></div>
-            <div>Account Status: <span class="badge-tag strong">Active Verified Partner</span></div>
+            <div>Account Status: <span class="badge-tag strong">Active Verified Influencer</span></div>
           </div>
         </div>
         </div><!-- /settings-panel-privacy -->

@@ -2915,7 +2915,7 @@
             <span class="doc-kicker">NETWORK EXPANSION VENUES</span>
             <h1 class="doc-title">Events &amp; Calendar</h1>
             <p class="doc-meta">
-              Upcoming field events, roundtables, and executive summits. Review guest lists and convert attendees directly to active influencer partners.
+              Upcoming field events, roundtables, and executive summits. Review guest lists and convert attendees directly to active influencers.
             </p>
           </div>
           <div class="flat-actions">
@@ -3419,7 +3419,7 @@
                 <div class="settings-card-header">
                   <div class="settings-card-title">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M16 10H9.5a2.5 2.5 0 0 0 0 5H14a2.5 2.5 0 0 1 0 5H8"/></svg>
-                    Partner rewards
+                    Influencer rewards
                   </div>
                   <span class="settings-badge-status active">Rules Active</span>
                 </div>
@@ -3513,7 +3513,7 @@
                 </p>
                 <div id="settings-telemetry-feed" style="max-height: 220px; overflow-y: auto; background: #ffffff; border: 1px solid var(--rule); border-radius: var(--radius-control); padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; display: flex; flex-direction: column; gap: 6px;">
                   <div style="color: #15803d;">[SYSTEM] ConnectEM TypeScript Unified Engine operational on port 8002.</div>
-                  <div style="color: var(--ink-muted);">[DATABASE] Indexed 30 partner graph nodes and 905 executive contacts.</div>
+                  <div style="color: var(--ink-muted);">[DATABASE] Indexed 30 influencer graph nodes and 905 executive contacts.</div>
                   <div style="color: var(--ink-muted);">[COMPLIANCE] Strict CC enforcement active for nextbdr@gmail.com.</div>
                   <div style="color: var(--ink-muted);">[AI ENGINE] Google Gemini 1.5 Pro pipeline ready for warm intro briefs.</div>
                 </div>
@@ -3635,7 +3635,7 @@
           <div class="flat-field">
             <label class="flat-label" for="prosp-influencer">Who introduced them? *</label>
             <select id="prosp-influencer" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);" required>
-              <option value="">Select influencer partner...</option>
+              <option value="">Select influencer...</option>
             </select>
           </div>
           <div class="flat-field">
@@ -4075,7 +4075,7 @@ ConnectEM Admin Team</textarea>
     function openAddProspectModal() {
       document.getElementById('form-add-prospect').reset();
       const select = document.getElementById('prosp-influencer');
-      select.innerHTML = '<option value="">Select influencer partner...</option>' + 
+      select.innerHTML = '<option value="">Select influencer...</option>' + 
         allInfluencers.map(inf => `<option value="${inf.id}">${escapeHtml(inf.fullName)} (${escapeHtml(inf.company)})</option>`).join('');
       document.getElementById('modal-add-prospect').style.display = 'flex';
     }
@@ -4293,7 +4293,7 @@ ConnectEM Admin Team</textarea>
               </td>
               <td>
                 <span class="badge-source">
-                  ${escapeHtml(p.partnerName || 'Network Partner')}
+                  ${escapeHtml(p.partnerName || 'Network Influencer')}
                 </span>
               </td>
               <td>
@@ -4304,7 +4304,7 @@ ConnectEM Admin Team</textarea>
                   <button class="btn-sm-curved" onclick="openOutreachScreen('${p.id}')">
                     Outreach &rarr;
                   </button>
-                  <button class="btn-sm-curved secondary" onclick="convertProspectToInfluencer('${p.id}', '${escapeHtml(p.fullName)}')" title="Convert to Influencer partner">
+                  <button class="btn-sm-curved secondary" onclick="convertProspectToInfluencer('${p.id}', '${escapeHtml(p.fullName)}')" title="Convert to Influencer">
                     + Influencer
                   </button>
                 </div>
@@ -4341,7 +4341,7 @@ ConnectEM Admin Team</textarea>
             <tr>
               <td>
                 <span class="lead-name">${escapeHtml(inf.fullName)}</span>
-                <span class="sub-meta">${escapeHtml(inf.jobTitle || 'Executive Partner')}</span>
+                <span class="sub-meta">${escapeHtml(inf.jobTitle || 'Executive Influencer')}</span>
               </td>
               <td>
                 <span class="lead-name">${escapeHtml(inf.company || 'Private Equity')}</span>
@@ -4490,7 +4490,7 @@ ConnectEM Admin Team</textarea>
                 <span class="person-row-status ${badgeClass}">${escapeHtml(status)}</span>
               </div>
               <div class="person-row-sub">${escapeHtml(p.jobTitle || 'Role')} · ${escapeHtml(p.company)}</div>
-              <div class="person-row-influencer">Introduced by: ${escapeHtml(p.partnerName || 'Network Partner')}</div>
+              <div class="person-row-influencer">Introduced by: ${escapeHtml(p.partnerName || 'Network Influencer')}</div>
             </div>
           </div>
         `;
@@ -4729,7 +4729,7 @@ ConnectEM Admin Team</textarea>
         });
         const result = await res.json();
         if (result.success && result.data) {
-          result.data.partnerName = partner ? partner.fullName : 'Partner';
+          result.data.partnerName = partner ? partner.fullName : 'Influencer';
           result.data.partnerCompany = partner ? partner.company : '';
           allProspects.unshift(result.data);
           document.getElementById('prospects-count-badge').textContent = `(${allProspects.length})`;
@@ -4770,12 +4770,12 @@ ConnectEM Admin Team</textarea>
         });
         const result = await res.json();
         if (result.success && result.data) {
-          showToast(`Converted ${prospectName || 'prospect'} into active Influencer partner.`);
+          showToast(`Converted ${prospectName || 'prospect'} into active Influencer.`);
           await fetchInfluencers();
           await fetchProspects();
           const convertBtn = document.getElementById('dossier-convert-influencer-btn');
           if (convertBtn && selectedOutreachProspect && selectedOutreachProspect.id === prospectId) {
-            convertBtn.textContent = 'Partner Confirmed';
+            convertBtn.textContent = 'Influencer Confirmed';
             convertBtn.disabled = true;
           }
         } else {
@@ -4895,7 +4895,7 @@ ConnectEM Admin Team</textarea>
       tbody.innerHTML = attendees.map(att => {
         const isInfluencer = att.isInfluencer || allInfluencers.some(inf => inf.email && inf.email.toLowerCase() === att.email.toLowerCase());
         const actionHtml = isInfluencer
-          ? `<span class="badge-status" style="background: rgba(34, 197, 94, .1); color: #15803d; border-color: rgba(34, 197, 94, .25);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;"><polyline points="20 6 9 17 4 12"/></svg>Influencer Partner</span>`
+          ? `<span class="badge-status" style="background: rgba(34, 197, 94, .1); color: #15803d; border-color: rgba(34, 197, 94, .25);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -1px;"><polyline points="20 6 9 17 4 12"/></svg>Influencer</span>`
           : `<button class="btn-sm-curved secondary" onclick="convertAttendeeToInfluencer('${ev.id}', '${att.id}', '${escapeHtml(att.fullName)}')">+ Add to Influencers</button>`;
 
         return `
@@ -5005,7 +5005,7 @@ ConnectEM Admin Team</textarea>
         });
         const result = await res.json();
         if (result.success && result.data) {
-          showToast(`Added ${attendeeName} as an Influencer partner!`);
+          showToast(`Added ${attendeeName} as an Influencer!`);
           if (selectedEvent && selectedEvent.attendees) {
             const att = selectedEvent.attendees.find(a => a.id === attendeeId);
             if (att) {
@@ -5188,7 +5188,7 @@ ConnectEM Admin Team</textarea>
       if (type === 'all') {
         filteredMeetings = [...allMeetings];
         if (title) title.textContent = "All Scheduled Meetings";
-        if (subtitle) subtitle.textContent = `${allMeetings.length} total meetings booked by your network partners and influencers.`;
+        if (subtitle) subtitle.textContent = `${allMeetings.length} total meetings booked by your network influencers.`;
       } else if (type === 'month') {
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const year = currentCalDate.getFullYear();
@@ -5239,7 +5239,7 @@ ConnectEM Admin Team</textarea>
 
             <div class="calendar-meeting-influencer">
               <span style="display: inline-flex; align-items: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Introduced by:</span>
-              <strong>${escapeHtml(m.influencerName || 'Network Partner')}</strong>
+              <strong>${escapeHtml(m.influencerName || 'Network Influencer')}</strong>
               ${m.influencerCredits ? `<span style="color: var(--ink-muted);">(${m.influencerCredits} credits)</span>` : ''}
             </div>
 
@@ -5315,8 +5315,8 @@ ConnectEM Admin Team</textarea>
     function onSelectProspectForMeeting(prospectId) {
       const p = allProspects.find(x => x.id === prospectId);
       if (p) {
-        document.getElementById('meet-influencer-name').value = p.partnerName || 'Network Partner';
-        document.getElementById('meet-notes').value = p.introForwardableBrief || `Referred by ${p.partnerName || 'Influencer Partner'}.`;
+        document.getElementById('meet-influencer-name').value = p.partnerName || 'Network Influencer';
+        document.getElementById('meet-notes').value = p.introForwardableBrief || `Referred by ${p.partnerName || 'Influencer'}.`;
       }
     }
 
@@ -5340,7 +5340,7 @@ ConnectEM Admin Team</textarea>
         contactCompany: prospect ? prospect.company : 'Enterprise Company',
         contactEmail: prospect ? prospect.email : 'contact@example.org',
         contactPhone: prospect ? prospect.phone : '',
-        influencerName: document.getElementById('meet-influencer-name').value.trim() || 'Network Partner',
+        influencerName: document.getElementById('meet-influencer-name').value.trim() || 'Network Influencer',
         platform: document.getElementById('meet-platform').value,
         meetingUrl: document.getElementById('meet-url').value.trim() || 'https://meet.google.com/connectem-briefing',
         timeString: `${dateVal} at ${timeVal}`,
@@ -5622,7 +5622,7 @@ ConnectEM Admin Team</textarea>
     }
 
     async function reseedDemoDatabase() {
-      if (!confirm('Reset and reseed database with 30 Influencer partners and 905 executive prospects?')) return;
+      if (!confirm('Reset and reseed database with 30 Influencers and 905 executive prospects?')) return;
       try {
         showToast('Reseeding database with 30x30 dataset...');
         const res = await fetch('/api/db/seed', {

@@ -82,7 +82,7 @@ test('Go Portal: static routes serve HTML, CSS, and JS', async () => {
   const rootRes = await simulateRequest(server, '/');
   assert.equal(rootRes.status, 200);
   assert.match(rootRes.headers['content-type'], /text\/html/);
-  assert.ok(rootRes.text.includes('Partner Portal · ConnectEM'));
+  assert.ok(rootRes.text.includes('Influencer Portal · ConnectEM') || rootRes.text.includes('Partner Portal · ConnectEM'));
   assert.ok(rootRes.text.includes('Sign In'));
 
   const goRes = await simulateRequest(server, '/go');

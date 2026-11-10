@@ -1159,7 +1159,7 @@
     if (onboardingSequenceSection) onboardingSequenceSection.style.display = 'none';
     if (workspaceSection) workspaceSection.style.display = 'block';
     loadAllData();
-    showToast('Welcome to your Go Partner Workspace! Relationships ready.');
+    showToast('Welcome to your Go Influencer Workspace! Relationships ready.');
   });
 
   launchLinkedinSyncBtn?.addEventListener('click', () => {
@@ -1778,7 +1778,7 @@
     pendingRequests.forEach(req => {
       items.push({
         id: req.id,
-        vendor: req.vendorName || req.requesterOrg || 'Partner Vendor',
+        vendor: req.vendorName || req.requesterOrg || 'Influencer Vendor',
         prospect: req.prospectName || req.targetFullName || 'Executive Target',
         company: req.prospectCompany || req.targetCompany || '',
         brief: req.forwardableBrief || req.specificAsk || 'Warm intro review requested',
