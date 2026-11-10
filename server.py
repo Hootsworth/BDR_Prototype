@@ -1666,6 +1666,9 @@ def hosted_api_request_allowed(handler, method, path):
     if (method, path) in public_routes:
         return True
 
+    if path.startswith('/api/go'):
+        return True
+
     token = bearer_token(handler.headers)
     if token and (token.startswith('admin_token_') or token in _ACTIVE_ADMIN_TOKENS):
         handler._clerk_admin_claims = {'sub': 'admin', 'email': 'nextbdr@gmail.com', 'role': 'admin'}
@@ -1764,6 +1767,7 @@ def add_referral_via_portal(influencer_email, prospect_data):
     }
     influencer['referrals'].insert(0, ref_entry)
     influencer['referralCredits'] = int(influencer.get('referralCredits') or 0) + credits
+    write_workbook_state(state)
     sync_relational_tables_from_state(state)
     return {'status': 'created', 'contact': new_contact, 'referral': ref_entry, 'influencer': influencer}
 
@@ -3303,12 +3307,70 @@ def handle_admin_api_routes(handler, method, path, query=None, payload=None):
 
     return False
 
+REWARD_CATALOG_DATA = [
+    {'id': 'cash-reward', 'name': 'Cash reward', 'category': 'cash', 'description': 'Request a cash payout for manual review.'},
+    {'id': 'nonprofit-donation', 'name': 'Donate to your nonprofit', 'category': 'impact', 'description': 'Direct a reward toward a nonprofit you care about.'},
+    {'id': 'conference-sponsorship', 'name': 'Conference sponsorship', 'category': 'experiences', 'description': 'Request support to attend or participate in a conference.'},
+    {'id': 'product-services', 'name': 'Free products or services', 'category': 'services', 'description': 'Request products or professional services from the network.'},
+    {'id': 'executive-event', 'name': 'Executive events', 'category': 'experiences', 'description': 'Request a place at a curated executive gathering.'},
+    {'id': 'vip-dinner', 'name': 'VIP dinner', 'category': 'experiences', 'description': 'Request an invitation to a small-group dinner.'},
+    {'id': 'research-sponsorship', 'name': 'Research sponsorship', 'category': 'services', 'description': 'Request support for an independent research project.'},
+    {'id': 'speaking-opportunity', 'name': 'Speaking opportunity', 'category': 'visibility', 'description': 'Request help finding a relevant speaking platform.'},
+    {'id': 'content-collaboration', 'name': 'Content collaboration', 'category': 'visibility', 'description': 'Request a co-created article, interview, or event.'},
+    {'id': 'thought-leadership', 'name': 'Personal brand support', 'category': 'visibility', 'description': 'Request help with personal branding and thought leadership.'}
+]
+
+CREDIT_MILESTONES_DATA = [
+    {'id': 'warm-intro', 'name': 'Warm introduction', 'credits': 200},
+    {'id': 'qualified-meeting', 'name': 'Qualified meeting', 'credits': 600},
+    {'id': 'opportunity-created', 'name': 'Opportunity created', 'credits': 1000},
+    {'id': 'customer-close', 'name': 'Customer closes', 'credits': 5000},
+    {'id': 'customer-expansion', 'name': 'Customer expansion', 'credits': 2500}
+]
+
+def get_current_influencer(handler, state=None):
+    if state is None:
+        state = read_workbook_state()
+    contacts = state.get('contacts') or []
+    influencers = [c for c in contacts if c.get('isInfluencer')]
+    if not influencers:
+        return None, state
+
+    token = bearer_token(handler.headers)
+    token_str = str(token or '').strip()
+
+    if token_str:
+        for inf in influencers:
+            if inf.get('authToken') and str(inf.get('authToken')).strip() == token_str:
+                return inf, state
+        if token_str.startswith('token_'):
+            parts = token_str.split('_')
+            target_id = None
+            if len(parts) >= 3 and parts[1] == 'partner':
+                target_id = parts[2]
+            elif len(parts) >= 2:
+                target_id = parts[1].replace('partner', '')
+            if target_id:
+                for inf in influencers:
+                    if str(inf.get('id')) == str(target_id) or f"partner_{inf.get('id')}" == f"partner_{target_id}":
+                        return inf, state
+
+    auth_email = handler.headers.get('x-influencer-email') or handler.headers.get('x-partner-email')
+    if auth_email:
+        auth_email = auth_email.strip().lower()
+        for inf in influencers:
+            if str(inf.get('email') or '').strip().lower() == auth_email:
+                return inf, state
+
+    return influencers[0], state
+
 def handle_go_api_routes(handler, method, path, query=None, payload=None):
-    if not path.startswith('/api/go'):
+    clean_path = path.rstrip('/') or '/'
+    if not clean_path.startswith('/api/go'):
         return False
 
     # POST /api/go/login
-    if path == '/api/go/login' and method == 'POST':
+    if clean_path == '/api/go/login' and method == 'POST':
         body = payload or {}
         email = str(body.get('email') or '').strip().lower()
         password = str(body.get('password') or '').strip()
@@ -3318,18 +3380,20 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
         if not partner:
             partner = next((c for c in contacts if c.get('isInfluencer')), None)
         if not partner:
-            json_response(handler, 401, {'success': False, 'error': 'Invalid partner email or password.'})
+            json_response(handler, 401, {'success': False, 'error': 'Invalid influencer email or password.'})
             return True
         if password and not partner_password_matches(partner, password):
             json_response(handler, 401, {'success': False, 'error': 'Incorrect password. Please verify your credentials or contact your administrator.'})
             return True
         partner_id = f"partner_{partner.get('id')}"
         token = f"token_{partner_id}_{uuid.uuid4().hex[:16]}"
+        partner['authToken'] = token
+        write_workbook_state(state)
         referrals = partner.get('referrals') or []
         must_change = bool(partner.get('mustChangePassword'))
         partner_obj = {
             'id': partner_id,
-            'fullName': partner.get('fullName') or 'Partner',
+            'fullName': partner.get('fullName') or 'Influencer',
             'email': partner.get('email'),
             'company': partner.get('company'),
             'jobTitle': partner.get('jobTitle'),
@@ -3355,14 +3419,69 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
         })
         return True
 
+    # POST /api/go/demo-login
+    if clean_path == '/api/go/demo-login' and method == 'POST':
+        state = read_workbook_state()
+        partner = next((c for c in (state.get('contacts') or []) if c.get('isInfluencer')), None)
+        if not partner:
+            contacts = state.setdefault('contacts', [])
+            partner = {
+                'id': 1,
+                'fullName': 'Bob Miller',
+                'email': 'bmiller@apexadvisory.com',
+                'company': 'Apex Advisory Group',
+                'jobTitle': 'Managing Director',
+                'isInfluencer': True,
+                'referralCredits': 120,
+                'pointsBalance': 120,
+                'trustScore': 94,
+                'referrals': []
+            }
+            contacts.append(partner)
+        partner_id = f"partner_{partner.get('id')}"
+        token = partner.get('authToken') or f"token_{partner_id}_{uuid.uuid4().hex[:16]}"
+        partner['authToken'] = token
+        write_workbook_state(state)
+        partner_obj = {
+            'id': partner_id,
+            'fullName': partner.get('fullName') or 'Bob Miller',
+            'email': partner.get('email') or 'bmiller@apexadvisory.com',
+            'company': partner.get('company') or 'Apex Advisory Group',
+            'jobTitle': partner.get('jobTitle') or 'Managing Director',
+            'pointsBalance': partner.get('pointsBalance') or partner.get('referralCredits', 120),
+            'credits': partner.get('referralCredits', 120),
+            'verifiedRevenue': 450000,
+            'authToken': token
+        }
+        referrals = partner.get('referrals') or []
+        json_response(handler, 200, {
+            'success': True,
+            'status': 'success',
+            'token': token,
+            'partner': partner_obj,
+            'influencer': partner_obj,
+            'referrals': referrals,
+            'mustChangePassword': False,
+            'data': {
+                'partner': partner_obj,
+                'token': token,
+                'referrals': referrals,
+                'mustChangePassword': False
+            }
+        })
+        return True
+
     # POST /api/go/change-password
-    if path == '/api/go/change-password' and method == 'POST':
+    if clean_path == '/api/go/change-password' and method == 'POST':
         body = payload or {}
         email = str(body.get('email') or '').strip().lower()
         new_password = str(body.get('newPassword') or '').strip()
         current_password = str(body.get('currentPassword') or '').strip()
         if not new_password or len(new_password) < 8:
             json_response(handler, 400, {'success': False, 'error': 'New password must be at least 8 characters long.'})
+            return True
+        if current_password and new_password and current_password == new_password:
+            json_response(handler, 400, {'success': False, 'error': 'New password must be different from current password.'})
             return True
         state = read_workbook_state()
         contacts = state.get('contacts') or []
@@ -3388,7 +3507,7 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
         return True
 
     # POST /api/go/google-login
-    if path == '/api/go/google-login' and method == 'POST':
+    if clean_path == '/api/go/google-login' and method == 'POST':
         body = payload or {}
         credential = body.get('credential')
         email = body.get('email')
@@ -3422,9 +3541,10 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
                 'trustScore': 90
             }
             contacts.append(partner)
-            write_workbook_state(state)
         partner_id = f"partner_{partner.get('id')}"
         token = f"token_{partner_id}_{uuid.uuid4().hex[:16]}"
+        partner['authToken'] = token
+        write_workbook_state(state)
         referrals = partner.get('referrals') or []
         partner_obj = {
             'id': partner_id,
@@ -3453,8 +3573,8 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
         })
         return True
 
-    # POST /api/go/onboard
-    if path == '/api/go/onboard' and method == 'POST':
+    # POST /api/go/onboard & /api/go/signup
+    if clean_path in ('/api/go/onboard', '/api/go/signup') and method == 'POST':
         body = payload or {}
         state = read_workbook_state()
         contacts = state.setdefault('contacts', [])
@@ -3469,39 +3589,928 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
             'referrals': [],
             'referralCredits': 100,
             'trustScore': 90,
-            'privacyLevel': body.get('privacyTier') or 'ask_partner'
+            'privacyTier': body.get('privacyTier') or 'ask_partner'
         }
         contacts.append(partner)
-        write_workbook_state(state)
         partner_id = f"partner_{new_id}"
         token = f"token_{partner_id}_{uuid.uuid4().hex[:16]}"
         partner['authToken'] = token
         partner['pointsBalance'] = 100
-        json_response(handler, 200, {'success': True, 'partner': partner, 'data': partner, 'token': token})
+        write_workbook_state(state)
+        json_response(handler, 201, {'success': True, 'partner': partner, 'data': partner, 'token': token})
         return True
 
     # GET /api/go/session
-    if path == '/api/go/session' and method == 'GET':
-        token = bearer_token(handler.headers)
+    if clean_path == '/api/go/session' and method == 'GET':
         state = read_workbook_state()
-        partner = next((c for c in (state.get('contacts') or []) if c.get('isInfluencer')), None)
+        partner, state = get_current_influencer(handler, state)
         if partner:
             partner_id = f"partner_{partner.get('id')}"
+            token = partner.get('authToken') or bearer_token(handler.headers) or f"token_{partner_id}"
+            referrals = partner.get('referrals') or []
             partner_obj = {
                 'id': partner_id,
-                'fullName': partner.get('fullName') or 'Partner',
+                'fullName': partner.get('fullName') or 'Influencer',
                 'email': partner.get('email'),
                 'company': partner.get('company'),
                 'jobTitle': partner.get('jobTitle'),
-                'pointsBalance': partner.get('referralCredits', 120),
-                'authToken': token or f"token_{partner_id}"
+                'pointsBalance': partner.get('pointsBalance') or partner.get('referralCredits', 120),
+                'credits': partner.get('referralCredits', 120),
+                'verifiedRevenue': partner.get('verifiedRevenue', 450000),
+                'authToken': token,
+                'privacyTier': partner.get('privacyTier', 'ask_partner'),
+                'bookingUrl': partner.get('bookingUrl', 'https://calendly.com'),
+                'defaultAiTone': partner.get('defaultAiTone', 'warm'),
+                'aiModelAssignment': partner.get('aiModelAssignment', 'Gemini 3.7 Flash'),
+                'gmailConnected': bool(partner.get('gmailConnected', True)),
+                'mustChangePassword': bool(partner.get('mustChangePassword', False))
             }
-            json_response(handler, 200, {'success': True, 'partner': partner_obj, 'data': partner_obj})
+            json_response(handler, 200, {
+                'success': True,
+                'status': 'success',
+                'profileComplete': True,
+                'token': token,
+                'partner': partner_obj,
+                'influencer': partner_obj,
+                'user': partner_obj,
+                'referrals': referrals,
+                'data': partner_obj
+            })
             return True
-        json_response(handler, 401, {'success': False, 'error': 'No partner session found'})
+        json_response(handler, 401, {'success': False, 'error': 'No influencer session found'})
         return True
 
-    return False
+    # GET /api/go/relationships
+    if clean_path == '/api/go/relationships' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 200, {'success': True, 'data': [], 'meta': {'total': 0}})
+            return True
+        partner_id = str(partner.get('id'))
+        partner_email = str(partner.get('email') or '').lower()
+        contacts = state.get('contacts') or []
+        relationships = []
+        seen_emails = set()
+        for ref in (partner.get('referrals') or []):
+            ref_email = str(ref.get('email') or '').lower()
+            if ref_email and ref_email in seen_emails:
+                continue
+            if ref_email:
+                seen_emails.add(ref_email)
+            relationships.append({
+                'id': ref.get('id') or f"ref_{len(relationships)+1}",
+                'fullName': ref.get('fullName') or 'Executive Contact',
+                'jobTitle': ref.get('jobTitle') or 'Executive',
+                'company': ref.get('company') or 'Partner Company',
+                'email': ref.get('email') or '',
+                'phone': ref.get('phone') or '',
+                'relationshipStrength': ref.get('relationshipStrength') or 'strong',
+                'relationshipContext': ref.get('relationshipContext') or ref.get('notes') or 'Advisory relationship',
+                'optInCount': ref.get('optInCount') or 0
+            })
+        for c in contacts:
+            if c.get('isInfluencer'):
+                continue
+            is_linked = (
+                str(c.get('influencerId')) == partner_id or
+                str(c.get('influencerEmail') or '').lower() == partner_email or
+                str(c.get('partnerId') or '') in (f"partner_{partner_id}", partner_id) or
+                (c.get('referredBy') and str(c.get('referredBy')).lower() == str(partner.get('fullName') or '').lower())
+            )
+            if is_linked:
+                c_email = str(c.get('email') or '').lower()
+                if c_email and c_email in seen_emails:
+                    continue
+                if c_email:
+                    seen_emails.add(c_email)
+                relationships.append({
+                    'id': c.get('id'),
+                    'fullName': c.get('fullName') or f"{c.get('firstName','')} {c.get('lastName','')}".strip(),
+                    'jobTitle': c.get('jobTitle') or 'Executive',
+                    'company': c.get('company') or '',
+                    'email': c.get('email') or '',
+                    'phone': c.get('phone') or '',
+                    'relationshipStrength': c.get('relationshipStrength') or 'strong',
+                    'relationshipContext': c.get('relationshipContext') or c.get('portalNotes') or 'Advisory relationship',
+                    'optInCount': c.get('optInCount') or 0
+                })
+        json_response(handler, 200, {'success': True, 'data': relationships, 'meta': {'total': len(relationships)}})
+        return True
+
+    # POST /api/go/relationships
+    if clean_path == '/api/go/relationships' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Influencer profile not found.'})
+            return True
+        contacts = state.setdefault('contacts', [])
+        name = str(body.get('fullName') or '').strip()
+        email = str(body.get('email') or '').strip().lower()
+        company = str(body.get('company') or '').strip()
+        job_title = str(body.get('jobTitle') or 'Executive').strip()
+        phone = str(body.get('phone') or '').strip()
+        strength = str(body.get('relationshipStrength') or 'strong').strip()
+        context = str(body.get('relationshipContext') or 'Direct advisory relationship').strip()
+        new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+        parts = name.split()
+        first_name = parts[0] if parts else name
+        last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+        new_contact = {
+            'id': new_id,
+            'firstName': first_name,
+            'lastName': last_name,
+            'fullName': name,
+            'email': email,
+            'jobTitle': job_title,
+            'company': company,
+            'phone': phone,
+            'relationshipStrength': strength,
+            'relationshipContext': context,
+            'optInCount': 0,
+            'isInfluencer': False,
+            'influencerId': partner.get('id'),
+            'influencerEmail': partner.get('email'),
+            'partnerId': f"partner_{partner.get('id')}",
+            'referredBy': partner.get('fullName'),
+            'portalNotes': context,
+            'sourceFile': f"Influencer Directory ({partner.get('fullName')})",
+            'leadTemp': 'Warm Lead'
+        }
+        contacts.append(new_contact)
+        if not isinstance(partner.get('referrals'), list):
+            partner['referrals'] = []
+        ref_entry = {
+            'id': new_id,
+            'fullName': name,
+            'jobTitle': job_title,
+            'company': company,
+            'email': email,
+            'phone': phone,
+            'relationshipStrength': strength,
+            'relationshipContext': context,
+            'optInCount': 0,
+            'credits': 50,
+            'date': time.strftime('%Y-%m-%d', time.gmtime())
+        }
+        partner['referrals'].insert(0, ref_entry)
+        partner['referralCredits'] = int(partner.get('referralCredits') or 0) + 50
+        partner['pointsBalance'] = int(partner.get('pointsBalance') or partner['referralCredits'])
+        write_workbook_state(state)
+        json_response(handler, 201, {'success': True, 'data': new_contact, 'referral': ref_entry})
+        return True
+
+    # GET /api/go/settings
+    if clean_path == '/api/go/settings' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in to your influencer workspace first.'})
+            return True
+        partner_id = f"partner_{partner.get('id')}"
+        used_today = int(partner.get('aiDraftsUsedToday') or 0)
+        used_week = int(partner.get('aiDraftsUsedThisWeek') or used_today)
+        limit_daily = int(partner.get('aiDraftLimitDaily') or 20)
+        limit_weekly = 20
+        remaining = max(0, limit_weekly - used_week)
+        assigned_model = partner.get('aiModelAssignment') or 'Gemini 3.7 Flash'
+        partner_data = {
+            'id': partner_id,
+            'fullName': partner.get('fullName') or 'Influencer',
+            'email': partner.get('email'),
+            'company': partner.get('company'),
+            'jobTitle': partner.get('jobTitle'),
+            'phone': partner.get('phone') or '',
+            'linkedinProfileUrl': partner.get('linkedinProfileUrl') or '',
+            'expertise': partner.get('expertise') or ['Introductions', 'Strategic Partnerships'],
+            'defaultAiTone': partner.get('defaultAiTone') or 'warm',
+            'aiModelAssignment': assigned_model,
+            'bookingUrl': partner.get('bookingUrl') or 'https://calendly.com',
+            'privacyTier': partner.get('privacyTier') or 'ask_partner',
+            'notificationPreferences': partner.get('notificationPreferences') or {
+                'newRequests': True,
+                'rewardsUpdates': True,
+                'emailDigests': True
+            }
+        }
+        ai_usage = {
+            'limitDaily': limit_daily,
+            'usedToday': used_today,
+            'limitWeekly': limit_weekly,
+            'usedThisWeek': used_week,
+            'remaining': remaining,
+            'resetDate': 'Resets daily at midnight UTC',
+            'provider': assigned_model,
+            'backendKeyConfigured': True
+        }
+        integrations = {
+            'linkedin': {
+                'name': 'LinkedIn API',
+                'connected': bool(partner.get('linkedinConnected')),
+                'profileUrl': partner.get('linkedinProfileUrl') or '',
+                'backendKeyConfigured': True,
+                'status': 'Active' if partner.get('linkedinConnected') else 'Ready to Connect'
+            },
+            'gmail': {
+                'name': 'Gmail Internal Dispatch',
+                'connected': bool(partner.get('gmailConnected', True)),
+                'email': partner.get('gmailEmail') or partner.get('email'),
+                'adminCcEnforced': 'nextbdr@gmail.com',
+                'status': 'Active'
+            },
+            'twilio': {
+                'name': 'Twilio Voice Gateway',
+                'connected': True,
+                'provider': 'Twilio Telephony',
+                'status': 'Active'
+            },
+            'ai': {
+                'name': 'Assigned AI Model',
+                'provider': assigned_model,
+                'backendKeyConfigured': True,
+                'mandatoryLimitWeekly': limit_weekly,
+                'usedThisWeek': used_week,
+                'status': 'Active (Mandatory Quota Enforced)'
+            }
+        }
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'partner': partner_data,
+                'aiUsage': ai_usage,
+                'integrations': integrations
+            }
+        })
+        return True
+
+    # POST /api/go/settings/profile
+    if clean_path == '/api/go/settings/profile' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        if 'fullName' in body and body['fullName']: partner['fullName'] = str(body['fullName']).strip()
+        if 'company' in body and body['company']: partner['company'] = str(body['company']).strip()
+        if 'jobTitle' in body and body['jobTitle']: partner['jobTitle'] = str(body['jobTitle']).strip()
+        if 'phone' in body: partner['phone'] = str(body['phone'] or '').strip()
+        if 'bio' in body: partner['bio'] = str(body['bio'] or '').strip()
+        if 'linkedinProfileUrl' in body: partner['linkedinProfileUrl'] = str(body['linkedinProfileUrl'] or '').strip()
+        if 'expertise' in body and isinstance(body['expertise'], list): partner['expertise'] = body['expertise']
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': partner})
+        return True
+
+    # POST /api/go/settings/privacy
+    if clean_path == '/api/go/settings/privacy' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        tier = body.get('privacyTier') or 'ask_partner'
+        partner['privacyTier'] = tier
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': partner})
+        return True
+
+    # POST /api/go/settings/booking
+    if clean_path == '/api/go/settings/booking' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        partner['bookingUrl'] = str(body.get('bookingUrl') or '').strip()
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': partner})
+        return True
+
+    # POST /api/go/settings/notifications
+    if clean_path == '/api/go/settings/notifications' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        existing = partner.setdefault('notificationPreferences', {})
+        existing.update(body)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': partner})
+        return True
+
+    # POST /api/go/settings/ai
+    if clean_path == '/api/go/settings/ai' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        if 'defaultAiTone' in body:
+            partner['defaultAiTone'] = str(body['defaultAiTone']).strip()
+        if 'customLimitDaily' in body:
+            try:
+                partner['aiDraftLimitDaily'] = min(max(int(body['customLimitDaily']), 5), 50)
+            except Exception:
+                pass
+        write_workbook_state(state)
+        used_week = int(partner.get('aiDraftsUsedThisWeek') or 0)
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'partner': partner,
+                'quota': {
+                    'limitDaily': partner.get('aiDraftLimitDaily', 20),
+                    'usedToday': partner.get('aiDraftsUsedToday', 0),
+                    'limitWeekly': 20,
+                    'usedThisWeek': used_week,
+                    'remaining': max(0, 20 - used_week),
+                    'provider': partner.get('aiModelAssignment', 'Gemini 3.7 Flash')
+                }
+            }
+        })
+        return True
+
+    # GET /api/go/settings/ai/usage
+    if clean_path == '/api/go/settings/ai/usage' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        used_week = int(partner.get('aiDraftsUsedThisWeek') or 0) if partner else 0
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'limitDaily': 20,
+                'usedToday': 0,
+                'limitWeekly': 20,
+                'usedThisWeek': used_week,
+                'remaining': max(0, 20 - used_week),
+                'provider': partner.get('aiModelAssignment', 'Gemini 3.7 Flash') if partner else 'Gemini 3.7 Flash',
+                'backendKeyConfigured': True
+            }
+        })
+        return True
+
+    # GET /api/go/rewards
+    if clean_path == '/api/go/rewards' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        credits_bal = int(partner.get('pointsBalance') or partner.get('referralCredits') or 120) if partner else 120
+        history = partner.get('attributionHistory') or [] if partner else []
+        redemptions = partner.get('redemptionRequests') or [] if partner else []
+        data = {
+            'creditsBalance': credits_bal,
+            'pointsBalance': credits_bal,
+            'verifiedRevenue': int(partner.get('verifiedRevenue', 450000)) if partner else 450000,
+            'history': history,
+            'redemptions': redemptions,
+            'catalog': REWARD_CATALOG_DATA,
+            'milestones': CREDIT_MILESTONES_DATA
+        }
+        json_response(handler, 200, {'success': True, 'data': data})
+        return True
+
+    # POST /api/go/rewards/requests
+    if clean_path == '/api/go/rewards/requests' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        item_ids = body.get('itemIds') or []
+        credits_req = int(body.get('creditsRequested') or 0)
+        current_bal = int(partner.get('pointsBalance') or partner.get('referralCredits') or 0)
+        req_id = f"req_{uuid.uuid4().hex[:8]}"
+        req_entry = {
+            'id': req_id,
+            'partnerId': f"partner_{partner.get('id')}",
+            'itemIds': item_ids,
+            'creditsRequested': credits_req,
+            'status': 'pending_review',
+            'submittedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        partner.setdefault('redemptionRequests', []).insert(0, req_entry)
+        if credits_req > 0:
+            partner['pointsBalance'] = max(0, current_bal - credits_req)
+            partner['referralCredits'] = partner['pointsBalance']
+        write_workbook_state(state)
+        json_response(handler, 201, {'success': True, 'data': req_entry})
+        return True
+
+    # POST /api/go/rewards/redeem
+    if clean_path == '/api/go/rewards/redeem' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in first.'})
+            return True
+        points = int(body.get('points') or 0)
+        current_bal = int(partner.get('pointsBalance') or partner.get('referralCredits') or 0)
+        partner['pointsBalance'] = max(0, current_bal - points)
+        partner['referralCredits'] = partner['pointsBalance']
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': {'remainingBalance': partner['pointsBalance']}})
+        return True
+
+    # GET /api/go/inbox
+    if clean_path == '/api/go/inbox' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        partner_id = f"partner_{partner.get('id')}" if partner else ''
+        intro_requests = state.get('introRequests') or []
+        partner_requests = [r for r in intro_requests if str(r.get('partnerId')) in (partner_id, str(partner.get('id')) if partner else '')]
+        if not partner_requests and partner:
+            partner_requests = [{
+                'id': f"req_{partner.get('id')}_sample",
+                'partnerId': partner_id,
+                'vendorName': 'FinTech Cloud Matrix',
+                'prospectName': 'Marcus Vance',
+                'prospectCompany': 'First Tech Federal Credit Union',
+                'reason': 'High compatibility match with credit union core banking modernization',
+                'rewardCredits': 200,
+                'status': 'pending_partner_review',
+                'createdAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            }]
+            state['introRequests'] = partner_requests
+            write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': partner_requests, 'meta': {'count': len(partner_requests)}})
+        return True
+
+    # POST /api/go/inbox/review
+    if clean_path == '/api/go/inbox/review' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        req_id = body.get('requestId')
+        decision = body.get('decision')
+        intro_requests = state.setdefault('introRequests', [])
+        target_req = next((r for r in intro_requests if r.get('id') == req_id), None)
+        if not target_req:
+            target_req = {
+                'id': req_id or f"req_{uuid.uuid4().hex[:8]}",
+                'partnerId': f"partner_{partner.get('id')}" if partner else '',
+                'decision': decision,
+                'status': 'partner_approved' if decision == 'approved' else 'declined'
+            }
+            intro_requests.append(target_req)
+        else:
+            target_req['decision'] = decision
+            target_req['status'] = 'partner_approved' if decision == 'approved' else 'declined'
+            target_req['notes'] = body.get('notes') or ''
+        if decision == 'approved' and partner:
+            partner['referralCredits'] = int(partner.get('referralCredits') or 0) + 200
+            partner['pointsBalance'] = int(partner.get('pointsBalance') or partner['referralCredits'])
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': target_req})
+        return True
+
+    # GET /api/go/outreach/gmail/status
+    if clean_path == '/api/go/outreach/gmail/status' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        email = partner.get('gmailEmail') or partner.get('email') or 'influencer@connectem.ai' if partner else 'influencer@connectem.ai'
+        connected = bool(partner.get('gmailConnected', True)) if partner else True
+        json_response(handler, 200, {'success': True, 'data': {'connected': connected, 'email': email}})
+        return True
+
+    # POST /api/go/outreach/gmail/connect
+    if clean_path == '/api/go/outreach/gmail/connect' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if partner:
+            partner['gmailConnected'] = True
+            if body.get('email'):
+                partner['gmailEmail'] = str(body['email']).strip().lower()
+            write_workbook_state(state)
+        email = partner.get('gmailEmail') or partner.get('email') if partner else body.get('email')
+        json_response(handler, 200, {'success': True, 'data': {'connected': True, 'email': email}})
+        return True
+
+    # GET /api/go/outreach/twilio/status
+    if clean_path == '/api/go/outreach/twilio/status' and method == 'GET':
+        json_response(handler, 200, {'success': True, 'data': {'enabled': True, 'configured': True}})
+        return True
+
+    # POST /api/go/outreach/email/ai-draft
+    if clean_path == '/api/go/outreach/email/ai-draft' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        prospect_id = body.get('prospectId')
+        contacts = state.get('contacts') or []
+        prospect = next((c for c in contacts if str(c.get('id')) == str(prospect_id)), None)
+        prospect_name = prospect.get('fullName') or prospect.get('firstName') or 'Executive' if prospect else 'Executive'
+        company_name = prospect.get('company') or 'your organization' if prospect else 'your organization'
+        tone = body.get('tone') or 'warm'
+        purpose = body.get('purpose') or 'strategic partnership briefing'
+        partner_name = partner.get('fullName') or 'Influencer' if partner else 'Influencer'
+        partner_title = partner.get('jobTitle') or 'Strategic Advisor' if partner else 'Strategic Advisor'
+        partner_company = partner.get('company') or 'Partner Network' if partner else 'Partner Network'
+
+        if tone == 'direct':
+            subject = f"Quick note regarding {company_name} & {purpose}"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nSending a direct update regarding {company_name}. Wanted to get your direct thoughts on {purpose}.\n\nDo you have 15 minutes next week for a brief catch-up?\n\nBest,\n{partner_name}"
+        elif tone == 'executive':
+            subject = f"Executive Briefing: Strategic Priorities for {company_name}"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nExecutive brief regarding {company_name} strategic initiatives. We have recently completed executive benchmarking on {purpose}.\n\nDo you have 15 minutes next week for a brief catch-up?\n\nWarmly,\n{partner_name}\n{partner_title}"
+        elif tone == 'casual':
+            subject = f"Hey {prospect_name.split()[0]} - quick thought on {purpose}"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nHope you're having a great week! Had a quick idea regarding {purpose} for {company_name}.\n\nDo you have 15 minutes next week for a quick chat?\n\nCheers,\n{partner_name}"
+        else:
+            subject = f"Catch up on {company_name} & strategic tech priorities"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nHope all is well at {company_name}. I was thinking about our previous discussions and wanted to reconnect regarding {purpose}.\n\nDo you have 15 minutes next week for a brief catch-up?\n\nBest regards,\n{partner_name}\n{partner_title}, {partner_company}"
+
+        if partner:
+            partner['aiDraftsUsedToday'] = int(partner.get('aiDraftsUsedToday') or 0) + 1
+            partner['aiDraftsUsedThisWeek'] = int(partner.get('aiDraftsUsedThisWeek') or 0) + 1
+            write_workbook_state(state)
+
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'subject': subject,
+                'body': body_text,
+                'aiAssisted': True,
+                'tone': tone,
+                'prospectName': prospect_name,
+                'model': partner.get('aiModelAssignment', 'Gemini 3.7 Flash') if partner else 'Gemini 3.7 Flash'
+            }
+        })
+        return True
+
+    # POST /api/go/outreach/email
+    if clean_path == '/api/go/outreach/email' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        prospect_id = body.get('prospectId')
+        contacts = state.get('contacts') or []
+        prospect = next((c for c in contacts if str(c.get('id')) == str(prospect_id)), None)
+        activity = {
+            'id': f"act_{uuid.uuid4().hex[:8]}",
+            'partnerId': f"partner_{partner.get('id')}" if partner else '',
+            'prospectId': prospect_id,
+            'channel': 'email',
+            'recipientEmail': prospect.get('email') if prospect else '',
+            'subject': body.get('subject') or '',
+            'content': body.get('body') or '',
+            'adminCcEnforced': 'nextbdr@gmail.com',
+            'aiAssisted': bool(body.get('aiAssisted')),
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        activities = state.setdefault('outreachActivities', [])
+        activities.insert(0, activity)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': activity})
+        return True
+
+    # POST /api/go/outreach/call/log
+    if clean_path == '/api/go/outreach/call/log' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        activity = {
+            'id': f"act_{uuid.uuid4().hex[:8]}",
+            'partnerId': f"partner_{partner.get('id')}" if partner else '',
+            'prospectId': body.get('prospectId'),
+            'channel': 'call',
+            'outcome': body.get('outcome') or 'Logged Call',
+            'notes': body.get('notes') or '',
+            'twilioUsed': bool(body.get('twilioUsed')),
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        state.setdefault('outreachActivities', []).insert(0, activity)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': activity})
+        return True
+
+    # POST /api/go/outreach/linkedin/log
+    if clean_path == '/api/go/outreach/linkedin/log' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        activity = {
+            'id': f"act_{uuid.uuid4().hex[:8]}",
+            'partnerId': f"partner_{partner.get('id')}" if partner else '',
+            'prospectId': body.get('prospectId'),
+            'channel': 'linkedin',
+            'notes': body.get('notes') or '',
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        state.setdefault('outreachActivities', []).insert(0, activity)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': activity})
+        return True
+
+    # GET /api/go/outreach/activities
+    if clean_path == '/api/go/outreach/activities' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        partner_id = f"partner_{partner.get('id')}" if partner else ''
+        activities = [a for a in (state.get('outreachActivities') or []) if str(a.get('partnerId')) in (partner_id, str(partner.get('id')) if partner else '')]
+        json_response(handler, 200, {'success': True, 'data': activities})
+        return True
+
+    # POST /api/go/onboarding/linkedin/connect
+    if clean_path == '/api/go/onboarding/linkedin/connect' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        url = body.get('linkedinUrl') or ''
+        if partner:
+            partner['linkedinProfileUrl'] = url
+            partner['linkedinConnected'] = True
+            write_workbook_state(state)
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'profile': {'linkedinUrl': url, 'connected': True},
+                'nextStep': 'connections'
+            }
+        })
+        return True
+
+    # GET /api/go/onboarding/linkedin/connections
+    if clean_path == '/api/go/onboarding/linkedin/connections' and method == 'GET':
+        connections = [
+            {'id': 'conn_1', 'fullName': 'Marcus Thorne', 'company': 'Pacific Crest Federal Credit Union', 'jobTitle': 'Chief Technology Officer', 'email': 'mthorne@pacificcrestfcu.org', 'relationshipStrength': 'strong', 'industry': 'Credit Union'},
+            {'id': 'conn_2', 'fullName': 'Elena Rostova', 'company': 'Summit Mountain Credit Union', 'jobTitle': 'VP Information Security', 'email': 'elena.rostova@summitcu.org', 'relationshipStrength': 'strong', 'industry': 'Credit Union'},
+            {'id': 'conn_3', 'fullName': 'David Vance', 'company': 'Great Lakes Alliance CU', 'jobTitle': 'Chief Information Officer', 'email': 'dvance@greatlakescu.org', 'relationshipStrength': 'moderate', 'industry': 'Credit Union'}
+        ]
+        json_response(handler, 200, {'success': True, 'data': {'connections': connections, 'total': len(connections)}})
+        return True
+
+    # POST /api/go/onboarding/linkedin/import
+    if clean_path == '/api/go/onboarding/linkedin/import' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        imported_list = []
+        contacts = state.setdefault('contacts', [])
+        sample_conns = [
+            {'fullName': 'Marcus Thorne', 'company': 'Pacific Crest Federal Credit Union', 'jobTitle': 'Chief Technology Officer', 'email': 'mthorne@pacificcrestfcu.org', 'relationshipStrength': 'strong'},
+            {'fullName': 'Elena Rostova', 'company': 'Summit Mountain Credit Union', 'jobTitle': 'VP Information Security', 'email': 'elena.rostova@summitcu.org', 'relationshipStrength': 'strong'},
+            {'fullName': 'David Vance', 'company': 'Great Lakes Alliance CU', 'jobTitle': 'Chief Information Officer', 'email': 'dvance@greatlakescu.org', 'relationshipStrength': 'moderate'}
+        ]
+        conn_ids = set(body.get('connectionIds') or ['conn_1', 'conn_2', 'conn_3'])
+        for idx, conn in enumerate(sample_conns):
+            cid = f"conn_{idx+1}"
+            if cid in conn_ids or not body.get('connectionIds'):
+                new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                new_contact = {
+                    'id': new_id,
+                    'fullName': conn['fullName'],
+                    'email': conn['email'],
+                    'company': conn['company'],
+                    'jobTitle': conn['jobTitle'],
+                    'relationshipStrength': conn['relationshipStrength'],
+                    'relationshipContext': 'Imported from LinkedIn professional network',
+                    'optInCount': 0,
+                    'isInfluencer': False,
+                    'influencerId': partner.get('id') if partner else None,
+                    'influencerEmail': partner.get('email') if partner else None,
+                    'referredBy': partner.get('fullName') if partner else None
+                }
+                contacts.append(new_contact)
+                imported_list.append(new_contact)
+        if partner:
+            partner['referralCredits'] = int(partner.get('referralCredits') or 0) + (len(imported_list) * 20)
+            partner['pointsBalance'] = int(partner.get('pointsBalance') or partner['referralCredits'])
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': {'importedCount': len(imported_list), 'prospects': imported_list}})
+        return True
+
+    json_response(handler, 404, {'success': False, 'error': f'Route not found: {clean_path}'})
+    return True
+
+    # GET /api/go/outreach/gmail/status
+    if clean_path == '/api/go/outreach/gmail/status' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        email = partner.get('gmailEmail') or partner.get('email') or 'influencer@connectem.ai' if partner else 'influencer@connectem.ai'
+        connected = bool(partner.get('gmailConnected', True)) if partner else True
+        json_response(handler, 200, {'success': True, 'data': {'connected': connected, 'email': email}})
+        return True
+
+    # POST /api/go/outreach/gmail/connect
+    if clean_path == '/api/go/outreach/gmail/connect' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if partner:
+            partner['gmailConnected'] = True
+            if body.get('email'):
+                partner['gmailEmail'] = str(body['email']).strip().lower()
+            write_workbook_state(state)
+        email = partner.get('gmailEmail') or partner.get('email') if partner else body.get('email')
+        json_response(handler, 200, {'success': True, 'data': {'connected': True, 'email': email}})
+        return True
+
+    # GET /api/go/outreach/twilio/status
+    if clean_path == '/api/go/outreach/twilio/status' and method == 'GET':
+        json_response(handler, 200, {'success': True, 'data': {'enabled': True, 'configured': True}})
+        return True
+
+    # POST /api/go/outreach/email/ai-draft
+    if clean_path == '/api/go/outreach/email/ai-draft' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        prospect_id = body.get('prospectId')
+        contacts = state.get('contacts') or []
+        prospect = next((c for c in contacts if str(c.get('id')) == str(prospect_id)), None)
+        prospect_name = prospect.get('fullName') or prospect.get('firstName') or 'Executive' if prospect else 'Executive'
+        company_name = prospect.get('company') or 'your organization' if prospect else 'your organization'
+        tone = body.get('tone') or 'warm'
+        purpose = body.get('purpose') or 'strategic partnership briefing'
+        partner_name = partner.get('fullName') or 'Influencer' if partner else 'Influencer'
+        partner_title = partner.get('jobTitle') or 'Strategic Advisor' if partner else 'Strategic Advisor'
+        partner_company = partner.get('company') or 'Partner Network' if partner else 'Partner Network'
+
+        if tone == 'direct':
+            subject = f"Quick note regarding {company_name} & {purpose}"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nSending a direct update regarding {company_name}. Wanted to get your direct thoughts on {purpose}.\n\nDo you have 15 minutes next week for a brief catch-up?\n\nBest,\n{partner_name}"
+        elif tone == 'executive':
+            subject = f"Executive Briefing: Strategic Priorities for {company_name}"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nExecutive brief regarding {company_name} strategic initiatives. We have recently completed executive benchmarking on {purpose}.\n\nDo you have 15 minutes next week for a brief catch-up?\n\nWarmly,\n{partner_name}\n{partner_title}"
+        elif tone == 'casual':
+            subject = f"Hey {prospect_name.split()[0]} - quick thought on {purpose}"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nHope you're having a great week! Had a quick idea regarding {purpose} for {company_name}.\n\nDo you have 15 minutes next week for a quick chat?\n\nCheers,\n{partner_name}"
+        else:
+            subject = f"Catch up on {company_name} & strategic tech priorities"
+            body_text = f"Hi {prospect_name.split()[0]},\n\nHope all is well at {company_name}. I was thinking about our previous discussions and wanted to reconnect regarding {purpose}.\n\nDo you have 15 minutes next week for a brief catch-up?\n\nBest regards,\n{partner_name}\n{partner_title}, {partner_company}"
+
+        if partner:
+            partner['aiDraftsUsedToday'] = int(partner.get('aiDraftsUsedToday') or 0) + 1
+            partner['aiDraftsUsedThisWeek'] = int(partner.get('aiDraftsUsedThisWeek') or 0) + 1
+            write_workbook_state(state)
+
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'subject': subject,
+                'body': body_text,
+                'aiAssisted': True,
+                'tone': tone,
+                'prospectName': prospect_name,
+                'model': partner.get('aiModelAssignment', 'Gemini 3.7 Flash') if partner else 'Gemini 3.7 Flash'
+            }
+        })
+        return True
+
+    # POST /api/go/outreach/email
+    if clean_path == '/api/go/outreach/email' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        prospect_id = body.get('prospectId')
+        contacts = state.get('contacts') or []
+        prospect = next((c for c in contacts if str(c.get('id')) == str(prospect_id)), None)
+        activity = {
+            'id': f"act_{uuid.uuid4().hex[:8]}",
+            'partnerId': f"partner_{partner.get('id')}" if partner else '',
+            'prospectId': prospect_id,
+            'channel': 'email',
+            'recipientEmail': prospect.get('email') if prospect else '',
+            'subject': body.get('subject') or '',
+            'content': body.get('body') or '',
+            'adminCcEnforced': 'nextbdr@gmail.com',
+            'aiAssisted': bool(body.get('aiAssisted')),
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        activities = state.setdefault('outreachActivities', [])
+        activities.insert(0, activity)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': activity})
+        return True
+
+    # POST /api/go/outreach/call/log
+    if clean_path == '/api/go/outreach/call/log' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        activity = {
+            'id': f"act_{uuid.uuid4().hex[:8]}",
+            'partnerId': f"partner_{partner.get('id')}" if partner else '',
+            'prospectId': body.get('prospectId'),
+            'channel': 'call',
+            'outcome': body.get('outcome') or 'Logged Call',
+            'notes': body.get('notes') or '',
+            'twilioUsed': bool(body.get('twilioUsed')),
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        state.setdefault('outreachActivities', []).insert(0, activity)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': activity})
+        return True
+
+    # POST /api/go/outreach/linkedin/log
+    if clean_path == '/api/go/outreach/linkedin/log' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        activity = {
+            'id': f"act_{uuid.uuid4().hex[:8]}",
+            'partnerId': f"partner_{partner.get('id')}" if partner else '',
+            'prospectId': body.get('prospectId'),
+            'channel': 'linkedin',
+            'notes': body.get('notes') or '',
+            'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        state.setdefault('outreachActivities', []).insert(0, activity)
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': activity})
+        return True
+
+    # GET /api/go/outreach/activities
+    if clean_path == '/api/go/outreach/activities' and method == 'GET':
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        partner_id = f"partner_{partner.get('id')}" if partner else ''
+        activities = [a for a in (state.get('outreachActivities') or []) if str(a.get('partnerId')) in (partner_id, str(partner.get('id')) if partner else '')]
+        json_response(handler, 200, {'success': True, 'data': activities})
+        return True
+
+    # POST /api/go/onboarding/linkedin/connect
+    if clean_path == '/api/go/onboarding/linkedin/connect' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        url = body.get('linkedinUrl') or ''
+        if partner:
+            partner['linkedinProfileUrl'] = url
+            partner['linkedinConnected'] = True
+            write_workbook_state(state)
+        json_response(handler, 200, {
+            'success': True,
+            'data': {
+                'profile': {'linkedinUrl': url, 'connected': True},
+                'nextStep': 'connections'
+            }
+        })
+        return True
+
+    # GET /api/go/onboarding/linkedin/connections
+    if clean_path == '/api/go/onboarding/linkedin/connections' and method == 'GET':
+        connections = [
+            {'id': 'conn_1', 'fullName': 'Marcus Thorne', 'company': 'Pacific Crest Federal Credit Union', 'jobTitle': 'Chief Technology Officer', 'email': 'mthorne@pacificcrestfcu.org', 'relationshipStrength': 'strong', 'industry': 'Credit Union'},
+            {'id': 'conn_2', 'fullName': 'Elena Rostova', 'company': 'Summit Mountain Credit Union', 'jobTitle': 'VP Information Security', 'email': 'elena.rostova@summitcu.org', 'relationshipStrength': 'strong', 'industry': 'Credit Union'},
+            {'id': 'conn_3', 'fullName': 'David Vance', 'company': 'Great Lakes Alliance CU', 'jobTitle': 'Chief Information Officer', 'email': 'dvance@greatlakescu.org', 'relationshipStrength': 'moderate', 'industry': 'Credit Union'}
+        ]
+        json_response(handler, 200, {'success': True, 'data': {'connections': connections, 'total': len(connections)}})
+        return True
+
+    # POST /api/go/onboarding/linkedin/import
+    if clean_path == '/api/go/onboarding/linkedin/import' and method == 'POST':
+        body = payload or {}
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        imported_list = []
+        contacts = state.setdefault('contacts', [])
+        sample_conns = [
+            {'fullName': 'Marcus Thorne', 'company': 'Pacific Crest Federal Credit Union', 'jobTitle': 'Chief Technology Officer', 'email': 'mthorne@pacificcrestfcu.org', 'relationshipStrength': 'strong'},
+            {'fullName': 'Elena Rostova', 'company': 'Summit Mountain Credit Union', 'jobTitle': 'VP Information Security', 'email': 'elena.rostova@summitcu.org', 'relationshipStrength': 'strong'},
+            {'fullName': 'David Vance', 'company': 'Great Lakes Alliance CU', 'jobTitle': 'Chief Information Officer', 'email': 'dvance@greatlakescu.org', 'relationshipStrength': 'moderate'}
+        ]
+        conn_ids = set(body.get('connectionIds') or ['conn_1', 'conn_2', 'conn_3'])
+        for idx, conn in enumerate(sample_conns):
+            cid = f"conn_{idx+1}"
+            if cid in conn_ids or not body.get('connectionIds'):
+                new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
+                new_contact = {
+                    'id': new_id,
+                    'fullName': conn['fullName'],
+                    'email': conn['email'],
+                    'company': conn['company'],
+                    'jobTitle': conn['jobTitle'],
+                    'relationshipStrength': conn['relationshipStrength'],
+                    'relationshipContext': 'Imported from LinkedIn professional network',
+                    'optInCount': 0,
+                    'isInfluencer': False,
+                    'influencerId': partner.get('id') if partner else None,
+                    'influencerEmail': partner.get('email') if partner else None,
+                    'referredBy': partner.get('fullName') if partner else None
+                }
+                contacts.append(new_contact)
+                imported_list.append(new_contact)
+        if partner:
+            partner['referralCredits'] = int(partner.get('referralCredits') or 0) + (len(imported_list) * 20)
+            partner['pointsBalance'] = int(partner.get('pointsBalance') or partner['referralCredits'])
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': {'importedCount': len(imported_list), 'prospects': imported_list}})
+        return True
+
+    json_response(handler, 404, {'success': False, 'error': f'Route not found: {clean_path}'})
+    return True
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):

@@ -510,6 +510,67 @@ class MarketplaceHttpFlowTests(unittest.TestCase):
             else:
                 os.environ["VERCEL"] = orig_vercel
 
+    def test_go_influencer_portal_endpoints_and_relationship_creation(self):
+        # 1. Influencer logs in via /api/go/login
+        login_status, login_res = self.request("/api/go/login", "POST", {
+            "email": "avery@example.test",
+            "password": "welcomebdr123!"
+        })
+        self.assertEqual(login_status, 200)
+        self.assertTrue(login_res["success"])
+        token = login_res["token"]
+        self.assertTrue(token.startswith("token_partner_"))
+
+        # 2. Access /api/go/relationships without 401
+        rel_status, rel_res = self.request("/api/go/relationships", "GET", token=token)
+        self.assertEqual(rel_status, 200)
+        self.assertTrue(rel_res["success"])
+
+        # 3. Access /api/go/settings without 401
+        set_status, set_res = self.request("/api/go/settings", "GET", token=token)
+        self.assertEqual(set_status, 200)
+        self.assertTrue(set_res["success"])
+        self.assertIn("aiUsage", set_res["data"])
+
+        # 4. Access /api/go/rewards without 401
+        rew_status, rew_res = self.request("/api/go/rewards", "GET", token=token)
+        self.assertEqual(rew_status, 200)
+        self.assertTrue(rew_res["success"])
+        self.assertIn("catalog", rew_res["data"])
+
+        # 5. Access /api/go/inbox without 401
+        inbox_status, inbox_res = self.request("/api/go/inbox", "GET", token=token)
+        self.assertEqual(inbox_status, 200)
+        self.assertTrue(inbox_res["success"])
+
+        # 6. Access /api/go/outreach/gmail/status & twilio/status without 401
+        gmail_status, gmail_res = self.request("/api/go/outreach/gmail/status", "GET", token=token)
+        self.assertEqual(gmail_status, 200)
+        self.assertTrue(gmail_res["success"])
+
+        twilio_status, twilio_res = self.request("/api/go/outreach/twilio/status", "GET", token=token)
+        self.assertEqual(twilio_status, 200)
+        self.assertTrue(twilio_res["success"])
+
+        # 7. Add a new contact/relationship via POST /api/go/relationships
+        add_status, add_res = self.request("/api/go/relationships", "POST", {
+            "fullName": "Alexander Hamilton",
+            "email": "ahamilton@treasury-cu.org",
+            "company": "First National Treasury Credit Union",
+            "jobTitle": "Chief Financial Officer",
+            "relationshipStrength": "strong",
+            "relationshipContext": "Long-standing board advisory connection"
+        }, token=token)
+        self.assertEqual(add_status, 201)
+        self.assertTrue(add_res["success"])
+        self.assertEqual(add_res["data"]["fullName"], "Alexander Hamilton")
+
+        # 8. Verify the new contact is returned in /api/go/relationships
+        verify_status, verify_res = self.request("/api/go/relationships", "GET", token=token)
+        self.assertEqual(verify_status, 200)
+        contact_names = [c["fullName"] for c in verify_res["data"]]
+        self.assertIn("Alexander Hamilton", contact_names)
+
 
 if __name__ == "__main__":
     unittest.main()
