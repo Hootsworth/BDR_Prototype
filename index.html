@@ -4692,7 +4692,11 @@ ConnectEM Admin Team</textarea>
           document.getElementById('stat-inf-total').textContent = allInfluencers.length;
           applyInfluencersFilter();
           closeModals();
-          showToast(`Influencer ${result.data.fullName} registered.`);
+          if (result.temporaryPassword) {
+            promptCopyTemporaryPassword(result.data.fullName, result.temporaryPassword);
+          } else {
+            showToast(`Influencer ${result.data.fullName} registered.`);
+          }
         } else {
           alert(result.error || 'Failed to add influencer');
         }
@@ -4779,6 +4783,9 @@ ConnectEM Admin Team</textarea>
             convertBtn.textContent = 'Influencer Confirmed';
             convertBtn.disabled = true;
           }
+          if (result.temporaryPassword) {
+            promptCopyTemporaryPassword(prospectName || 'Influencer', result.temporaryPassword);
+          }
         } else {
           showToast(result.error || 'Failed to convert prospect to influencer.');
         }
@@ -4790,6 +4797,37 @@ ConnectEM Admin Team</textarea>
     function convertCurrentOutreachPersonToInfluencer() {
       if (!selectedOutreachProspect) return;
       convertProspectToInfluencer(selectedOutreachProspect.id, selectedOutreachProspect.fullName);
+    }
+
+    function promptCopyTemporaryPassword(name, tempPassword) {
+      const modal = document.createElement('div');
+      modal.className = 'flat-modal-backdrop';
+      modal.style.display = 'flex';
+      modal.style.zIndex = '9999';
+      modal.innerHTML = `
+        <div class="flat-modal-sheet" style="max-width: 460px;">
+          <div class="flat-modal-header">
+            <h3>Influencer Account Created</h3>
+            <button class="flat-close-btn" onclick="this.closest('.flat-modal-backdrop').remove()">&times;</button>
+          </div>
+          <div class="flat-modal-body" style="padding-top: 10px;">
+            <p style="font-size: 13px; color: var(--ink-secondary); margin-bottom: 14px;">
+              <strong>${escapeHtml(name)}</strong> has been registered. A temporary password was automatically generated:
+            </p>
+            <div style="background: #f4f4f5; border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: #18181b;">
+              <span id="temp-pwd-display">${escapeHtml(tempPassword)}</span>
+              <button type="button" class="btn-sm-curved" onclick="navigator.clipboard.writeText('${escapeHtml(tempPassword)}'); showToast('Password copied to clipboard!');">Copy</button>
+            </div>
+            <p style="font-size: 12px; color: var(--ink-muted); margin-top: 14px; line-height: 1.45;">
+              Share this one-time password with the influencer. When they sign in for the first time, they will be required to set their own permanent password.
+            </p>
+          </div>
+          <div class="flat-modal-footer">
+            <button type="button" class="btn btn-solid" style="width: 100%; justify-content: center;" onclick="this.closest('.flat-modal-backdrop').remove()">Done</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
     }
 
     // Events & Calendar Management

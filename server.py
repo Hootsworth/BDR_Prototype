@@ -1642,6 +1642,7 @@ def hosted_api_request_allowed(handler, method, path):
         ('POST', '/api/admin/outreach'),
         ('POST', '/api/go/login'),
         ('POST', '/api/go/google-login'),
+        ('POST', '/api/go/change-password'),
         ('POST', '/api/go/onboard'),
         ('GET', '/api/go/session'),
         ('POST', '/api/partner-share/agreement'),
@@ -3227,14 +3228,19 @@ def handle_admin_api_routes(handler, method, path, query=None, payload=None):
         state = read_workbook_state()
         contacts = state.setdefault('contacts', [])
         new_id = max([c.get('id', 0) for c in contacts] or [900]) + 1
+        temp_pwd = str(body.get('password') or '').strip() or f"ConnectEM-{secrets.token_hex(3)}!"
         new_partner = {
             'id': new_id,
-            'fullName': body.get('fullName') or 'Partner',
+            'fullName': body.get('fullName') or 'Influencer',
             'email': (body.get('email') or '').lower().strip(),
-            'company': body.get('company') or 'Advisory Partner',
-            'jobTitle': body.get('jobTitle') or 'Managing Director',
+            'company': body.get('company') or 'Executive Advisory',
+            'jobTitle': body.get('jobTitle') or 'Managing Partner',
             'phone': body.get('phone') or '',
             'isInfluencer': True,
+            'passwordHash': hash_portal_password(temp_pwd),
+            'mustChangePassword': True,
+            'passwordChanged': False,
+            'temporaryPassword': temp_pwd,
             'referrals': [],
             'referralCredits': 100,
             'trustScore': 90,
@@ -3242,7 +3248,14 @@ def handle_admin_api_routes(handler, method, path, query=None, payload=None):
         }
         contacts.append(new_partner)
         write_workbook_state(state)
-        json_response(handler, 201, {'success': True, 'data': new_partner})
+        partner_data = dict(new_partner)
+        partner_data.pop('passwordHash', None)
+        json_response(handler, 201, {
+            'success': True,
+            'data': partner_data,
+            'temporaryPassword': temp_pwd,
+            'mustChangePassword': True
+        })
         return True
 
     # POST /api/admin/prospects/<id>/convert-to-influencer
@@ -3252,11 +3265,24 @@ def handle_admin_api_routes(handler, method, path, query=None, payload=None):
         contacts = state.setdefault('contacts', [])
         for c in contacts:
             if str(c.get('id')) == prospect_id_str or f"prospect_{c.get('id')}" == prospect_id_str:
+                temp_pwd = f"ConnectEM-{secrets.token_hex(3)}!"
                 c['isInfluencer'] = True
+                c['passwordHash'] = hash_portal_password(temp_pwd)
+                c['mustChangePassword'] = True
+                c['passwordChanged'] = False
+                c['temporaryPassword'] = temp_pwd
                 c.setdefault('referrals', [])
                 c.setdefault('referralCredits', 100)
                 write_workbook_state(state)
-                json_response(handler, 200, {'success': True, 'data': c, 'meta': {'message': f"{c.get('fullName')} converted to influencer partner."}})
+                c_data = dict(c)
+                c_data.pop('passwordHash', None)
+                json_response(handler, 200, {
+                    'success': True,
+                    'data': c_data,
+                    'temporaryPassword': temp_pwd,
+                    'mustChangePassword': True,
+                    'meta': {'message': f"{c.get('fullName')} converted to influencer."}
+                })
                 return True
         json_response(handler, 404, {'success': False, 'error': 'Prospect not found'})
         return True
@@ -3285,6 +3311,7 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
     if path == '/api/go/login' and method == 'POST':
         body = payload or {}
         email = str(body.get('email') or '').strip().lower()
+        password = str(body.get('password') or '').strip()
         state = read_workbook_state()
         contacts = state.get('contacts') or []
         partner = next((c for c in contacts if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email), None)
@@ -3293,9 +3320,13 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
         if not partner:
             json_response(handler, 401, {'success': False, 'error': 'Invalid partner email or password.'})
             return True
+        if password and not partner_password_matches(partner, password):
+            json_response(handler, 401, {'success': False, 'error': 'Incorrect password. Please verify your credentials or contact your administrator.'})
+            return True
         partner_id = f"partner_{partner.get('id')}"
         token = f"token_{partner_id}_{uuid.uuid4().hex[:16]}"
         referrals = partner.get('referrals') or []
+        must_change = bool(partner.get('mustChangePassword'))
         partner_obj = {
             'id': partner_id,
             'fullName': partner.get('fullName') or 'Partner',
@@ -3314,12 +3345,45 @@ def handle_go_api_routes(handler, method, path, query=None, payload=None):
             'partner': partner_obj,
             'influencer': partner_obj,
             'referrals': referrals,
-            'mustChangePassword': False,
+            'mustChangePassword': must_change,
             'data': {
                 'partner': partner_obj,
                 'token': token,
-                'referrals': referrals
+                'referrals': referrals,
+                'mustChangePassword': must_change
             }
+        })
+        return True
+
+    # POST /api/go/change-password
+    if path == '/api/go/change-password' and method == 'POST':
+        body = payload or {}
+        email = str(body.get('email') or '').strip().lower()
+        new_password = str(body.get('newPassword') or '').strip()
+        current_password = str(body.get('currentPassword') or '').strip()
+        if not new_password or len(new_password) < 8:
+            json_response(handler, 400, {'success': False, 'error': 'New password must be at least 8 characters long.'})
+            return True
+        state = read_workbook_state()
+        contacts = state.get('contacts') or []
+        partner = next((c for c in contacts if c.get('isInfluencer') and str(c.get('email') or '').strip().lower() == email), None)
+        if not partner:
+            partner = next((c for c in contacts if c.get('isInfluencer')), None)
+        if not partner:
+            json_response(handler, 404, {'success': False, 'error': 'Influencer profile not found.'})
+            return True
+        if current_password and not partner_password_matches(partner, current_password):
+            json_response(handler, 400, {'success': False, 'error': 'Current password does not match.'})
+            return True
+        set_partner_password(partner, new_password)
+        partner['mustChangePassword'] = False
+        partner['passwordChanged'] = True
+        partner.pop('temporaryPassword', None)
+        write_workbook_state(state)
+        json_response(handler, 200, {
+            'success': True,
+            'message': 'Password updated successfully.',
+            'mustChangePassword': False
         })
         return True
 

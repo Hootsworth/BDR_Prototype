@@ -1029,6 +1029,34 @@
     <div id="linkedin-dialog-modal" class="modal-overlay" style="display: none;" aria-hidden="true"></div>
   </main>
 
+  <!-- Mandatory Password Change Modal Popup -->
+  <div id="modal-change-password" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="change-pwd-modal-title">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div>
+          <h2 id="change-pwd-modal-title" class="title-md">Set Permanent Password</h2>
+          <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">
+            You signed in with a one-time temporary password. Please create a permanent password to activate your workspace.
+          </p>
+        </div>
+      </div>
+      <form id="form-change-password" style="margin-top: 14px;">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="change-pwd-new" style="display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 4px;">New Password *</label>
+          <input id="change-pwd-new" type="password" required minlength="8" placeholder="At least 8 characters" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="change-pwd-confirm" style="display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 4px;">Confirm Password *</label>
+          <input id="change-pwd-confirm" type="password" required minlength="8" placeholder="Re-enter password" style="width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;">
+        </div>
+        <p id="change-pwd-error" style="color: #dc2626; font-size: 12px; display: none; margin: 4px 0 10px 0;"></p>
+        <div style="padding-top: 8px;">
+          <button id="btn-save-permanent-pwd" class="btn btn-primary" type="submit" style="width: 100%;">Save Password &amp; Enter Workspace</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast notification system -->
   <div id="toast-container" class="toast-container"></div>
 

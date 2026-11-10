@@ -1016,6 +1016,10 @@
         method: 'POST',
         body: JSON.stringify({ email, password })
       });
+      if (res.mustChangePassword) {
+        promptChangeTemporaryPassword(res.partner, password);
+        return;
+      }
       setPartnerSession(res.partner);
       showToast(`Welcome back, ${res.partner.fullName}`);
     } catch (e) {
@@ -1025,6 +1029,61 @@
       if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Sign in to your workspace'; }
     }
   });
+
+  function promptChangeTemporaryPassword(partner, currentPassword) {
+    const modal = document.getElementById('modal-change-password');
+    if (!modal) {
+      setPartnerSession(partner);
+      return;
+    }
+    modal.style.display = 'flex';
+    const form = document.getElementById('form-change-password');
+    const errEl = document.getElementById('change-pwd-error');
+    const btn = document.getElementById('btn-save-permanent-pwd');
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      errEl.style.display = 'none';
+      const newPwd = document.getElementById('change-pwd-new').value.trim();
+      const confirmPwd = document.getElementById('change-pwd-confirm').value.trim();
+      if (newPwd.length < 8) {
+        errEl.textContent = 'Password must be at least 8 characters.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (newPwd !== confirmPwd) {
+        errEl.textContent = 'Passwords do not match.';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (newPwd === currentPassword) {
+        errEl.textContent = 'New password cannot be the same as the temporary password.';
+        errEl.style.display = 'block';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Updating password…';
+      try {
+        await api('/api/go/change-password', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: partner.email,
+            currentPassword: currentPassword,
+            newPassword: newPwd
+          })
+        });
+        modal.style.display = 'none';
+        setPartnerSession(partner);
+        showToast('Password updated! Welcome to your Influencer workspace.');
+      } catch (err) {
+        errEl.textContent = err.message || 'Failed to update password.';
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Password & Enter Workspace';
+      }
+    };
+  }
 
   document.getElementById('onboarding-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
