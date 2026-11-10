@@ -106,9 +106,15 @@
       ...options,
       headers
     });
-    const json = await res.json();
-    if (!json.success) {
-      throw new Error(json.error || 'Server request failed');
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (_) {
+      throw new Error(text || `Server responded with status ${res.status}`);
+    }
+    if (!json || !json.success) {
+      throw new Error(json?.error || 'Server request failed');
     }
     return json.data;
   }
@@ -1308,6 +1314,14 @@
   // Add Relationship Form
   document.getElementById('add-relationship-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn && submitBtn.disabled) return;
+    const origBtnText = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+
     const formData = new FormData(e.target);
     const payload = {
       fullName: formData.get('fullName'),
@@ -1331,6 +1345,11 @@
       updateStats();
     } catch (e) {
       showToast(e.message, 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = origBtnText || 'Save Contact';
+      }
     }
   });
 
