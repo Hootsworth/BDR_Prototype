@@ -3457,6 +3457,7 @@
                   <button type="button" class="btn btn-outline" style="min-height: 36px; justify-content: center;" onclick="saveDatabaseStateNow()">Save workspace data now</button>
                   <button type="button" class="btn btn-outline" style="min-height: 36px; justify-content: center;" onclick="exportDatabaseState()">Download a data copy</button>
                   <button type="button" class="btn btn-outline" style="min-height: 36px; justify-content: center;" onclick="reseedDemoDatabase()">Replace with sample data…</button>
+                  <button type="button" class="btn btn-outline" style="min-height: 36px; justify-content: center; color: #dc2626; border-color: rgba(220, 38, 38, 0.35);" onclick="resetDatabaseFreshStart()">Reset database (Fresh Start - 0 records)</button>
                 </div>
               </div>
             </div>
@@ -5636,6 +5637,27 @@ ConnectEM Admin Team</textarea>
         showToast('Successfully reseeded database with 30 Influencers and 905 Prospects.');
       } catch (err) {
         showToast('Failed to reseed database: ' + err.message);
+      }
+    }
+
+    async function resetDatabaseFreshStart() {
+      if (!confirm('WARNING: Are you sure you want to completely RESET the database?\\n\\nThis will permanently erase ALL accounts, influencers, prospects, events, and meetings from Firebase Firestore for a fresh start.')) return;
+      try {
+        showToast('Resetting Firebase Firestore database...');
+        const res = await fetch('/api/admin/reset-database', {
+          method: 'POST',
+          headers: getAdminHeaders()
+        });
+        const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.error || 'Reset request failed');
+        allProspects = [];
+        allInfluencers = [];
+        allEvents = [];
+        allMeetings = [];
+        await loadAdminData();
+        showToast('Database reset complete: Fresh start with 0 records.');
+      } catch (err) {
+        alert('Database reset error: ' + err.message);
       }
     }
 

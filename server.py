@@ -1636,6 +1636,7 @@ def hosted_api_request_allowed(handler, method, path):
         ('GET', '/api/admin/metrics'),
         ('GET', '/api/admin/settings'),
         ('POST', '/api/admin/settings'),
+        ('POST', '/api/admin/reset-database'),
         ('GET', '/api/admin/search-accounts'),
         ('POST', '/api/admin/warm-intro'),
         ('POST', '/api/admin/outreach'),
@@ -1983,7 +1984,7 @@ def read_workbook_state():
     else:
         # Primary source of truth is now our relational SQLite database!
         db_state = read_state('database')
-        if db_state and isinstance(db_state, dict) and (firestore_enabled() or len(db_state.get('contacts') or []) >= 30):
+        if db_state and isinstance(db_state, dict) and (firestore_enabled() or db_state.get('isFreshStart') or len(db_state.get('contacts') or []) >= 30):
             if 'eventsMeta' not in db_state:
                 db_state['eventsMeta'] = default_workbook_state()['eventsMeta']
             db_state.setdefault('vendors', [])
@@ -3124,6 +3125,37 @@ def handle_admin_api_routes(handler, method, path, query=None, payload=None):
         settings.update(body)
         write_workbook_state(state)
         json_response(handler, 200, {'success': True, 'data': settings})
+        return True
+
+    # POST /api/admin/reset-database
+    if path == '/api/admin/reset-database' and method == 'POST':
+        empty_state = default_workbook_state()
+        empty_state['contacts'] = []
+        empty_state['meetings'] = []
+        empty_state['events'] = {}
+        empty_state['eventsMeta'] = []
+        empty_state['approvals'] = []
+        empty_state['workflowRuns'] = []
+        empty_state['stats'] = {'emailsSent': 0, 'linkedinSent': 0, 'callsMade': 0, 'enrichedCount': 0}
+        empty_state['settings'] = {
+            'defaultCreditsPerProspect': 50,
+            'creditsPerMeeting': 250,
+            'autoApproveIntros': True,
+            'notificationEmail': 'nextbdr@gmail.com'
+        }
+        empty_state['outreachLogs'] = []
+        empty_state['warmIntros'] = []
+        empty_state['isFreshStart'] = True
+        write_workbook_state(empty_state)
+        json_response(handler, 200, {
+            'success': True,
+            'message': 'All accounts, influencers, prospects, and records have been completely reset in Firebase Firestore.',
+            'totalContacts': 0,
+            'totalInfluencers': 0,
+            'totalProspects': 0,
+            'totalMeetings': 0,
+            'totalEvents': 0
+        })
         return True
 
     # POST /api/admin/outreach
