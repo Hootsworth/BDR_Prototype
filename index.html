@@ -3851,9 +3851,19 @@ ConnectEM Admin Team</textarea>
       const token = localStorage.getItem('connectem_admin_token');
       if (token || window.location.search.includes('test=true')) {
         showConsoleView();
+        return true;
       } else {
-        showConsoleView();
+        showLoginView();
+        return false;
       }
+    }
+
+    function getAdminHeaders() {
+      const token = localStorage.getItem('connectem_admin_token');
+      return {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
     }
 
     function showConsoleView() {
@@ -3885,6 +3895,7 @@ ConnectEM Admin Team</textarea>
           localStorage.setItem('connectem_admin_email', result.data.email);
           document.getElementById('admin-compliance-email').textContent = `Admin: ${result.data.email}`;
           showConsoleView();
+          loadAdminData();
           showToast(`Signed in as ${result.data.email}`);
         } else {
           errBanner.textContent = result.error || 'Authentication failed.';
@@ -3960,6 +3971,7 @@ ConnectEM Admin Team</textarea>
           const emailDisplay = document.getElementById('admin-compliance-email');
           if (emailDisplay) emailDisplay.textContent = `Admin: ${result.data.email}`;
           showConsoleView();
+          loadAdminData();
           showToast(`Signed in with Google as ${result.data.email}`);
         } else {
           if (errBanner) {
@@ -4130,7 +4142,11 @@ ConnectEM Admin Team</textarea>
     // Data Loading
     async function fetchProspects() {
       try {
-        const res = await fetch('/api/admin/prospects');
+        const res = await fetch('/api/admin/prospects', { headers: getAdminHeaders() });
+        if (res.status === 401) {
+          adminSignOut();
+          return;
+        }
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           allProspects = data.data;
@@ -4150,7 +4166,11 @@ ConnectEM Admin Team</textarea>
 
     async function fetchInfluencers() {
       try {
-        const res = await fetch('/api/admin/partners');
+        const res = await fetch('/api/admin/partners', { headers: getAdminHeaders() });
+        if (res.status === 401) {
+          adminSignOut();
+          return;
+        }
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           allInfluencers = data.data;
@@ -4788,7 +4808,11 @@ ConnectEM Admin Team</textarea>
 
     async function fetchEvents() {
       try {
-        const res = await fetch('/api/admin/events');
+        const res = await fetch('/api/admin/events', { headers: getAdminHeaders() });
+        if (res.status === 401) {
+          adminSignOut();
+          return;
+        }
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           allEvents = data.data;
@@ -5027,7 +5051,11 @@ ConnectEM Admin Team</textarea>
     // Scheduled Meetings & Calendar Logic
     async function fetchScheduledMeetings() {
       try {
-        const res = await fetch('/api/admin/scheduled-meetings');
+        const res = await fetch('/api/admin/scheduled-meetings', { headers: getAdminHeaders() });
+        if (res.status === 401) {
+          adminSignOut();
+          return;
+        }
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           allMeetings = data.data;
@@ -5763,7 +5791,7 @@ ConnectEM Admin Team</textarea>
 
     // Init
     window.addEventListener('DOMContentLoaded', () => {
-      checkAdminAuth();
+      const isAuthed = checkAdminAuth();
       const path = window.location.pathname;
       const initialPage = path.includes('influencers') ? 'influencers' : (
         path.includes('outreach') ? 'outreach' : (
@@ -5773,11 +5801,17 @@ ConnectEM Admin Team</textarea>
         )
       );
       navigateToPage(initialPage, false);
+      if (isAuthed) {
+        loadAdminData();
+      }
+    });
+
+    function loadAdminData() {
       fetchProspects();
       fetchInfluencers();
       fetchEvents();
       fetchScheduledMeetings();
-    });
+    }
   </script>
 </body>
 </html>
