@@ -119,6 +119,26 @@
       "destination": "/index.html"
     },
     {
+      "source": "/admin/prospects",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/influencers",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/outreach",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/events",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin/settings",
+      "destination": "/index.html"
+    },
+    {
       "source": "/admin/:path*",
       "destination": "/index.html"
     },
