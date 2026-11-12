@@ -74,6 +74,31 @@
       "has": [{ "type": "host", "value": "go.connectem.ai" }],
       "destination": "/partner-portal",
       "permanent": false
+    },
+    {
+      "source": "/influencers",
+      "destination": "/?tab=influencers",
+      "permanent": false
+    },
+    {
+      "source": "/prospects",
+      "destination": "/?tab=prospects",
+      "permanent": false
+    },
+    {
+      "source": "/outreach",
+      "destination": "/?tab=outreach",
+      "permanent": false
+    },
+    {
+      "source": "/events",
+      "destination": "/?tab=events",
+      "permanent": false
+    },
+    {
+      "source": "/settings",
+      "destination": "/?tab=settings",
+      "permanent": false
     }
   ],
   "rewrites": [

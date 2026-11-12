@@ -4092,12 +4092,15 @@ ConnectEM Admin Team</textarea>
       }
 
       if (updateHistory) {
-        window.history.pushState({ page: pageName }, '', '/admin/' + pageName);
+        const newUrl = window.location.pathname.startsWith('/admin') ? ('/admin?tab=' + pageName) : ('/?tab=' + pageName);
+        window.history.pushState({ page: pageName }, '', newUrl);
       }
     }
 
     window.addEventListener('popstate', (e) => {
-      const page = e.state?.page || (
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const page = e.state?.page || tabParam || (
         window.location.pathname.includes('influencers') ? 'influencers' : 
         (window.location.pathname.includes('outreach') ? 'outreach' : 
         (window.location.pathname.includes('events') ? 'events' : 
@@ -6052,13 +6055,15 @@ ConnectEM Admin Team</textarea>
     window.addEventListener('DOMContentLoaded', () => {
       const isAuthed = checkAdminAuth();
       const path = window.location.pathname;
-      const initialPage = path.includes('influencers') ? 'influencers' : (
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const initialPage = tabParam || (path.includes('influencers') ? 'influencers' : (
         path.includes('outreach') ? 'outreach' : (
           path.includes('events') ? 'events' : (
             path.includes('settings') ? 'settings' : 'prospects'
           )
         )
-      );
+      ));
       navigateToPage(initialPage, false);
       if (isAuthed) {
         loadAdminData();
