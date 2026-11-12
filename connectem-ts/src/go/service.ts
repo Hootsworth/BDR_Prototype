@@ -182,6 +182,15 @@ export class GoPartnerService {
     const partner = this.store.getPartner(partnerId);
     if (!partner) throw new Error(`Partner not found: ${partnerId}`);
 
+    // Deduplication check: if prospect already exists for this partner
+    const existing = this.store.listProspectsByPartner(partnerId).find(p =>
+      (params.email && p.email.toLowerCase() === params.email.toLowerCase()) ||
+      (p.fullName.toLowerCase() === params.fullName.toLowerCase() && p.company.toLowerCase() === params.company.toLowerCase())
+    );
+    if (existing) {
+      return existing;
+    }
+
     return this.store.createProspect({
       partnerId,
       fullName: params.fullName,
@@ -533,6 +542,19 @@ export class GoPartnerService {
 
     // MANDATORY: Admin nextbdr@gmail.com is copied on every dispatch
     const ADMIN_CC = 'nextbdr@gmail.com';
+
+    // Deduplication check: if identical email was sent to this prospect by this partner within 15 seconds
+    const recentActivities = this.store.listOutreachActivitiesByPartner(partnerId);
+    const now = Date.now();
+    const duplicate = recentActivities.find(a =>
+      a.prospectId === prospect.id &&
+      a.channel === 'email' &&
+      a.subject === params.subject.trim() &&
+      Math.abs(now - new Date(a.timestamp).getTime()) < 15000
+    );
+    if (duplicate) {
+      return duplicate;
+    }
 
     const activity = this.store.logOutreachActivity({
       partnerId,

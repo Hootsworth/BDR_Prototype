@@ -6,6 +6,12 @@
 (function () {
   'use strict';
 
+  if (window.__CONNECTEM_PORTAL_INITIALIZED__) {
+    console.warn('ConnectEM portal script already initialized; skipping duplicate execution.');
+    return;
+  }
+  window.__CONNECTEM_PORTAL_INITIALIZED__ = true;
+
   let currentPartner = null;
   let relationships = [];
   let inboxRequests = [];
@@ -1357,10 +1363,14 @@
   });
 
   // Add Relationship Form
-  document.getElementById('add-relationship-form')?.addEventListener('submit', async (e) => {
+  const addRelForm = document.getElementById('add-relationship-form');
+  addRelForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    e.stopImmediatePropagation();
+    if (addRelForm.dataset.submitting === 'true') return;
     const submitBtn = e.target.querySelector('button[type="submit"]');
     if (submitBtn && submitBtn.disabled) return;
+    addRelForm.dataset.submitting = 'true';
     const origBtnText = submitBtn ? submitBtn.textContent : '';
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -1391,6 +1401,7 @@
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
+      addRelForm.dataset.submitting = 'false';
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = origBtnText || 'Save Contact';
@@ -1709,9 +1720,12 @@
   // Submit Outreach Email (Enforces Mandatory Admin CC)
   emailComposerForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    e.stopImmediatePropagation();
+    if (emailComposerForm.dataset.submitting === 'true') return;
     if (!activeOutreachProspectId) return;
 
     const sendBtn = document.getElementById('composer-send-btn');
+    emailComposerForm.dataset.submitting = 'true';
     try {
       if (sendBtn) {
         sendBtn.disabled = true;
@@ -1742,6 +1756,7 @@
         showToast(e.message, 'error');
       }
     } finally {
+      emailComposerForm.dataset.submitting = 'false';
       if (sendBtn) {
         sendBtn.disabled = false;
         sendBtn.textContent = 'Send Email (CC nextbdr@gmail.com)';

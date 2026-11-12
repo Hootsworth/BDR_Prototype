@@ -3438,6 +3438,18 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
         state = read_workbook_state()
         prospects = []
         term = ((query or {}).get('q') or [''])[0].strip().lower() if query else ''
+        seen_prospect_ids = set()
+        seen_emails = set()
+
+        influencer_map = {}
+        for c in (state.get('contacts') or []):
+            if c.get('isInfluencer'):
+                if c.get('id') is not None:
+                    influencer_map[str(c.get('id'))] = c
+                if c.get('fullName'):
+                    influencer_map[str(c.get('fullName')).strip().lower()] = c
+
+        # 1. First pass: Collect all influencer referrals
         for c in (state.get('contacts') or []):
             if c.get('isInfluencer'):
                 partner_id = f"partner_{c.get('id')}"
@@ -3445,6 +3457,13 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
                 partner_company = c.get('company') or ''
                 partner_title = c.get('jobTitle') or ''
                 for ref in (c.get('referrals') or []):
+                    ref_id = ref.get('id')
+                    ref_email = str(ref.get('email') or '').strip().lower()
+                    if ref_id is not None:
+                        seen_prospect_ids.add(str(ref_id))
+                    if ref_email:
+                        seen_emails.add(ref_email)
+
                     ref_name = ref.get('fullName') or ''
                     ref_company = ref.get('company') or ''
                     ref_title = ref.get('jobTitle') or ''
@@ -3463,8 +3482,8 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
                         'company': ref_company,
                         'jobTitle': ref_title,
                         'phone': ref.get('phone') or '',
-                        'relationshipStrength': ref.get('strength') or 'strong',
-                        'relationshipContext': f"Advisory connection via {partner_name}",
+                        'relationshipStrength': ref.get('strength') or ref.get('relationshipStrength') or 'strong',
+                        'relationshipContext': ref.get('relationshipContext') or f"Advisory connection via {partner_name}",
                         'outreachStatus': ref.get('outreachStatus') or ('Completed' if ref.get('hasTakenCall') else ('Scheduled' if ref.get('hasScheduledCall') else 'Pending')),
                         'optInCount': 1 if (ref.get('hasScheduledCall') or ref.get('hasScheduledMeeting')) else 0,
                         'emailsSent': int(ref.get('emailsSent') or 0),
@@ -3484,25 +3503,68 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
                         'meetingDetails': ref.get('meetingDetails'),
                         'touchpoints': ref.get('touchpoints') or []
                     })
-            elif not c.get('isInfluencer'):
-                name = c.get('fullName') or ''
-                if term and term not in name.lower() and term not in str(c.get('company') or '').lower():
+
+        # 2. Second pass: Non-influencer contacts (avoid duplicating influencer referrals or misattributing to Direct Enterprise Sourcing)
+        for c in (state.get('contacts') or []):
+            if not c.get('isInfluencer'):
+                cid = str(c.get('id')) if c.get('id') is not None else ''
+                cemail = str(c.get('email') or '').strip().lower()
+
+                # If this contact was already added via an influencer's referrals, skip it
+                if cid and cid in seen_prospect_ids:
                     continue
+                if cemail and cemail in seen_emails:
+                    continue
+
+                # Check if this contact actually belongs to a known influencer
+                partner_obj = None
+                if c.get('influencerId') is not None:
+                    partner_obj = influencer_map.get(str(c.get('influencerId')))
+                if not partner_obj and c.get('partnerId'):
+                    pid_clean = str(c.get('partnerId')).replace('partner_', '')
+                    partner_obj = influencer_map.get(pid_clean)
+                if not partner_obj and c.get('referredBy'):
+                    partner_obj = influencer_map.get(str(c.get('referredBy')).strip().lower())
+
+                if partner_obj:
+                    partner_id = f"partner_{partner_obj.get('id')}"
+                    partner_name = partner_obj.get('fullName') or ''
+                    partner_company = partner_obj.get('company') or ''
+                    partner_title = partner_obj.get('jobTitle') or ''
+                    rel_context = c.get('relationshipContext') or c.get('portalNotes') or f"Advisory connection via {partner_name}"
+                    last_contacted_by = c.get('lastContactedBy') or partner_name
+                else:
+                    partner_id = 'partner_system'
+                    partner_name = 'Direct Enterprise Sourcing'
+                    partner_company = 'ConnectEM Internal'
+                    partner_title = 'Executive Lead'
+                    rel_context = c.get('relationshipContext') or 'Enterprise Outreach'
+                    last_contacted_by = c.get('lastContactedBy') or 'Direct Enterprise Sourcing'
+
+                name = c.get('fullName') or ''
+                if term and term not in name.lower() and term not in str(c.get('company') or '').lower() and term not in partner_name.lower():
+                    continue
+
+                if cid:
+                    seen_prospect_ids.add(cid)
+                if cemail:
+                    seen_emails.add(cemail)
+
                 prospects.append({
                     'id': f"prospect_{c.get('id')}",
-                    'partnerId': 'partner_system',
-                    'partnerName': 'Direct Enterprise Sourcing',
-                    'partnerCompany': 'ConnectEM Internal',
-                    'partnerJobTitle': 'Executive Lead',
+                    'partnerId': partner_id,
+                    'partnerName': partner_name,
+                    'partnerCompany': partner_company,
+                    'partnerJobTitle': partner_title,
                     'fullName': name,
                     'firstName': c.get('firstName') or name.split(' ')[0],
-                    'lastName': c.get('lastName') or '',
+                    'lastName': c.get('lastName') or (' '.join(name.split(' ')[1:]) if len(name.split(' ')) > 1 else ''),
                     'email': c.get('email') or '',
                     'company': c.get('company') or '',
                     'jobTitle': c.get('jobTitle') or '',
                     'phone': c.get('phone') or '',
-                    'relationshipStrength': 'strong',
-                    'relationshipContext': 'Enterprise Outreach',
+                    'relationshipStrength': c.get('relationshipStrength') or 'strong',
+                    'relationshipContext': rel_context,
                     'outreachStatus': c.get('outreachStatus') or ('Completed' if c.get('hasTakenCall') else ('Scheduled' if c.get('hasScheduledCall') else 'Pending')),
                     'optInCount': 1 if (c.get('hasScheduledCall') or c.get('hasScheduledMeeting')) else 0,
                     'emailsSent': int(c.get('emailsSent') or 0),
@@ -3512,7 +3574,7 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
                     'hasCallMade': bool(c.get('callsCount') or c.get('hasCallMade') or c.get('hasTakenCall')),
                     'hasLinkedInSent': bool(c.get('linkedinSent') or c.get('hasLinkedInSent')),
                     'lastContactedAt': c.get('lastContactedAt'),
-                    'lastContactedBy': c.get('lastContactedBy') or 'Direct Enterprise Sourcing',
+                    'lastContactedBy': last_contacted_by,
                     'lastChannel': c.get('lastChannel'),
                     'hasReply': bool(c.get('hasReply')),
                     'replySnippet': c.get('replySnippet'),
@@ -4639,6 +4701,36 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
         phone = str(body.get('phone') or '').strip()
         strength = str(body.get('relationshipStrength') or 'strong').strip()
         context = str(body.get('relationshipContext') or 'Direct advisory relationship').strip()
+
+        # Idempotency / deduplication check: if partner already has this contact, return existing
+        existing_ref = None
+        for ref in (partner.get('referrals') or []):
+            ref_email = str(ref.get('email') or '').strip().lower()
+            ref_name = str(ref.get('fullName') or '').strip().lower()
+            ref_comp = str(ref.get('company') or '').strip().lower()
+            if email and ref_email == email:
+                existing_ref = ref
+                break
+            if name and company and ref_name == name.lower() and ref_comp == company.lower():
+                existing_ref = ref
+                break
+
+        if existing_ref:
+            existing_contact = next((c for c in contacts if str(c.get('id')) == str(existing_ref.get('id'))), None)
+            if not existing_contact:
+                existing_contact = {
+                    'id': existing_ref.get('id'),
+                    'fullName': existing_ref.get('fullName'),
+                    'email': existing_ref.get('email'),
+                    'company': existing_ref.get('company'),
+                    'jobTitle': existing_ref.get('jobTitle'),
+                    'isInfluencer': False,
+                    'partnerId': f"partner_{partner.get('id')}",
+                    'referredBy': partner.get('fullName')
+                }
+            json_response(handler, 200, {'success': True, 'data': existing_contact, 'referral': existing_ref, 'deduplicated': True})
+            return True
+
         new_id = max([int(c.get('id') or 0) for c in contacts] + [1000]) + 1
         parts = name.split()
         first_name = parts[0] if parts else name
@@ -5158,6 +5250,29 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
         if not recipient or not subject or not message:
             json_response(handler, 400, {'success': False, 'error': 'A valid prospect, subject, and message are required.'})
             return True
+
+        # Deduplication check: prevent duplicate send if identical email sent within 15 seconds
+        partner_pid = f"partner_{partner.get('id')}"
+        now_ts = time.time()
+        for act in (state.get('outreachActivities') or [])[:30]:
+            if (act.get('partnerId') == partner_pid and
+                str(act.get('prospectId')) == str(prospect_id) and
+                act.get('channel') == 'email' and
+                act.get('subject') == subject):
+                act_time_str = act.get('timestamp') or ''
+                try:
+                    act_epoch = datetime.fromisoformat(act_time_str.replace('Z', '+00:00')).timestamp()
+                    if abs(now_ts - act_epoch) < 15:
+                        json_response(handler, 200, {
+                            'success': True,
+                            'data': act,
+                            'adminCcEnforced': act.get('adminCcEnforced') or 'nextbdr@gmail.com',
+                            'providerId': act.get('id'),
+                            'deduplicated': True
+                        })
+                        return True
+                except Exception:
+                    pass
 
         partner_id = str(partner.get('id') or '')
         # 1. Attempt direct sending via connected Google Workspace (Gmail API)
