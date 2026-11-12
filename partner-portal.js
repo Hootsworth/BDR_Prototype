@@ -452,18 +452,50 @@
         api('/api/go/outreach/twilio/status')
       ]);
 
-      gmailConnected = !!gmailRes.connected;
-      twilioEnabled = !!twilioRes.enabled;
+      gmailConnected = !!(gmailRes.connected ?? gmailRes.data?.connected);
+      twilioEnabled = !!(twilioRes.enabled ?? twilioRes.data?.enabled);
 
       const statusEl = document.getElementById('outreach-gmail-status');
       const grantBtn = document.getElementById('grant-gmail-perm-btn');
+      const composerGmailBadge = document.getElementById('composer-gmail-badge');
+      const composerFromEmail = document.getElementById('composer-from-email');
+      const activeEmail = gmailRes.email || gmailRes.data?.email || currentPartner?.gmailEmail || currentPartner?.email || '';
+
+      if (composerFromEmail && activeEmail) {
+        composerFromEmail.textContent = activeEmail;
+      }
+
+      if (composerGmailBadge) {
+        if (gmailConnected) {
+          composerGmailBadge.textContent = 'Gmail Connected';
+          composerGmailBadge.className = 'badge-tag strong';
+          composerGmailBadge.style.background = 'rgba(22,101,52,0.1)';
+          composerGmailBadge.style.color = '#166534';
+          composerGmailBadge.style.border = '1px solid rgba(22,101,52,0.2)';
+        } else {
+          composerGmailBadge.textContent = 'Not Connected';
+          composerGmailBadge.className = 'badge-tag';
+          composerGmailBadge.style.background = 'rgba(185,28,28,0.1)';
+          composerGmailBadge.style.color = '#b91c1c';
+          composerGmailBadge.style.border = '1px solid rgba(185,28,28,0.2)';
+        }
+      }
+
       if (statusEl) {
         if (gmailConnected) {
-          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Email delivery ready via ${gmailRes.provider || 'Resend'}</span>`;
-          if (grantBtn) grantBtn.style.display = 'none';
+          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px; background:rgba(22,101,52,0.1); color:#166534; border:1px solid rgba(22,101,52,0.2);">✓ Gmail Connected (${escapeHtml(activeEmail)})</span>`;
+          if (grantBtn) {
+            grantBtn.textContent = 'Reconnect Gmail';
+            grantBtn.className = 'btn btn-secondary btn-sm';
+            grantBtn.style.display = 'inline-block';
+          }
         } else {
-          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Email provider not configured</span>`;
-          if (grantBtn) grantBtn.style.display = 'inline-block';
+          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:600;">Gmail Not Connected · Permission Required</span>`;
+          if (grantBtn) {
+            grantBtn.textContent = 'Connect My Gmail';
+            grantBtn.className = 'btn btn-primary btn-sm';
+            grantBtn.style.display = 'inline-block';
+          }
         }
       }
     } catch (err) {
@@ -1683,10 +1715,10 @@
     try {
       if (sendBtn) {
         sendBtn.disabled = true;
-        sendBtn.textContent = 'Sending...';
+        sendBtn.textContent = 'Sending via Gmail...';
       }
 
-      const activity = await api('/api/go/outreach/email', {
+      const res = await api('/api/go/outreach/email', {
         method: 'POST',
         body: JSON.stringify({
           prospectId: activeOutreachProspectId,
@@ -1697,9 +1729,18 @@
       });
 
       closeEmailComposer();
-      showToast(`Email sent successfully. Compliance copy CC'd to ${activity.adminCcEnforced}`);
+      showToast(`Email sent successfully via Gmail! Compliance copy CC'd to ${res.adminCcEnforced || 'nextbdr@gmail.com'}`);
+      await loadOutreachStatus();
     } catch (e) {
-      showToast(e.message, 'error');
+      if (e.message && (e.message.includes('connect your Google') || e.message.includes('permission') || e.message.includes('Google account') || e.message.includes('OAuth'))) {
+        showToast('Google account permission required to send emails. Redirecting to Google...', 'error');
+        setTimeout(() => {
+          const partnerId = currentPartner?.id ? String(currentPartner.id).replace('partner_', '') : '';
+          window.location.href = `/api/google/oauth/start?partner_id=${encodeURIComponent(partnerId)}&return_url=${encodeURIComponent(window.location.href)}`;
+        }, 1200);
+      } else {
+        showToast(e.message, 'error');
+      }
     } finally {
       if (sendBtn) {
         sendBtn.disabled = false;
@@ -1828,15 +1869,26 @@
   // Grant Gmail Permission button in Outreach Banner
   document.getElementById('grant-gmail-perm-btn')?.addEventListener('click', async () => {
     try {
-      const email = currentPartner?.email || 'bob.miller@milleradvisory.com';
-      await api('/api/go/outreach/gmail/connect', {
+      showToast('Initiating Google OAuth connection...');
+      const partnerId = currentPartner?.id ? String(currentPartner.id).replace('partner_', '') : '';
+      const returnUrl = window.location.href;
+      
+      const res = await api('/api/go/outreach/gmail/connect', {
         method: 'POST',
-        body: JSON.stringify({ email })
+        body: JSON.stringify({
+          partnerId,
+          returnUrl
+        })
       });
-      showToast('Email delivery provider is configured.');
-      await loadOutreachStatus();
+
+      const authUrl = res.authUrl || res.data?.authUrl || `/api/google/oauth/start?partner_id=${encodeURIComponent(partnerId)}&return_url=${encodeURIComponent(returnUrl)}`;
+      if (authUrl) {
+        window.location.href = authUrl;
+        return;
+      }
+      showToast('Redirecting to Google authorization...');
     } catch (e) {
-      showToast(e.message, 'error');
+      showToast(e.message || 'Failed to initiate Google authorization', 'error');
     }
   });
 
@@ -2003,6 +2055,18 @@
       if (linkedinDialogModal?.style.display === 'flex') closeLinkedInDialog();
     }
   });
+
+  // Check for Google OAuth redirect callback
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('google_connected') === '1' || urlParams.get('google') === 'connected') {
+      const connectedEmail = urlParams.get('email') || '';
+      showToast(`Gmail account connected successfully! Outbound outreach will send directly from ${connectedEmail || 'your email'} (CC: nextbdr@gmail.com).`);
+      document.getElementById('tab-btn-email')?.click();
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  } catch (_) {}
 
   // Initial Boot
   checkSession();

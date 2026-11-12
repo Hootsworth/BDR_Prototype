@@ -223,9 +223,10 @@ def persist_partner_google_connection(session, influencer_id=None):
     owner_id = str(influencer_id or session.get('partner_owner_id') or '')
     if not owner_id:
         raise ValueError('Partner account is required for Google connection storage.')
+    clean_id = owner_id.replace('partner_', '')
     stored = load_provider_secrets()
     connections = stored.setdefault('partnerGoogleConnections', {})
-    connections[owner_id] = {
+    conn_data = {
         'access_token': encrypt_token(session.get('access_token') or ''),
         'refresh_token': encrypt_token(session.get('refresh_token') or '') if session.get('refresh_token') else '',
         'expires_at': float(session.get('expires_at') or 0),
@@ -233,6 +234,9 @@ def persist_partner_google_connection(session, influencer_id=None):
         'name': str(session.get('name') or ''),
         'session_id': str(session.get('session_id') or '')
     }
+    connections[owner_id] = conn_data
+    connections[f'partner_{clean_id}'] = conn_data
+    connections[clean_id] = conn_data
     save_provider_secrets(stored)
     session['partner_owner_id'] = owner_id
     google_sessions[session['session_id']] = session
@@ -241,7 +245,9 @@ def restore_partner_google_session(influencer_id):
     owner_id = str(influencer_id or '')
     if not owner_id:
         return None
-    stored = (load_provider_secrets().get('partnerGoogleConnections') or {}).get(owner_id)
+    connections = load_provider_secrets().get('partnerGoogleConnections') or {}
+    clean_id = owner_id.replace('partner_', '')
+    stored = connections.get(owner_id) or connections.get(f'partner_{clean_id}') or connections.get(clean_id)
     if not stored:
         return None
     session = google_sessions.get(stored.get('session_id'))
@@ -2713,9 +2719,9 @@ def gmail_raw_message(to, subject, body, cc='', in_reply_to='', references='', m
 
 def gmail_admin_cc():
     settings = load_provider_secrets()
-    value = str(settings.get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or '').strip()
+    value = str(settings.get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or 'nextbdr@gmail.com').strip()
     if not value or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
-        raise ValueError('Set a valid Admin CC email in Admin Settings → Email & AI, or configure PARTNER_SCHEDULE_ADMIN_EMAIL.')
+        return 'nextbdr@gmail.com'
     return value
 
 def gmail_admin_cc_safe():
@@ -3744,6 +3750,28 @@ def get_current_influencer(handler, state=None):
     if not influencers:
         return None, state
 
+    # Check x-influencer-id or x-partner-id header
+    req_inf_id = handler.headers.get('x-influencer-id') or handler.headers.get('x-partner-id')
+    if req_inf_id:
+        clean_req_id = str(req_inf_id).replace('partner_', '').strip()
+        for inf in influencers:
+            if str(inf.get('id')).replace('partner_', '') == clean_req_id:
+                return inf, state
+
+    # Check partner session cookie
+    cookie_hdr = handler.headers.get('cookie') or ''
+    if 'gtm_partner_google_session=' in cookie_hdr:
+        for chunk in cookie_hdr.split(';'):
+            chunk = chunk.strip()
+            if chunk.startswith('gtm_partner_google_session='):
+                sess_id = chunk.split('=', 1)[1]
+                sess = google_sessions.get(sess_id)
+                if sess and sess.get('partner_owner_id'):
+                    clean_owner = str(sess['partner_owner_id']).replace('partner_', '')
+                    for inf in influencers:
+                        if str(inf.get('id')).replace('partner_', '') == clean_owner:
+                            return inf, state
+
     token = bearer_token(handler.headers)
     token_str = str(token or '').strip()
 
@@ -3760,7 +3788,7 @@ def get_current_influencer(handler, state=None):
                 target_id = parts[1].replace('partner', '')
             if target_id:
                 for inf in influencers:
-                    if str(inf.get('id')) == str(target_id) or f"partner_{inf.get('id')}" == f"partner_{target_id}":
+                    if str(inf.get('id')).replace('partner_', '') == str(target_id).replace('partner_', '') or f"partner_{inf.get('id')}" == f"partner_{target_id}":
                         return inf, state
 
     auth_email = handler.headers.get('x-influencer-email') or handler.headers.get('x-partner-email')
@@ -4480,19 +4508,88 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
     if clean_path == '/api/go/outreach/gmail/status' and method == 'GET':
         state = read_workbook_state()
         partner, state = get_current_influencer(handler, state)
-        connected = bool(os.environ.get('RESEND_API_KEY') and os.environ.get('RESEND_FROM_EMAIL'))
-        sender = os.environ.get('RESEND_FROM_EMAIL', '')
-        json_response(handler, 200, {'success': True, 'data': {'connected': connected, 'provider': 'resend', 'email': sender}})
+        partner_id = str(partner.get('id') or '') if partner else ''
+        google_session = None
+        if partner_id:
+            try:
+                google_session = restore_partner_google_session(partner_id)
+            except Exception:
+                google_session = None
+        if not google_session:
+            try:
+                google_session = restore_connected_google_session()
+            except Exception:
+                google_session = None
+
+        connected = bool(google_session and google_session.get('access_token'))
+        influencer_email = str((google_session.get('email') if google_session else None) or (partner.get('email') if partner else '')).strip()
+
+        host, proto = client_host_and_proto(handler)
+        portal_return = f"{proto}://{host}/partner-portal" if host else "https://go.connectem.ai/partner-portal"
+        auth_url = f"/api/google/oauth/start?partner_id={partner_id}&return_url={urllib.parse.quote(portal_return)}"
+
+        json_response(handler, 200, {
+            'success': True,
+            'connected': connected,
+            'provider': 'Gmail' if connected else 'none',
+            'email': influencer_email,
+            'authUrl': auth_url,
+            'adminCc': 'nextbdr@gmail.com',
+            'data': {
+                'connected': connected,
+                'provider': 'Gmail' if connected else 'none',
+                'email': influencer_email,
+                'authUrl': auth_url,
+                'adminCc': 'nextbdr@gmail.com'
+            }
+        })
         return True
 
     # POST /api/go/outreach/gmail/connect
     if clean_path == '/api/go/outreach/gmail/connect' and method == 'POST':
-        connected = bool(os.environ.get('RESEND_API_KEY') and os.environ.get('RESEND_FROM_EMAIL'))
-        sender = os.environ.get('RESEND_FROM_EMAIL', '')
-        json_response(handler, 200 if connected else 503, {
-            'success': connected,
-            'data': {'connected': connected, 'provider': 'resend', 'email': sender},
-            **({} if connected else {'error': 'Email delivery is not configured.'})
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        partner_id = str(partner.get('id') or '') if partner else ''
+        body = payload or {}
+
+        client_id = google_oauth_setting('googleClientId')
+        client_secret = google_oauth_setting('googleClientSecret')
+        if not client_id or not client_secret:
+            json_response(handler, 503, {
+                'success': False,
+                'error': 'Google OAuth is not configured on the server. Please check Google Client ID and Secret in Admin Settings.'
+            })
+            return True
+
+        host, proto = client_host_and_proto(handler)
+        return_url = str(body.get('returnUrl') or (f"{proto}://{host}/partner-portal" if host else "https://go.connectem.ai/partner-portal"))
+        redirect_uri = google_redirect_uri(handler)
+
+        try:
+            oauth_state = create_google_oauth_state(partner_id=partner_id, redirect_uri=redirect_uri, return_url=return_url)
+        except Exception as ex:
+            json_response(handler, 503, {'success': False, 'error': str(ex)})
+            return True
+
+        params = urllib.parse.urlencode({
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': ' '.join(GOOGLE_SCOPES),
+            'access_type': 'offline',
+            'prompt': 'consent',
+            'state': oauth_state
+        })
+        auth_url = f"{GOOGLE_AUTH_URL}?{params}"
+
+        json_response(handler, 200, {
+            'success': True,
+            'authUrl': auth_url,
+            'data': {
+                'authUrl': auth_url,
+                'partnerId': partner_id,
+                'provider': 'Gmail'
+            }
         })
         return True
 
@@ -4568,52 +4665,72 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
         if not recipient or not subject or not message:
             json_response(handler, 400, {'success': False, 'error': 'A valid prospect, subject, and message are required.'})
             return True
+
+        partner_id = str(partner.get('id') or '')
         # 1. Attempt direct sending via connected Google Workspace (Gmail API)
         google_session = None
-        if partner and partner.get('id'):
+        if partner_id:
             try:
-                google_session = get_partner_google_session(partner['id'])
+                google_session = restore_partner_google_session(partner_id)
             except Exception:
                 pass
         if not google_session:
             google_session = restore_connected_google_session()
 
         gmail_sent = False
+        provider_id = None
+        gmail_error = None
+
         if google_session and google_session.get('access_token'):
             try:
+                sender_email = str(google_session.get('email') or partner.get('email') or '').strip()
                 gmail_payload = {
                     'to': recipient,
+                    'cc': 'nextbdr@gmail.com',
                     'subject': subject,
                     'body': message,
-                    'from': google_session.get('email')
+                    'from': sender_email
                 }
                 result = gmail_request(google_session, 'messages/send', gmail_payload, send=True)
                 provider_id = str(result.get('id') or '').strip()
                 if provider_id:
                     record_sent_email(gmail_payload, provider_id)
                     gmail_sent = True
-            except Exception:
+            except Exception as exc:
+                gmail_error = str(exc)
                 provider_id = None
 
-        # 2. Fall back to Resend if Gmail is not connected or encountered an error
+        # 2. If Gmail was not sent, check Resend fallback if allowed or prompt for Gmail OAuth
         if not gmail_sent:
+            allow_fallback = bool(body.get('allowFallback'))
             api_key = str(os.environ.get('RESEND_API_KEY') or '').strip()
             sender = str(os.environ.get('RESEND_FROM_EMAIL') or '').strip()
-            if not api_key or not sender:
-                json_response(handler, 503, {'success': False, 'error': 'Email delivery is not configured. No email was sent.'})
+            if allow_fallback and api_key and sender:
+                try:
+                    status, sent = post_json(
+                        'https://api.resend.com/emails',
+                        {'from': sender, 'to': [recipient], 'cc': ['nextbdr@gmail.com'], 'reply_to': partner.get('email'), 'subject': subject, 'text': message},
+                        {'Authorization': f'Bearer {api_key}'}
+                    )
+                    provider_id = str(sent.get('id') or '').strip() if isinstance(sent, dict) else ''
+                    if status < 200 or status >= 300 or not provider_id:
+                        raise ValueError('Email provider did not confirm delivery.')
+                except Exception as exc:
+                    json_response(handler, 502, {'success': False, 'error': f'Email delivery failed: {type(exc).__name__}.'})
+                    return True
+            else:
+                host, proto = client_host_and_proto(handler)
+                portal_return = f"{proto}://{host}/partner-portal" if host else "https://go.connectem.ai/partner-portal"
+                auth_url = f"/api/google/oauth/start?partner_id={partner_id}&return_url={urllib.parse.quote(portal_return)}"
+                error_msg = f'Google Gmail delivery error: {gmail_error}' if gmail_error else 'Please connect your Google account to grant permission to send emails from your influencer address.'
+                json_response(handler, 403, {
+                    'success': False,
+                    'requiresAuth': True,
+                    'authUrl': auth_url,
+                    'error': error_msg
+                })
                 return True
-            try:
-                status, sent = post_json(
-                    'https://api.resend.com/emails',
-                    {'from': sender, 'to': [recipient], 'cc': ['nextbdr@gmail.com'], 'reply_to': partner.get('email'), 'subject': subject, 'text': message},
-                    {'Authorization': f'Bearer {api_key}'}
-                )
-                provider_id = str(sent.get('id') or '').strip() if isinstance(sent, dict) else ''
-                if status < 200 or status >= 300 or not provider_id:
-                    raise ValueError('Email provider did not confirm delivery.')
-            except Exception as exc:
-                json_response(handler, 502, {'success': False, 'error': f'Email delivery failed: {type(exc).__name__}.'})
-                return True
+
         activity = {
             'id': provider_id,
             'partnerId': f"partner_{partner.get('id')}" if partner else '',
@@ -4629,7 +4746,7 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
         activities = state.setdefault('outreachActivities', [])
         activities.insert(0, activity)
         write_workbook_state(state)
-        json_response(handler, 200, {'success': True, 'data': activity})
+        json_response(handler, 200, {'success': True, 'data': activity, 'adminCcEnforced': 'nextbdr@gmail.com', 'providerId': provider_id})
         return True
 
     # POST /api/go/outreach/call/log
@@ -5604,11 +5721,14 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 500, {'error': str(ex)})
             return
 
-        if norm_path == '/api/google/oauth/start' or clean_path == '/api/google/oauth/start' or self.path == '/api/google/oauth/start':
+        if norm_path == '/api/google/oauth/start' or clean_path == '/api/google/oauth/start' or self.path == '/api/google/oauth/start' or self.path.startswith('/api/google/oauth/start?'):
+            parsed_qs = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            partner_id = (parsed_qs.get('partner_id') or [None])[0]
+            req_return_url = (parsed_qs.get('return_url') or [None])[0]
             client_id = google_oauth_setting('googleClientId')
             redirect_uri = google_redirect_uri(self)
             host, proto = client_host_and_proto(self)
-            return_url = f"{proto}://{host}/" if host else "https://admin.connectem.ai/"
+            return_url = req_return_url or (f"{proto}://{host}/" if host else "https://admin.connectem.ai/")
             if not client_id or not google_oauth_setting('googleClientSecret'):
                 json_response(self, 503, {'error': 'Configure both Google OAuth client ID and client secret in Admin Settings.'})
                 return
@@ -5616,7 +5736,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 503, {'error': 'Configure TOKEN_ENCRYPTION_KEY on the server before connecting Google.'})
                 return
             try:
-                state = create_google_oauth_state(redirect_uri=redirect_uri, return_url=return_url)
+                state = create_google_oauth_state(partner_id=partner_id, redirect_uri=redirect_uri, return_url=return_url)
             except RuntimeError as ex:
                 json_response(self, 503, {'error': str(ex)})
                 return
@@ -5664,6 +5784,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if partner_owner_id:
                     google_sessions[session_id]['partner_owner_id'] = partner_owner_id
                     persist_partner_google_connection(google_sessions[session_id], partner_owner_id)
+                    try:
+                        wb_state = read_workbook_state()
+                        for c in (wb_state.get('contacts') or []):
+                            clean_c_id = str(c.get('id') or '').replace('partner_', '')
+                            clean_p_id = str(partner_owner_id).replace('partner_', '')
+                            if clean_c_id == clean_p_id or str(c.get('id')) == str(partner_owner_id):
+                                c['gmailConnected'] = True
+                                c['gmailEmail'] = profile.get('email')
+                                c['googleConnected'] = True
+                                c['googleSessionId'] = session_id
+                        write_workbook_state(wb_state)
+                    except Exception:
+                        pass
                     if not return_url:
                         portal_url = str(os.environ.get('PARTNER_PORTAL_URL') or '').rstrip('/')
                         if not portal_url:
@@ -5671,8 +5804,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             portal_url = f"{cb_proto}://{cb_host}/partner-portal" if cb_host else "https://go.connectem.ai/partner-portal"
                         return_url = portal_url
                     sep = '&' if '?' in return_url else '?'
-                    target_url = f"{return_url}{sep}google=connected#settings"
+                    email_param = urllib.parse.quote(str(profile.get('email') or ''))
+                    target_url = f"{return_url}{sep}google_connected=1&email={email_param}#outreach"
                     self.send_response(302)
+                    self.send_header('Set-Cookie', f'gtm_partner_google_session={session_id}; HttpOnly; SameSite=Lax; Path=/')
                     self.send_header('Location', target_url)
                     self.end_headers()
                     return
