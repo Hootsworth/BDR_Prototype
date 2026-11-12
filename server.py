@@ -3851,6 +3851,30 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
         new_meetings = 0
         sync_details = []
 
+        if body.get('reset'):
+            reset_pid = body.get('prospectId')
+            cleared_count = 0
+            for p, inf in prospect_list:
+                if not reset_pid or str(p.get('id')).replace('prospect_', '') == str(reset_pid).replace('prospect_', ''):
+                    p['hasReply'] = False
+                    p['replySnippet'] = None
+                    p['replySentiment'] = None
+                    p['replyDate'] = None
+                    p['hasScheduledMeeting'] = False
+                    p['hasScheduledCall'] = False
+                    p['meetingDetails'] = None
+                    p['outreachStatus'] = 'Pending'
+                    p_email = str(p.get('email') or '').lower()
+                    if p_email:
+                        state['meetings'] = [m for m in (state.get('meetings') or []) if str(m.get('contactEmail') or '').lower() != p_email]
+                    cleared_count += 1
+            write_workbook_state(state)
+            json_response(handler, 200, {
+                'success': True,
+                'message': f"Reset {cleared_count} prospect(s) to Pending state and cleared mock meetings."
+            })
+            return True
+
         test_message = body.get('messageText')
         test_prospect_id = body.get('prospectId')
         if test_message and test_prospect_id:
