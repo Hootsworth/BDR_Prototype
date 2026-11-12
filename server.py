@@ -2532,12 +2532,15 @@ def gmail_replies(session, payload):
             replies.append({'contactEmail': email, 'messageId': detail.get('id'), 'threadId': detail.get('threadId'), 'from': headers.get('from', email), 'subject': headers.get('subject', ''), 'date': headers.get('date', ''), 'snippet': detail.get('snippet', '')})
     return {'replies': replies, 'syncedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
 
-def json_response(handler, status, payload):
+def json_response(handler, status, payload, extra_headers=None):
     body = json.dumps(payload).encode('utf-8')
     handler.send_response(status)
     handler.send_header('Content-Type', 'application/json')
     handler.send_header('Cache-Control', 'no-store')
     handler.send_header('Content-Length', str(len(body)))
+    if extra_headers and isinstance(extra_headers, dict):
+        for k, v in extra_headers.items():
+            handler.send_header(k, str(v))
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -5767,8 +5770,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if norm_path.startswith('/api/proxy/') or self.path.startswith('/api/proxy/'):
             allowed, retry = check_rate_limit(self, 'proxy', 30, 60)
             if not allowed:
-                self.send_header('Retry-After', str(retry))
-                json_response(self, 429, {'error': f'Too many proxy requests. Try again in {retry}s.'})
+                json_response(self, 429, {'error': f'Too many proxy requests. Try again in {retry}s.'}, extra_headers={'Retry-After': str(retry)})
                 return
             if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 401, {'error': 'Valid IRM administrator authentication is required for proxy access.'})
@@ -5922,15 +5924,13 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if clean_path in ('/api/admin/login', '/api/admin/google-login'):
             allowed, retry = check_rate_limit(self, 'admin_auth', 10, 60)
             if not allowed:
-                self.send_header('Retry-After', str(retry))
-                json_response(self, 429, {'error': f'Too many authentication requests. Try again in {retry}s.'})
+                json_response(self, 429, {'error': f'Too many authentication requests. Try again in {retry}s.'}, extra_headers={'Retry-After': str(retry)})
                 return
 
         if clean_path in ('/api/go/outreach/email', '/api/admin/outreach', '/api/go/outreach/call', '/api/partner-portal/twilio/call'):
             allowed, retry = check_rate_limit(self, 'outreach', 20, 60)
             if not allowed:
-                self.send_header('Retry-After', str(retry))
-                json_response(self, 429, {'error': f'Too many outreach requests. Try again in {retry}s.'})
+                json_response(self, 429, {'error': f'Too many outreach requests. Try again in {retry}s.'}, extra_headers={'Retry-After': str(retry)})
                 return
 
         if clean_path in ('/api/twilio/webhook/call-status', '/api/twilio/status-callback'):
@@ -8949,8 +8949,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif norm_path.startswith('/api/proxy/') or self.path.startswith('/api/proxy/'):
             allowed, retry = check_rate_limit(self, 'proxy', 30, 60)
             if not allowed:
-                self.send_header('Retry-After', str(retry))
-                json_response(self, 429, {'error': f'Too many proxy requests. Try again in {retry}s.'})
+                json_response(self, 429, {'error': f'Too many proxy requests. Try again in {retry}s.'}, extra_headers={'Retry-After': str(retry)})
                 return
             if not is_irm_admin_request(self) or not request_origin_is_trusted(self):
                 json_response(self, 401, {'error': 'Valid IRM administrator authentication is required for proxy access.'})
