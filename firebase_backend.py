@@ -103,6 +103,17 @@ def _vercel_firebase_credential(firebase_admin):
 
 
 def configured_project_id():
+    # If the service account key specifies project_id, prioritize it to prevent
+    # mismatches (e.g. env var set to "bdrcreek" while key belongs to "bdrcreek-511615")
+    service_account_info = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY") or os.environ.get("GOOGLE_CREDENTIALS_JSON") or ""
+    if service_account_info:
+        try:
+            parsed = json.loads(service_account_info) if not os.path.exists(service_account_info) else json.load(open(service_account_info))
+            key_project = str(parsed.get("project_id") or "").strip()
+            if key_project:
+                return key_project
+        except Exception:
+            pass
     return str(os.environ.get("FIREBASE_PROJECT_ID") or "").strip()
 
 
