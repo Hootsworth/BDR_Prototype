@@ -592,4 +592,18 @@ def firestore_verify_connection():
             "message": f"Full persistent CRUD lifecycle verified in {elapsed_ms}ms on project {project_id}."
         }
     except Exception as exc:
-        return False, {"error": str(exc), "status": "failed"}
+        diag = {}
+        try:
+            diag["configuredProjectId"] = configured_project_id()
+            diag["databaseId"] = os.environ.get("FIREBASE_DATABASE_ID", "(default)")
+            raw_key = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY") or os.environ.get("GOOGLE_CREDENTIALS_JSON") or ""
+            if raw_key:
+                try:
+                    parsed = json.loads(raw_key) if not os.path.exists(raw_key) else json.load(open(raw_key))
+                    diag["serviceAccountEmail"] = parsed.get("client_email")
+                    diag["keyProjectId"] = parsed.get("project_id")
+                except Exception:
+                    diag["serviceAccountEmail"] = "error_parsing_key"
+        except Exception:
+            pass
+        return False, {"error": str(exc), "status": "failed", "diagnostics": diag}

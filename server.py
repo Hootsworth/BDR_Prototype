@@ -6022,7 +6022,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 json_response(self, 503, {
                     'status': 'unverified',
                     'provider': 'firestore',
-                    'error': result_data.get('error') if isinstance(result_data, dict) else str(result_data)
+                    'error': result_data.get('error') if isinstance(result_data, dict) else str(result_data),
+                    'diagnostics': result_data.get('diagnostics') if isinstance(result_data, dict) else {}
                 })
             return
 
