@@ -687,6 +687,14 @@ export class AdminService {
     });
   }
 
+  updatePartner(id: string, updates: any) {
+    return this.store.updatePartner(id, updates);
+  }
+
+  deletePartner(id: string): boolean {
+    return this.store.deletePartner(id);
+  }
+
   /**
    * Send outreach to an influencer or prospect, enforcing CC to nextbdr@gmail.com.
    */
@@ -785,6 +793,14 @@ export class AdminService {
       relationshipStrength: params.relationshipStrength || 'strong',
       relationshipContext: params.relationshipContext || 'Advisory relationship'
     });
+  }
+
+  updateProspect(id: string, updates: any) {
+    return this.store.updateProspect(id, updates);
+  }
+
+  deleteProspect(id: string): boolean {
+    return this.store.deleteProspect(id);
   }
 
   /**

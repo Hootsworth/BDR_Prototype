@@ -282,6 +282,31 @@ export async function handleGoRoute(
       return true;
     }
 
+    // PUT /api/go/relationships/:id
+    if (pathname.startsWith('/api/go/relationships/') && (req.method === 'PUT' || req.method === 'PATCH')) {
+      const id = pathname.split('/')[4];
+      const body = await readBody<any>();
+      try {
+        const updated = service.updateRelationship(currentPartner.id, id, body);
+        sendJson(200, { success: true, data: updated });
+      } catch (err: any) {
+        sendJson(404, { success: false, error: err.message || 'Contact not found' });
+      }
+      return true;
+    }
+
+    // DELETE /api/go/relationships/:id
+    if (pathname.startsWith('/api/go/relationships/') && req.method === 'DELETE') {
+      const id = pathname.split('/')[4];
+      const deleted = service.deleteRelationship(currentPartner.id, id);
+      if (deleted) {
+        sendJson(200, { success: true, data: { id, deleted: true } });
+      } else {
+        sendJson(404, { success: false, error: 'Contact not found' });
+      }
+      return true;
+    }
+
     // GET /api/go/inbox
     if (pathname === '/api/go/inbox' && req.method === 'GET') {
       const inbox = service.listInboxRequests(currentPartner.id);

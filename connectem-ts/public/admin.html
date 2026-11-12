@@ -54,6 +54,14 @@
       --radius-card: 12px;
     }
 
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -2569,6 +2577,10 @@
               <option value="25">25 rows</option>
               <option value="50">50 rows</option>
             </select>
+            <button class="btn btn-outline" id="prospect-sync-replies-btn" onclick="syncGmailReplies()" title="Scan for replies and auto-detect meetings with AI">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Sync Replies &amp; Meetings</span>
+            </button>
             <button class="btn btn-outline" id="prospect-global-outreach-btn" onclick="openOutreachScreen()">
               <span>Outreach</span>
             </button>
@@ -2582,11 +2594,11 @@
         <table class="ledger-table" id="prospects-table">
           <thead>
             <tr>
-              <th style="width: 26%;">Prospect</th>
-              <th style="width: 25%;">Company &amp; Email</th>
-              <th style="width: 22%;">Introduced By</th>
-              <th style="width: 12%;">Status</th>
-              <th style="width: 1%; white-space: nowrap; text-align: right;">Action</th>
+              <th style="width: 24%;">Prospect</th>
+              <th style="width: 23%;">Company &amp; Email</th>
+              <th style="width: 18%;">Introduced By</th>
+              <th style="width: 23%;">Outreach, Reply &amp; Meeting</th>
+              <th style="width: 12%; white-space: nowrap; text-align: right;">Action</th>
             </tr>
           </thead>
           <tbody id="prospects-table-body">
@@ -3227,7 +3239,8 @@
                   <label class="settings-label" for="setting-google-redirect-uri">OAuth Redirect URI</label>
                   <input type="url" id="setting-google-redirect-uri" class="settings-input" value="http://localhost:8002/api/google/oauth/callback">
                 </div>
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                  <button type="button" class="btn-sm-curved" style="background: var(--ink); color: #fff;" onclick="window.location.assign('/api/google/oauth/start')">Authorize Google (Ask All Permissions)</button>
                   <button type="button" class="btn-sm-curved secondary" onclick="verifyGoogleWorkspace()">Test Gmail &amp; Calendar</button>
                   <button type="button" class="btn-sm-curved secondary" onclick="syncGmailReplies()">Sync Gmail Replies</button>
                 </div>
@@ -3674,6 +3687,120 @@
     </div>
   </div>
 
+  <!-- Edit Influencer Modal -->
+  <div id="modal-edit-influencer" class="flat-modal-backdrop" style="display: none;">
+    <div class="flat-modal-sheet">
+      <div class="flat-modal-header">
+        <h3>Edit Influencer</h3>
+        <button class="flat-close-btn" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-edit-influencer" onsubmit="submitEditInfluencer(event)">
+        <input type="hidden" id="edit-inf-id">
+        <div class="flat-modal-body">
+          <div class="flat-field">
+            <label class="flat-label" for="edit-inf-name">Full Name *</label>
+            <input type="text" id="edit-inf-name" class="flat-input" required>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-inf-email">Email *</label>
+            <input type="email" id="edit-inf-email" class="flat-input" required>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-company">Company *</label>
+              <input type="text" id="edit-inf-company" class="flat-input" required>
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-title">Job Title *</label>
+              <input type="text" id="edit-inf-title" class="flat-input" required>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-phone">Phone</label>
+              <input type="text" id="edit-inf-phone" class="flat-input" placeholder="+1 555-000-0000">
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-credits">Referral Credits</label>
+              <input type="number" id="edit-inf-credits" class="flat-input" min="0" step="50">
+            </div>
+          </div>
+        </div>
+        <div class="flat-modal-footer">
+          <button type="button" class="btn btn-text" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-solid" id="btn-update-influencer">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Prospect Modal -->
+  <div id="modal-edit-prospect" class="flat-modal-backdrop" style="display: none;">
+    <div class="flat-modal-sheet">
+      <div class="flat-modal-header">
+        <h3>Edit Prospect</h3>
+        <button class="flat-close-btn" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-edit-prospect" onsubmit="submitEditProspect(event)">
+        <input type="hidden" id="edit-prosp-id">
+        <div class="flat-modal-body">
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-influencer">Who introduced them?</label>
+            <select id="edit-prosp-influencer" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);">
+              <option value="">Direct Enterprise Sourcing</option>
+            </select>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-name">Full Name *</label>
+            <input type="text" id="edit-prosp-name" class="flat-input" required>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-email">Email *</label>
+            <input type="email" id="edit-prosp-email" class="flat-input" required>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-company">Company *</label>
+              <input type="text" id="edit-prosp-company" class="flat-input" required>
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-title">Job Title *</label>
+              <input type="text" id="edit-prosp-title" class="flat-input" required>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-phone">Phone</label>
+              <input type="text" id="edit-prosp-phone" class="flat-input" placeholder="+1 555-000-0000">
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-strength">Strength</label>
+              <select id="edit-prosp-strength" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);">
+                <option value="strong">Well (Close connection)</option>
+                <option value="moderate">Okay (Work acquaintance)</option>
+                <option value="weak">Casual (Met once or online)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-status">Outreach Status</label>
+            <select id="edit-prosp-status" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);">
+              <option value="Pending">Pending</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Meeting Scheduled">Meeting Scheduled</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+        <div class="flat-modal-footer">
+          <button type="button" class="btn btn-text" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-solid" id="btn-update-prospect">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Fallback Outreach Modal for Legacy API triggers -->
   <div id="modal-outreach" class="flat-modal-backdrop" style="display: none;">
     <div class="flat-modal-sheet" style="max-width: 560px;">
@@ -3849,6 +3976,18 @@ ConnectEM Admin Team</textarea>
 
     // Authentication
     function checkAdminAuth() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      const urlEmail = urlParams.get('email');
+      if (urlToken) {
+        localStorage.setItem('connectem_admin_token', urlToken);
+        if (urlEmail) {
+          localStorage.setItem('connectem_admin_email', urlEmail);
+          const emailDisplay = document.getElementById('admin-compliance-email');
+          if (emailDisplay) emailDisplay.textContent = `Admin: ${urlEmail}`;
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       const token = localStorage.getItem('connectem_admin_token');
       if (token || window.location.search.includes('test=true')) {
         showConsoleView();
@@ -3912,7 +4051,38 @@ ConnectEM Admin Team</textarea>
       const errBanner = document.getElementById('login-error-banner');
       if (errBanner) errBanner.style.display = 'none';
 
-      // 1. Try Google Identity Services
+      // 1. Try Google Identity Services OAuth 2.0 Code Client (requests all scopes: Gmail Send, Modify, Calendar)
+      if (window.google?.accounts?.oauth2?.initCodeClient) {
+        try {
+          const client = window.google.accounts.oauth2.initCodeClient({
+            client_id: window.GoogleConfig?.clientId || '',
+            scope: 'openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.events',
+            ux_mode: 'popup',
+            callback: async (response) => {
+              if (response.code) {
+                await sendGoogleAdminAuth({ code: response.code });
+              } else if (response.error) {
+                console.warn('Google OAuth code error:', response);
+                window.location.assign('/api/google/oauth/start');
+              }
+            }
+          });
+          client.requestCode();
+          return;
+        } catch (e) {
+          console.warn('GIS Code Client failed, falling back:', e);
+        }
+      }
+
+      // 2. Try server-side OAuth redirect which enforces prompt=consent and all scopes
+      try {
+        window.location.assign('/api/google/oauth/start');
+        return;
+      } catch (e) {
+        console.warn('OAuth redirect start failed:', e);
+      }
+
+      // 3. Fallback to Google Identity Services One Tap / ID
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
           client_id: window.GoogleConfig?.clientId || '',
@@ -3930,16 +4100,21 @@ ConnectEM Admin Team</textarea>
         return;
       }
 
-      // 2. Try Firebase Auth popup if initialized
+      // 4. Try Firebase Auth popup if initialized
       if (window.firebase?.auth) {
         try {
           const provider = new window.firebase.auth.GoogleAuthProvider();
+          provider.addScope('https://www.googleapis.com/auth/gmail.send');
+          provider.addScope('https://www.googleapis.com/auth/gmail.modify');
+          provider.addScope('https://www.googleapis.com/auth/calendar.events');
+          provider.setCustomParameters({ prompt: 'consent', access_type: 'offline' });
           const authResult = await window.firebase.auth().signInWithPopup(provider);
           if (authResult?.user) {
             await sendGoogleAdminAuth({
               email: authResult.user.email,
               name: authResult.user.displayName,
-              idToken: await authResult.user.getIdToken()
+              idToken: await authResult.user.getIdToken(),
+              accessToken: authResult.credential?.accessToken
             });
             return;
           }
@@ -4043,12 +4218,15 @@ ConnectEM Admin Team</textarea>
       }
 
       if (updateHistory) {
-        window.history.pushState({ page: pageName }, '', '/admin/' + pageName);
+        const newUrl = window.location.pathname.startsWith('/admin') ? ('/admin?tab=' + pageName) : ('/?tab=' + pageName);
+        window.history.pushState({ page: pageName }, '', newUrl);
       }
     }
 
     window.addEventListener('popstate', (e) => {
-      const page = e.state?.page || (
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const page = e.state?.page || tabParam || (
         window.location.pathname.includes('influencers') ? 'influencers' : 
         (window.location.pathname.includes('outreach') ? 'outreach' : 
         (window.location.pathname.includes('events') ? 'events' : 
@@ -4140,12 +4318,36 @@ ConnectEM Admin Team</textarea>
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
+    function showDbErrorBanner(msg) {
+      let banner = document.getElementById('admin-global-error-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'admin-global-error-banner';
+        banner.style.cssText = 'background:#fef2f2;border-bottom:1px solid #fecaca;color:#991b1b;padding:12px 20px;font-size:13px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:9999;box-shadow:0 2px 4px rgba(0,0,0,0.05);';
+        const masthead = document.querySelector('.admin-masthead') || document.body.firstChild;
+        if (masthead && masthead.parentNode) {
+          masthead.parentNode.insertBefore(banner, masthead.nextSibling);
+        } else {
+          document.body.prepend(banner);
+        }
+      }
+      banner.innerHTML = `<div><strong>Database Notice:</strong> ${escapeHtml(msg || 'Database unavailable')}</div><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#991b1b;font-size:16px;cursor:pointer;padding:0 8px;">×</button>`;
+      banner.style.display = 'flex';
+    }
+
     // Data Loading
     async function fetchProspects() {
       try {
         const res = await fetch('/api/admin/prospects', { headers: getAdminHeaders() });
         if (res.status === 401) {
           adminSignOut();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load prospects:', errMsg);
+          showDbErrorBanner(errMsg);
           return;
         }
         const data = await res.json();
@@ -4170,6 +4372,13 @@ ConnectEM Admin Team</textarea>
         const res = await fetch('/api/admin/partners', { headers: getAdminHeaders() });
         if (res.status === 401) {
           adminSignOut();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load influencers:', errMsg);
+          showDbErrorBanner(errMsg);
           return;
         }
         const data = await res.json();
@@ -4282,6 +4491,13 @@ ConnectEM Admin Team</textarea>
       } else {
         tbody.innerHTML = pageItems.map(p => {
           const status = p.outreachStatus || (p.lastContactedAt ? 'Contacted' : 'Pending');
+          const emailsCount = parseInt(p.emailsSent || 0, 10);
+          const callsCount = parseInt(p.callsCount || 0, 10);
+          const linkedinCount = parseInt(p.linkedinSent || 0, 10);
+          const hasReply = !!p.hasReply;
+          const hasMeeting = !!(p.hasScheduledMeeting || (p.meetingDetails && p.meetingDetails.summary));
+          const sentimentLabel = (p.replySentiment || 'Interested').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
           return `
             <tr>
               <td>
@@ -4298,7 +4514,43 @@ ConnectEM Admin Team</textarea>
                 </span>
               </td>
               <td>
-                <span class="badge-status">${escapeHtml(status)}</span>
+                <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">
+                  <span class="badge-tag" title="${emailsCount} Email(s) dispatched" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; ${emailsCount > 0 ? 'background:#e8f0fe; color:#1a73e8; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <span>${emailsCount}</span>
+                  </span>
+                  <span class="badge-tag" title="${callsCount} Call(s) placed" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; ${callsCount > 0 ? 'background:#e6f4ea; color:#137333; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    <span>${callsCount}</span>
+                  </span>
+                  <span class="badge-tag" title="${linkedinCount} LinkedIn outreach(es)" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; ${linkedinCount > 0 ? 'background:#fef7e0; color:#b06000; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                    <span>${linkedinCount}</span>
+                  </span>
+                </div>
+                ${hasReply ? `
+                  <div style="margin-top: 3px;" title="${escapeHtml(p.replySnippet || 'Reply received from prospect')}">
+                    <span class="badge" style="background: #e6f4ea; color: #137333; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+                      Reply: ${escapeHtml(sentimentLabel)}
+                    </span>
+                  </div>
+                ` : `
+                  <div style="margin-top: 3px;">
+                    <span class="badge-status" style="font-size: 11px; padding: 2px 6px;">${escapeHtml(status)}</span>
+                  </div>
+                `}
+                ${hasMeeting ? `
+                  <div style="margin-top: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                    <span class="badge" style="background: #fce8e6; color: #c5221f; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      ${escapeHtml(p.meetingDetails?.summary || p.meetingDetails?.date || 'Meeting Booked')}
+                    </span>
+                    ${p.meetingDetails?.meetUrl ? `
+                      <a href="${escapeHtml(p.meetingDetails.meetUrl)}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: underline; font-weight: 500;">Join Meet</a>
+                    ` : ''}
+                  </div>
+                ` : ''}
               </td>
               <td style="text-align: right; white-space: nowrap;">
                 <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; white-space: nowrap;">
@@ -4307,6 +4559,12 @@ ConnectEM Admin Team</textarea>
                   </button>
                   <button class="btn-sm-curved secondary" onclick="convertProspectToInfluencer('${p.id}', '${escapeHtml(p.fullName)}')" title="Convert to Influencer">
                     + Influencer
+                  </button>
+                  <button class="btn-sm-curved secondary" onclick="openEditProspectModal('${p.id}')" title="Edit Prospect">
+                    Edit
+                  </button>
+                  <button class="btn-sm-curved secondary" style="color: #c5221f; border-color: #fce8e6;" onclick="deleteProspect('${p.id}', '${escapeHtml(p.fullName)}')" title="Delete Prospect">
+                    Delete
                   </button>
                 </div>
               </td>
@@ -4363,9 +4621,17 @@ ConnectEM Admin Team</textarea>
                 <span class="badge-status">Active</span>
               </td>
               <td style="text-align: right; white-space: nowrap;">
-                <button class="btn-sm-curved" onclick="openInfluencerOutreach('${inf.id}', '${escapeHtml(inf.fullName)}')">
-                  Outreach &rarr;
-                </button>
+                <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; white-space: nowrap;">
+                  <button class="btn-sm-curved" onclick="openInfluencerOutreach('${inf.id}', '${escapeHtml(inf.fullName)}')">
+                    Outreach &rarr;
+                  </button>
+                  <button class="btn-sm-curved secondary" onclick="openEditInfluencerModal('${inf.id}')" title="Edit Influencer">
+                    Edit
+                  </button>
+                  <button class="btn-sm-curved secondary" style="color: #c5221f; border-color: #fce8e6;" onclick="deleteInfluencer('${inf.id}', '${escapeHtml(inf.fullName)}')" title="Delete Influencer">
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           `;
@@ -4637,6 +4903,7 @@ ConnectEM Admin Team</textarea>
       } else if (channel === 'linkedin') {
         payload.subject = 'LinkedIn InMail Connection';
         payload.message = document.getElementById('studio-li-note').value;
+        payload.linkedinUrl = selectedOutreachProspect.linkedinUrl || '';
       } else if (channel === 'call') {
         payload.callOutcome = document.getElementById('studio-call-outcome').value;
         payload.notes = document.getElementById('studio-call-notes').value;
@@ -4654,7 +4921,15 @@ ConnectEM Admin Team</textarea>
           selectedOutreachProspect.outreachStatus = channel === 'call' ? payload.callOutcome : (channel === 'email' ? 'Intro Sent' : 'Contacted');
           renderOutreachPeopleList();
           renderProspectsTable();
-          showToast(`Outreach sent to ${selectedOutreachProspect.fullName} (CC: nextbdr@gmail.com).`);
+          if (channel === 'linkedin') {
+            try { await navigator.clipboard.writeText(payload.message); } catch (_) {}
+            if (payload.linkedinUrl && typeof window.open === 'function') {
+              window.open(payload.linkedinUrl, '_blank', 'noopener,noreferrer');
+            }
+            showToast(`LinkedIn outreach recorded for ${selectedOutreachProspect.fullName}. Note copied to clipboard.`);
+          } else {
+            showToast(`Outreach sent to ${selectedOutreachProspect.fullName} (CC: nextbdr@gmail.com).`);
+          }
         } else {
           alert(result.error || 'Outreach dispatch failed.');
         }
@@ -4760,6 +5035,198 @@ ConnectEM Admin Team</textarea>
       }
     }
 
+    function openEditInfluencerModal(influencerId) {
+      const inf = allInfluencers.find(i => String(i.id) === String(influencerId) || String(i.id).replace('partner_', '') === String(influencerId).replace('partner_', ''));
+      if (!inf) {
+        showToast('Influencer not found.');
+        return;
+      }
+      document.getElementById('edit-inf-id').value = inf.id;
+      document.getElementById('edit-inf-name').value = inf.fullName || '';
+      document.getElementById('edit-inf-email').value = inf.email || '';
+      document.getElementById('edit-inf-company').value = inf.company || '';
+      document.getElementById('edit-inf-title').value = inf.jobTitle || '';
+      document.getElementById('edit-inf-phone').value = inf.phone || '';
+      document.getElementById('edit-inf-credits').value = inf.referralCredits !== undefined ? inf.referralCredits : (inf.credits !== undefined ? inf.credits : 100);
+      document.getElementById('modal-edit-influencer').style.display = 'flex';
+    }
+
+    async function submitEditInfluencer(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-inf-id').value;
+      const btn = document.getElementById('btn-update-influencer');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const payload = {
+        fullName: document.getElementById('edit-inf-name').value.trim(),
+        email: document.getElementById('edit-inf-email').value.trim(),
+        company: document.getElementById('edit-inf-company').value.trim(),
+        jobTitle: document.getElementById('edit-inf-title').value.trim(),
+        phone: document.getElementById('edit-inf-phone').value.trim(),
+        referralCredits: parseInt(document.getElementById('edit-inf-credits').value, 10) || 0
+      };
+
+      try {
+        const res = await fetch(`/api/admin/partners/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: getAdminHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          const inf = allInfluencers.find(i => String(i.id) === String(id) || String(i.id).replace('partner_', '') === String(id).replace('partner_', ''));
+          if (inf) {
+            Object.assign(inf, payload);
+          }
+          allProspects.forEach(p => {
+            if (p.partnerId === id || String(p.partnerId).replace('partner_', '') === String(id).replace('partner_', '')) {
+              p.partnerName = payload.fullName;
+              p.partnerCompany = payload.company;
+            }
+          });
+          applyInfluencersFilter();
+          applyProspectsFilter();
+          closeModals();
+          showToast(`Influencer ${payload.fullName} updated successfully.`);
+        } else {
+          alert(result.error || 'Failed to update influencer');
+        }
+      } catch (err) {
+        alert('Network error updating influencer: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
+    }
+
+    async function deleteInfluencer(influencerId, influencerName) {
+      if (!confirm(`Are you sure you want to delete influencer "${influencerName}"? This action cannot be undone.`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/partners/${encodeURIComponent(influencerId)}`, {
+          method: 'DELETE',
+          headers: getAdminHeaders()
+        });
+        const result = await res.json();
+        if (result.success) {
+          allInfluencers = allInfluencers.filter(i => String(i.id) !== String(influencerId) && String(i.id).replace('partner_', '') !== String(influencerId).replace('partner_', ''));
+          allProspects.forEach(p => {
+            if (p.partnerId === influencerId || String(p.partnerId).replace('partner_', '') === String(influencerId).replace('partner_', '')) {
+              p.partnerId = 'partner_system';
+              p.partnerName = 'Direct Enterprise Sourcing';
+            }
+          });
+          document.getElementById('influencers-count-badge').textContent = `(${allInfluencers.length})`;
+          document.getElementById('stat-inf-total').textContent = allInfluencers.length;
+          applyInfluencersFilter();
+          applyProspectsFilter();
+          showToast(`Influencer "${influencerName}" deleted.`);
+        } else {
+          alert(result.error || 'Failed to delete influencer');
+        }
+      } catch (err) {
+        alert('Network error deleting influencer: ' + err.message);
+      }
+    }
+
+    function openEditProspectModal(prospectId) {
+      const p = allProspects.find(x => String(x.id) === String(prospectId) || String(x.id).replace('prospect_', '') === String(prospectId).replace('prospect_', ''));
+      if (!p) {
+        showToast('Prospect not found.');
+        return;
+      }
+      document.getElementById('edit-prosp-id').value = p.id;
+      document.getElementById('edit-prosp-name').value = p.fullName || '';
+      document.getElementById('edit-prosp-email').value = p.email || '';
+      document.getElementById('edit-prosp-company').value = p.company || '';
+      document.getElementById('edit-prosp-title').value = p.jobTitle || '';
+      document.getElementById('edit-prosp-phone').value = p.phone || '';
+      document.getElementById('edit-prosp-strength').value = p.relationshipStrength || 'strong';
+      document.getElementById('edit-prosp-status').value = p.outreachStatus || 'Pending';
+
+      const select = document.getElementById('edit-prosp-influencer');
+      select.innerHTML = '<option value="">Direct Enterprise Sourcing</option>' +
+        allInfluencers.map(inf => `<option value="${inf.id}" ${p.partnerId === inf.id || String(p.partnerId).replace('partner_', '') === String(inf.id).replace('partner_', '') ? 'selected' : ''}>${escapeHtml(inf.fullName)} (${escapeHtml(inf.company)})</option>`).join('');
+
+      document.getElementById('modal-edit-prospect').style.display = 'flex';
+    }
+
+    async function submitEditProspect(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-prosp-id').value;
+      const btn = document.getElementById('btn-update-prospect');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const partnerId = document.getElementById('edit-prosp-influencer').value;
+      const partner = allInfluencers.find(inf => String(inf.id) === String(partnerId) || String(inf.id).replace('partner_', '') === String(partnerId).replace('partner_', ''));
+
+      const payload = {
+        partnerId: partnerId || 'partner_system',
+        fullName: document.getElementById('edit-prosp-name').value.trim(),
+        email: document.getElementById('edit-prosp-email').value.trim(),
+        company: document.getElementById('edit-prosp-company').value.trim(),
+        jobTitle: document.getElementById('edit-prosp-title').value.trim(),
+        phone: document.getElementById('edit-prosp-phone').value.trim(),
+        relationshipStrength: document.getElementById('edit-prosp-strength').value,
+        outreachStatus: document.getElementById('edit-prosp-status').value
+      };
+
+      try {
+        const res = await fetch(`/api/admin/prospects/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: getAdminHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          const p = allProspects.find(x => String(x.id) === String(id) || String(x.id).replace('prospect_', '') === String(id).replace('prospect_', ''));
+          if (p) {
+            Object.assign(p, payload);
+            p.partnerName = partner ? partner.fullName : 'Direct Enterprise Sourcing';
+            p.partnerCompany = partner ? partner.company : 'ConnectEM Internal';
+          }
+          applyProspectsFilter();
+          closeModals();
+          showToast(`Prospect ${payload.fullName} updated successfully.`);
+        } else {
+          alert(result.error || 'Failed to update prospect');
+        }
+      } catch (err) {
+        alert('Network error updating prospect: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
+    }
+
+    async function deleteProspect(prospectId, prospectName) {
+      if (!confirm(`Are you sure you want to delete prospect "${prospectName}"? This action cannot be undone.`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/prospects/${encodeURIComponent(prospectId)}`, {
+          method: 'DELETE',
+          headers: getAdminHeaders()
+        });
+        const result = await res.json();
+        if (result.success) {
+          allProspects = allProspects.filter(x => String(x.id) !== String(prospectId) && String(x.id).replace('prospect_', '') !== String(prospectId).replace('prospect_', ''));
+          document.getElementById('prospects-count-badge').textContent = `(${allProspects.length})`;
+          document.getElementById('stat-prosp-total').textContent = allProspects.length;
+          applyProspectsFilter();
+          renderOutreachPeopleList();
+          showToast(`Prospect "${prospectName}" deleted.`);
+        } else {
+          alert(result.error || 'Failed to delete prospect');
+        }
+      } catch (err) {
+        alert('Network error deleting prospect: ' + err.message);
+      }
+    }
+
     async function submitOutreach(e) {
       if (e) e.preventDefault();
       openOutreachScreen();
@@ -4852,6 +5319,13 @@ ConnectEM Admin Team</textarea>
           adminSignOut();
           return;
         }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load events:', errMsg);
+          showDbErrorBanner(errMsg);
+          return;
+        }
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           allEvents = data.data;
@@ -4871,17 +5345,28 @@ ConnectEM Admin Team</textarea>
       if (!container) return;
       if (!allEvents.length) {
         container.innerHTML = '<div style="padding: 24px 8px; color: var(--ink-muted); font-size: 12px; font-style: italic;">No events scheduled. Create one above.</div>';
+        const detailEmpty = document.getElementById('event-detail-empty');
+        const detailContent = document.getElementById('event-detail-content');
+        if (detailEmpty) detailEmpty.style.display = 'block';
+        if (detailContent) detailContent.style.display = 'none';
         return;
+      }
+
+      if (!selectedEvent && allEvents.length > 0) {
+        selectedEvent = allEvents[0];
+      } else if (selectedEvent) {
+        const stillExists = allEvents.find(e => e.id === selectedEvent.id);
+        selectedEvent = stillExists || allEvents[0];
       }
 
       container.innerHTML = allEvents.map(ev => {
         const isSelected = selectedEvent && selectedEvent.id === ev.id;
         const attendeesCount = (ev.attendees || []).length;
         return `
-          <div class="event-card ${isSelected ? 'active' : ''}" onclick="selectEvent('${ev.id}')">
+          <div class="event-card ${isSelected ? 'active' : ''}" data-event-id="${escapeHtml(ev.id)}" onclick="selectEvent('${ev.id}')">
             <div class="event-card-header">
               <span class="event-card-title">${escapeHtml(ev.title)}</span>
-              <span class="event-card-badge">${escapeHtml(ev.eventType)}</span>
+              <span class="event-card-badge">${escapeHtml(ev.eventType || ev.type || '')}</span>
             </div>
             <div class="event-card-meta">
               <span>${escapeHtml(ev.date)}</span>
@@ -4896,11 +5381,8 @@ ConnectEM Admin Team</textarea>
         `;
       }).join('');
 
-      if (!selectedEvent && allEvents.length > 0) {
-        selectEvent(allEvents[0].id);
-      } else if (selectedEvent) {
-        const stillExists = allEvents.find(e => e.id === selectedEvent.id);
-        if (stillExists) selectEvent(stillExists.id);
+      if (selectedEvent) {
+        renderSelectedEventDetails(selectedEvent);
       }
     }
 
@@ -4909,23 +5391,38 @@ ConnectEM Admin Team</textarea>
       if (!ev) return;
       selectedEvent = ev;
 
-      // Update active highlight in left list
-      document.querySelectorAll('.event-card').forEach(card => card.classList.remove('active'));
-      renderEventsList();
+      // Update active highlight in left list without recursion
+      document.querySelectorAll('.event-card').forEach(card => {
+        card.classList.toggle('active', card.getAttribute('data-event-id') === eventId);
+      });
 
-      document.getElementById('event-detail-empty').style.display = 'none';
-      document.getElementById('event-detail-content').style.display = 'block';
+      renderSelectedEventDetails(ev);
+    }
 
-      document.getElementById('selected-event-title').textContent = ev.title;
-      document.getElementById('selected-event-type').textContent = ev.eventType;
-      document.getElementById('selected-event-date').textContent = ev.date;
-      document.getElementById('selected-event-location').textContent = ev.location;
-      document.getElementById('selected-event-desc').textContent = ev.description || '';
+    function renderSelectedEventDetails(ev) {
+      if (!ev) return;
+      const detailEmpty = document.getElementById('event-detail-empty');
+      const detailContent = document.getElementById('event-detail-content');
+      if (detailEmpty) detailEmpty.style.display = 'none';
+      if (detailContent) detailContent.style.display = 'block';
+
+      const titleEl = document.getElementById('selected-event-title');
+      if (titleEl) titleEl.textContent = ev.title;
+      const typeEl = document.getElementById('selected-event-type');
+      if (typeEl) typeEl.textContent = ev.eventType || ev.type || '';
+      const dateEl = document.getElementById('selected-event-date');
+      if (dateEl) dateEl.textContent = ev.date;
+      const locEl = document.getElementById('selected-event-location');
+      if (locEl) locEl.textContent = ev.location;
+      const descEl = document.getElementById('selected-event-desc');
+      if (descEl) descEl.textContent = ev.description || '';
 
       const attendees = ev.attendees || [];
-      document.getElementById('selected-event-attendees-count').textContent = `${attendees.length} attendee${attendees.length === 1 ? '' : 's'}`;
+      const countEl = document.getElementById('selected-event-attendees-count');
+      if (countEl) countEl.textContent = `${attendees.length} attendee${attendees.length === 1 ? '' : 's'}`;
 
       const tbody = document.getElementById('event-attendees-tbody');
+      if (!tbody) return;
       if (!attendees.length) {
         tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No attendees added to this event yet. Click "+ Add Attendee" to add guests.</td></tr>';
         return;
@@ -5093,6 +5590,13 @@ ConnectEM Admin Team</textarea>
         const res = await fetch('/api/admin/scheduled-meetings', { headers: getAdminHeaders() });
         if (res.status === 401) {
           adminSignOut();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load scheduled meetings:', errMsg);
+          showDbErrorBanner(errMsg);
           return;
         }
         const data = await res.json();
@@ -5493,10 +5997,22 @@ ConnectEM Admin Team</textarea>
         if (settings.googleClientId) {
           const el = document.getElementById('setting-google-client-id');
           if (el) el.value = settings.googleClientId;
+          if (window.GoogleConfig) window.GoogleConfig.clientId = settings.googleClientId;
         }
         if (settings.googleRedirectUri) {
           const el = document.getElementById('setting-google-redirect-uri');
           if (el) el.value = settings.googleRedirectUri;
+        }
+        if (settings.googleClientSecretConfigured) {
+          const el = document.getElementById('setting-google-client-secret');
+          if (el) el.placeholder = 'Configured in Vercel Environment · Leave blank to preserve';
+        }
+        if (settings.googleConfiguredViaEnv) {
+          const badge = document.querySelector('#set-subpanel-integrations .settings-card:has(#setting-google-client-id) .settings-badge-status');
+          if (badge) {
+            badge.textContent = 'Active (Vercel Env)';
+            badge.className = 'settings-badge-status active';
+          }
         }
         if (settings.twilioAccountSid) {
           const el = document.getElementById('setting-twilio-sid');
@@ -5601,9 +6117,9 @@ ConnectEM Admin Team</textarea>
         adminEmail: document.getElementById('setting-admin-email')?.value.trim() || 'nextbdr@gmail.com',
         notificationEmail: document.getElementById('setting-notification-email')?.value.trim() || 'nextbdr@gmail.com',
 
-        // Integrations
+        // Integrations (only overwrite secret if explicitly entered)
         googleClientId: document.getElementById('setting-google-client-id')?.value.trim() || '',
-        googleClientSecret: document.getElementById('setting-google-client-secret')?.value.trim() || '',
+        ...(document.getElementById('setting-google-client-secret')?.value.trim() ? { googleClientSecret: document.getElementById('setting-google-client-secret').value.trim() } : {}),
         googleRedirectUri: document.getElementById('setting-google-redirect-uri')?.value.trim() || '',
         twilioAccountSid: document.getElementById('setting-twilio-sid')?.value.trim() || '',
         twilioAuthToken: document.getElementById('setting-twilio-auth-token')?.value.trim() || '',
@@ -5757,61 +6273,152 @@ ConnectEM Admin Team</textarea>
       document.getElementById('modal-dev-sandbox').style.display = 'flex';
     }
 
-    function executeSandboxAction() {
-      showToast(`Ran test request for ${currentActiveSandbox.toUpperCase()}. Connection verified.`);
+    async function executeSandboxAction() {
+      const type = currentActiveSandbox;
+      try {
+        const res = await fetch('/api/admin/sandbox-test', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ provider: type })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Verified live sandbox for ${type.toUpperCase()}: ${data.summary || 'Connected and functional'}`);
+        } else {
+          showToast(data.error || `Sandbox check for ${type.toUpperCase()} failed.`);
+        }
+      } catch (err) {
+        showToast(`Sandbox check error: ${err.message}`);
+      }
       closeModals();
     }
 
     async function verifyGoogleWorkspace() {
       try {
-        const res = await fetch('/api/partner-portal/google/status');
+        const res = await fetch('/api/google/verify');
         const data = await res.json();
-        if (data && data.connected) {
-          showToast(`Google Workspace connected as ${data.email || 'nextbdr@gmail.com'}. Status: Verified.`);
+        if (data && (data.status === 'verified' || data.gmail)) {
+          showToast(`Google Workspace connected as ${data.gmail?.email || 'nextbdr@gmail.com'}. Messages: ${data.gmail?.messagesTotal || 0}`);
+          return;
+        }
+      } catch (_) {}
+      try {
+        const statusRes = await fetch('/api/partner-portal/google/status');
+        const statusData = await statusRes.json();
+        if (statusData && statusData.connected) {
+          showToast(`Google Workspace connected as ${statusData.email || 'nextbdr@gmail.com'}.`);
         } else {
-          showToast('Google Workspace credentials ready. Admin CC: nextbdr@gmail.com is active.');
+          showToast('Google Workspace not connected. Click "Authorize Google" to grant Gmail permissions.');
         }
       } catch {
-        showToast('Google Workspace verified. Admin CC: nextbdr@gmail.com active.');
+        showToast('Google Workspace verification error. Reconnect Google to verify.');
       }
     }
 
     async function syncGmailReplies() {
+      const btn = document.getElementById('prospect-sync-replies-btn');
+      const originalText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span>Scanning Replies &amp; Meetings...</span>';
+      }
       try {
-        showToast('Syncing Gmail replies... Checking active prospect threads.');
-        const res = await fetch('/api/go/outreach/gmail/status');
+        showToast('Scanning active prospect email threads & analyzing reply intent with AI...');
+        const res = await fetch('/api/admin/sync-outreach', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({})
+        });
         const data = await res.json();
-        showToast(data.connected ? `Gmail synced. Connected as ${data.email}.` : 'Gmail sync complete. All prospect timelines up to date.');
-      } catch {
-        showToast('Gmail sync complete. All prospect timelines up to date.');
+        if (data.success) {
+          showToast(data.message || `Sync complete: ${data.updatedProspects} prospects updated, ${data.newReplies} replies, ${data.newMeetings} meetings.`);
+          await fetchProspects();
+          await fetchScheduledMeetings();
+        } else {
+          showToast('Sync completed with notice: ' + (data.error || 'Check Google connection.'));
+        }
+      } catch (err) {
+        showToast('Sync error: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
       }
     }
 
     async function verifyLinkedInConnection() {
-      const id = document.getElementById('setting-linkedin-id')?.value;
-      const secret = document.getElementById('setting-linkedin-secret')?.value;
-      if (id || secret) {
-        showToast('LinkedIn OAuth application credentials verified & stored.');
-      } else {
-        showToast('LinkedIn OAuth ready. Enter Client ID and Secret to link personal developer app.');
+      const clientId = document.getElementById('setting-linkedin-client-id')?.value?.trim();
+      const accessToken = document.getElementById('setting-linkedin-access-token')?.value?.trim();
+      if (!accessToken && !clientId) {
+        showToast('Enter your LinkedIn OAuth Access Token or Client ID.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/linkedin/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: accessToken || 'demo_oauth_token', clientId: clientId || '' })
+        });
+        const data = await res.json();
+        if (data.status === 'verified') {
+          showToast(`LinkedIn Verified: ${data.name} (${data.email || 'Member'}) · Mode: ${data.mode || 'live'}`);
+          const badge = document.querySelector('#set-subpanel-integrations .settings-card:has(#setting-linkedin-client-id) .settings-badge-status');
+          if (badge) {
+            badge.textContent = 'Connected';
+            badge.className = 'settings-badge-status active';
+          }
+        } else {
+          showToast(data.error || 'LinkedIn verification failed.');
+        }
+      } catch (err) {
+        showToast('LinkedIn verification error: ' + err.message);
       }
     }
 
     async function testLemlistConnection() {
-      const key = document.getElementById('setting-lemlist-key')?.value;
-      if (key) {
-        showToast('Lemlist MCP connection verified with configured API key.');
-      } else {
+      const key = document.getElementById('setting-lemlist-key')?.value?.trim();
+      if (!key) {
         showToast('Enter your Lemlist API key above to connect the outbound MCP server.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/test-lemlist', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ apiKey: key })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Lemlist API connection verified.');
+        } else {
+          showToast(data.error || 'Lemlist verification failed.');
+        }
+      } catch (e) {
+        showToast('Lemlist error: ' + e.message);
       }
     }
 
     async function testFirecrawlScraper() {
-      const key = document.getElementById('setting-firecrawl-key')?.value;
-      if (key) {
-        showToast('Firecrawl API connection verified. Scraper initialized.');
-      } else {
+      const key = document.getElementById('setting-firecrawl-key')?.value?.trim();
+      if (!key) {
         showToast('Enter your Firecrawl API key above to initialize the scraper.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/test-firecrawl', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ apiKey: key })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Firecrawl API connection verified.');
+        } else {
+          showToast(data.error || 'Firecrawl verification failed.');
+        }
+      } catch (e) {
+        showToast('Firecrawl error: ' + e.message);
       }
     }
 
@@ -5825,7 +6432,21 @@ ConnectEM Admin Team</textarea>
         showToast('Invalid Slack Webhook URL. It must begin with https://hooks.slack.com/');
         return;
       }
-      showToast('Slack alert dispatched to configured channel.');
+      try {
+        const res = await fetch('/api/admin/test-slack', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ webhookUrl: url })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Slack alert dispatched successfully to channel.');
+        } else {
+          showToast(data.error || 'Slack alert delivery failed.');
+        }
+      } catch (e) {
+        showToast('Slack alert error: ' + e.message);
+      }
     }
 
     async function exportDatabaseState() {
@@ -5853,13 +6474,15 @@ ConnectEM Admin Team</textarea>
     window.addEventListener('DOMContentLoaded', () => {
       const isAuthed = checkAdminAuth();
       const path = window.location.pathname;
-      const initialPage = path.includes('influencers') ? 'influencers' : (
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const initialPage = tabParam || (path.includes('influencers') ? 'influencers' : (
         path.includes('outreach') ? 'outreach' : (
           path.includes('events') ? 'events' : (
             path.includes('settings') ? 'settings' : 'prospects'
           )
         )
-      );
+      ));
       navigateToPage(initialPage, false);
       if (isAuthed) {
         loadAdminData();

@@ -177,6 +177,31 @@ export async function handleAdminRoute(
       return true;
     }
 
+    // PUT /api/admin/partners/:id or /api/admin/influencers/:id
+    if ((pathname.startsWith('/api/admin/partners/') || pathname.startsWith('/api/admin/influencers/')) && (req.method === 'PUT' || req.method === 'PATCH')) {
+      const id = pathname.split('/')[4];
+      const body = await readBody<any>();
+      try {
+        const updated = service.updatePartner(id, body);
+        sendJson(200, { success: true, data: updated });
+      } catch (err: any) {
+        sendJson(404, { success: false, error: err.message || 'Influencer not found' });
+      }
+      return true;
+    }
+
+    // DELETE /api/admin/partners/:id or /api/admin/influencers/:id
+    if ((pathname.startsWith('/api/admin/partners/') || pathname.startsWith('/api/admin/influencers/')) && req.method === 'DELETE') {
+      const id = pathname.split('/')[4];
+      const deleted = service.deletePartner(id);
+      if (deleted) {
+        sendJson(200, { success: true, data: { id, deleted: true } });
+      } else {
+        sendJson(404, { success: false, error: 'Influencer not found' });
+      }
+      return true;
+    }
+
     // POST /api/admin/outreach
     if (pathname === '/api/admin/outreach' && req.method === 'POST') {
       const body = await readBody<{
@@ -233,6 +258,33 @@ export async function handleAdminRoute(
       const prospectId = parts[4];
       const result = service.convertProspectToInfluencer(prospectId);
       sendJson(200, { success: true, data: result.partner, meta: { alreadyExisted: result.alreadyExisted, message: result.message } });
+      return true;
+    }
+
+    // PUT /api/admin/prospects/:id or /api/admin/contacts/:id
+    if ((pathname.startsWith('/api/admin/prospects/') || pathname.startsWith('/api/admin/contacts/')) && (req.method === 'PUT' || req.method === 'PATCH')) {
+      const parts = pathname.split('/');
+      const prospectId = parts[4];
+      const body = await readBody<any>();
+      try {
+        const updated = service.updateProspect(prospectId, body);
+        sendJson(200, { success: true, data: updated });
+      } catch (err: any) {
+        sendJson(404, { success: false, error: err.message || 'Prospect not found' });
+      }
+      return true;
+    }
+
+    // DELETE /api/admin/prospects/:id or /api/admin/contacts/:id
+    if ((pathname.startsWith('/api/admin/prospects/') || pathname.startsWith('/api/admin/contacts/')) && req.method === 'DELETE') {
+      const parts = pathname.split('/');
+      const prospectId = parts[4];
+      const deleted = service.deleteProspect(prospectId);
+      if (deleted) {
+        sendJson(200, { success: true, data: { id: prospectId, deleted: true } });
+      } else {
+        sendJson(404, { success: false, error: 'Prospect not found' });
+      }
       return true;
     }
 

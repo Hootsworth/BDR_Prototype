@@ -283,6 +283,13 @@ export class ConnectemStore {
     return updated;
   }
 
+  deletePartner(id: string): boolean {
+    const exists = this.partners.has(id);
+    if (!exists) return false;
+    this.partners.delete(id);
+    return true;
+  }
+
   listPartners(): Partner[] {
     return Array.from(this.partners.values());
   }
@@ -311,6 +318,25 @@ export class ConnectemStore {
       saveProspectToDatabase(data.partnerId, prospect);
     } catch (_) {}
     return prospect;
+  }
+
+  updateProspect(id: string, updates: Partial<Prospect>): Prospect {
+    const prospect = this.prospects.get(id);
+    if (!prospect) throw new Error(`Prospect not found: ${id}`);
+    const updated: Prospect = {
+      ...prospect,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    this.prospects.set(id, updated);
+    return updated;
+  }
+
+  deleteProspect(id: string): boolean {
+    const exists = this.prospects.has(id);
+    if (!exists) return false;
+    this.prospects.delete(id);
+    return true;
   }
 
   findWarmPathsForAccount(companyName: string): Array<{ partner: Partner; prospect: Prospect; score: number }> {

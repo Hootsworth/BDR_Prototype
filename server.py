@@ -4242,6 +4242,230 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
         json_response(handler, 404, {'success': False, 'error': 'Prospect not found'})
         return True
 
+    # PUT /api/admin/partners/<id> or /api/admin/influencers/<id> (also POST /api/admin/partners/<id>/update)
+    is_partner_put = (path.startswith('/api/admin/partners/') or path.startswith('/api/admin/influencers/')) and (
+        method in ('PUT', 'PATCH') or (method == 'POST' and path.endswith('/update'))
+    )
+    if is_partner_put:
+        parts = path.split('/')
+        partner_id_str = parts[4]
+        clean_id = partner_id_str.replace('partner_', '').strip()
+        state = read_workbook_state()
+        contacts = state.setdefault('contacts', [])
+        target = None
+        for c in contacts:
+            if c.get('isInfluencer') and (str(c.get('id')).replace('partner_', '').strip() == clean_id or str(c.get('id')) == partner_id_str or f"partner_{c.get('id')}" == partner_id_str):
+                target = c
+                break
+        if not target:
+            json_response(handler, 404, {'success': False, 'error': 'Influencer not found'})
+            return True
+
+        body = payload or {}
+        old_name = target.get('fullName') or ''
+        if 'fullName' in body and body['fullName'] is not None:
+            target['fullName'] = str(body['fullName']).strip()
+            parts = target['fullName'].split()
+            target['firstName'] = parts[0] if parts else target['fullName']
+            target['lastName'] = ' '.join(parts[1:]) if len(parts) > 1 else ''
+        if 'email' in body and body['email'] is not None:
+            target['email'] = str(body['email']).strip().lower()
+        if 'company' in body and body['company'] is not None:
+            target['company'] = str(body['company']).strip()
+        if 'jobTitle' in body and body['jobTitle'] is not None:
+            target['jobTitle'] = str(body['jobTitle']).strip()
+        if 'phone' in body and body['phone'] is not None:
+            target['phone'] = str(body['phone']).strip()
+        if 'referralCredits' in body and body['referralCredits'] is not None:
+            try:
+                target['referralCredits'] = int(body['referralCredits'])
+                target['pointsBalance'] = target['referralCredits']
+            except (ValueError, TypeError):
+                pass
+        if 'credits' in body and body['credits'] is not None:
+            try:
+                target['referralCredits'] = int(body['credits'])
+                target['pointsBalance'] = target['referralCredits']
+            except (ValueError, TypeError):
+                pass
+        if 'trustScore' in body and body['trustScore'] is not None:
+            try:
+                target['trustScore'] = int(body['trustScore'])
+            except (ValueError, TypeError):
+                pass
+
+        new_name = target.get('fullName')
+        if old_name and new_name and old_name != new_name:
+            for c in contacts:
+                if str(c.get('influencerId')).replace('partner_', '') == clean_id or c.get('referredBy') == old_name:
+                    c['referredBy'] = new_name
+                    if c.get('sourceFile') and old_name in str(c.get('sourceFile')):
+                        c['sourceFile'] = str(c.get('sourceFile')).replace(old_name, new_name)
+
+        write_workbook_state(state)
+        res_data = dict(target)
+        res_data.pop('passwordHash', None)
+        json_response(handler, 200, {'success': True, 'data': res_data})
+        return True
+
+    # DELETE /api/admin/partners/<id> or /api/admin/influencers/<id> (also POST /api/admin/partners/<id>/delete)
+    is_partner_del = (path.startswith('/api/admin/partners/') or path.startswith('/api/admin/influencers/')) and (
+        method == 'DELETE' or (method == 'POST' and path.endswith('/delete'))
+    )
+    if is_partner_del:
+        parts = path.split('/')
+        partner_id_str = parts[4]
+        clean_id = partner_id_str.replace('partner_', '').strip()
+        state = read_workbook_state()
+        contacts = state.setdefault('contacts', [])
+        idx = None
+        for i, c in enumerate(contacts):
+            if c.get('isInfluencer') and (str(c.get('id')).replace('partner_', '').strip() == clean_id or str(c.get('id')) == partner_id_str or f"partner_{c.get('id')}" == partner_id_str):
+                idx = i
+                break
+        if idx is None:
+            json_response(handler, 404, {'success': False, 'error': 'Influencer not found'})
+            return True
+
+        contacts.pop(idx)
+        # Reassign contacts that were linked to this influencer to Direct Enterprise Sourcing
+        for c in contacts:
+            if str(c.get('influencerId')).replace('partner_', '') == clean_id or str(c.get('partnerId')).replace('partner_', '') == clean_id:
+                c['partnerId'] = 'partner_system'
+                c['referredBy'] = 'Direct Enterprise Sourcing'
+                c.pop('influencerId', None)
+                c.pop('influencerEmail', None)
+
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': {'id': partner_id_str, 'deleted': True}})
+        return True
+
+    # PUT /api/admin/prospects/<id> or /api/admin/contacts/<id> (also POST /api/admin/prospects/<id>/update)
+    is_prospect_put = (path.startswith('/api/admin/prospects/') or path.startswith('/api/admin/contacts/')) and (
+        method in ('PUT', 'PATCH') or (method == 'POST' and path.endswith('/update'))
+    )
+    if is_prospect_put:
+        parts = path.split('/')
+        prospect_id_str = parts[4]
+        clean_id = prospect_id_str.replace('prospect_', '').strip()
+        state = read_workbook_state()
+        contacts = state.setdefault('contacts', [])
+
+        target_contact = None
+        for c in contacts:
+            if not c.get('isInfluencer') and (str(c.get('id')).replace('prospect_', '').strip() == clean_id or str(c.get('id')) == prospect_id_str):
+                target_contact = c
+                break
+
+        target_ref = None
+        for inf in contacts:
+            if inf.get('isInfluencer'):
+                for ref in (inf.get('referrals') or []):
+                    if str(ref.get('id')).replace('prospect_', '').strip() == clean_id or str(ref.get('id')) == prospect_id_str:
+                        target_ref = ref
+                        break
+                if target_ref:
+                    break
+
+        if not target_contact and not target_ref:
+            json_response(handler, 404, {'success': False, 'error': 'Prospect not found'})
+            return True
+
+        body = payload or {}
+        new_name = str(body['fullName']).strip() if 'fullName' in body and body['fullName'] is not None else None
+        new_email = str(body['email']).strip().lower() if 'email' in body and body['email'] is not None else None
+        new_company = str(body['company']).strip() if 'company' in body and body['company'] is not None else None
+        new_title = str(body['jobTitle']).strip() if 'jobTitle' in body and body['jobTitle'] is not None else None
+        new_phone = str(body['phone']).strip() if 'phone' in body and body['phone'] is not None else None
+        new_strength = str(body.get('relationshipStrength') or body.get('strength') or '').strip() if ('relationshipStrength' in body or 'strength' in body) else None
+        new_status = str(body['outreachStatus']).strip() if 'outreachStatus' in body and body['outreachStatus'] is not None else None
+        new_context = str(body['relationshipContext']).strip() if 'relationshipContext' in body and body['relationshipContext'] is not None else None
+
+        if target_contact:
+            if new_name is not None:
+                target_contact['fullName'] = new_name
+                parts = new_name.split()
+                target_contact['firstName'] = parts[0] if parts else new_name
+                target_contact['lastName'] = ' '.join(parts[1:]) if len(parts) > 1 else ''
+            if new_email is not None: target_contact['email'] = new_email
+            if new_company is not None: target_contact['company'] = new_company
+            if new_title is not None: target_contact['jobTitle'] = new_title
+            if new_phone is not None: target_contact['phone'] = new_phone
+            if new_strength: target_contact['relationshipStrength'] = new_strength
+            if new_status is not None: target_contact['outreachStatus'] = new_status
+            if new_context is not None: target_contact['relationshipContext'] = new_context
+
+            if 'partnerId' in body:
+                p_val = str(body.get('partnerId') or '').strip()
+                if p_val in ('', 'partner_system', 'direct'):
+                    target_contact['partnerId'] = 'partner_system'
+                    target_contact['referredBy'] = 'Direct Enterprise Sourcing'
+                    target_contact.pop('influencerId', None)
+                    target_contact.pop('influencerEmail', None)
+                else:
+                    clean_pid = p_val.replace('partner_', '')
+                    new_inf = next((inf for inf in contacts if inf.get('isInfluencer') and str(inf.get('id')).replace('partner_', '') == clean_pid), None)
+                    if new_inf:
+                        target_contact['partnerId'] = f"partner_{new_inf.get('id')}"
+                        target_contact['referredBy'] = new_inf.get('fullName')
+                        target_contact['influencerId'] = new_inf.get('id')
+                        target_contact['influencerEmail'] = new_inf.get('email')
+
+        if target_ref:
+            if new_name is not None: target_ref['fullName'] = new_name
+            if new_email is not None: target_ref['email'] = new_email
+            if new_company is not None: target_ref['company'] = new_company
+            if new_title is not None: target_ref['jobTitle'] = new_title
+            if new_phone is not None: target_ref['phone'] = new_phone
+            if new_strength:
+                target_ref['relationshipStrength'] = new_strength
+                target_ref['strength'] = new_strength
+            if new_status is not None: target_ref['outreachStatus'] = new_status
+            if new_context is not None: target_ref['relationshipContext'] = new_context
+
+        write_workbook_state(state)
+        updated_data = target_contact or target_ref
+        json_response(handler, 200, {'success': True, 'data': updated_data})
+        return True
+
+    # DELETE /api/admin/prospects/<id> or /api/admin/contacts/<id> (also POST /api/admin/prospects/<id>/delete)
+    is_prospect_del = (path.startswith('/api/admin/prospects/') or path.startswith('/api/admin/contacts/')) and (
+        method == 'DELETE' or (method == 'POST' and path.endswith('/delete'))
+    )
+    if is_prospect_del:
+        parts = path.split('/')
+        prospect_id_str = parts[4]
+        clean_id = prospect_id_str.replace('prospect_', '').strip()
+        state = read_workbook_state()
+        contacts = state.setdefault('contacts', [])
+
+        found = False
+        indices_to_remove = []
+        for i, c in enumerate(contacts):
+            if not c.get('isInfluencer') and (str(c.get('id')).replace('prospect_', '').strip() == clean_id or str(c.get('id')) == prospect_id_str):
+                indices_to_remove.append(i)
+                found = True
+        for i in reversed(indices_to_remove):
+            contacts.pop(i)
+
+        for inf in contacts:
+            if inf.get('isInfluencer') and isinstance(inf.get('referrals'), list):
+                ref_len_before = len(inf['referrals'])
+                inf['referrals'] = [
+                    ref for ref in inf['referrals']
+                    if not (str(ref.get('id')).replace('prospect_', '').strip() == clean_id or str(ref.get('id')) == prospect_id_str)
+                ]
+                if len(inf['referrals']) < ref_len_before:
+                    found = True
+
+        if not found:
+            json_response(handler, 404, {'success': False, 'error': 'Prospect not found'})
+            return True
+
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': {'id': prospect_id_str, 'deleted': True}})
+        return True
+
     # GET /api/admin/search-accounts
     if path == '/api/admin/search-accounts' and method == 'GET':
         term = ((query or {}).get('q') or [''])[0].strip().lower() if query else ''
@@ -4777,6 +5001,120 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
         partner['pointsBalance'] = int(partner.get('pointsBalance') or partner['referralCredits'])
         write_workbook_state(state)
         json_response(handler, 201, {'success': True, 'data': new_contact, 'referral': ref_entry})
+        return True
+
+    # PUT /api/go/relationships/<id> (also POST /api/go/relationships/<id>/update)
+    is_go_rel_put = clean_path.startswith('/api/go/relationships/') and (
+        method in ('PUT', 'PATCH') or (method == 'POST' and clean_path.endswith('/update'))
+    )
+    if is_go_rel_put:
+        rel_id_str = clean_path.split('/')[4]
+        clean_id = rel_id_str.replace('prospect_', '').replace('ref_', '').strip()
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in to your influencer workspace first.'})
+            return True
+
+        contacts = state.setdefault('contacts', [])
+        target_ref = None
+        for ref in (partner.get('referrals') or []):
+            if str(ref.get('id')).replace('prospect_', '').replace('ref_', '').strip() == clean_id or str(ref.get('id')) == rel_id_str:
+                target_ref = ref
+                break
+
+        target_contact = None
+        partner_pid = f"partner_{partner.get('id')}"
+        for c in contacts:
+            if not c.get('isInfluencer') and (str(c.get('id')).replace('prospect_', '').strip() == clean_id or str(c.get('id')) == rel_id_str):
+                if str(c.get('influencerId')) == str(partner.get('id')) or str(c.get('partnerId')) in (partner_pid, str(partner.get('id'))):
+                    target_contact = c
+                    break
+
+        if not target_ref and not target_contact:
+            json_response(handler, 404, {'success': False, 'error': 'Contact not found in your directory.'})
+            return True
+
+        body = payload or {}
+        new_name = str(body['fullName']).strip() if 'fullName' in body and body['fullName'] is not None else None
+        new_email = str(body['email']).strip().lower() if 'email' in body and body['email'] is not None else None
+        new_company = str(body['company']).strip() if 'company' in body and body['company'] is not None else None
+        new_title = str(body['jobTitle']).strip() if 'jobTitle' in body and body['jobTitle'] is not None else None
+        new_phone = str(body['phone']).strip() if 'phone' in body and body['phone'] is not None else None
+        new_strength = str(body.get('relationshipStrength') or body.get('strength') or '').strip() if ('relationshipStrength' in body or 'strength' in body) else None
+        new_context = str(body.get('relationshipContext') or body.get('portalNotes') or '').strip() if ('relationshipContext' in body or 'portalNotes' in body) else None
+
+        if target_ref:
+            if new_name is not None: target_ref['fullName'] = new_name
+            if new_email is not None: target_ref['email'] = new_email
+            if new_company is not None: target_ref['company'] = new_company
+            if new_title is not None: target_ref['jobTitle'] = new_title
+            if new_phone is not None: target_ref['phone'] = new_phone
+            if new_strength:
+                target_ref['relationshipStrength'] = new_strength
+                target_ref['strength'] = new_strength
+            if new_context: target_ref['relationshipContext'] = new_context
+
+        if target_contact:
+            if new_name is not None:
+                target_contact['fullName'] = new_name
+                parts = new_name.split()
+                target_contact['firstName'] = parts[0] if parts else new_name
+                target_contact['lastName'] = ' '.join(parts[1:]) if len(parts) > 1 else ''
+            if new_email is not None: target_contact['email'] = new_email
+            if new_company is not None: target_contact['company'] = new_company
+            if new_title is not None: target_contact['jobTitle'] = new_title
+            if new_phone is not None: target_contact['phone'] = new_phone
+            if new_strength: target_contact['relationshipStrength'] = new_strength
+            if new_context:
+                target_contact['relationshipContext'] = new_context
+                target_contact['portalNotes'] = new_context
+
+        write_workbook_state(state)
+        res_item = target_ref or target_contact
+        json_response(handler, 200, {'success': True, 'data': res_item})
+        return True
+
+    # DELETE /api/go/relationships/<id> (also POST /api/go/relationships/<id>/delete)
+    is_go_rel_del = clean_path.startswith('/api/go/relationships/') and (
+        method == 'DELETE' or (method == 'POST' and clean_path.endswith('/delete'))
+    )
+    if is_go_rel_del:
+        rel_id_str = clean_path.split('/')[4]
+        clean_id = rel_id_str.replace('prospect_', '').replace('ref_', '').strip()
+        state = read_workbook_state()
+        partner, state = get_current_influencer(handler, state)
+        if not partner:
+            json_response(handler, 401, {'success': False, 'error': 'Sign in to your influencer workspace first.'})
+            return True
+
+        found = False
+        if isinstance(partner.get('referrals'), list):
+            before_len = len(partner['referrals'])
+            partner['referrals'] = [
+                r for r in partner['referrals']
+                if not (str(r.get('id')).replace('prospect_', '').replace('ref_', '').strip() == clean_id or str(r.get('id')) == rel_id_str)
+            ]
+            if len(partner['referrals']) < before_len:
+                found = True
+
+        contacts = state.setdefault('contacts', [])
+        partner_pid = f"partner_{partner.get('id')}"
+        rem_indices = []
+        for i, c in enumerate(contacts):
+            if not c.get('isInfluencer') and (str(c.get('id')).replace('prospect_', '').strip() == clean_id or str(c.get('id')) == rel_id_str):
+                if str(c.get('influencerId')) == str(partner.get('id')) or str(c.get('partnerId')) in (partner_pid, str(partner.get('id'))):
+                    rem_indices.append(i)
+                    found = True
+        for i in reversed(rem_indices):
+            contacts.pop(i)
+
+        if not found:
+            json_response(handler, 404, {'success': False, 'error': 'Contact not found in your directory.'})
+            return True
+
+        write_workbook_state(state)
+        json_response(handler, 200, {'success': True, 'data': {'id': rel_id_str, 'deleted': True}})
         return True
 
     # GET /api/go/settings
@@ -5496,8 +5834,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if origin in ('http://localhost:8001', 'http://127.0.0.1:8001'):
             self.send_header('Access-Control-Allow-Origin', origin)
             self.send_header('Access-Control-Allow-Credentials', 'true')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-partner-id, x-influencer-id, x-partner-email, x-influencer-email')
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
@@ -9761,6 +10099,60 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
         else:
             json_response(self, 404, {'error': f'Route not found: POST {clean_path}'})
+
+    def do_PUT(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            json_response(self, 400, {'error': 'Invalid Content-Length.'})
+            return
+        if content_length < 0 or content_length > 10 * 1024 * 1024:
+            json_response(self, 413, {'error': 'Request body exceeds the 10 MB limit.'})
+            return
+        body_data = self.rfile.read(content_length) if content_length > 0 else b''
+        try:
+            payload = json.loads(body_data.decode('utf-8')) if body_data else {}
+        except json.JSONDecodeError:
+            json_response(self, 400, {'error': 'Request body must be valid JSON.'})
+            return
+
+        parsed_url = urllib.parse.urlsplit(self.path)
+        clean_path = parsed_url.path
+        norm_path = clean_path.rstrip('/') or '/'
+        query = urllib.parse.parse_qs(parsed_url.query)
+
+        if handle_admin_api_routes(self, 'PUT', norm_path, query=query, payload=payload):
+            return
+        if handle_go_api_routes(self, 'PUT', norm_path, query=query, payload=payload):
+            return
+
+        json_response(self, 404, {'error': f'Route not found: PUT {clean_path}'})
+
+    def do_DELETE(self):
+        content_length = 0
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            pass
+        body_data = self.rfile.read(content_length) if content_length > 0 else b''
+        payload = {}
+        if body_data:
+            try:
+                payload = json.loads(body_data.decode('utf-8'))
+            except Exception:
+                payload = {}
+
+        parsed_url = urllib.parse.urlsplit(self.path)
+        clean_path = parsed_url.path
+        norm_path = clean_path.rstrip('/') or '/'
+        query = urllib.parse.parse_qs(parsed_url.query)
+
+        if handle_admin_api_routes(self, 'DELETE', norm_path, query=query, payload=payload):
+            return
+        if handle_go_api_routes(self, 'DELETE', norm_path, query=query, payload=payload):
+            return
+
+        json_response(self, 404, {'error': f'Route not found: DELETE {clean_path}'})
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))

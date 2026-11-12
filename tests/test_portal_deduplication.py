@@ -104,6 +104,10 @@ class PortalDeduplicationTests(unittest.TestCase):
             harness.do_GET()
         elif method == "POST":
             harness.do_POST()
+        elif method == "PUT":
+            harness.do_PUT()
+        elif method == "DELETE":
+            harness.do_DELETE()
 
         raw_output = harness.wfile.getvalue().decode("utf-8")
         try:
@@ -175,6 +179,116 @@ class PortalDeduplicationTests(unittest.TestCase):
         self.assertTrue(res.get("success"))
         self.assertTrue(res.get("deduplicated"))
         self.assertEqual(res.get("providerId"), "gmail_msg_12345")
+
+    def test_admin_influencer_update_and_delete(self):
+        # 1. Update influencer (PUT /api/admin/partners/100)
+        update_payload = {
+            "fullName": "Sarah Jenkins Updated",
+            "company": "Apex Capital Group",
+            "jobTitle": "Senior Partner",
+            "phone": "+1 555-123-4567",
+            "referralCredits": 250
+        }
+        status, res = self.do_request("PUT", "/api/admin/partners/100", data=update_payload)
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertEqual(res["data"]["fullName"], "Sarah Jenkins Updated")
+        self.assertEqual(res["data"]["company"], "Apex Capital Group")
+        self.assertEqual(res["data"]["referralCredits"], 250)
+
+        # Verify state reflected update and propagated referredBy
+        state = server.read_workbook_state()
+        inf = next(c for c in state["contacts"] if c.get("id") == 100)
+        self.assertEqual(inf["fullName"], "Sarah Jenkins Updated")
+        self.assertEqual(inf["company"], "Apex Capital Group")
+        contact = next(c for c in state["contacts"] if c.get("id") == 1001)
+        self.assertEqual(contact.get("referredBy"), "Sarah Jenkins Updated")
+
+        # 2. Delete influencer (DELETE /api/admin/partners/100)
+        status, res = self.do_request("DELETE", "/api/admin/partners/100")
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertTrue(res["data"]["deleted"])
+
+        # Verify influencer removed and contact reassigned to Direct Enterprise Sourcing
+        state = server.read_workbook_state()
+        inf_exists = any(c.get("id") == 100 for c in state["contacts"])
+        self.assertFalse(inf_exists)
+        contact = next(c for c in state["contacts"] if c.get("id") == 1001)
+        self.assertEqual(contact.get("referredBy"), "Direct Enterprise Sourcing")
+
+    def test_admin_prospect_update_and_delete(self):
+        # 1. Update prospect (PUT /api/admin/prospects/1001)
+        update_payload = {
+            "fullName": "Jonathan Executive Jr.",
+            "company": "Enterprise Global",
+            "jobTitle": "Chief Technology Officer",
+            "relationshipStrength": "moderate",
+            "outreachStatus": "Meeting Scheduled"
+        }
+        status, res = self.do_request("PUT", "/api/admin/prospects/1001", data=update_payload)
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertEqual(res["data"]["fullName"], "Jonathan Executive Jr.")
+        self.assertEqual(res["data"]["company"], "Enterprise Global")
+        self.assertEqual(res["data"]["outreachStatus"], "Meeting Scheduled")
+
+        # Verify state and influencer referrals updated
+        state = server.read_workbook_state()
+        c = next(x for x in state["contacts"] if x.get("id") == 1001)
+        self.assertEqual(c["fullName"], "Jonathan Executive Jr.")
+        partner = next(x for x in state["contacts"] if x.get("id") == 100)
+        ref = next(r for r in partner.get("referrals", []) if r.get("id") == 1001)
+        self.assertEqual(ref["fullName"], "Jonathan Executive Jr.")
+        self.assertEqual(ref["outreachStatus"], "Meeting Scheduled")
+
+        # 2. Delete prospect (DELETE /api/admin/prospects/1001)
+        status, res = self.do_request("DELETE", "/api/admin/prospects/1001")
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertTrue(res["data"]["deleted"])
+
+        # Verify prospect removed from contacts and referrals
+        state = server.read_workbook_state()
+        c_exists = any(x.get("id") == 1001 for x in state["contacts"])
+        self.assertFalse(c_exists)
+        partner = next(x for x in state["contacts"] if x.get("id") == 100)
+        ref_exists = any(r.get("id") == 1001 for r in partner.get("referrals", []))
+        self.assertFalse(ref_exists)
+
+    def test_go_relationship_update_and_delete(self):
+        # 1. Update contact via influencer portal (PUT /api/go/relationships/1001)
+        update_payload = {
+            "fullName": "John Executive III",
+            "company": "Target Corp International",
+            "jobTitle": "VP of Architecture",
+            "relationshipStrength": "strong",
+            "relationshipContext": "Quarterly executive advisory catchup"
+        }
+        status, res = self.do_request("PUT", "/api/go/relationships/1001", data=update_payload, auth_token=self.token)
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertEqual(res["data"]["fullName"], "John Executive III")
+        self.assertEqual(res["data"]["company"], "Target Corp International")
+
+        # Verify state
+        state = server.read_workbook_state()
+        partner = next(x for x in state["contacts"] if x.get("id") == 100)
+        ref = next(r for r in partner.get("referrals", []) if r.get("id") == 1001)
+        self.assertEqual(ref["fullName"], "John Executive III")
+        self.assertEqual(ref["company"], "Target Corp International")
+
+        # 2. Delete contact via influencer portal (DELETE /api/go/relationships/1001)
+        status, res = self.do_request("DELETE", "/api/go/relationships/1001", auth_token=self.token)
+        self.assertEqual(status, 200)
+        self.assertTrue(res.get("success"))
+        self.assertTrue(res["data"]["deleted"])
+
+        # Verify referral removed
+        state = server.read_workbook_state()
+        partner = next(x for x in state["contacts"] if x.get("id") == 100)
+        ref_exists = any(r.get("id") == 1001 for r in partner.get("referrals", []))
+        self.assertFalse(ref_exists)
 
 
 if __name__ == "__main__":

@@ -589,10 +589,18 @@
           <div style="font-size:13px; max-width:300px;">${escapeHtml(item.relationshipContext || 'Advisory relationship')}</div>
           ${item.phone ? `<div class="code-text" style="color:var(--muted); font-size:11px;">${escapeHtml(item.phone)}</div>` : ''}
         </td>
-        <td>
-          <button class="btn btn-secondary btn-sm" onclick="window.quickReachOut('${escapeHtml(item.id)}')">
-            Contact
-          </button>
+        <td style="white-space:nowrap;">
+          <div style="display:inline-flex; gap:6px; align-items:center;">
+            <button class="btn btn-secondary btn-sm" onclick="window.quickReachOut('${escapeHtml(item.id)}')">
+              Contact
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="window.openEditContactModal('${escapeHtml(item.id)}')">
+              Edit
+            </button>
+            <button class="btn btn-secondary btn-sm" style="color:#d93025; border-color:#fce8e6;" onclick="window.deleteRelationshipContact('${escapeHtml(item.id)}', '${escapeHtml(item.fullName)}')">
+              Delete
+            </button>
+          </div>
         </td>
       `;
       contactsTbody.appendChild(tr);
@@ -1405,6 +1413,124 @@
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = origBtnText || 'Save Contact';
+      }
+    }
+  });
+
+  // Edit Contact Modal Popup Controls
+  const editContactModal = document.getElementById('edit-contact-modal');
+  const closeEditContactModalBtn = document.getElementById('close-edit-contact-modal-btn');
+  const cancelEditContactModalBtn = document.getElementById('cancel-edit-contact-modal-btn');
+  const editRelForm = document.getElementById('edit-relationship-form');
+  const editRelId = document.getElementById('edit-rel-id');
+  const editRelFullname = document.getElementById('edit-rel-fullname');
+  const editRelEmail = document.getElementById('edit-rel-email');
+  const editRelCompany = document.getElementById('edit-rel-company');
+  const editRelTitle = document.getElementById('edit-rel-title');
+  const editRelStrength = document.getElementById('edit-rel-strength');
+  const editRelPhone = document.getElementById('edit-rel-phone');
+  const editRelContext = document.getElementById('edit-rel-context');
+  const editRelSubmitBtn = document.getElementById('edit-rel-submit-btn');
+
+  function openEditContactModal(contactId) {
+    const item = relationships.find(r => String(r.id) === String(contactId) || String(r.id).replace('ref_', '') === String(contactId).replace('ref_', ''));
+    if (!item) {
+      showToast('Contact not found.', 'error');
+      return;
+    }
+    if (editRelId) editRelId.value = item.id;
+    if (editRelFullname) editRelFullname.value = item.fullName || '';
+    if (editRelEmail) editRelEmail.value = item.email || '';
+    if (editRelCompany) editRelCompany.value = item.company || '';
+    if (editRelTitle) editRelTitle.value = item.jobTitle || '';
+    if (editRelStrength) editRelStrength.value = item.relationshipStrength || 'strong';
+    if (editRelPhone) editRelPhone.value = item.phone || '';
+    if (editRelContext) editRelContext.value = item.relationshipContext || '';
+    if (editContactModal) editContactModal.style.display = 'flex';
+  }
+  window.openEditContactModal = openEditContactModal;
+
+  function closeEditContactModal() {
+    if (editContactModal) editContactModal.style.display = 'none';
+  }
+  window.closeEditContactModal = closeEditContactModal;
+
+  closeEditContactModalBtn?.addEventListener('click', closeEditContactModal);
+  cancelEditContactModalBtn?.addEventListener('click', closeEditContactModal);
+
+  editContactModal?.addEventListener('click', (e) => {
+    if (e.target === editContactModal) {
+      closeEditContactModal();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && editContactModal?.style.display === 'flex') {
+      closeEditContactModal();
+    }
+  });
+
+  window.deleteRelationshipContact = async function (contactId, contactName) {
+    if (!confirm(`Are you sure you want to remove "${contactName}" from your directory?`)) {
+      return;
+    }
+    try {
+      await api(`/api/go/relationships/${encodeURIComponent(contactId)}`, {
+        method: 'DELETE'
+      });
+      relationships = relationships.filter(r => String(r.id) !== String(contactId) && String(r.id).replace('ref_', '') !== String(contactId).replace('ref_', ''));
+      renderRelationshipsTable(relationships);
+      updateStats();
+      showToast(`Contact "${contactName}" removed from your directory.`);
+    } catch (e) {
+      showToast(e.message || 'Failed to delete contact', 'error');
+    }
+  };
+
+  editRelForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (editRelForm.dataset.submitting === 'true') return;
+    const contactId = editRelId?.value;
+    if (!contactId) return;
+
+    editRelForm.dataset.submitting = 'true';
+    const origBtnText = editRelSubmitBtn ? editRelSubmitBtn.textContent : '';
+    if (editRelSubmitBtn) {
+      editRelSubmitBtn.disabled = true;
+      editRelSubmitBtn.textContent = 'Saving...';
+    }
+
+    const payload = {
+      fullName: editRelFullname?.value.trim(),
+      email: editRelEmail?.value.trim(),
+      company: editRelCompany?.value.trim(),
+      jobTitle: editRelTitle?.value.trim(),
+      relationshipStrength: editRelStrength?.value,
+      phone: editRelPhone?.value.trim() || undefined,
+      relationshipContext: editRelContext?.value.trim() || undefined
+    };
+
+    try {
+      await api(`/api/go/relationships/${encodeURIComponent(contactId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const item = relationships.find(r => String(r.id) === String(contactId) || String(r.id).replace('ref_', '') === String(contactId).replace('ref_', ''));
+      if (item) {
+        Object.assign(item, payload);
+      }
+      closeEditContactModal();
+      renderRelationshipsTable(relationships);
+      updateStats();
+      showToast('Contact updated successfully.');
+    } catch (err) {
+      showToast(err.message || 'Failed to update contact', 'error');
+    } finally {
+      editRelForm.dataset.submitting = 'false';
+      if (editRelSubmitBtn) {
+        editRelSubmitBtn.disabled = false;
+        editRelSubmitBtn.textContent = origBtnText || 'Save Changes';
       }
     }
   });

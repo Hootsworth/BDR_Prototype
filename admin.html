@@ -3687,6 +3687,120 @@
     </div>
   </div>
 
+  <!-- Edit Influencer Modal -->
+  <div id="modal-edit-influencer" class="flat-modal-backdrop" style="display: none;">
+    <div class="flat-modal-sheet">
+      <div class="flat-modal-header">
+        <h3>Edit Influencer</h3>
+        <button class="flat-close-btn" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-edit-influencer" onsubmit="submitEditInfluencer(event)">
+        <input type="hidden" id="edit-inf-id">
+        <div class="flat-modal-body">
+          <div class="flat-field">
+            <label class="flat-label" for="edit-inf-name">Full Name *</label>
+            <input type="text" id="edit-inf-name" class="flat-input" required>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-inf-email">Email *</label>
+            <input type="email" id="edit-inf-email" class="flat-input" required>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-company">Company *</label>
+              <input type="text" id="edit-inf-company" class="flat-input" required>
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-title">Job Title *</label>
+              <input type="text" id="edit-inf-title" class="flat-input" required>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-phone">Phone</label>
+              <input type="text" id="edit-inf-phone" class="flat-input" placeholder="+1 555-000-0000">
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-inf-credits">Referral Credits</label>
+              <input type="number" id="edit-inf-credits" class="flat-input" min="0" step="50">
+            </div>
+          </div>
+        </div>
+        <div class="flat-modal-footer">
+          <button type="button" class="btn btn-text" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-solid" id="btn-update-influencer">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Prospect Modal -->
+  <div id="modal-edit-prospect" class="flat-modal-backdrop" style="display: none;">
+    <div class="flat-modal-sheet">
+      <div class="flat-modal-header">
+        <h3>Edit Prospect</h3>
+        <button class="flat-close-btn" onclick="closeModals()">&times;</button>
+      </div>
+      <form id="form-edit-prospect" onsubmit="submitEditProspect(event)">
+        <input type="hidden" id="edit-prosp-id">
+        <div class="flat-modal-body">
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-influencer">Who introduced them?</label>
+            <select id="edit-prosp-influencer" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);">
+              <option value="">Direct Enterprise Sourcing</option>
+            </select>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-name">Full Name *</label>
+            <input type="text" id="edit-prosp-name" class="flat-input" required>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-email">Email *</label>
+            <input type="email" id="edit-prosp-email" class="flat-input" required>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-company">Company *</label>
+              <input type="text" id="edit-prosp-company" class="flat-input" required>
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-title">Job Title *</label>
+              <input type="text" id="edit-prosp-title" class="flat-input" required>
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px;">
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-phone">Phone</label>
+              <input type="text" id="edit-prosp-phone" class="flat-input" placeholder="+1 555-000-0000">
+            </div>
+            <div class="flat-field" style="flex: 1;">
+              <label class="flat-label" for="edit-prosp-strength">Strength</label>
+              <select id="edit-prosp-strength" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);">
+                <option value="strong">Well (Close connection)</option>
+                <option value="moderate">Okay (Work acquaintance)</option>
+                <option value="weak">Casual (Met once or online)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flat-field">
+            <label class="flat-label" for="edit-prosp-status">Outreach Status</label>
+            <select id="edit-prosp-status" class="flat-select" style="width: 100%; border-bottom: 1px solid var(--rule-medium);">
+              <option value="Pending">Pending</option>
+              <option value="Contacted">Contacted</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Meeting Scheduled">Meeting Scheduled</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+        <div class="flat-modal-footer">
+          <button type="button" class="btn btn-text" onclick="closeModals()">Cancel</button>
+          <button type="submit" class="btn btn-solid" id="btn-update-prospect">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Fallback Outreach Modal for Legacy API triggers -->
   <div id="modal-outreach" class="flat-modal-backdrop" style="display: none;">
     <div class="flat-modal-sheet" style="max-width: 560px;">
@@ -4446,6 +4560,12 @@ ConnectEM Admin Team</textarea>
                   <button class="btn-sm-curved secondary" onclick="convertProspectToInfluencer('${p.id}', '${escapeHtml(p.fullName)}')" title="Convert to Influencer">
                     + Influencer
                   </button>
+                  <button class="btn-sm-curved secondary" onclick="openEditProspectModal('${p.id}')" title="Edit Prospect">
+                    Edit
+                  </button>
+                  <button class="btn-sm-curved secondary" style="color: #c5221f; border-color: #fce8e6;" onclick="deleteProspect('${p.id}', '${escapeHtml(p.fullName)}')" title="Delete Prospect">
+                    Delete
+                  </button>
                 </div>
               </td>
             </tr>
@@ -4501,9 +4621,17 @@ ConnectEM Admin Team</textarea>
                 <span class="badge-status">Active</span>
               </td>
               <td style="text-align: right; white-space: nowrap;">
-                <button class="btn-sm-curved" onclick="openInfluencerOutreach('${inf.id}', '${escapeHtml(inf.fullName)}')">
-                  Outreach &rarr;
-                </button>
+                <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; white-space: nowrap;">
+                  <button class="btn-sm-curved" onclick="openInfluencerOutreach('${inf.id}', '${escapeHtml(inf.fullName)}')">
+                    Outreach &rarr;
+                  </button>
+                  <button class="btn-sm-curved secondary" onclick="openEditInfluencerModal('${inf.id}')" title="Edit Influencer">
+                    Edit
+                  </button>
+                  <button class="btn-sm-curved secondary" style="color: #c5221f; border-color: #fce8e6;" onclick="deleteInfluencer('${inf.id}', '${escapeHtml(inf.fullName)}')" title="Delete Influencer">
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           `;
@@ -4904,6 +5032,198 @@ ConnectEM Admin Team</textarea>
       } finally {
         btn.disabled = false;
         btn.textContent = 'Save Prospect';
+      }
+    }
+
+    function openEditInfluencerModal(influencerId) {
+      const inf = allInfluencers.find(i => String(i.id) === String(influencerId) || String(i.id).replace('partner_', '') === String(influencerId).replace('partner_', ''));
+      if (!inf) {
+        showToast('Influencer not found.');
+        return;
+      }
+      document.getElementById('edit-inf-id').value = inf.id;
+      document.getElementById('edit-inf-name').value = inf.fullName || '';
+      document.getElementById('edit-inf-email').value = inf.email || '';
+      document.getElementById('edit-inf-company').value = inf.company || '';
+      document.getElementById('edit-inf-title').value = inf.jobTitle || '';
+      document.getElementById('edit-inf-phone').value = inf.phone || '';
+      document.getElementById('edit-inf-credits').value = inf.referralCredits !== undefined ? inf.referralCredits : (inf.credits !== undefined ? inf.credits : 100);
+      document.getElementById('modal-edit-influencer').style.display = 'flex';
+    }
+
+    async function submitEditInfluencer(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-inf-id').value;
+      const btn = document.getElementById('btn-update-influencer');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const payload = {
+        fullName: document.getElementById('edit-inf-name').value.trim(),
+        email: document.getElementById('edit-inf-email').value.trim(),
+        company: document.getElementById('edit-inf-company').value.trim(),
+        jobTitle: document.getElementById('edit-inf-title').value.trim(),
+        phone: document.getElementById('edit-inf-phone').value.trim(),
+        referralCredits: parseInt(document.getElementById('edit-inf-credits').value, 10) || 0
+      };
+
+      try {
+        const res = await fetch(`/api/admin/partners/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: getAdminHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          const inf = allInfluencers.find(i => String(i.id) === String(id) || String(i.id).replace('partner_', '') === String(id).replace('partner_', ''));
+          if (inf) {
+            Object.assign(inf, payload);
+          }
+          allProspects.forEach(p => {
+            if (p.partnerId === id || String(p.partnerId).replace('partner_', '') === String(id).replace('partner_', '')) {
+              p.partnerName = payload.fullName;
+              p.partnerCompany = payload.company;
+            }
+          });
+          applyInfluencersFilter();
+          applyProspectsFilter();
+          closeModals();
+          showToast(`Influencer ${payload.fullName} updated successfully.`);
+        } else {
+          alert(result.error || 'Failed to update influencer');
+        }
+      } catch (err) {
+        alert('Network error updating influencer: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
+    }
+
+    async function deleteInfluencer(influencerId, influencerName) {
+      if (!confirm(`Are you sure you want to delete influencer "${influencerName}"? This action cannot be undone.`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/partners/${encodeURIComponent(influencerId)}`, {
+          method: 'DELETE',
+          headers: getAdminHeaders()
+        });
+        const result = await res.json();
+        if (result.success) {
+          allInfluencers = allInfluencers.filter(i => String(i.id) !== String(influencerId) && String(i.id).replace('partner_', '') !== String(influencerId).replace('partner_', ''));
+          allProspects.forEach(p => {
+            if (p.partnerId === influencerId || String(p.partnerId).replace('partner_', '') === String(influencerId).replace('partner_', '')) {
+              p.partnerId = 'partner_system';
+              p.partnerName = 'Direct Enterprise Sourcing';
+            }
+          });
+          document.getElementById('influencers-count-badge').textContent = `(${allInfluencers.length})`;
+          document.getElementById('stat-inf-total').textContent = allInfluencers.length;
+          applyInfluencersFilter();
+          applyProspectsFilter();
+          showToast(`Influencer "${influencerName}" deleted.`);
+        } else {
+          alert(result.error || 'Failed to delete influencer');
+        }
+      } catch (err) {
+        alert('Network error deleting influencer: ' + err.message);
+      }
+    }
+
+    function openEditProspectModal(prospectId) {
+      const p = allProspects.find(x => String(x.id) === String(prospectId) || String(x.id).replace('prospect_', '') === String(prospectId).replace('prospect_', ''));
+      if (!p) {
+        showToast('Prospect not found.');
+        return;
+      }
+      document.getElementById('edit-prosp-id').value = p.id;
+      document.getElementById('edit-prosp-name').value = p.fullName || '';
+      document.getElementById('edit-prosp-email').value = p.email || '';
+      document.getElementById('edit-prosp-company').value = p.company || '';
+      document.getElementById('edit-prosp-title').value = p.jobTitle || '';
+      document.getElementById('edit-prosp-phone').value = p.phone || '';
+      document.getElementById('edit-prosp-strength').value = p.relationshipStrength || 'strong';
+      document.getElementById('edit-prosp-status').value = p.outreachStatus || 'Pending';
+
+      const select = document.getElementById('edit-prosp-influencer');
+      select.innerHTML = '<option value="">Direct Enterprise Sourcing</option>' +
+        allInfluencers.map(inf => `<option value="${inf.id}" ${p.partnerId === inf.id || String(p.partnerId).replace('partner_', '') === String(inf.id).replace('partner_', '') ? 'selected' : ''}>${escapeHtml(inf.fullName)} (${escapeHtml(inf.company)})</option>`).join('');
+
+      document.getElementById('modal-edit-prospect').style.display = 'flex';
+    }
+
+    async function submitEditProspect(e) {
+      e.preventDefault();
+      const id = document.getElementById('edit-prosp-id').value;
+      const btn = document.getElementById('btn-update-prospect');
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const partnerId = document.getElementById('edit-prosp-influencer').value;
+      const partner = allInfluencers.find(inf => String(inf.id) === String(partnerId) || String(inf.id).replace('partner_', '') === String(partnerId).replace('partner_', ''));
+
+      const payload = {
+        partnerId: partnerId || 'partner_system',
+        fullName: document.getElementById('edit-prosp-name').value.trim(),
+        email: document.getElementById('edit-prosp-email').value.trim(),
+        company: document.getElementById('edit-prosp-company').value.trim(),
+        jobTitle: document.getElementById('edit-prosp-title').value.trim(),
+        phone: document.getElementById('edit-prosp-phone').value.trim(),
+        relationshipStrength: document.getElementById('edit-prosp-strength').value,
+        outreachStatus: document.getElementById('edit-prosp-status').value
+      };
+
+      try {
+        const res = await fetch(`/api/admin/prospects/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: getAdminHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          const p = allProspects.find(x => String(x.id) === String(id) || String(x.id).replace('prospect_', '') === String(id).replace('prospect_', ''));
+          if (p) {
+            Object.assign(p, payload);
+            p.partnerName = partner ? partner.fullName : 'Direct Enterprise Sourcing';
+            p.partnerCompany = partner ? partner.company : 'ConnectEM Internal';
+          }
+          applyProspectsFilter();
+          closeModals();
+          showToast(`Prospect ${payload.fullName} updated successfully.`);
+        } else {
+          alert(result.error || 'Failed to update prospect');
+        }
+      } catch (err) {
+        alert('Network error updating prospect: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      }
+    }
+
+    async function deleteProspect(prospectId, prospectName) {
+      if (!confirm(`Are you sure you want to delete prospect "${prospectName}"? This action cannot be undone.`)) {
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/prospects/${encodeURIComponent(prospectId)}`, {
+          method: 'DELETE',
+          headers: getAdminHeaders()
+        });
+        const result = await res.json();
+        if (result.success) {
+          allProspects = allProspects.filter(x => String(x.id) !== String(prospectId) && String(x.id).replace('prospect_', '') !== String(prospectId).replace('prospect_', ''));
+          document.getElementById('prospects-count-badge').textContent = `(${allProspects.length})`;
+          document.getElementById('stat-prosp-total').textContent = allProspects.length;
+          applyProspectsFilter();
+          renderOutreachPeopleList();
+          showToast(`Prospect "${prospectName}" deleted.`);
+        } else {
+          alert(result.error || 'Failed to delete prospect');
+        }
+      } catch (err) {
+        alert('Network error deleting prospect: ' + err.message);
       }
     }
 

@@ -205,6 +205,22 @@ export class GoPartnerService {
     });
   }
 
+  updateRelationship(partnerId: string, contactId: string, updates: Partial<Prospect>): Prospect {
+    const prospect = this.store.getProspect(contactId);
+    if (!prospect || prospect.partnerId !== partnerId) {
+      throw new Error(`Contact not found: ${contactId}`);
+    }
+    return this.store.updateProspect(contactId, updates);
+  }
+
+  deleteRelationship(partnerId: string, contactId: string): boolean {
+    const prospect = this.store.getProspect(contactId);
+    if (!prospect || prospect.partnerId !== partnerId) {
+      return false;
+    }
+    return this.store.deleteProspect(contactId);
+  }
+
   /**
    * List all contacts/relationships added by the partner.
    */
