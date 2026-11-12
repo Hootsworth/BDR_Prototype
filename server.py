@@ -1785,7 +1785,7 @@ def hosted_api_request_allowed(handler, method, path):
     if (method, path) in public_routes:
         return True
 
-    if path.startswith('/api/go'):
+    if path == '/api/go' or path.startswith('/api/go/'):
         return True
 
     token = bearer_token(handler.headers)
@@ -4732,7 +4732,7 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
 
 def handle_go_api_routes(handler, method, path, query=None, payload=None):
     clean_path = path.rstrip('/') or '/'
-    if not clean_path.startswith('/api/go'):
+    if not (clean_path == '/api/go' or clean_path.startswith('/api/go/')):
         return False
     try:
         return _dispatch_go_api_route(handler, method, clean_path, query=query, payload=payload)
