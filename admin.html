@@ -54,6 +54,14 @@
       --radius-card: 12px;
     }
 
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -2570,7 +2578,8 @@
               <option value="50">50 rows</option>
             </select>
             <button class="btn btn-outline" id="prospect-sync-replies-btn" onclick="syncGmailReplies()" title="Scan for replies and auto-detect meetings with AI">
-              <span>🔄 Sync Replies &amp; Meetings (AI)</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Sync Replies &amp; Meetings</span>
             </button>
             <button class="btn btn-outline" id="prospect-global-outreach-btn" onclick="openOutreachScreen()">
               <span>Outreach</span>
@@ -4392,20 +4401,24 @@ ConnectEM Admin Team</textarea>
               </td>
               <td>
                 <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">
-                  <span class="badge-tag" title="${emailsCount} Email(s) dispatched" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${emailsCount > 0 ? 'background:#e8f0fe; color:#1a73e8; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
-                    ✉️ ${emailsCount}
+                  <span class="badge-tag" title="${emailsCount} Email(s) dispatched" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; ${emailsCount > 0 ? 'background:#e8f0fe; color:#1a73e8; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <span>${emailsCount}</span>
                   </span>
-                  <span class="badge-tag" title="${callsCount} Call(s) placed" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${callsCount > 0 ? 'background:#e6f4ea; color:#137333; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
-                    📞 ${callsCount}
+                  <span class="badge-tag" title="${callsCount} Call(s) placed" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; ${callsCount > 0 ? 'background:#e6f4ea; color:#137333; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    <span>${callsCount}</span>
                   </span>
-                  <span class="badge-tag" title="${linkedinCount} LinkedIn outreach(es)" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${linkedinCount > 0 ? 'background:#fef7e0; color:#b06000; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
-                    🔗 ${linkedinCount}
+                  <span class="badge-tag" title="${linkedinCount} LinkedIn outreach(es)" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; ${linkedinCount > 0 ? 'background:#fef7e0; color:#b06000; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px;"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                    <span>${linkedinCount}</span>
                   </span>
                 </div>
                 ${hasReply ? `
                   <div style="margin-top: 3px;" title="${escapeHtml(p.replySnippet || 'Reply received from prospect')}">
-                    <span class="badge" style="background: #e6f4ea; color: #137333; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-block;">
-                      📬 Reply: ${escapeHtml(sentimentLabel)}
+                    <span class="badge" style="background: #e6f4ea; color: #137333; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+                      Reply: ${escapeHtml(sentimentLabel)}
                     </span>
                   </div>
                 ` : `
@@ -4415,8 +4428,9 @@ ConnectEM Admin Team</textarea>
                 `}
                 ${hasMeeting ? `
                   <div style="margin-top: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                    <span class="badge" style="background: #fce8e6; color: #c5221f; font-weight: 600; padding: 2px 6px; border-radius: 4px;">
-                      📅 ${escapeHtml(p.meetingDetails?.summary || p.meetingDetails?.date || 'Meeting Booked')}
+                    <span class="badge" style="background: #fce8e6; color: #c5221f; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center;">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      ${escapeHtml(p.meetingDetails?.summary || p.meetingDetails?.date || 'Meeting Booked')}
                     </span>
                     ${p.meetingDetails?.meetUrl ? `
                       <a href="${escapeHtml(p.meetingDetails.meetUrl)}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: underline; font-weight: 500;">Join Meet</a>
@@ -5986,7 +6000,7 @@ ConnectEM Admin Team</textarea>
       const originalText = btn ? btn.innerHTML : '';
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span>⏳ Scanning Replies &amp; Meetings (AI)...</span>';
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg><span>Scanning Replies &amp; Meetings...</span>';
       }
       try {
         showToast('Scanning active prospect email threads & analyzing reply intent with AI...');
