@@ -1760,6 +1760,8 @@ def hosted_api_request_allowed(handler, method, path):
         ('GET', '/api/admin/search-accounts'),
         ('POST', '/api/admin/warm-intro'),
         ('POST', '/api/admin/outreach'),
+        ('POST', '/api/admin/sync-outreach'),
+        ('POST', '/api/admin/parse-activity'),
         ('POST', '/api/admin/test-slack'),
         ('POST', '/api/admin/test-firecrawl'),
         ('POST', '/api/admin/test-lemlist'),
@@ -2717,6 +2719,304 @@ def gmail_raw_message(to, subject, body, cc='', in_reply_to='', references='', m
     mime = '\r\n'.join(headers) + f'\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n{body}'
     return base64.urlsafe_b64encode(mime.encode('utf-8')).decode('ascii').rstrip('=')
 
+def update_contact_outreach_record(state, prospect_id, channel, influencer=None, details=None):
+    details = details or {}
+    now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    inf_name = (influencer.get('fullName') if isinstance(influencer, dict) else None) or details.get('influencerName') or 'Influencer'
+    inf_id = (influencer.get('id') if isinstance(influencer, dict) else None) or details.get('influencerId') or ''
+    clean_p_id = str(prospect_id or '').replace('prospect_', '').strip()
+
+    def update_record(c):
+        if channel == 'email':
+            c['emailsSent'] = int(c.get('emailsSent') or 0) + 1
+            c['hasEmailSent'] = True
+            c['outreachStatus'] = 'Email Sent'
+        elif channel == 'call':
+            c['callsCount'] = int(c.get('callsCount') or 0) + 1
+            c['hasCallMade'] = True
+            outcome = details.get('outcome', 'Logged Call')
+            if 'Completed' in outcome or 'Connected' in outcome:
+                c['hasTakenCall'] = True
+                c['outreachStatus'] = 'Call Connected'
+            elif 'Scheduled' in outcome:
+                c['hasScheduledCall'] = True
+                c['outreachStatus'] = 'Call Scheduled'
+            else:
+                c['outreachStatus'] = 'Call Made'
+        elif channel == 'linkedin':
+            c['linkedinSent'] = int(c.get('linkedinSent') or 0) + 1
+            c['hasLinkedInSent'] = True
+            c['outreachStatus'] = 'LinkedIn Sent'
+
+        c['lastContactedAt'] = now_iso
+        c['lastContactedBy'] = inf_name
+        c['lastChannel'] = channel
+
+        touchpoints = c.setdefault('touchpoints', [])
+        touchpoints.insert(0, {
+            'channel': channel,
+            'timestamp': now_iso,
+            'influencerId': inf_id,
+            'influencerName': inf_name,
+            'outcome': details.get('outcome'),
+            'subject': details.get('subject'),
+            'notes': details.get('notes'),
+            'providerId': details.get('providerId')
+        })
+
+    matched = False
+    for c in (state.get('contacts') or []):
+        if str(c.get('id') or '').replace('prospect_', '') == clean_p_id or str(c.get('id')) == str(prospect_id):
+            update_record(c)
+            matched = True
+        if c.get('referrals'):
+            for ref in c['referrals']:
+                if str(ref.get('id') or '').replace('prospect_', '') == clean_p_id or str(ref.get('id')) == str(prospect_id):
+                    update_record(ref)
+                    matched = True
+
+    return matched
+
+def parse_reply_and_calendar_intent(text, prospect=None, influencer=None):
+    clean_text = str(text or '').strip()
+    if not clean_text:
+        return {
+            'isReply': False,
+            'sentiment': 'neutral',
+            'hasCalendarIntent': False,
+            'suggestedDate': None,
+            'suggestedTime': None,
+            'meetingTitle': None,
+            'notes': '',
+            'confidence': 0.0,
+            'modelUsed': 'none'
+        }
+
+    gemini_key = provider_secret('gemini') or os.environ.get('GEMINI_API_KEY')
+    openai_key = provider_secret('openai') or os.environ.get('OPENAI_API_KEY')
+
+    # 1. Try AI parsing (Gemini or OpenAI)
+    if gemini_key or openai_key:
+        prompt_data = {
+            'prospect': {
+                'name': (prospect or {}).get('fullName') or (prospect or {}).get('name') or 'Executive Contact',
+                'company': (prospect or {}).get('company') or 'Prospect Organization',
+                'email': (prospect or {}).get('email') or ''
+            },
+            'influencer': (influencer or {}).get('fullName') or 'Influencer Partner',
+            'messageText': clean_text
+        }
+        system_instruction = (
+            "You are an executive outreach analyzer. Classify the prospect's email or message response.\n"
+            "Return JSON only with keys:\n"
+            "- isReply (bool): true if this is an authentic prospect response or inbound message\n"
+            "- sentiment (str): one of 'meeting_requested', 'interested', 'not_interested', 'out_of_office', 'neutral'\n"
+            "- hasCalendarIntent (bool): true if the prospect agrees to meet, proposes a time, or requests an invite\n"
+            "- suggestedDate (str or null): ISO date 'YYYY-MM-DD' if a meeting date is mentioned or implied\n"
+            "- suggestedTime (str or null): e.g. '2:00 PM EST' if a time is mentioned\n"
+            "- meetingTitle (str): suggested concise calendar event title\n"
+            "- notes (str): 1-sentence summary of the prospect's intent"
+        )
+        if gemini_key:
+            for gemini_model in ('gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.7-flash', 'gemini-3.5-flash-lite'):
+                try:
+                    _, g_resp = post_json(
+                        f'https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent',
+                        {
+                            'systemInstruction': {'parts': [{'text': system_instruction}]},
+                            'contents': [{'role': 'user', 'parts': [{'text': json.dumps(prompt_data)}]}],
+                            'generationConfig': {'responseMimeType': 'application/json', 'temperature': 0.2}
+                        },
+                        {'x-goog-api-key': gemini_key}
+                    )
+                    candidates = g_resp.get('candidates') or []
+                    if candidates:
+                        text_out = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                        parsed = json.loads(text_out)
+                        if isinstance(parsed, dict) and 'sentiment' in parsed:
+                            parsed['modelUsed'] = f'gemini ({gemini_model})'
+                            parsed['confidence'] = 0.95
+                            return parsed
+                except Exception:
+                    pass
+
+        if openai_key:
+            try:
+                _, o_resp = post_json(
+                    'https://api.openai.com/v1/chat/completions',
+                    {
+                        'model': 'gpt-4o-mini',
+                        'temperature': 0.2,
+                        'response_format': {'type': 'json_object'},
+                        'messages': [
+                            {'role': 'system', 'content': system_instruction},
+                            {'role': 'user', 'content': json.dumps(prompt_data)}
+                        ]
+                    },
+                    {'Authorization': f'Bearer {openai_key}'}
+                )
+                choices = o_resp.get('choices') or []
+                if choices:
+                    text_out = choices[0].get('message', {}).get('content', '')
+                    parsed = json.loads(text_out)
+                    if isinstance(parsed, dict) and 'sentiment' in parsed:
+                        parsed['modelUsed'] = 'openai (gpt-4o-mini)'
+                        parsed['confidence'] = 0.95
+                        return parsed
+            except Exception:
+                pass
+
+    # 2. Heuristic Pattern & Regex Parser Fallback
+    lower = clean_text.lower()
+
+    ooo_triggers = ['out of office', 'auto-reply', 'automatic reply', 'away from my desk', 'returning on', 'annual leave', 'maternity leave', 'paternity leave']
+    if any(t in lower for t in ooo_triggers):
+        return {
+            'isReply': True,
+            'sentiment': 'out_of_office',
+            'hasCalendarIntent': False,
+            'suggestedDate': None,
+            'suggestedTime': None,
+            'meetingTitle': 'Out of Office Notification',
+            'notes': 'Prospect auto-replied that they are currently out of office.',
+            'confidence': 0.9,
+            'modelUsed': 'heuristic_pattern_matcher'
+        }
+
+    opt_out_triggers = ['unsubscribe', 'not interested', 'remove me', 'no thank you', 'stop emailing', 'please take me off', 'not a good fit', 'don\'t contact']
+    if any(t in lower for t in opt_out_triggers):
+        return {
+            'isReply': True,
+            'sentiment': 'not_interested',
+            'hasCalendarIntent': False,
+            'suggestedDate': None,
+            'suggestedTime': None,
+            'meetingTitle': None,
+            'notes': 'Prospect indicated they are not interested in connecting at this time.',
+            'confidence': 0.85,
+            'modelUsed': 'heuristic_pattern_matcher'
+        }
+
+    calendar_triggers = ['calendar', 'meeting', 'meet', 'schedule', 'invite', 'invitation', 'call', 'zoom', 'google meet', 'calendly', 'catch up', 'discuss', 'free on', 'works for me', 'sounds good', 'let\'s talk']
+    time_matches = re.search(r'\b(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?(?:\s*(?:est|edt|pst|pdt|cst|cdt|utc|gmt|et|pt))?)\b', lower)
+    day_matches = re.search(r'\b(monday|tuesday|wednesday|thursday|friday|tomorrow|next week)\b', lower)
+
+    has_cal = any(t in lower for t in calendar_triggers) and (bool(time_matches) or bool(day_matches) or 'calendly' in lower or 'invite' in lower or 'meet' in lower or 'works for me' in lower or 'sounds good' in lower)
+    if has_cal:
+        time_str = time_matches.group(0).strip() if time_matches else '2:00 PM EST'
+        day_str = day_matches.group(0).strip().capitalize() if day_matches else 'Next available business day'
+        p_name = (prospect or {}).get('fullName') or 'Executive'
+        p_comp = (prospect or {}).get('company') or 'Organization'
+        return {
+            'isReply': True,
+            'sentiment': 'meeting_requested',
+            'hasCalendarIntent': True,
+            'suggestedDate': None,
+            'suggestedTime': f"{day_str} {time_str}".strip(),
+            'meetingTitle': f"ConnectEM Briefing: {p_name} ({p_comp})",
+            'notes': f"Prospect agreed to meet or requested calendar invite ({day_str} {time_str}).",
+            'confidence': 0.85,
+            'modelUsed': 'heuristic_pattern_matcher'
+        }
+
+    interest_triggers = ['interested', 'sounds interesting', 'send info', 'send more info', 'happy to connect', 'tell me more', 'let\'s do it', 'share details', 'reach out', 'thanks for reaching out']
+    if any(t in lower for t in interest_triggers):
+        return {
+            'isReply': True,
+            'sentiment': 'interested',
+            'hasCalendarIntent': False,
+            'suggestedDate': None,
+            'suggestedTime': None,
+            'meetingTitle': None,
+            'notes': 'Prospect expressed interest in the advisory proposition.',
+            'confidence': 0.8,
+            'modelUsed': 'heuristic_pattern_matcher'
+        }
+
+    return {
+        'isReply': True,
+        'sentiment': 'neutral',
+        'hasCalendarIntent': False,
+        'suggestedDate': None,
+        'suggestedTime': None,
+        'meetingTitle': None,
+        'notes': clean_text[:120] + ('...' if len(clean_text) > 120 else ''),
+        'confidence': 0.6,
+        'modelUsed': 'heuristic_pattern_matcher'
+    }
+
+def sync_prospect_calendar_event(state, prospect, influencer=None, parsed_intent=None, session=None):
+    parsed_intent = parsed_intent or {}
+    raw_p_id = str(prospect.get('id') or '')
+    clean_p_id = raw_p_id.replace('prospect_', '')
+    p_name = prospect.get('fullName') or prospect.get('name') or 'Executive Contact'
+    p_email = prospect.get('email') or ''
+    p_comp = prospect.get('company') or 'Executive Organization'
+    p_title = prospect.get('jobTitle') or 'Executive'
+    inf_name = (influencer or {}).get('fullName') or 'Bob Miller'
+    inf_id = f"partner_{(influencer or {}).get('id')}" if influencer else 'partner_bmiller'
+
+    meetings = state.setdefault('meetings', [])
+    existing = next((m for m in meetings if str(m.get('contactEmail') or '').lower() == p_email.lower() and p_email), None)
+    if existing:
+        return existing
+
+    meeting_url = 'https://meet.google.com/connectem-briefing'
+    google_event_id = None
+    time_string = parsed_intent.get('suggestedTime') or '2:00 PM - 2:30 PM EST'
+
+    if session and session.get('access_token'):
+        try:
+            start_iso = (datetime.now(timezone.utc) + timedelta(days=2)).replace(hour=14, minute=0, second=0, microsecond=0).isoformat()
+            end_iso = (datetime.now(timezone.utc) + timedelta(days=2)).replace(hour=14, minute=30, second=0, microsecond=0).isoformat()
+            event_payload = {
+                'summary': parsed_intent.get('meetingTitle') or f"ConnectEM Briefing: {p_name} ({p_comp})",
+                'description': f"Executive partnership briefing between {p_name} and {inf_name}.\nAdmin CC: nextbdr@gmail.com",
+                'start': {'dateTime': start_iso},
+                'end': {'dateTime': end_iso},
+                'attendees': [{'email': p_email}, {'email': (influencer or {}).get('email') or 'nextbdr@gmail.com'}, {'email': 'nextbdr@gmail.com'}],
+                'conferenceData': {'createRequest': {'requestId': uuid.uuid4().hex, 'conferenceSolutionKey': {'type': 'hangoutsMeet'}}}
+            }
+            _, g_event = google_api('POST', 'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1', session['access_token'], event_payload)
+            google_event_id = g_event.get('id')
+            meeting_url = g_event.get('hangoutLink') or g_event.get('htmlLink') or meeting_url
+        except Exception:
+            pass
+
+    meeting_record = {
+        'id': f"meeting_{uuid.uuid4().hex[:8]}",
+        'contactId': clean_p_id,
+        'contactName': p_name,
+        'contactTitle': p_title,
+        'contactCompany': p_comp,
+        'contactEmail': p_email,
+        'contactPhone': prospect.get('phone') or '',
+        'platform': 'Google Meet',
+        'meetingUrl': meeting_url,
+        'timeString': time_string,
+        'influencerName': inf_name,
+        'influencerId': inf_id,
+        'influencerCredits': 50,
+        'status': 'Confirmed',
+        'notes': parsed_intent.get('notes') or 'Calendar event scheduled via prospect outreach reply.',
+        'googleCalendarEventId': google_event_id,
+        'datetimeRaw': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'createdAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    }
+    meetings.insert(0, meeting_record)
+
+    prospect['hasScheduledCall'] = True
+    prospect['hasScheduledMeeting'] = True
+    prospect['outreachStatus'] = 'Meeting Scheduled'
+    prospect['meetingDetails'] = {
+        'meetingId': meeting_record['id'],
+        'timeString': time_string,
+        'meetingUrl': meeting_url,
+        'influencerName': inf_name
+    }
+
+    return meeting_record
+
 def gmail_admin_cc():
     settings = load_provider_secrets()
     value = str(settings.get('adminEmail') or os.environ.get('PARTNER_SCHEDULE_ADMIN_EMAIL') or os.environ.get('ADMIN_EMAIL') or 'nextbdr@gmail.com').strip()
@@ -3165,8 +3465,24 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
                         'phone': ref.get('phone') or '',
                         'relationshipStrength': ref.get('strength') or 'strong',
                         'relationshipContext': f"Advisory connection via {partner_name}",
-                        'outreachStatus': 'Completed' if ref.get('hasTakenCall') else ('Scheduled' if ref.get('hasScheduledCall') else 'Pending'),
-                        'optInCount': 1 if ref.get('hasScheduledCall') else 0,
+                        'outreachStatus': ref.get('outreachStatus') or ('Completed' if ref.get('hasTakenCall') else ('Scheduled' if ref.get('hasScheduledCall') else 'Pending')),
+                        'optInCount': 1 if (ref.get('hasScheduledCall') or ref.get('hasScheduledMeeting')) else 0,
+                        'emailsSent': int(ref.get('emailsSent') or 0),
+                        'callsCount': int(ref.get('callsCount') or 0),
+                        'linkedinSent': int(ref.get('linkedinSent') or 0),
+                        'hasEmailSent': bool(ref.get('emailsSent') or ref.get('hasEmailSent')),
+                        'hasCallMade': bool(ref.get('callsCount') or ref.get('hasCallMade') or ref.get('hasTakenCall')),
+                        'hasLinkedInSent': bool(ref.get('linkedinSent') or ref.get('hasLinkedInSent')),
+                        'lastContactedAt': ref.get('lastContactedAt'),
+                        'lastContactedBy': ref.get('lastContactedBy') or partner_name,
+                        'lastChannel': ref.get('lastChannel'),
+                        'hasReply': bool(ref.get('hasReply')),
+                        'replySnippet': ref.get('replySnippet'),
+                        'replySentiment': ref.get('replySentiment'),
+                        'replyDate': ref.get('replyDate'),
+                        'hasScheduledMeeting': bool(ref.get('hasScheduledMeeting') or ref.get('hasScheduledCall')),
+                        'meetingDetails': ref.get('meetingDetails'),
+                        'touchpoints': ref.get('touchpoints') or []
                     })
             elif not c.get('isInfluencer'):
                 name = c.get('fullName') or ''
@@ -3187,8 +3503,24 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
                     'phone': c.get('phone') or '',
                     'relationshipStrength': 'strong',
                     'relationshipContext': 'Enterprise Outreach',
-                    'outreachStatus': 'Completed' if c.get('hasTakenCall') else ('Scheduled' if c.get('hasScheduledCall') else 'Pending'),
-                    'optInCount': 1 if c.get('hasScheduledCall') else 0,
+                    'outreachStatus': c.get('outreachStatus') or ('Completed' if c.get('hasTakenCall') else ('Scheduled' if c.get('hasScheduledCall') else 'Pending')),
+                    'optInCount': 1 if (c.get('hasScheduledCall') or c.get('hasScheduledMeeting')) else 0,
+                    'emailsSent': int(c.get('emailsSent') or 0),
+                    'callsCount': int(c.get('callsCount') or 0),
+                    'linkedinSent': int(c.get('linkedinSent') or 0),
+                    'hasEmailSent': bool(c.get('emailsSent') or c.get('hasEmailSent')),
+                    'hasCallMade': bool(c.get('callsCount') or c.get('hasCallMade') or c.get('hasTakenCall')),
+                    'hasLinkedInSent': bool(c.get('linkedinSent') or c.get('hasLinkedInSent')),
+                    'lastContactedAt': c.get('lastContactedAt'),
+                    'lastContactedBy': c.get('lastContactedBy') or 'Direct Enterprise Sourcing',
+                    'lastChannel': c.get('lastChannel'),
+                    'hasReply': bool(c.get('hasReply')),
+                    'replySnippet': c.get('replySnippet'),
+                    'replySentiment': c.get('replySentiment'),
+                    'replyDate': c.get('replyDate'),
+                    'hasScheduledMeeting': bool(c.get('hasScheduledMeeting') or c.get('hasScheduledCall')),
+                    'meetingDetails': c.get('meetingDetails'),
+                    'touchpoints': c.get('touchpoints') or []
                 })
         json_response(handler, 200, {'success': True, 'data': prospects, 'meta': {'total': len(prospects)}})
         return True
@@ -3487,8 +3819,145 @@ def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
         state = read_workbook_state()
         logs = state.setdefault('outreachLogs', [])
         logs.append(outreach_record)
+        target_pid = body.get('prospectId') or target_id
+        if target_pid:
+            update_contact_outreach_record(state, target_pid, channel, influencer={'fullName': 'Admin (ConnectEM)', 'id': 'admin'}, details={'subject': body.get('subject'), 'providerId': provider_id})
         write_workbook_state(state)
         json_response(handler, 200, {'success': True, 'data': outreach_record})
+        return True
+
+    # POST /api/admin/sync-outreach
+    if path == '/api/admin/sync-outreach' and method == 'POST':
+        state = read_workbook_state()
+        contacts = state.get('contacts') or []
+        body = payload or {}
+
+        prospect_list = []
+        for c in contacts:
+            if c.get('isInfluencer'):
+                for ref in (c.get('referrals') or []):
+                    prospect_list.append((ref, c))
+            elif not c.get('isInfluencer'):
+                prospect_list.append((c, None))
+
+        admin_session = None
+        if hasattr(handler, '_google_session'):
+            admin_session = handler._google_session()
+        if not admin_session:
+            admin_session = restore_connected_google_session()
+
+        updated_prospects = 0
+        new_replies = 0
+        new_meetings = 0
+        sync_details = []
+
+        test_message = body.get('messageText')
+        test_prospect_id = body.get('prospectId')
+        if test_message and test_prospect_id:
+            target_p, target_inf = next(((p, inf) for p, inf in prospect_list if str(p.get('id')).replace('prospect_', '') == str(test_prospect_id).replace('prospect_', '')), (None, None))
+            if target_p:
+                parsed = parse_reply_and_calendar_intent(test_message, target_p, target_inf)
+                target_p['hasReply'] = True
+                target_p['replySnippet'] = test_message[:150]
+                target_p['replySentiment'] = parsed['sentiment']
+                target_p['replyDate'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                target_p['outreachStatus'] = 'Meeting Scheduled' if parsed['hasCalendarIntent'] else f"Reply: {parsed['sentiment'].replace('_', ' ').title()}"
+                if parsed['hasCalendarIntent']:
+                    sync_prospect_calendar_event(state, target_p, target_inf, parsed, admin_session)
+                    new_meetings += 1
+                new_replies += 1
+                updated_prospects += 1
+                sync_details.append({
+                    'prospectName': target_p.get('fullName'),
+                    'sentiment': parsed['sentiment'],
+                    'hasCalendarIntent': parsed['hasCalendarIntent'],
+                    'modelUsed': parsed['modelUsed']
+                })
+
+        if admin_session and admin_session.get('access_token'):
+            try:
+                for prospect, inf in prospect_list[:30]:
+                    p_email = str(prospect.get('email') or '').strip().lower()
+                    if not p_email:
+                        continue
+                    query = urllib.parse.quote(f'from:{p_email} newer_than:30d')
+                    try:
+                        _, listing = google_api_get(f'https://gmail.googleapis.com/gmail/v1/users/me/messages?q={query}&maxResults=3', admin_session['access_token'])
+                        for msg in (listing.get('messages') or []):
+                            _, detail = google_api_get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg['id']}?format=full", admin_session['access_token'])
+                            snippet = detail.get('snippet', '')
+                            headers = {h['name'].lower(): h['value'] for h in detail.get('payload', {}).get('headers', [])}
+                            msg_date = headers.get('date', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+
+                            parsed = parse_reply_and_calendar_intent(snippet, prospect, inf)
+                            if parsed['isReply']:
+                                prospect['hasReply'] = True
+                                prospect['replySnippet'] = snippet
+                                prospect['replySentiment'] = parsed['sentiment']
+                                prospect['replyDate'] = msg_date
+                                prospect['outreachStatus'] = 'Meeting Scheduled' if parsed['hasCalendarIntent'] else f"Reply: {parsed['sentiment'].replace('_', ' ').title()}"
+
+                                if parsed['hasCalendarIntent']:
+                                    sync_prospect_calendar_event(state, prospect, inf, parsed, admin_session)
+                                    new_meetings += 1
+                                new_replies += 1
+                                updated_prospects += 1
+                                sync_details.append({
+                                    'prospectName': prospect.get('fullName'),
+                                    'sentiment': parsed['sentiment'],
+                                    'hasCalendarIntent': parsed['hasCalendarIntent'],
+                                    'modelUsed': parsed['modelUsed']
+                                })
+                                break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        write_workbook_state(state)
+        json_response(handler, 200, {
+            'success': True,
+            'updatedProspects': updated_prospects,
+            'newReplies': new_replies,
+            'newMeetings': new_meetings,
+            'details': sync_details,
+            'message': f"Sync complete. Updated {updated_prospects} prospects, detected {new_replies} replies, and scheduled {new_meetings} meetings."
+        })
+        return True
+
+    # POST /api/admin/parse-activity
+    if path == '/api/admin/parse-activity' and method == 'POST':
+        body = payload or {}
+        text = str(body.get('text') or body.get('message') or '').strip()
+        prospect_id = body.get('prospectId')
+        state = read_workbook_state()
+        contacts = state.get('contacts') or []
+        target_p = None
+        target_inf = None
+        for c in contacts:
+            if str(c.get('id')).replace('prospect_', '') == str(prospect_id).replace('prospect_', ''):
+                target_p = c
+                break
+            if c.get('referrals'):
+                for ref in c['referrals']:
+                    if str(ref.get('id')).replace('prospect_', '') == str(prospect_id).replace('prospect_', ''):
+                        target_p = ref
+                        target_inf = c
+                        break
+
+        parsed = parse_reply_and_calendar_intent(text, target_p, target_inf)
+        if target_p:
+            if parsed['isReply']:
+                target_p['hasReply'] = True
+                target_p['replySnippet'] = text[:150]
+                target_p['replySentiment'] = parsed['sentiment']
+                target_p['replyDate'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                target_p['outreachStatus'] = 'Meeting Scheduled' if parsed['hasCalendarIntent'] else f"Reply: {parsed['sentiment'].replace('_', ' ').title()}"
+                if parsed['hasCalendarIntent']:
+                    sync_prospect_calendar_event(state, target_p, target_inf, parsed)
+            write_workbook_state(state)
+
+        json_response(handler, 200, {'success': True, 'data': parsed})
         return True
 
     # POST /api/admin/test-slack
@@ -4745,6 +5214,7 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
         }
         activities = state.setdefault('outreachActivities', [])
         activities.insert(0, activity)
+        update_contact_outreach_record(state, prospect_id, 'email', influencer=partner, details={'subject': body.get('subject'), 'providerId': provider_id})
         write_workbook_state(state)
         json_response(handler, 200, {'success': True, 'data': activity, 'adminCcEnforced': 'nextbdr@gmail.com', 'providerId': provider_id})
         return True
@@ -4765,6 +5235,7 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         }
         state.setdefault('outreachActivities', []).insert(0, activity)
+        update_contact_outreach_record(state, body.get('prospectId'), 'call', influencer=partner, details={'outcome': body.get('outcome'), 'notes': body.get('notes')})
         write_workbook_state(state)
         json_response(handler, 200, {'success': True, 'data': activity})
         return True
@@ -4783,6 +5254,7 @@ def _dispatch_go_api_route(handler, method, clean_path, query=None, payload=None
             'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         }
         state.setdefault('outreachActivities', []).insert(0, activity)
+        update_contact_outreach_record(state, body.get('prospectId'), 'linkedin', influencer=partner, details={'notes': body.get('notes')})
         write_workbook_state(state)
         json_response(handler, 200, {'success': True, 'data': activity})
         return True

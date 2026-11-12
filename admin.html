@@ -2569,6 +2569,9 @@
               <option value="25">25 rows</option>
               <option value="50">50 rows</option>
             </select>
+            <button class="btn btn-outline" id="prospect-sync-replies-btn" onclick="syncGmailReplies()" title="Scan for replies and auto-detect meetings with AI">
+              <span>🔄 Sync Replies &amp; Meetings (AI)</span>
+            </button>
             <button class="btn btn-outline" id="prospect-global-outreach-btn" onclick="openOutreachScreen()">
               <span>Outreach</span>
             </button>
@@ -2582,11 +2585,11 @@
         <table class="ledger-table" id="prospects-table">
           <thead>
             <tr>
-              <th style="width: 26%;">Prospect</th>
-              <th style="width: 25%;">Company &amp; Email</th>
-              <th style="width: 22%;">Introduced By</th>
-              <th style="width: 12%;">Status</th>
-              <th style="width: 1%; white-space: nowrap; text-align: right;">Action</th>
+              <th style="width: 24%;">Prospect</th>
+              <th style="width: 23%;">Company &amp; Email</th>
+              <th style="width: 18%;">Introduced By</th>
+              <th style="width: 23%;">Outreach, Reply &amp; Meeting</th>
+              <th style="width: 12%; white-space: nowrap; text-align: right;">Action</th>
             </tr>
           </thead>
           <tbody id="prospects-table-body">
@@ -4365,6 +4368,13 @@ ConnectEM Admin Team</textarea>
       } else {
         tbody.innerHTML = pageItems.map(p => {
           const status = p.outreachStatus || (p.lastContactedAt ? 'Contacted' : 'Pending');
+          const emailsCount = parseInt(p.emailsSent || 0, 10);
+          const callsCount = parseInt(p.callsCount || 0, 10);
+          const linkedinCount = parseInt(p.linkedinSent || 0, 10);
+          const hasReply = !!p.hasReply;
+          const hasMeeting = !!(p.hasScheduledMeeting || (p.meetingDetails && p.meetingDetails.summary));
+          const sentimentLabel = (p.replySentiment || 'Interested').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
           return `
             <tr>
               <td>
@@ -4381,7 +4391,38 @@ ConnectEM Admin Team</textarea>
                 </span>
               </td>
               <td>
-                <span class="badge-status">${escapeHtml(status)}</span>
+                <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-bottom: 4px;">
+                  <span class="badge-tag" title="${emailsCount} Email(s) dispatched" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${emailsCount > 0 ? 'background:#e8f0fe; color:#1a73e8; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    ✉️ ${emailsCount}
+                  </span>
+                  <span class="badge-tag" title="${callsCount} Call(s) placed" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${callsCount > 0 ? 'background:#e6f4ea; color:#137333; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    📞 ${callsCount}
+                  </span>
+                  <span class="badge-tag" title="${linkedinCount} LinkedIn outreach(es)" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; ${linkedinCount > 0 ? 'background:#fef7e0; color:#b06000; font-weight:600;' : 'background:#f1f3f4; color:#70757a;'}">
+                    🔗 ${linkedinCount}
+                  </span>
+                </div>
+                ${hasReply ? `
+                  <div style="margin-top: 3px;" title="${escapeHtml(p.replySnippet || 'Reply received from prospect')}">
+                    <span class="badge" style="background: #e6f4ea; color: #137333; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                      📬 Reply: ${escapeHtml(sentimentLabel)}
+                    </span>
+                  </div>
+                ` : `
+                  <div style="margin-top: 3px;">
+                    <span class="badge-status" style="font-size: 11px; padding: 2px 6px;">${escapeHtml(status)}</span>
+                  </div>
+                `}
+                ${hasMeeting ? `
+                  <div style="margin-top: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                    <span class="badge" style="background: #fce8e6; color: #c5221f; font-weight: 600; padding: 2px 6px; border-radius: 4px;">
+                      📅 ${escapeHtml(p.meetingDetails?.summary || p.meetingDetails?.date || 'Meeting Booked')}
+                    </span>
+                    ${p.meetingDetails?.meetUrl ? `
+                      <a href="${escapeHtml(p.meetingDetails.meetUrl)}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: underline; font-weight: 500;">Join Meet</a>
+                    ` : ''}
+                  </div>
+                ` : ''}
               </td>
               <td style="text-align: right; white-space: nowrap;">
                 <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; white-space: nowrap;">
@@ -5941,13 +5982,34 @@ ConnectEM Admin Team</textarea>
     }
 
     async function syncGmailReplies() {
+      const btn = document.getElementById('prospect-sync-replies-btn');
+      const originalText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Scanning Replies &amp; Meetings (AI)...</span>';
+      }
       try {
-        showToast('Syncing Gmail replies... Checking active prospect threads.');
-        const res = await fetch('/api/go/outreach/gmail/status');
+        showToast('Scanning active prospect email threads & analyzing reply intent with AI...');
+        const res = await fetch('/api/admin/sync-outreach', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({})
+        });
         const data = await res.json();
-        showToast(data.connected ? `Gmail synced. Connected as ${data.email}.` : 'Gmail sync complete. All prospect timelines up to date.');
-      } catch {
-        showToast('Gmail sync complete. All prospect timelines up to date.');
+        if (data.success) {
+          showToast(data.message || `Sync complete: ${data.updatedProspects} prospects updated, ${data.newReplies} replies, ${data.newMeetings} meetings.`);
+          await fetchProspects();
+          await fetchScheduledMeetings();
+        } else {
+          showToast('Sync completed with notice: ' + (data.error || 'Check Google connection.'));
+        }
+      } catch (err) {
+        showToast('Sync error: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
       }
     }
 

@@ -132,6 +132,140 @@ class InfluencerGmailOutreachTests(unittest.TestCase):
             self.assertEqual(data['adminCcEnforced'], 'nextbdr@gmail.com')
             self.assertEqual(data['providerId'], 'gmail_msg_12345')
 
+    def test_update_contact_outreach_record_all_channels(self):
+        state = {
+            'contacts': [
+                {
+                    'id': '1',
+                    'fullName': 'Alice Smith',
+                    'email': 'alice@enterprise.com',
+                    'isInfluencer': False,
+                    'emailsSent': 0,
+                    'callsCount': 0,
+                    'linkedinSent': 0,
+                    'touchpoints': []
+                }
+            ]
+        }
+        # 1. Email outreach
+        matched = server.update_contact_outreach_record(state, '1', 'email', influencer={'fullName': 'Bob Partner', 'id': '901'}, details={'subject': 'Intro'})
+        self.assertTrue(matched)
+        contact = state['contacts'][0]
+        self.assertEqual(contact['emailsSent'], 1)
+        self.assertTrue(contact['hasEmailSent'])
+        self.assertEqual(contact['outreachStatus'], 'Email Sent')
+        self.assertEqual(contact['lastContactedBy'], 'Bob Partner')
+        self.assertEqual(contact['lastChannel'], 'email')
+        self.assertEqual(len(contact['touchpoints']), 1)
+
+        # 2. Call outreach
+        server.update_contact_outreach_record(state, '1', 'call', influencer={'fullName': 'Bob Partner', 'id': '901'}, details={'outcome': 'Connected'})
+        self.assertEqual(contact['callsCount'], 1)
+        self.assertTrue(contact['hasCallMade'])
+        self.assertTrue(contact['hasTakenCall'])
+        self.assertEqual(contact['outreachStatus'], 'Call Connected')
+        self.assertEqual(len(contact['touchpoints']), 2)
+
+        # 3. LinkedIn outreach
+        server.update_contact_outreach_record(state, '1', 'linkedin', influencer={'fullName': 'Bob Partner', 'id': '901'}, details={'notes': 'Sent InMail'})
+        self.assertEqual(contact['linkedinSent'], 1)
+        self.assertTrue(contact['hasLinkedInSent'])
+        self.assertEqual(contact['outreachStatus'], 'LinkedIn Sent')
+        self.assertEqual(len(contact['touchpoints']), 3)
+
+    def test_parse_reply_and_calendar_intent_heuristics(self):
+        # 1. Out of Office
+        ooo = server.parse_reply_and_calendar_intent("I am currently out of office on annual leave until next Monday.")
+        self.assertTrue(ooo['isReply'])
+        self.assertEqual(ooo['sentiment'], 'out_of_office')
+        self.assertFalse(ooo['hasCalendarIntent'])
+
+        # 2. Not Interested
+        opt_out = server.parse_reply_and_calendar_intent("Please unsubscribe and remove me from your list. Not interested.")
+        self.assertTrue(opt_out['isReply'])
+        self.assertEqual(opt_out['sentiment'], 'not_interested')
+        self.assertFalse(opt_out['hasCalendarIntent'])
+
+        # 3. Meeting requested with day and time
+        cal = server.parse_reply_and_calendar_intent(
+            "Thanks for reaching out! Sounds good, let's schedule a call on Tuesday at 2:00 PM EST. Please send an invite.",
+            prospect={'fullName': 'Alice Smith', 'company': 'Tech Corp'}
+        )
+        self.assertTrue(cal['isReply'])
+        self.assertEqual(cal['sentiment'], 'meeting_requested')
+        self.assertTrue(cal['hasCalendarIntent'])
+        self.assertIn('Tuesday', cal['suggestedTime'])
+        self.assertIn('2:00 pm est', cal['suggestedTime'].lower())
+
+        # 4. General interest without calendar time
+        interest = server.parse_reply_and_calendar_intent("This sounds interesting, happy to connect and learn more details.")
+        self.assertTrue(interest['isReply'])
+        self.assertEqual(interest['sentiment'], 'interested')
+        self.assertFalse(interest['hasCalendarIntent'])
+
+    def test_sync_prospect_calendar_event(self):
+        state = {'contacts': [], 'meetings': []}
+        prospect = {
+            'id': '10',
+            'fullName': 'Marcus Vance',
+            'email': 'marcus@globalfintech.com',
+            'company': 'Global Fintech',
+            'jobTitle': 'Chief Technology Officer'
+        }
+        parsed_intent = {
+            'hasCalendarIntent': True,
+            'suggestedTime': 'Thursday at 3:00 PM EST',
+            'meetingTitle': 'Briefing with Marcus Vance',
+            'notes': 'Discuss advisory partnership'
+        }
+        meeting = server.sync_prospect_calendar_event(state, prospect, influencer={'fullName': 'Sarah Jenkins', 'id': 'inf_1', 'email': 'sarah@connectem.ai'}, parsed_intent=parsed_intent)
+        self.assertEqual(meeting['contactName'], 'Marcus Vance')
+        self.assertEqual(meeting['contactEmail'], 'marcus@globalfintech.com')
+        self.assertEqual(meeting['influencerName'], 'Sarah Jenkins')
+        self.assertEqual(meeting['timeString'], 'Thursday at 3:00 PM EST')
+        self.assertEqual(len(state['meetings']), 1)
+        self.assertTrue(prospect['hasScheduledMeeting'])
+        self.assertEqual(prospect['outreachStatus'], 'Meeting Scheduled')
+        self.assertIn('meetingUrl', prospect['meetingDetails'])
+
+    def test_admin_sync_outreach_endpoint(self):
+        handler = DummyHandler(headers={'authorization': 'Bearer admin-test-token'}, path='/api/admin/sync-outreach')
+        test_state = {
+            'contacts': [
+                {
+                    'id': '101',
+                    'fullName': 'David Warner',
+                    'email': 'david@sunrisers.com',
+                    'company': 'Sunrisers',
+                    'jobTitle': 'VP Growth',
+                    'isInfluencer': False,
+                    'referrals': []
+                }
+            ],
+            'meetings': []
+        }
+        with patch('server.read_workbook_state', return_value=test_state), \
+             patch('server.write_workbook_state') as mock_write, \
+             patch('server.json_response') as mock_json:
+            payload = {
+                'prospectId': '101',
+                'messageText': "Hi Team, thanks for the intro! Let's do a meeting this Friday at 11:00 AM EST to discuss."
+            }
+            result = server.handle_admin_api_routes(handler, 'POST', '/api/admin/sync-outreach', payload=payload)
+            self.assertTrue(result)
+            mock_json.assert_called_once()
+            code, data = mock_json.call_args[0][1], mock_json.call_args[0][2]
+            self.assertEqual(code, 200)
+            self.assertTrue(data['success'])
+            self.assertEqual(data['updatedProspects'], 1)
+            self.assertEqual(data['newReplies'], 1)
+            self.assertEqual(data['newMeetings'], 1)
+            mock_write.assert_called_once()
+            updated_p = test_state['contacts'][0]
+            self.assertTrue(updated_p['hasReply'])
+            self.assertEqual(updated_p['replySentiment'], 'meeting_requested')
+            self.assertEqual(updated_p['outreachStatus'], 'Meeting Scheduled')
+
 
 if __name__ == '__main__':
     unittest.main()
