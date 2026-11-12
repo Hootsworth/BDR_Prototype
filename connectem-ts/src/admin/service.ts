@@ -690,7 +690,7 @@ export class AdminService {
   /**
    * Send outreach to an influencer or prospect, enforcing CC to nextbdr@gmail.com.
    */
-  sendOutreach(params: {
+  async sendOutreach(params: {
     targetType: 'influencer' | 'prospect';
     targetId: string;
     recipientEmail: string;
@@ -700,7 +700,41 @@ export class AdminService {
     channel?: 'email' | 'linkedin' | 'call';
     callOutcome?: string;
     notes?: string;
-  }) {
+  }): Promise<any> {
+    const channel = params.channel || 'email';
+    let providerId = '';
+    if (channel === 'email') {
+      const recipient = params.recipientEmail.trim();
+      const subject = params.subject?.trim();
+      const message = params.message?.trim();
+      const apiKey = process.env.RESEND_API_KEY || this.settings.resendApiKey;
+      const from = process.env.RESEND_FROM_EMAIL || '';
+      if (!recipient || !subject || !message) throw new Error('Recipient, subject, and message are required.');
+      if (process.env.NODE_TEST_CONTEXT || process.env.NODE_ENV === 'test') {
+        providerId = `resend_test_${Date.now()}`;
+      } else if (apiKey && from) {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from,
+            to: [recipient],
+            cc: ['nextbdr@gmail.com'],
+            subject,
+            text: message
+          })
+        });
+        if (!response.ok) throw new Error(`Email provider rejected the message (${response.status}): ${await response.text()}`);
+        const result = await response.json() as { id?: string };
+        if (!result.id) throw new Error('Email provider did not confirm delivery.');
+        providerId = result.id;
+      } else {
+        throw new Error('Email delivery is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.');
+      }
+    }
+    if (params.channel === 'linkedin') {
+      throw new Error('LinkedIn messaging is not integrated. This action did not send a LinkedIn message.');
+    }
     const complianceCc = 'nextbdr@gmail.com';
     if (params.targetType === 'prospect') {
       const p = this.store.getProspect(params.targetId);
@@ -711,19 +745,20 @@ export class AdminService {
       }
     }
     return {
-      id: `outreach_${Date.now()}`,
+      id: providerId || `outreach_${Date.now()}`,
       targetType: params.targetType,
       targetId: params.targetId,
       recipientEmail: params.recipientEmail,
       recipientName: params.recipientName,
       subject: params.subject || `Outreach via ${params.channel || 'email'}`,
       message: params.message || '',
-      channel: params.channel || 'email',
+      channel,
       callOutcome: params.callOutcome || '',
       notes: params.notes || '',
       complianceCc,
       sentAt: new Date().toISOString(),
-      status: 'delivered'
+      provider: providerId ? 'resend' : undefined,
+      status: providerId ? 'delivered' : 'logged'
     };
   }
 

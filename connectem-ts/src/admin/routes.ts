@@ -190,7 +190,7 @@ export async function handleAdminRoute(
         callOutcome?: string;
         notes?: string;
       }>();
-      const outreach = service.sendOutreach(body);
+      const outreach = await service.sendOutreach(body);
       sendJson(200, { success: true, data: outreach });
       return true;
     }

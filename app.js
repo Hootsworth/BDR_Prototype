@@ -13,6 +13,16 @@
   const rewardsCart = new Set();
   let activeRewardCategory = 'all';
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // DOM Elements
   const authSection = document.getElementById('auth-section');
   const workspaceSection = document.getElementById('workspace-section');
@@ -242,15 +252,15 @@
 
       card.innerHTML = `
         <div class="connection-meta">
-          <input type="checkbox" class="connection-checkbox" data-id="${item.id}" checked>
-          <div class="connection-avatar">${initials}</div>
+          <input type="checkbox" class="connection-checkbox" data-id="${escapeHtml(item.id)}" checked>
+          <div class="connection-avatar">${escapeHtml(initials)}</div>
           <div>
-            <div style="font-weight:600; color:var(--ink);">${item.fullName}</div>
-            <div style="font-size:13px; color:var(--muted);">${item.jobTitle} · <strong style="color:var(--ink); font-weight:500;">${item.company}</strong></div>
-            <div style="font-size:12px; color:var(--body); margin-top:2px;">${item.relationshipContext}</div>
+            <div style="font-weight:600; color:var(--ink);">${escapeHtml(item.fullName)}</div>
+            <div style="font-size:13px; color:var(--muted);">${escapeHtml(item.jobTitle)} · <strong style="color:var(--ink); font-weight:500;">${escapeHtml(item.company)}</strong></div>
+            <div style="font-size:12px; color:var(--body); margin-top:2px;">${escapeHtml(item.relationshipContext)}</div>
           </div>
         </div>
-        <span class="badge-tag ${item.relationshipStrength || 'strong'}">${(item.relationshipStrength || 'strong').toUpperCase()}</span>
+        <span class="badge-tag ${escapeHtml(item.relationshipStrength || 'strong')}">${escapeHtml((item.relationshipStrength || 'strong').toUpperCase())}</span>
       `;
 
       card.querySelector('input.connection-checkbox')?.addEventListener('change', (e) => {
@@ -449,10 +459,10 @@
       const grantBtn = document.getElementById('grant-gmail-perm-btn');
       if (statusEl) {
         if (gmailConnected) {
-          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Gmail Connected (${gmailRes.email || currentPartner?.email || ''})</span>`;
+          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Email delivery ready via ${gmailRes.provider || 'Resend'}</span>`;
           if (grantBtn) grantBtn.style.display = 'none';
         } else {
-          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Permission Required</span>`;
+          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Email provider not configured</span>`;
           if (grantBtn) grantBtn.style.display = 'inline-block';
         }
       }
@@ -527,22 +537,22 @@
       const strengthClass = item.relationshipStrength || 'strong';
       tr.innerHTML = `
         <td>
-          <strong style="color:var(--ink);">${item.fullName}</strong>
-          <div style="font-size:12px; color:var(--muted);">${item.jobTitle || 'Executive'}</div>
+          <strong style="color:var(--ink);">${escapeHtml(item.fullName)}</strong>
+          <div style="font-size:12px; color:var(--muted);">${escapeHtml(item.jobTitle || 'Executive')}</div>
         </td>
         <td>
-          <span style="font-weight:500;">${item.company}</span>
-          <div style="font-size:12px; color:var(--muted);">${item.email}</div>
+          <span style="font-weight:500;">${escapeHtml(item.company)}</span>
+          <div style="font-size:12px; color:var(--muted);">${escapeHtml(item.email)}</div>
         </td>
         <td>
-          <span class="badge-tag ${strengthClass}">${strengthClass.toUpperCase()}</span>
+          <span class="badge-tag ${escapeHtml(strengthClass)}">${escapeHtml(strengthClass.toUpperCase())}</span>
         </td>
         <td>
-          <div style="font-size:13px; max-width:300px;">${item.relationshipContext || 'Advisory relationship'}</div>
-          ${item.phone ? `<div class="code-text" style="color:var(--muted); font-size:11px;">${item.phone}</div>` : ''}
+          <div style="font-size:13px; max-width:300px;">${escapeHtml(item.relationshipContext || 'Advisory relationship')}</div>
+          ${item.phone ? `<div class="code-text" style="color:var(--muted); font-size:11px;">${escapeHtml(item.phone)}</div>` : ''}
         </td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="window.quickReachOut('${item.id}')">
+          <button class="btn btn-secondary btn-sm" onclick="window.quickReachOut('${escapeHtml(item.id)}')">
             Contact
           </button>
         </td>
@@ -566,25 +576,26 @@
       card.style.padding = '18px';
 
       // Call button: If Twilio is enabled, show direct Call dialer; if disabled, show 'Mark as Called'
+      const safeId = escapeHtml(item.id);
       const callButtonHtml = twilioEnabled
-        ? `<button class="btn btn-secondary btn-sm" type="button" onclick="window.openCallDialog('${item.id}')">Call</button>`
-        : `<button class="btn btn-tertiary btn-sm" type="button" onclick="window.openCallDialog('${item.id}')">Mark as Called</button>`;
+        ? `<button class="btn btn-secondary btn-sm" type="button" onclick="window.openCallDialog('${safeId}')">Call</button>`
+        : `<button class="btn btn-tertiary btn-sm" type="button" onclick="window.openCallDialog('${safeId}')">Mark as Called</button>`;
 
       card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
           <div>
-            <strong style="color:var(--ink); font-size:16px;">${item.fullName}</strong>
-            <div style="font-size:13px; color:var(--muted);">${item.jobTitle} · ${item.company}</div>
+            <strong style="color:var(--ink); font-size:16px;">${escapeHtml(item.fullName)}</strong>
+            <div style="font-size:13px; color:var(--muted);">${escapeHtml(item.jobTitle)} · ${escapeHtml(item.company)}</div>
           </div>
-          <span class="badge-tag ${item.relationshipStrength || 'strong'}">${(item.relationshipStrength || 'strong').toUpperCase()}</span>
+          <span class="badge-tag ${escapeHtml(item.relationshipStrength || 'strong')}">${escapeHtml((item.relationshipStrength || 'strong').toUpperCase())}</span>
         </div>
         <p style="font-size:12px; color:var(--body); margin: 8px 0 14px;">
-          ${item.relationshipContext || 'Strategic partner connection.'}
+          ${escapeHtml(item.relationshipContext || 'Strategic partner connection.')}
         </p>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-primary btn-sm" type="button" onclick="window.openEmailComposer('${item.id}')">Send Email</button>
+          <button class="btn btn-primary btn-sm" type="button" onclick="window.openEmailComposer('${safeId}')">Send Email</button>
           ${callButtonHtml}
-          <button class="btn btn-secondary btn-sm" type="button" onclick="window.openLinkedInDialog('${item.id}')">LinkedIn</button>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="window.openLinkedInDialog('${safeId}')">LinkedIn</button>
         </div>
       `;
       reachCardsGrid.appendChild(card);
@@ -628,40 +639,41 @@
 
       const isPending = req.status === 'pending_partner_review';
 
+      const safeReqId = escapeHtml(req.id);
       card.innerHTML = `
         <div class="request-card-head">
           <div>
-            <span class="timeline-pill ${pillClass}">${pillLabel}</span>
-            <span style="font-size:13px; color:var(--muted); margin-left:10px;">ID: <span class="code-text">${req.id}</span></span>
+            <span class="timeline-pill ${escapeHtml(pillClass)}">${escapeHtml(pillLabel)}</span>
+            <span style="font-size:13px; color:var(--muted); margin-left:10px;">ID: <span class="code-text">${safeReqId}</span></span>
           </div>
-          <span class="score-badge">Match: ${req.warmPathScore || 90}%</span>
+          <span class="score-badge">Match: ${escapeHtml(String(req.warmPathScore || 90))}%</span>
         </div>
 
         <div style="margin-bottom: 14px;">
           <h3 class="title-md" style="margin-bottom: 4px;">
-            <strong style="color:var(--primary);">${req.vendorName}</strong> requesting introduction to <strong>${req.prospectName}</strong> (${req.prospectCompany})
+            <strong style="color:var(--primary);">${escapeHtml(req.vendorName)}</strong> requesting introduction to <strong>${escapeHtml(req.prospectName)}</strong> (${escapeHtml(req.prospectCompany)})
           </h3>
         </div>
 
         <div class="brief-box">
           <strong>Summary</strong>
-          <p>${req.forwardableBrief}</p>
+          <p>${escapeHtml(req.forwardableBrief)}</p>
         </div>
 
         <div class="brief-box" style="margin-bottom: 16px;">
           <strong>Details</strong>
-          <p>${req.specificAsk}</p>
+          <p>${escapeHtml(req.specificAsk)}</p>
         </div>
 
         ${isPending ? `
           <div class="request-actions">
-            <button class="btn btn-primary" onclick="window.reviewRequest('${req.id}', 'approved')">
+            <button class="btn btn-primary" onclick="window.reviewRequest('${safeReqId}', 'approved')">
               Approve
             </button>
-            <button class="btn btn-secondary" onclick="window.reviewRequest('${req.id}', 'declined')">
+            <button class="btn btn-secondary" onclick="window.reviewRequest('${safeReqId}', 'declined')">
               Decline
             </button>
-            <button class="btn btn-tertiary" onclick="window.reviewRequest('${req.id}', 'needs_context')">
+            <button class="btn btn-tertiary" onclick="window.reviewRequest('${safeReqId}', 'needs_context')">
               Details
             </button>
           </div>
@@ -726,12 +738,13 @@
         deal_won: 'Customer close',
         customer_expansion: 'Customer expansion'
       };
+      const stageLabel = stageLabels[item.stage] || item.stage || 'Milestone';
       tr.innerHTML = `
-        <td><span class="timeline-pill done">${stageLabels[item.stage] || item.stage}</span></td>
-        <td><strong class="code-text">+${(item.creditsAwarded ?? item.pointsAwarded).toLocaleString()} credits</strong></td>
-        <td><strong style="color:var(--semantic-success);">$${(item.verifiedRevenue || 0).toLocaleString()}</strong></td>
-        <td style="font-size:13px;">${item.notes || 'Milestone achieved'}</td>
-        <td class="code-text" style="font-size:12px; color:var(--muted);">${new Date(item.timestamp).toLocaleDateString()}</td>
+        <td><span class="timeline-pill done">${escapeHtml(stageLabel)}</span></td>
+        <td><strong class="code-text">+${escapeHtml(String((item.creditsAwarded ?? item.pointsAwarded).toLocaleString()))} credits</strong></td>
+        <td><strong style="color:var(--semantic-success);">$${escapeHtml(String((item.verifiedRevenue || 0).toLocaleString()))}</strong></td>
+        <td style="font-size:13px;">${escapeHtml(item.notes || 'Milestone achieved')}</td>
+        <td class="code-text" style="font-size:12px; color:var(--muted);">${escapeHtml(new Date(item.timestamp).toLocaleDateString())}</td>
       `;
       attributionLedgerTbody.appendChild(tr);
     });
@@ -1684,7 +1697,7 @@
       });
 
       closeEmailComposer();
-      showToast(`Email delivered internally! Compliance copy CC'd to ${activity.adminCcEnforced}`);
+      showToast(`Email sent successfully. Compliance copy CC'd to ${activity.adminCcEnforced}`);
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
@@ -1820,7 +1833,7 @@
         method: 'POST',
         body: JSON.stringify({ email })
       });
-      showToast(`Gmail internal outreach permission granted for ${email}`);
+      showToast('Email delivery provider is configured.');
       await loadOutreachStatus();
     } catch (e) {
       showToast(e.message, 'error');
@@ -1877,13 +1890,13 @@
       });
     }
 
-    // Add Gmail status notification
-    if (currentPartner.gmailConnected) {
+    // Add outbound email provider notification
+    if (gmailConnected) {
       items.push({
         id: 'gmail-' + currentPartner.id,
-        title: 'In-App Gmail Outreach Active',
-        text: `Compliance CC enforced: nextbdr@gmail.com for internal outreach.`,
-        time: 'Connected',
+        title: 'Outbound Email Ready',
+        text: `Resend delivery enabled. Compliance CC enforced: nextbdr@gmail.com.`,
+        time: 'Active',
         type: 'gmail'
       });
     }
@@ -1913,32 +1926,33 @@
       const el = document.createElement('div');
       el.className = `notification-item ${item.type === 'intro_request' && !notificationsDismissed ? 'unread' : ''}`;
 
+      const safeItemId = escapeHtml(item.id);
       if (item.type === 'intro_request') {
         el.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
             <div class="notification-title" style="color:var(--ink); font-weight:600;">
-              Intro Request: ${item.vendor}
+              Intro Request: ${escapeHtml(item.vendor)}
             </div>
-            <span class="badge-tag strong" style="font-size:10px; padding:2px 6px;">${item.score}% match</span>
+            <span class="badge-tag strong" style="font-size:10px; padding:2px 6px;">${escapeHtml(String(item.score))}% match</span>
           </div>
           <div class="notification-text" style="margin-top:3px; font-weight:500; color:var(--ink);">
-            To: ${item.prospect} ${item.company ? `(${item.company})` : ''}
+            To: ${escapeHtml(item.prospect)} ${item.company ? `(${escapeHtml(item.company)})` : ''}
           </div>
-          ${item.brief ? `<div style="font-size:11.5px; color:var(--muted); background:var(--canvas-soft); border:1px solid var(--hairline); padding:6px 8px; border-radius:var(--radius-sm); margin-top:5px; line-height:1.35;">${item.brief}</div>` : ''}
+          ${item.brief ? `<div style="font-size:11.5px; color:var(--muted); background:var(--canvas-soft); border:1px solid var(--hairline); padding:6px 8px; border-radius:var(--radius-sm); margin-top:5px; line-height:1.35;">${escapeHtml(item.brief)}</div>` : ''}
           <div class="notification-actions" style="display:flex; gap:6px; margin-top:8px;">
-            <button class="btn btn-primary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${item.id}', 'approved')">
+            <button class="btn btn-primary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${safeItemId}', 'approved')">
               Approve (+15 pts)
             </button>
-            <button class="btn btn-secondary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${item.id}', 'declined')">
+            <button class="btn btn-secondary btn-sm" type="button" style="padding:4px 10px; font-size:11.5px;" onclick="event.stopPropagation(); window.reviewNotificationRequest('${safeItemId}', 'declined')">
               Decline
             </button>
           </div>
         `;
       } else {
         el.innerHTML = `
-          <div class="notification-title">${item.title}</div>
-          <div class="notification-text">${item.text}</div>
-          <div class="notification-time">${item.time}</div>
+          <div class="notification-title">${escapeHtml(item.title)}</div>
+          <div class="notification-text">${escapeHtml(item.text)}</div>
+          <div class="notification-time">${escapeHtml(item.time)}</div>
         `;
         el.addEventListener('click', () => {
           if (notificationsDropdown) notificationsDropdown.style.display = 'none';

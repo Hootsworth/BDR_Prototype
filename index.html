@@ -3227,7 +3227,8 @@
                   <label class="settings-label" for="setting-google-redirect-uri">OAuth Redirect URI</label>
                   <input type="url" id="setting-google-redirect-uri" class="settings-input" value="http://localhost:8002/api/google/oauth/callback">
                 </div>
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                  <button type="button" class="btn-sm-curved" style="background: var(--ink); color: #fff;" onclick="window.location.assign('/api/google/oauth/start')">Authorize Google (Ask All Permissions)</button>
                   <button type="button" class="btn-sm-curved secondary" onclick="verifyGoogleWorkspace()">Test Gmail &amp; Calendar</button>
                   <button type="button" class="btn-sm-curved secondary" onclick="syncGmailReplies()">Sync Gmail Replies</button>
                 </div>
@@ -3849,6 +3850,18 @@ ConnectEM Admin Team</textarea>
 
     // Authentication
     function checkAdminAuth() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      const urlEmail = urlParams.get('email');
+      if (urlToken) {
+        localStorage.setItem('connectem_admin_token', urlToken);
+        if (urlEmail) {
+          localStorage.setItem('connectem_admin_email', urlEmail);
+          const emailDisplay = document.getElementById('admin-compliance-email');
+          if (emailDisplay) emailDisplay.textContent = `Admin: ${urlEmail}`;
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       const token = localStorage.getItem('connectem_admin_token');
       if (token || window.location.search.includes('test=true')) {
         showConsoleView();
@@ -3912,7 +3925,38 @@ ConnectEM Admin Team</textarea>
       const errBanner = document.getElementById('login-error-banner');
       if (errBanner) errBanner.style.display = 'none';
 
-      // 1. Try Google Identity Services
+      // 1. Try Google Identity Services OAuth 2.0 Code Client (requests all scopes: Gmail Send, Modify, Calendar)
+      if (window.google?.accounts?.oauth2?.initCodeClient) {
+        try {
+          const client = window.google.accounts.oauth2.initCodeClient({
+            client_id: window.GoogleConfig?.clientId || '',
+            scope: 'openid email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.events',
+            ux_mode: 'popup',
+            callback: async (response) => {
+              if (response.code) {
+                await sendGoogleAdminAuth({ code: response.code });
+              } else if (response.error) {
+                console.warn('Google OAuth code error:', response);
+                window.location.assign('/api/google/oauth/start');
+              }
+            }
+          });
+          client.requestCode();
+          return;
+        } catch (e) {
+          console.warn('GIS Code Client failed, falling back:', e);
+        }
+      }
+
+      // 2. Try server-side OAuth redirect which enforces prompt=consent and all scopes
+      try {
+        window.location.assign('/api/google/oauth/start');
+        return;
+      } catch (e) {
+        console.warn('OAuth redirect start failed:', e);
+      }
+
+      // 3. Fallback to Google Identity Services One Tap / ID
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
           client_id: window.GoogleConfig?.clientId || '',
@@ -3930,16 +3974,21 @@ ConnectEM Admin Team</textarea>
         return;
       }
 
-      // 2. Try Firebase Auth popup if initialized
+      // 4. Try Firebase Auth popup if initialized
       if (window.firebase?.auth) {
         try {
           const provider = new window.firebase.auth.GoogleAuthProvider();
+          provider.addScope('https://www.googleapis.com/auth/gmail.send');
+          provider.addScope('https://www.googleapis.com/auth/gmail.modify');
+          provider.addScope('https://www.googleapis.com/auth/calendar.events');
+          provider.setCustomParameters({ prompt: 'consent', access_type: 'offline' });
           const authResult = await window.firebase.auth().signInWithPopup(provider);
           if (authResult?.user) {
             await sendGoogleAdminAuth({
               email: authResult.user.email,
               name: authResult.user.displayName,
-              idToken: await authResult.user.getIdToken()
+              idToken: await authResult.user.getIdToken(),
+              accessToken: authResult.credential?.accessToken
             });
             return;
           }
@@ -4637,6 +4686,7 @@ ConnectEM Admin Team</textarea>
       } else if (channel === 'linkedin') {
         payload.subject = 'LinkedIn InMail Connection';
         payload.message = document.getElementById('studio-li-note').value;
+        payload.linkedinUrl = selectedOutreachProspect.linkedinUrl || '';
       } else if (channel === 'call') {
         payload.callOutcome = document.getElementById('studio-call-outcome').value;
         payload.notes = document.getElementById('studio-call-notes').value;
@@ -4654,7 +4704,15 @@ ConnectEM Admin Team</textarea>
           selectedOutreachProspect.outreachStatus = channel === 'call' ? payload.callOutcome : (channel === 'email' ? 'Intro Sent' : 'Contacted');
           renderOutreachPeopleList();
           renderProspectsTable();
-          showToast(`Outreach sent to ${selectedOutreachProspect.fullName} (CC: nextbdr@gmail.com).`);
+          if (channel === 'linkedin') {
+            try { await navigator.clipboard.writeText(payload.message); } catch (_) {}
+            if (payload.linkedinUrl && typeof window.open === 'function') {
+              window.open(payload.linkedinUrl, '_blank', 'noopener,noreferrer');
+            }
+            showToast(`LinkedIn outreach recorded for ${selectedOutreachProspect.fullName}. Note copied to clipboard.`);
+          } else {
+            showToast(`Outreach sent to ${selectedOutreachProspect.fullName} (CC: nextbdr@gmail.com).`);
+          }
         } else {
           alert(result.error || 'Outreach dispatch failed.');
         }
@@ -5493,10 +5551,22 @@ ConnectEM Admin Team</textarea>
         if (settings.googleClientId) {
           const el = document.getElementById('setting-google-client-id');
           if (el) el.value = settings.googleClientId;
+          if (window.GoogleConfig) window.GoogleConfig.clientId = settings.googleClientId;
         }
         if (settings.googleRedirectUri) {
           const el = document.getElementById('setting-google-redirect-uri');
           if (el) el.value = settings.googleRedirectUri;
+        }
+        if (settings.googleClientSecretConfigured) {
+          const el = document.getElementById('setting-google-client-secret');
+          if (el) el.placeholder = 'Configured in Vercel Environment · Leave blank to preserve';
+        }
+        if (settings.googleConfiguredViaEnv) {
+          const badge = document.querySelector('#set-subpanel-integrations .settings-card:has(#setting-google-client-id) .settings-badge-status');
+          if (badge) {
+            badge.textContent = 'Active (Vercel Env)';
+            badge.className = 'settings-badge-status active';
+          }
         }
         if (settings.twilioAccountSid) {
           const el = document.getElementById('setting-twilio-sid');
@@ -5601,9 +5671,9 @@ ConnectEM Admin Team</textarea>
         adminEmail: document.getElementById('setting-admin-email')?.value.trim() || 'nextbdr@gmail.com',
         notificationEmail: document.getElementById('setting-notification-email')?.value.trim() || 'nextbdr@gmail.com',
 
-        // Integrations
+        // Integrations (only overwrite secret if explicitly entered)
         googleClientId: document.getElementById('setting-google-client-id')?.value.trim() || '',
-        googleClientSecret: document.getElementById('setting-google-client-secret')?.value.trim() || '',
+        ...(document.getElementById('setting-google-client-secret')?.value.trim() ? { googleClientSecret: document.getElementById('setting-google-client-secret').value.trim() } : {}),
         googleRedirectUri: document.getElementById('setting-google-redirect-uri')?.value.trim() || '',
         twilioAccountSid: document.getElementById('setting-twilio-sid')?.value.trim() || '',
         twilioAuthToken: document.getElementById('setting-twilio-auth-token')?.value.trim() || '',
@@ -5757,22 +5827,45 @@ ConnectEM Admin Team</textarea>
       document.getElementById('modal-dev-sandbox').style.display = 'flex';
     }
 
-    function executeSandboxAction() {
-      showToast(`Ran test request for ${currentActiveSandbox.toUpperCase()}. Connection verified.`);
+    async function executeSandboxAction() {
+      const type = currentActiveSandbox;
+      try {
+        const res = await fetch('/api/admin/sandbox-test', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ provider: type })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Verified live sandbox for ${type.toUpperCase()}: ${data.summary || 'Connected and functional'}`);
+        } else {
+          showToast(data.error || `Sandbox check for ${type.toUpperCase()} failed.`);
+        }
+      } catch (err) {
+        showToast(`Sandbox check error: ${err.message}`);
+      }
       closeModals();
     }
 
     async function verifyGoogleWorkspace() {
       try {
-        const res = await fetch('/api/partner-portal/google/status');
+        const res = await fetch('/api/google/verify');
         const data = await res.json();
-        if (data && data.connected) {
-          showToast(`Google Workspace connected as ${data.email || 'nextbdr@gmail.com'}. Status: Verified.`);
+        if (data && (data.status === 'verified' || data.gmail)) {
+          showToast(`Google Workspace connected as ${data.gmail?.email || 'nextbdr@gmail.com'}. Messages: ${data.gmail?.messagesTotal || 0}`);
+          return;
+        }
+      } catch (_) {}
+      try {
+        const statusRes = await fetch('/api/partner-portal/google/status');
+        const statusData = await statusRes.json();
+        if (statusData && statusData.connected) {
+          showToast(`Google Workspace connected as ${statusData.email || 'nextbdr@gmail.com'}.`);
         } else {
-          showToast('Google Workspace credentials ready. Admin CC: nextbdr@gmail.com is active.');
+          showToast('Google Workspace not connected. Click "Authorize Google" to grant Gmail permissions.');
         }
       } catch {
-        showToast('Google Workspace verified. Admin CC: nextbdr@gmail.com active.');
+        showToast('Google Workspace verification error. Reconnect Google to verify.');
       }
     }
 
@@ -5788,30 +5881,77 @@ ConnectEM Admin Team</textarea>
     }
 
     async function verifyLinkedInConnection() {
-      const id = document.getElementById('setting-linkedin-id')?.value;
-      const secret = document.getElementById('setting-linkedin-secret')?.value;
-      if (id || secret) {
-        showToast('LinkedIn OAuth application credentials verified & stored.');
-      } else {
-        showToast('LinkedIn OAuth ready. Enter Client ID and Secret to link personal developer app.');
+      const clientId = document.getElementById('setting-linkedin-client-id')?.value?.trim();
+      const accessToken = document.getElementById('setting-linkedin-access-token')?.value?.trim();
+      if (!accessToken && !clientId) {
+        showToast('Enter your LinkedIn OAuth Access Token or Client ID.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/linkedin/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: accessToken || 'demo_oauth_token', clientId: clientId || '' })
+        });
+        const data = await res.json();
+        if (data.status === 'verified') {
+          showToast(`LinkedIn Verified: ${data.name} (${data.email || 'Member'}) · Mode: ${data.mode || 'live'}`);
+          const badge = document.querySelector('#set-subpanel-integrations .settings-card:has(#setting-linkedin-client-id) .settings-badge-status');
+          if (badge) {
+            badge.textContent = 'Connected';
+            badge.className = 'settings-badge-status active';
+          }
+        } else {
+          showToast(data.error || 'LinkedIn verification failed.');
+        }
+      } catch (err) {
+        showToast('LinkedIn verification error: ' + err.message);
       }
     }
 
     async function testLemlistConnection() {
-      const key = document.getElementById('setting-lemlist-key')?.value;
-      if (key) {
-        showToast('Lemlist MCP connection verified with configured API key.');
-      } else {
+      const key = document.getElementById('setting-lemlist-key')?.value?.trim();
+      if (!key) {
         showToast('Enter your Lemlist API key above to connect the outbound MCP server.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/test-lemlist', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ apiKey: key })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Lemlist API connection verified.');
+        } else {
+          showToast(data.error || 'Lemlist verification failed.');
+        }
+      } catch (e) {
+        showToast('Lemlist error: ' + e.message);
       }
     }
 
     async function testFirecrawlScraper() {
-      const key = document.getElementById('setting-firecrawl-key')?.value;
-      if (key) {
-        showToast('Firecrawl API connection verified. Scraper initialized.');
-      } else {
+      const key = document.getElementById('setting-firecrawl-key')?.value?.trim();
+      if (!key) {
         showToast('Enter your Firecrawl API key above to initialize the scraper.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/test-firecrawl', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ apiKey: key })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Firecrawl API connection verified.');
+        } else {
+          showToast(data.error || 'Firecrawl verification failed.');
+        }
+      } catch (e) {
+        showToast('Firecrawl error: ' + e.message);
       }
     }
 
@@ -5825,7 +5965,21 @@ ConnectEM Admin Team</textarea>
         showToast('Invalid Slack Webhook URL. It must begin with https://hooks.slack.com/');
         return;
       }
-      showToast('Slack alert dispatched to configured channel.');
+      try {
+        const res = await fetch('/api/admin/test-slack', {
+          method: 'POST',
+          headers: getAdminHeaders(),
+          body: JSON.stringify({ webhookUrl: url })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Slack alert dispatched successfully to channel.');
+        } else {
+          showToast(data.error || 'Slack alert delivery failed.');
+        }
+      } catch (e) {
+        showToast('Slack alert error: ' + e.message);
+      }
     }
 
     async function exportDatabaseState() {

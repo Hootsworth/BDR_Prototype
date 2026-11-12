@@ -9,6 +9,8 @@ import base64
 import gzip
 import hashlib
 import json
+import re
+import secrets
 import time
 from datetime import datetime, timezone, timedelta
 from functools import lru_cache
@@ -124,12 +126,20 @@ def _admin_app():
         try:
             return firebase_admin.get_app()
         except ValueError:
-            is_vercel = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
-            if is_vercel and os.environ.get("GCP_WORKLOAD_IDENTITY_POOL_ID"):
+            service_account_info = os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY") or os.environ.get("GOOGLE_CREDENTIALS_JSON")
+            if service_account_info:
+                try:
+                    if os.path.exists(service_account_info):
+                        credential = credentials.Certificate(service_account_info)
+                    else:
+                        credential = credentials.Certificate(json.loads(service_account_info))
+                except Exception as exc:
+                    raise FirebaseBackendUnavailable(f"Invalid service account key: {exc}")
+            elif is_vercel and os.environ.get("GCP_WORKLOAD_IDENTITY_POOL_ID"):
                 credential = _vercel_firebase_credential(firebase_admin)
             elif is_vercel:
                 raise FirebaseBackendUnavailable(
-                    "Vercel Firestore access requires Google Workload Identity Federation settings."
+                    "Vercel Firestore access requires FIREBASE_SERVICE_ACCOUNT_KEY or Google Workload Identity Federation settings."
                 )
             else:
                 credential = credentials.ApplicationDefault()
@@ -462,3 +472,116 @@ def verify_admin_token(token):
     if subject not in allowed_subjects and not (email_is_verified and email in allowed_subjects):
         raise FirebaseTokenInvalid("This account is not authorized for IRM administration.")
     return claims
+
+
+def firestore_check_email_sent(fingerprint):
+    if not firestore_enabled():
+        return False
+    try:
+        doc = _firestore_client().collection("sentEmails").document(str(fingerprint)).get()
+        return doc.exists
+    except Exception:
+        return False
+
+
+def firestore_get_daily_sent_count(today_date):
+    if not firestore_enabled():
+        return 0
+    try:
+        docs = _firestore_client().collection("sentEmails").where("sentAtDate", "==", str(today_date)).stream()
+        return sum(1 for _ in docs)
+    except Exception:
+        return 0
+
+
+def firestore_record_sent_email(fingerprint, recipient, subject, provider_id, sent_at):
+    if not firestore_enabled():
+        return
+    try:
+        today_date = sent_at[:10] if len(sent_at) >= 10 else time.strftime('%Y-%m-%d', time.gmtime())
+        _firestore_client().collection("sentEmails").document(str(fingerprint)).set({
+            "fingerprint": str(fingerprint),
+            "recipient": str(recipient),
+            "subject": str(subject),
+            "providerId": str(provider_id),
+            "sentAt": str(sent_at),
+            "sentAtDate": today_date
+        })
+    except Exception:
+        pass
+
+
+def firestore_check_rate_limit(bucket_name, client_ip, max_requests, window_seconds=60):
+    if not firestore_enabled():
+        return None
+    try:
+        client = _firestore_client()
+        safe_key = f"{bucket_name}_{re.sub(r'[^a-zA-Z0-9_-]', '_', str(client_ip))}"
+        doc_ref = client.collection("rateLimits").document(safe_key)
+        now = time.time()
+        cutoff = now - window_seconds
+        snap = doc_ref.get()
+        data = snap.to_dict() or {} if snap.exists else {}
+        timestamps = data.get("timestamps") or []
+        recent = [t for t in timestamps if isinstance(t, (int, float)) and t > cutoff]
+        if len(recent) >= max_requests:
+            retry_after = int(window_seconds - (now - recent[0])) + 1
+            return False, max(1, retry_after)
+        recent.append(now)
+        doc_ref.set({
+            "bucket": bucket_name,
+            "ip": str(client_ip),
+            "timestamps": recent,
+            "lastUpdated": now,
+            "expiresAt": now + window_seconds
+        })
+        return True, 0
+    except Exception:
+        return None
+
+
+def firestore_verify_connection():
+    if not firestore_enabled():
+        return False, {"error": "FIREBASE_USE_FIRESTORE is not enabled."}
+    try:
+        start_time = time.time()
+        client = _firestore_client()
+        test_id = f"test_{int(time.time())}_{secrets.token_hex(4)}"
+        test_ref = client.collection("_healthCheck").document(test_id)
+        now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        
+        # 1. Create (Write)
+        test_ref.set({"testId": test_id, "createdAt": now_iso, "status": "active"})
+        
+        # 2. Read
+        snap = test_ref.get()
+        if not snap.exists or snap.to_dict().get("testId") != test_id:
+            return False, {"error": "Firestore write succeeded but document was not readable."}
+            
+        # 3. Update
+        test_ref.update({"status": "verified", "updatedAt": now_iso})
+        
+        # 4. Read Update
+        snap_updated = test_ref.get()
+        if snap_updated.to_dict().get("status") != "verified":
+            return False, {"error": "Firestore update verification failed."}
+            
+        # 5. Delete
+        test_ref.delete()
+        snap_deleted = test_ref.get()
+        if snap_deleted.exists:
+            return False, {"error": "Firestore delete verification failed; document still exists."}
+            
+        elapsed_ms = round((time.time() - start_time) * 1000, 2)
+        project_id = configured_project_id()
+        return True, {
+            "status": "verified",
+            "provider": "firestore",
+            "projectId": project_id,
+            "latencyMs": elapsed_ms,
+            "operationsVerified": ["create", "read", "update", "delete"],
+            "collection": "_healthCheck",
+            "message": f"Full persistent CRUD lifecycle verified in {elapsed_ms}ms on project {project_id}."
+        }
+    except Exception as exc:
+        return False, {"error": str(exc), "status": "failed"}

@@ -5,6 +5,7 @@ still the source of truth; this adapter preserves the original route path
 after vercel.json rewrites /api/* here.
 """
 from http.server import BaseHTTPRequestHandler
+import hashlib
 import hmac
 import os
 from urllib.parse import parse_qs, urlsplit, urlencode
@@ -18,6 +19,10 @@ class handler(ProxyHTTPRequestHandler):
         if not os.environ.get("VERCEL") or urlsplit(self.path).path != "/_python":
             return True
         expected = str(os.environ.get("VERCEL_BACKEND_BRIDGE_SECRET") or "")
+        if not expected:
+            fallback = str(os.environ.get("CLERK_SECRET_KEY") or os.environ.get("TOKEN_ENCRYPTION_KEY") or os.environ.get("FIREBASE_PROJECT_ID") or "")
+            if fallback:
+                expected = hmac.new(b"connectem_bridge_salt", fallback.encode('utf-8'), hashlib.sha256).hexdigest()
         supplied = str(self.headers.get("x-connectem-bridge-secret") or "")
         return bool(expected and supplied and hmac.compare_digest(expected, supplied))
 

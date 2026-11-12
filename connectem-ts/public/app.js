@@ -443,10 +443,10 @@
       const grantBtn = document.getElementById('grant-gmail-perm-btn');
       if (statusEl) {
         if (gmailConnected) {
-          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Gmail Connected (${gmailRes.email || currentPartner?.email || ''})</span>`;
+          statusEl.innerHTML = `<span class="badge-tag strong" style="font-size:11.5px;">Email delivery ready via ${gmailRes.provider || 'Resend'}</span>`;
           if (grantBtn) grantBtn.style.display = 'none';
         } else {
-          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Permission Required</span>`;
+          statusEl.innerHTML = `<span style="color:var(--semantic-error, #b91c1c); font-weight:500;">Email provider not configured</span>`;
           if (grantBtn) grantBtn.style.display = 'inline-block';
         }
       }
@@ -1665,7 +1665,7 @@
       });
 
       closeEmailComposer();
-      showToast(`Email delivered internally! Compliance copy CC'd to ${activity.adminCcEnforced}`);
+      showToast(`Email sent successfully. Compliance copy CC'd to ${activity.adminCcEnforced}`);
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
@@ -1801,7 +1801,7 @@
         method: 'POST',
         body: JSON.stringify({ email })
       });
-      showToast(`Gmail internal outreach permission granted for ${email}`);
+      showToast('Email delivery provider is configured.');
       await loadOutreachStatus();
     } catch (e) {
       showToast(e.message, 'error');
@@ -1858,13 +1858,13 @@
       });
     }
 
-    // Add Gmail status notification
-    if (currentPartner.gmailConnected) {
+    // Add outbound email provider notification
+    if (gmailConnected) {
       items.push({
         id: 'gmail-' + currentPartner.id,
-        title: 'In-App Gmail Outreach Active',
-        text: `Compliance CC enforced: nextbdr@gmail.com for internal outreach.`,
-        time: 'Connected',
+        title: 'Outbound Email Ready',
+        text: `Resend delivery enabled. Compliance CC enforced: nextbdr@gmail.com.`,
+        time: 'Active',
         type: 'gmail'
       });
     }

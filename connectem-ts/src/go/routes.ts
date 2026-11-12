@@ -385,7 +385,8 @@ export async function handleGoRoute(
         success: true,
         data: {
           connected: true,
-          email: updated.gmailEmail || updated.email
+          email: updated.gmailEmail || body.email,
+          provider: 'Gmail'
         }
       });
       return true;
@@ -414,7 +415,7 @@ export async function handleGoRoute(
         body: string;
         aiAssisted?: boolean;
       }>();
-      const activity = service.sendOutreachEmail(currentPartner.id, body);
+      const activity = await service.sendOutreachEmail(currentPartner.id, body);
       sendJson(200, { success: true, data: activity });
       return true;
     }

@@ -398,6 +398,80 @@ class WorkbookPersistenceTests(unittest.TestCase):
             self.assertEqual(h.responses[-1], 302, f"Expected 302 for {req_path}, got {h.responses}")
             self.assertEqual(h.headers_sent.get("Location"), expected_dest, f"Wrong redirect for {req_path}")
 
+    def test_admin_outreach_linkedin_channel(self):
+        class Harness(server.ProxyHTTPRequestHandler):
+            def __init__(self, request_path, request_method, request_body, request_headers):
+                self.path = request_path
+                self.command = request_method
+                self.rfile = io.BytesIO(request_body)
+                self.wfile = io.BytesIO()
+                self.headers = request_headers
+                self.responses = []
+
+            def send_response(self, status, message=None):
+                self.responses.append(status)
+
+            def send_header(self, key, value):
+                pass
+
+            def end_headers(self):
+                pass
+
+            def log_message(self, *_args):
+                pass
+
+        payload = {
+            'channel': 'linkedin',
+            'recipientName': 'Jane Doe',
+            'recipientEmail': 'jane@example.com',
+            'linkedinUrl': 'https://www.linkedin.com/in/janedoe',
+            'message': 'Hi Jane, would love to connect.'
+        }
+        body = json.dumps(payload).encode('utf-8')
+        headers = {
+            'Content-Type': 'application/json',
+            'Content-Length': str(len(body)),
+            'Authorization': 'Bearer admin_token_test'
+        }
+        server._ACTIVE_ADMIN_TOKENS.add('admin_token_test')
+        h = Harness('/api/admin/outreach', 'POST', body, headers)
+        h.do_POST()
+        self.assertEqual(h.responses[-1], 200)
+        data = json.loads(h.wfile.getvalue().decode('utf-8'))
+        self.assertTrue(data.get('success'))
+        self.assertEqual(data.get('data', {}).get('channel'), 'linkedin')
+
+    def test_linkedin_verify_endpoint(self):
+        class Harness(server.ProxyHTTPRequestHandler):
+            def __init__(self, request_path, request_method, request_body, request_headers):
+                self.path = request_path
+                self.command = request_method
+                self.rfile = io.BytesIO(request_body)
+                self.wfile = io.BytesIO()
+                self.headers = request_headers
+                self.responses = []
+
+            def send_response(self, status, message=None):
+                self.responses.append(status)
+
+            def send_header(self, key, value):
+                pass
+
+            def end_headers(self):
+                pass
+
+            def log_message(self, *_args):
+                pass
+
+        payload = {'accessToken': 'demo_token'}
+        body = json.dumps(payload).encode('utf-8')
+        headers = {'Content-Type': 'application/json', 'Content-Length': str(len(body))}
+        h = Harness('/api/linkedin/verify', 'POST', body, headers)
+        h.do_POST()
+        self.assertEqual(h.responses[-1], 200)
+        data = json.loads(h.wfile.getvalue().decode('utf-8'))
+        self.assertEqual(data.get('status'), 'verified')
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -326,17 +326,19 @@ function closeQuickAccountPickerModal() {
 function selectGoogleAccount(name, email) {
   localStorage.setItem("gtm_local_user_name", name);
   localStorage.setItem("gtm_local_user_email", email);
-  
-  database.googleCalendarConnected = true;
-  database.googleEmailConnected = true;
-  database.googleAccessToken = "google_auth_token_" + Date.now();
+  // Selecting a local profile is not Google OAuth consent. Keep integrations
+  // disconnected until the server completes the real Google authorization flow.
+  database.googleCalendarConnected = false;
+  database.googleEmailConnected = false;
+  database.googleAccessToken = "";
+  database.googleAccessTokenExpiresAt = 0;
   
   updateClerkUIState();
   if (typeof checkGoogleCalendarStatus === "function") checkGoogleCalendarStatus();
   closeQuickAccountPickerModal();
 
   if (typeof addLogConsole === "function") {
-    addLogConsole("enrich", `[GOOGLE AUTH] Signed in as ${name} (${email})`, "success");
+    addLogConsole("enrich", `[LOCAL PROFILE] Signed in as ${name} (${email}). Connect Google Workspace to authorize Gmail and Calendar access.`, "info");
   }
 }
 

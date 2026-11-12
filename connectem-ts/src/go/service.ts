@@ -405,7 +405,6 @@ export class GoPartnerService {
   grantGmailPermission(partnerId: string, email?: string): Partner {
     const partner = this.store.getPartner(partnerId);
     if (!partner) throw new Error(`Partner not found: ${partnerId}`);
-
     return this.store.updatePartner(partnerId, {
       gmailConnected: true,
       gmailEmail: email || partner.email
@@ -415,13 +414,14 @@ export class GoPartnerService {
   /**
    * Get partner's Gmail connection status.
    */
-  getGmailStatus(partnerId: string): { connected: boolean; email?: string } {
+  getGmailStatus(partnerId: string): { connected: boolean; email?: string; provider: string } {
     const partner = this.store.getPartner(partnerId);
     if (!partner) throw new Error(`Partner not found: ${partnerId}`);
 
     return {
       connected: Boolean(partner.gmailConnected),
-      email: partner.gmailEmail || partner.email
+      email: partner.gmailEmail,
+      provider: 'Gmail'
     };
   }
 
@@ -527,9 +527,8 @@ export class GoPartnerService {
     if (!params.subject?.trim()) throw new Error('Email subject cannot be empty.');
     if (!params.body?.trim()) throw new Error('Email body cannot be empty.');
 
-    // Enforce Gmail internal permission
     if (!partner.gmailConnected) {
-      throw new Error('Gmail outreach permission not granted. Please grant permission before sending.');
+      throw new Error('Gmail outreach permission not granted. Authorize Gmail in Settings before sending outreach.');
     }
 
     // MANDATORY: Admin nextbdr@gmail.com is copied on every dispatch
@@ -546,9 +545,8 @@ export class GoPartnerService {
       aiAssisted: Boolean(params.aiAssisted)
     });
 
-    // Actual live dispatch via Resend API
     const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey && prospect.email) {
+    if (resendKey && prospect.email && !process.env.NODE_TEST_CONTEXT && process.env.NODE_ENV !== 'test') {
       const fromEmail = process.env.RESEND_FROM_EMAIL || 'notifications@go.connectem.ai';
       fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -566,16 +564,13 @@ export class GoPartnerService {
         })
       })
       .then(async res => {
-        if (res.ok) {
-          const resJson = await res.json() as { id?: string };
-          console.log(`[Live Outreach] Delivered email ${resJson.id} to ${prospect.email} with compliance CC to ${ADMIN_CC}`);
-        } else {
+        if (!res.ok) {
           const txt = await res.text();
           console.warn('[Live Outreach] Resend returned status', res.status, txt);
         }
       })
       .catch(err => {
-        console.warn('[Live Outreach] Resend network error:', err);
+        console.warn('[Live Outreach] Resend network dispatch failed:', err.message);
       });
     }
 
@@ -790,11 +785,12 @@ export class GoPartnerService {
           status: partner.linkedinConnected ? 'Active' : 'Ready to Connect'
         },
         gmail: {
-          name: 'Gmail Internal Dispatch',
-          connected: Boolean(partner.gmailConnected),
-          email: partner.gmailEmail || partner.email,
+          name: 'Outbound Email',
+          connected: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
+          email: process.env.RESEND_FROM_EMAIL || '',
           adminCcEnforced: 'nextbdr@gmail.com',
-          status: partner.gmailConnected ? 'Active' : 'Permission Required'
+          provider: 'Resend',
+          status: process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL ? 'Active' : 'Configuration Required'
         },
         twilio: {
           name: 'Twilio Voice Gateway',

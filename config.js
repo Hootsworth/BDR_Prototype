@@ -15,9 +15,9 @@ window.FirebaseConfig = {
   measurementId: "G-EJCHQLTSNQ"
 };
 
-// Browser-only Google OAuth client ID.
+// Browser-only Google OAuth client ID (populated from Vercel / server environment variable when present).
 window.GoogleConfig = {
-  clientId: "963692172559-web.apps.googleusercontent.com"
+  clientId: window.__APP_CONFIG__?.googleClientId || "963692172559-web.apps.googleusercontent.com"
 };
 
 // Firestore is accessed as the authoritative database.
