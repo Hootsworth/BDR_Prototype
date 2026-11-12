@@ -4970,17 +4970,28 @@ ConnectEM Admin Team</textarea>
       if (!container) return;
       if (!allEvents.length) {
         container.innerHTML = '<div style="padding: 24px 8px; color: var(--ink-muted); font-size: 12px; font-style: italic;">No events scheduled. Create one above.</div>';
+        const detailEmpty = document.getElementById('event-detail-empty');
+        const detailContent = document.getElementById('event-detail-content');
+        if (detailEmpty) detailEmpty.style.display = 'block';
+        if (detailContent) detailContent.style.display = 'none';
         return;
+      }
+
+      if (!selectedEvent && allEvents.length > 0) {
+        selectedEvent = allEvents[0];
+      } else if (selectedEvent) {
+        const stillExists = allEvents.find(e => e.id === selectedEvent.id);
+        selectedEvent = stillExists || allEvents[0];
       }
 
       container.innerHTML = allEvents.map(ev => {
         const isSelected = selectedEvent && selectedEvent.id === ev.id;
         const attendeesCount = (ev.attendees || []).length;
         return `
-          <div class="event-card ${isSelected ? 'active' : ''}" onclick="selectEvent('${ev.id}')">
+          <div class="event-card ${isSelected ? 'active' : ''}" data-event-id="${escapeHtml(ev.id)}" onclick="selectEvent('${ev.id}')">
             <div class="event-card-header">
               <span class="event-card-title">${escapeHtml(ev.title)}</span>
-              <span class="event-card-badge">${escapeHtml(ev.eventType)}</span>
+              <span class="event-card-badge">${escapeHtml(ev.eventType || ev.type || '')}</span>
             </div>
             <div class="event-card-meta">
               <span>${escapeHtml(ev.date)}</span>
@@ -4995,11 +5006,8 @@ ConnectEM Admin Team</textarea>
         `;
       }).join('');
 
-      if (!selectedEvent && allEvents.length > 0) {
-        selectEvent(allEvents[0].id);
-      } else if (selectedEvent) {
-        const stillExists = allEvents.find(e => e.id === selectedEvent.id);
-        if (stillExists) selectEvent(stillExists.id);
+      if (selectedEvent) {
+        renderSelectedEventDetails(selectedEvent);
       }
     }
 
@@ -5008,23 +5016,38 @@ ConnectEM Admin Team</textarea>
       if (!ev) return;
       selectedEvent = ev;
 
-      // Update active highlight in left list
-      document.querySelectorAll('.event-card').forEach(card => card.classList.remove('active'));
-      renderEventsList();
+      // Update active highlight in left list without recursion
+      document.querySelectorAll('.event-card').forEach(card => {
+        card.classList.toggle('active', card.getAttribute('data-event-id') === eventId);
+      });
 
-      document.getElementById('event-detail-empty').style.display = 'none';
-      document.getElementById('event-detail-content').style.display = 'block';
+      renderSelectedEventDetails(ev);
+    }
 
-      document.getElementById('selected-event-title').textContent = ev.title;
-      document.getElementById('selected-event-type').textContent = ev.eventType;
-      document.getElementById('selected-event-date').textContent = ev.date;
-      document.getElementById('selected-event-location').textContent = ev.location;
-      document.getElementById('selected-event-desc').textContent = ev.description || '';
+    function renderSelectedEventDetails(ev) {
+      if (!ev) return;
+      const detailEmpty = document.getElementById('event-detail-empty');
+      const detailContent = document.getElementById('event-detail-content');
+      if (detailEmpty) detailEmpty.style.display = 'none';
+      if (detailContent) detailContent.style.display = 'block';
+
+      const titleEl = document.getElementById('selected-event-title');
+      if (titleEl) titleEl.textContent = ev.title;
+      const typeEl = document.getElementById('selected-event-type');
+      if (typeEl) typeEl.textContent = ev.eventType || ev.type || '';
+      const dateEl = document.getElementById('selected-event-date');
+      if (dateEl) dateEl.textContent = ev.date;
+      const locEl = document.getElementById('selected-event-location');
+      if (locEl) locEl.textContent = ev.location;
+      const descEl = document.getElementById('selected-event-desc');
+      if (descEl) descEl.textContent = ev.description || '';
 
       const attendees = ev.attendees || [];
-      document.getElementById('selected-event-attendees-count').textContent = `${attendees.length} attendee${attendees.length === 1 ? '' : 's'}`;
+      const countEl = document.getElementById('selected-event-attendees-count');
+      if (countEl) countEl.textContent = `${attendees.length} attendee${attendees.length === 1 ? '' : 's'}`;
 
       const tbody = document.getElementById('event-attendees-tbody');
+      if (!tbody) return;
       if (!attendees.length) {
         tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No attendees added to this event yet. Click "+ Add Attendee" to add guests.</td></tr>';
         return;
