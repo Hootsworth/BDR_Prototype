@@ -119,6 +119,30 @@
       "destination": "/index.html"
     },
     {
+      "source": "/admin/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/influencers",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/prospects",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/outreach",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/events",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
       "source": "/partner-portal",
       "destination": "/partner-portal.html"
     },

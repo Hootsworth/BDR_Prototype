@@ -4189,12 +4189,36 @@ ConnectEM Admin Team</textarea>
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
+    function showDbErrorBanner(msg) {
+      let banner = document.getElementById('admin-global-error-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'admin-global-error-banner';
+        banner.style.cssText = 'background:#fef2f2;border-bottom:1px solid #fecaca;color:#991b1b;padding:12px 20px;font-size:13px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:9999;box-shadow:0 2px 4px rgba(0,0,0,0.05);';
+        const masthead = document.querySelector('.admin-masthead') || document.body.firstChild;
+        if (masthead && masthead.parentNode) {
+          masthead.parentNode.insertBefore(banner, masthead.nextSibling);
+        } else {
+          document.body.prepend(banner);
+        }
+      }
+      banner.innerHTML = `<div><strong>Database Notice:</strong> ${escapeHtml(msg || 'Database unavailable')}</div><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#991b1b;font-size:16px;cursor:pointer;padding:0 8px;">×</button>`;
+      banner.style.display = 'flex';
+    }
+
     // Data Loading
     async function fetchProspects() {
       try {
         const res = await fetch('/api/admin/prospects', { headers: getAdminHeaders() });
         if (res.status === 401) {
           adminSignOut();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load prospects:', errMsg);
+          showDbErrorBanner(errMsg);
           return;
         }
         const data = await res.json();
@@ -4219,6 +4243,13 @@ ConnectEM Admin Team</textarea>
         const res = await fetch('/api/admin/partners', { headers: getAdminHeaders() });
         if (res.status === 401) {
           adminSignOut();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load influencers:', errMsg);
+          showDbErrorBanner(errMsg);
           return;
         }
         const data = await res.json();
@@ -4910,6 +4941,13 @@ ConnectEM Admin Team</textarea>
           adminSignOut();
           return;
         }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load events:', errMsg);
+          showDbErrorBanner(errMsg);
+          return;
+        }
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           allEvents = data.data;
@@ -5151,6 +5189,13 @@ ConnectEM Admin Team</textarea>
         const res = await fetch('/api/admin/scheduled-meetings', { headers: getAdminHeaders() });
         if (res.status === 401) {
           adminSignOut();
+          return;
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || `HTTP ${res.status} ${res.statusText}`;
+          console.error('Failed to load scheduled meetings:', errMsg);
+          showDbErrorBanner(errMsg);
           return;
         }
         const data = await res.json();

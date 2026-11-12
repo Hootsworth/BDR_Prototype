@@ -234,108 +234,116 @@ class FirestoreStateStore:
         return self._versions.by_key
 
     def read(self, key):
-        client = _firestore_client()
-        manifest_ref = client.collection("appState").document(str(key))
-        manifest = manifest_ref.get()
-        active_version = (manifest.to_dict() or {}).get("activeVersion") if manifest.exists else None
-        self._version_map()[str(key)] = active_version
-        if not active_version:
-            return {}
-
-        version_ref = manifest_ref.collection("versions").document(active_version)
-        version = version_ref.get()
-        if not version.exists:
-            raise FirebaseBackendUnavailable("The active Firebase state snapshot is missing.")
-        version_data = version.to_dict() or {}
-        snapshots = version_ref.collection("chunks").order_by("index").stream()
-        compressed = b"".join((snapshot.to_dict() or {}).get("content", b"") for snapshot in snapshots)
-        if hashlib.sha256(compressed).hexdigest() != version_data.get("sha256"):
-            raise FirebaseBackendUnavailable("The Firebase state snapshot failed its integrity check.")
         try:
+            client = _firestore_client()
+            manifest_ref = client.collection("appState").document(str(key))
+            manifest = manifest_ref.get()
+            active_version = (manifest.to_dict() or {}).get("activeVersion") if manifest.exists else None
+            self._version_map()[str(key)] = active_version
+            if not active_version:
+                return {}
+
+            version_ref = manifest_ref.collection("versions").document(active_version)
+            version = version_ref.get()
+            if not version.exists:
+                raise FirebaseBackendUnavailable("The active Firebase state snapshot is missing.")
+            version_data = version.to_dict() or {}
+            snapshots = version_ref.collection("chunks").order_by("index").stream()
+            compressed = b"".join((snapshot.to_dict() or {}).get("content", b"") for snapshot in snapshots)
+            if hashlib.sha256(compressed).hexdigest() != version_data.get("sha256"):
+                raise FirebaseBackendUnavailable("The Firebase state snapshot failed its integrity check.")
             decoded = gzip.decompress(compressed).decode("utf-8")
             return json.loads(decoded)
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise FirebaseBackendUnavailable("The Firebase state snapshot could not be decoded.") from exc
-
-    def write(self, key, value):
-        client = _firestore_client()
-        key = str(key)
-        manifest_ref = client.collection("appState").document(key)
-        versions = self._version_map()
-        if key not in versions:
-            manifest = manifest_ref.get()
-            versions[key] = (manifest.to_dict() or {}).get("activeVersion") if manifest.exists else None
-        expected_version = versions[key]
-        raw = json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-        compressed = gzip.compress(raw, mtime=0)
-        version_id = uuid4().hex
-        version_ref = manifest_ref.collection("versions").document(version_id)
-        chunk_count = max(1, (len(compressed) + self.chunk_bytes - 1) // self.chunk_bytes)
-
-        batch = client.batch()
-        pending = 0
-        for index in range(chunk_count):
-            start = index * self.chunk_bytes
-            chunk = compressed[start:start + self.chunk_bytes]
-            batch.set(version_ref.collection("chunks").document(f"{index:06d}"), {
-                "index": index,
-                "content": chunk,
-            })
-            pending += 1
-            if pending >= self.batch_size:
-                batch.commit()
-                batch = client.batch()
-                pending = 0
-        batch.set(version_ref, {
-            "chunkCount": chunk_count,
-            "uncompressedBytes": len(raw),
-            "sha256": hashlib.sha256(compressed).hexdigest(),
-        })
-        batch.commit()
-
-        try:
-            from google.cloud import firestore as google_firestore
-            transaction = client.transaction()
-
-            @google_firestore.transactional
-            def activate(transaction):
-                current = manifest_ref.get(transaction=transaction)
-                current_version = (current.to_dict() or {}).get("activeVersion") if current.exists else None
-                if current_version != expected_version:
-                    raise FirebaseStateConflict("Firebase state changed while this request was being saved; reload and retry.")
-                transaction.set(manifest_ref, {
-                    "activeVersion": version_id,
-                    "updatedAt": google_firestore.SERVER_TIMESTAMP,
-                    "revision": int((current.to_dict() or {}).get("revision", 0)) + 1 if current.exists else 1,
-                })
-
-            activate(transaction)
-        except FirebaseStateConflict:
-            # Leave the unreferenced snapshot for a scheduled cleanup job.
+        except FirebaseBackendUnavailable:
             raise
         except Exception as exc:
-            raise FirebaseBackendUnavailable("Could not activate the new Firebase state snapshot.") from exc
+            raise FirebaseBackendUnavailable(f"Firestore read failed: {exc}") from exc
 
-        self._version_map()[key] = version_id
-        # Retain only the active snapshot after a successful pointer swap.
-        # Cloud Run is configured with one instance and concurrency one for this
-        # compatibility store, so no request can still be reading an old version.
-        for old_version in manifest_ref.collection("versions").stream():
-            if old_version.id == version_id:
-                continue
-            old_ref = old_version.reference
-            old_chunks = old_ref.collection("chunks").stream()
-            cleanup = client.batch()
+    def write(self, key, value):
+        try:
+            client = _firestore_client()
+            key = str(key)
+            manifest_ref = client.collection("appState").document(key)
+            versions = self._version_map()
+            if key not in versions:
+                manifest = manifest_ref.get()
+                versions[key] = (manifest.to_dict() or {}).get("activeVersion") if manifest.exists else None
+            expected_version = versions[key]
+            raw = json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            compressed = gzip.compress(raw, mtime=0)
+            version_id = uuid4().hex
+            version_ref = manifest_ref.collection("versions").document(version_id)
+            chunk_count = max(1, (len(compressed) + self.chunk_bytes - 1) // self.chunk_bytes)
+
+            batch = client.batch()
             pending = 0
-            for old_chunk in old_chunks:
-                cleanup.delete(old_chunk.reference)
+            for index in range(chunk_count):
+                start = index * self.chunk_bytes
+                chunk = compressed[start:start + self.chunk_bytes]
+                batch.set(version_ref.collection("chunks").document(f"{index:06d}"), {
+                    "index": index,
+                    "content": chunk,
+                })
                 pending += 1
                 if pending >= self.batch_size:
-                    cleanup.commit()
-                    cleanup = client.batch()
+                    batch.commit()
+                    batch = client.batch()
                     pending = 0
-            cleanup.delete(old_ref)
-            cleanup.commit()
+            batch.set(version_ref, {
+                "chunkCount": chunk_count,
+                "uncompressedBytes": len(raw),
+                "sha256": hashlib.sha256(compressed).hexdigest(),
+            })
+            batch.commit()
+
+            try:
+                from google.cloud import firestore as google_firestore
+                transaction = client.transaction()
+
+                @google_firestore.transactional
+                def activate(transaction):
+                    current = manifest_ref.get(transaction=transaction)
+                    current_version = (current.to_dict() or {}).get("activeVersion") if current.exists else None
+                    if current_version != expected_version:
+                        raise FirebaseStateConflict("Firebase state changed while this request was being saved; reload and retry.")
+                    transaction.set(manifest_ref, {
+                        "activeVersion": version_id,
+                        "updatedAt": google_firestore.SERVER_TIMESTAMP,
+                        "revision": int((current.to_dict() or {}).get("revision", 0)) + 1 if current.exists else 1,
+                    })
+
+                activate(transaction)
+            except FirebaseStateConflict:
+                # Leave the unreferenced snapshot for a scheduled cleanup job.
+                raise
+            except Exception as exc:
+                raise FirebaseBackendUnavailable("Could not activate the new Firebase state snapshot.") from exc
+
+            self._version_map()[key] = version_id
+            # Retain only the active snapshot after a successful pointer swap.
+            # Cloud Run is configured with one instance and concurrency one for this
+            # compatibility store, so no request can still be reading an old version.
+            for old_version in manifest_ref.collection("versions").stream():
+                if old_version.id == version_id:
+                    continue
+                old_ref = old_version.reference
+                old_chunks = old_ref.collection("chunks").stream()
+                cleanup = client.batch()
+                pending = 0
+                for old_chunk in old_chunks:
+                    cleanup.delete(old_chunk.reference)
+                    pending += 1
+                    if pending >= self.batch_size:
+                        cleanup.commit()
+                        cleanup = client.batch()
+                        pending = 0
+                cleanup.delete(old_ref)
+                cleanup.commit()
+            return {"activeVersion": version_id}
+        except (FirebaseBackendUnavailable, FirebaseStateConflict):
+            raise
+        except Exception as exc:
+            raise FirebaseBackendUnavailable(f"Firestore write failed: {exc}") from exc
 
 
 @lru_cache(maxsize=1)

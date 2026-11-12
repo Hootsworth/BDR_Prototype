@@ -2971,7 +2971,7 @@ def restart_local_server():
     os.chdir(app_root)
     os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
 
-def handle_admin_api_routes(handler, method, path, query=None, payload=None):
+def _dispatch_admin_api_route(handler, method, path, query=None, payload=None):
     if not path.startswith('/api/admin'):
         return False
 
@@ -3696,6 +3696,24 @@ def handle_admin_api_routes(handler, method, path, query=None, payload=None):
         return True
 
     return False
+
+def handle_admin_api_routes(handler, method, path, query=None, payload=None):
+    if not path.startswith('/api/admin'):
+        return False
+    try:
+        return _dispatch_admin_api_route(handler, method, path, query=query, payload=payload)
+    except FirebaseBackendUnavailable as exc:
+        json_response(handler, 503, {
+            'success': False,
+            'error': f'Database unavailable: {exc}. Please verify GCP IAM Cloud Datastore User role is granted to the Firebase service account.'
+        })
+        return True
+    except Exception as exc:
+        json_response(handler, 500, {
+            'success': False,
+            'error': f'Internal server error: {exc}'
+        })
+        return True
 
 REWARD_CATALOG_DATA = [
     {'id': 'cash-reward', 'name': 'Cash reward', 'category': 'cash', 'description': 'Request a cash payout for manual review.'},
@@ -5067,12 +5085,18 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        if clean_path in ('/admin', '/admin/'):
+        if clean_path in ('/admin', '/admin/') or clean_path.startswith('/admin/'):
             if 'connectem.ai' in host and not host.startswith('admin.'):
                 self.send_response(302)
                 self.send_header('Location', f"https://admin.connectem.ai/{query_str}")
                 self.end_headers()
                 return
+            self.send_response(302)
+            self.send_header('Location', f"/index.html{query_str}")
+            self.end_headers()
+            return
+
+        if clean_path in ('/influencers', '/influencers/', '/prospects', '/prospects/', '/outreach', '/outreach/', '/events', '/events/', '/settings', '/settings/'):
             self.send_response(302)
             self.send_header('Location', f"/index.html{query_str}")
             self.end_headers()

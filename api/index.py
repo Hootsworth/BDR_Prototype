@@ -45,6 +45,9 @@ class handler(ProxyHTTPRequestHandler):
         try:
             self._restore_route()
             return ProxyHTTPRequestHandler.do_GET(self)
+        except Exception as exc:
+            from server import json_response
+            json_response(self, 500, {'success': False, 'error': f'Backend error: {exc}'})
         finally:
             set_vercel_oidc_token("")
 
@@ -56,5 +59,8 @@ class handler(ProxyHTTPRequestHandler):
         try:
             self._restore_route()
             return ProxyHTTPRequestHandler.do_POST(self)
+        except Exception as exc:
+            from server import json_response
+            json_response(self, 500, {'success': False, 'error': f'Backend error: {exc}'})
         finally:
             set_vercel_oidc_token("")
