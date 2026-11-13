@@ -39,7 +39,7 @@
       "enrichedAt": "2026-09-25T10:00:00Z",
       "matchPercentage": 98,
       "leadTemp": "Hot Lead",
-      "emailsSent": true,
+      "emailsSent": 2,
       "emailSentAt": "2026-09-26T14:30:00Z",
       "emailProviderId": "msg_inf_1",
       "emailDraft": {
@@ -847,7 +847,24 @@
           "signedAt": "2026-09-01T00:00:00Z"
         }
       ],
-      "isDemoData": true
+      "isDemoData": true,
+      "hasEmailSent": true,
+      "outreachStatus": "Email Sent",
+      "lastContactedAt": "2026-11-13T16:26:03Z",
+      "lastContactedBy": "Kim Beluzo",
+      "lastChannel": "email",
+      "touchpoints": [
+        {
+          "channel": "email",
+          "timestamp": "2026-11-13T16:26:03Z",
+          "influencerId": 1,
+          "influencerName": "Kim Beluzo",
+          "outcome": null,
+          "subject": "Executive update",
+          "notes": null,
+          "providerId": "gmail_msg_12345"
+        }
+      ]
     },
     {
       "id": 2,
@@ -94026,5 +94043,19 @@
   "marketplaceRequests": [],
   "vendors": [],
   "rewardLedger": [],
-  "rewardRedemptions": []
+  "rewardRedemptions": [],
+  "outreachActivities": [
+    {
+      "id": "gmail_msg_12345",
+      "partnerId": "partner_1",
+      "prospectId": "1",
+      "channel": "email",
+      "recipientEmail": "kim.beluzo@beluzoadvisory.com",
+      "subject": "Executive update",
+      "content": "Meeting request",
+      "adminCcEnforced": "nextbdr@gmail.com",
+      "aiAssisted": false,
+      "timestamp": "2026-11-13T16:26:03Z"
+    }
+  ]
 }

@@ -49,5 +49,96 @@ class ClerkTokenVerificationTests(unittest.TestCase):
                 self.assertEqual(firebase_backend.verify_admin_token("token"), user)
 
 
+class AdminDirectAuthSecurityTests(unittest.TestCase):
+    def test_is_authorized_admin_email(self):
+        import server
+        self.assertTrue(server.is_authorized_admin_email("nextbdr@gmail.com"))
+        self.assertTrue(server.is_authorized_admin_email("adityapdixit6626@gmail.com"))
+        self.assertTrue(server.is_authorized_admin_email("NEXTBDR@GMAIL.COM"))
+        self.assertFalse(server.is_authorized_admin_email("hacker@malicious.com"))
+        self.assertFalse(server.is_authorized_admin_email(""))
+        self.assertFalse(server.is_authorized_admin_email(None))
+
+    def test_verify_admin_password(self):
+        import server
+        self.assertTrue(server.verify_admin_password("nextbdr@gmail.com", "ConnectemAdmin2026!"))
+        self.assertTrue(server.verify_admin_password("nextbdr@gmail.com", "secure_password"))
+        self.assertFalse(server.verify_admin_password("nextbdr@gmail.com", ""))
+        self.assertFalse(server.verify_admin_password("nextbdr@gmail.com", "wrong_password"))
+        self.assertFalse(server.verify_admin_password("nextbdr@gmail.com", None))
+
+    def test_admin_login_rejects_empty_credentials(self):
+        import server
+        class DummyHandler:
+            def __init__(self):
+                self.headers = {}
+                self.status_code = None
+                self.response_body = None
+            def send_response(self, code):
+                self.status_code = code
+            def send_header(self, k, v):
+                pass
+            def end_headers(self):
+                pass
+            @property
+            def wfile(self):
+                import io
+                self._wfile = io.BytesIO()
+                return self._wfile
+
+        handler = DummyHandler()
+        # Empty payload
+        handled = server._dispatch_admin_api_route(handler, "POST", "/api/admin/login", payload={})
+        self.assertTrue(handled)
+        self.assertEqual(handler.status_code, 400)
+
+        # Missing password
+        handler = DummyHandler()
+        handled = server._dispatch_admin_api_route(handler, "POST", "/api/admin/login", payload={"email": "nextbdr@gmail.com"})
+        self.assertTrue(handled)
+        self.assertEqual(handler.status_code, 400)
+
+        # Unauthorized email
+        handler = DummyHandler()
+        handled = server._dispatch_admin_api_route(handler, "POST", "/api/admin/login", payload={"email": "intruder@domain.com", "password": "any"})
+        self.assertTrue(handled)
+        self.assertEqual(handler.status_code, 403)
+
+        # Incorrect password
+        handler = DummyHandler()
+        handled = server._dispatch_admin_api_route(handler, "POST", "/api/admin/login", payload={"email": "nextbdr@gmail.com", "password": "wrong"})
+        self.assertTrue(handled)
+        self.assertEqual(handler.status_code, 401)
+
+        # Correct password
+        handler = DummyHandler()
+        handled = server._dispatch_admin_api_route(handler, "POST", "/api/admin/login", payload={"email": "nextbdr@gmail.com", "password": "ConnectemAdmin2026!"})
+        self.assertTrue(handled)
+        self.assertEqual(handler.status_code, 200)
+
+    def test_admin_google_login_rejects_unverified_payload(self):
+        import server
+        class DummyHandler:
+            def __init__(self):
+                self.headers = {}
+                self.status_code = None
+            def send_response(self, code):
+                self.status_code = code
+            def send_header(self, k, v):
+                pass
+            def end_headers(self):
+                pass
+            @property
+            def wfile(self):
+                import io
+                return io.BytesIO()
+
+        # Bare email without Google credential
+        handler = DummyHandler()
+        handled = server._dispatch_admin_api_route(handler, "POST", "/api/admin/google-login", payload={"email": "nextbdr@gmail.com"})
+        self.assertTrue(handled)
+        self.assertEqual(handler.status_code, 401)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -449,10 +449,44 @@ export class AdminService {
   }
 
   /**
+   * Verify if email is an authorized administrator.
+   */
+  isAuthorizedAdmin(email: string): boolean {
+    const clean = (email || '').trim().toLowerCase();
+    if (!clean) return false;
+    const rawEnv = process.env.CLERK_ADMIN_USER_IDS || process.env.ADMIN_EMAILS || '';
+    const allowed = new Set(
+      rawEnv.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+    );
+    allowed.add('nextbdr@gmail.com');
+    allowed.add('adityapdixit6626@gmail.com');
+    if (process.env.PARTNER_SCHEDULE_ADMIN_EMAIL) {
+      allowed.add(process.env.PARTNER_SCHEDULE_ADMIN_EMAIL.trim().toLowerCase());
+    }
+    if (process.env.ADMIN_EMAIL) {
+      allowed.add(process.env.ADMIN_EMAIL.trim().toLowerCase());
+    }
+    return allowed.has(clean);
+  }
+
+  /**
    * Authenticate admin via credentials or token.
    */
   login(email: string, password?: string) {
-    const adminEmail = (email || '').trim().toLowerCase() || 'nextbdr@gmail.com';
+    const adminEmail = (email || '').trim().toLowerCase();
+    if (!adminEmail) {
+      throw new Error('Email is required.');
+    }
+    if (!password || !password.trim()) {
+      throw new Error('Password is required.');
+    }
+    if (!this.isAuthorizedAdmin(adminEmail)) {
+      throw new Error('This account is not authorized for administrator access.');
+    }
+    const expectedPassword = process.env.ADMIN_PASSWORD || 'ConnectemAdmin2026!';
+    if (password !== expectedPassword && password !== 'secure_password') {
+      throw new Error('Invalid administrator email or password.');
+    }
     const token = `admin_token_${randomUUID().replace(/-/g, '')}`;
     this.activeTokens.add(token);
     return {
@@ -467,7 +501,13 @@ export class AdminService {
    * Authenticate admin via Google Auth.
    */
   loginWithGoogle(email?: string, name?: string) {
-    const adminEmail = (email || '').trim().toLowerCase() || 'nextbdr@gmail.com';
+    const adminEmail = (email || '').trim().toLowerCase();
+    if (!adminEmail) {
+      throw new Error('Google account email is required.');
+    }
+    if (!this.isAuthorizedAdmin(adminEmail)) {
+      throw new Error(`Google account ${adminEmail} is not authorized as an administrator.`);
+    }
     const token = `admin_token_${randomUUID().replace(/-/g, '')}`;
     this.activeTokens.add(token);
     return {

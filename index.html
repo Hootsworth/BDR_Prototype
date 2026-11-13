@@ -2470,11 +2470,11 @@
         <form id="admin-login-form" class="login-form" onsubmit="submitAdminLogin(event)">
           <div class="flat-field">
             <label class="flat-label" for="login-email">Email</label>
-            <input type="email" id="login-email" class="flat-input" required value="nextbdr@gmail.com" placeholder="nextbdr@gmail.com">
+            <input type="email" id="login-email" class="flat-input" required placeholder="admin@connectem.ai" autocomplete="email">
           </div>
           <div class="flat-field">
             <label class="flat-label" for="login-password">Password</label>
-            <input type="password" id="login-password" class="flat-input" placeholder="••••••••••••">
+            <input type="password" id="login-password" class="flat-input" required placeholder="••••••••••••" autocomplete="current-password">
           </div>
           <div style="display: flex; gap: 10px; margin-top: 8px;">
             <button type="submit" class="btn btn-solid" id="admin-login-submit-btn" style="flex: 1;">Sign In with Email</button>
@@ -3904,10 +3904,29 @@ ConnectEM Admin Team</textarea>
 
     async function submitAdminLogin(e) {
       if (e) e.preventDefault();
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value.trim();
+      const emailInput = document.getElementById('login-email');
+      const passwordInput = document.getElementById('login-password');
+      const submitBtn = document.getElementById('admin-login-submit-btn');
+      const email = emailInput ? emailInput.value.trim() : '';
+      const password = passwordInput ? passwordInput.value.trim() : '';
       const errBanner = document.getElementById('login-error-banner');
-      errBanner.style.display = 'none';
+      if (errBanner) {
+        errBanner.style.display = 'none';
+        errBanner.textContent = '';
+      }
+
+      if (!email || !password) {
+        if (errBanner) {
+          errBanner.textContent = 'Please enter both your administrator email and password.';
+          errBanner.style.display = 'block';
+        }
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in...';
+      }
 
       try {
         const res = await fetch('/api/admin/login', {
@@ -3919,17 +3938,27 @@ ConnectEM Admin Team</textarea>
         if (result.success && result.data?.token) {
           localStorage.setItem('connectem_admin_token', result.data.token);
           localStorage.setItem('connectem_admin_email', result.data.email);
-          document.getElementById('admin-compliance-email').textContent = `Admin: ${result.data.email}`;
+          const emailDisplay = document.getElementById('admin-compliance-email');
+          if (emailDisplay) emailDisplay.textContent = `Admin: ${result.data.email}`;
           showConsoleView();
           loadAdminData();
           showToast(`Signed in as ${result.data.email}`);
         } else {
-          errBanner.textContent = result.error || 'Authentication failed.';
-          errBanner.style.display = 'block';
+          if (errBanner) {
+            errBanner.textContent = result.error || 'Invalid administrator email or password.';
+            errBanner.style.display = 'block';
+          }
         }
       } catch (err) {
-        errBanner.textContent = 'Network error during administrator sign-in.';
-        errBanner.style.display = 'block';
+        if (errBanner) {
+          errBanner.textContent = 'Network error during administrator sign-in.';
+          errBanner.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign In with Email';
+        }
       }
     }
 
@@ -3949,7 +3978,10 @@ ConnectEM Admin Team</textarea>
                 await sendGoogleAdminAuth({ code: response.code });
               } else if (response.error) {
                 console.warn('Google OAuth code error:', response);
-                window.location.assign('/api/google/oauth/start');
+                if (errBanner) {
+                  errBanner.textContent = 'Google sign-in was cancelled or encountered an error.';
+                  errBanner.style.display = 'block';
+                }
               }
             }
           });
@@ -3960,15 +3992,7 @@ ConnectEM Admin Team</textarea>
         }
       }
 
-      // 2. Try server-side OAuth redirect which enforces prompt=consent and all scopes
-      try {
-        window.location.assign('/api/google/oauth/start');
-        return;
-      } catch (e) {
-        console.warn('OAuth redirect start failed:', e);
-      }
-
-      // 3. Fallback to Google Identity Services One Tap / ID
+      // 2. Try Google Identity Services One Tap / ID
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
           client_id: window.GoogleConfig?.clientId || '',
@@ -3980,13 +4004,16 @@ ConnectEM Admin Team</textarea>
         });
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            promptGoogleEmailFallback();
+            if (errBanner) {
+              errBanner.textContent = 'Google prompt unavailable. Sign in with administrator email and password.';
+              errBanner.style.display = 'block';
+            }
           }
         });
         return;
       }
 
-      // 4. Try Firebase Auth popup if initialized
+      // 3. Try Firebase Auth popup if initialized
       if (window.firebase?.auth) {
         try {
           const provider = new window.firebase.auth.GoogleAuthProvider();
@@ -4009,13 +4036,10 @@ ConnectEM Admin Team</textarea>
         }
       }
 
-      promptGoogleEmailFallback();
-    }
-
-    async function promptGoogleEmailFallback() {
-      const googleEmail = prompt('Sign in with Google: Enter your Google Workspace or Gmail address:', 'nextbdr@gmail.com');
-      if (!googleEmail) return;
-      await sendGoogleAdminAuth({ email: googleEmail });
+      if (errBanner) {
+        errBanner.textContent = 'Google Sign-In is unavailable. Please sign in with your administrator email and password.';
+        errBanner.style.display = 'block';
+      }
     }
 
     async function sendGoogleAdminAuth(payload) {
@@ -4037,7 +4061,7 @@ ConnectEM Admin Team</textarea>
           showToast(`Signed in with Google as ${result.data.email}`);
         } else {
           if (errBanner) {
-            errBanner.textContent = result.error || 'Google authentication failed.';
+            errBanner.textContent = result.error || 'Google administrator authentication failed.';
             errBanner.style.display = 'block';
           }
         }
@@ -4047,11 +4071,6 @@ ConnectEM Admin Team</textarea>
           errBanner.style.display = 'block';
         }
       }
-    }
-
-    function quickAdminLogin() {
-      document.getElementById('login-email').value = 'nextbdr@gmail.com';
-      submitAdminLogin();
     }
 
     function adminSignOut() {

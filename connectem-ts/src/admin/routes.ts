@@ -55,8 +55,12 @@ export async function handleAdminRoute(
     // POST /api/admin/login
     if (pathname === '/api/admin/login' && req.method === 'POST') {
       const body = await readBody<{ email: string; password?: string }>();
-      const result = service.login(body.email, body.password);
-      sendJson(200, { success: true, data: result });
+      try {
+        const result = service.login(body.email, body.password);
+        sendJson(200, { success: true, data: result });
+      } catch (err: any) {
+        sendJson(401, { success: false, error: err.message || 'Authentication failed' });
+      }
       return true;
     }
 
@@ -64,10 +68,18 @@ export async function handleAdminRoute(
     if (pathname === '/api/admin/google-login' && req.method === 'POST') {
       const body = await readBody<{ credential?: string; email?: string; name?: string }>();
       const parsed = parseGoogleCredential(body.credential);
-      const email = parsed?.email || body.email || 'nextbdr@gmail.com';
-      const name = parsed?.name || body.name || (email === 'nextbdr@gmail.com' ? 'NextBDR Compliance Admin' : 'Admin Operator');
-      const result = service.loginWithGoogle(email, name);
-      sendJson(200, { success: true, data: result });
+      const email = parsed?.email || body.email;
+      const name = parsed?.name || body.name;
+      if (!email) {
+        sendJson(401, { success: false, error: 'Google credential or verified email is required.' });
+        return true;
+      }
+      try {
+        const result = service.loginWithGoogle(email, name);
+        sendJson(200, { success: true, data: result });
+      } catch (err: any) {
+        sendJson(403, { success: false, error: err.message || 'Google authentication failed' });
+      }
       return true;
     }
 
